@@ -1,0 +1,12 @@
+/Users/augustin/RiderProjects/velune/src/Velune.Domain/bin/Debug/net10.0/Velune.Domain.deps.json
+/Users/augustin/RiderProjects/velune/src/Velune.Domain/bin/Debug/net10.0/Velune.Domain.dll
+/Users/augustin/RiderProjects/velune/src/Velune.Domain/bin/Debug/net10.0/Velune.Domain.pdb
+/Users/augustin/RiderProjects/velune/src/Velune.Domain/obj/Debug/net10.0/Velune.Domain.GeneratedMSBuildEditorConfig.editorconfig
+/Users/augustin/RiderProjects/velune/src/Velune.Domain/obj/Debug/net10.0/Velune.Domain.AssemblyInfoInputs.cache
+/Users/augustin/RiderProjects/velune/src/Velune.Domain/obj/Debug/net10.0/Velune.Domain.AssemblyInfo.cs
+/Users/augustin/RiderProjects/velune/src/Velune.Domain/obj/Debug/net10.0/Velune.Domain.csproj.CoreCompileInputs.cache
+/Users/augustin/RiderProjects/velune/src/Velune.Domain/obj/Debug/net10.0/Velune.Domain.sourcelink.json
+/Users/augustin/RiderProjects/velune/src/Velune.Domain/obj/Debug/net10.0/Velune.Domain.dll
+/Users/augustin/RiderProjects/velune/src/Velune.Domain/obj/Debug/net10.0/refint/Velune.Domain.dll
+/Users/augustin/RiderProjects/velune/src/Velune.Domain/obj/Debug/net10.0/Velune.Domain.pdb
+/Users/augustin/RiderProjects/velune/src/Velune.Domain/obj/Debug/net10.0/ref/Velune.Domain.dll

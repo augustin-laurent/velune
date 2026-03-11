@@ -1,0 +1,16 @@
+/Users/augustin/RiderProjects/velune/src/Velune.Application/bin/Debug/net10.0/Velune.Application.deps.json
+/Users/augustin/RiderProjects/velune/src/Velune.Application/bin/Debug/net10.0/Velune.Application.dll
+/Users/augustin/RiderProjects/velune/src/Velune.Application/bin/Debug/net10.0/Velune.Application.pdb
+/Users/augustin/RiderProjects/velune/src/Velune.Application/bin/Debug/net10.0/Velune.Domain.dll
+/Users/augustin/RiderProjects/velune/src/Velune.Application/bin/Debug/net10.0/Velune.Domain.pdb
+/Users/augustin/RiderProjects/velune/src/Velune.Application/obj/Debug/net10.0/Velune.Application.csproj.AssemblyReference.cache
+/Users/augustin/RiderProjects/velune/src/Velune.Application/obj/Debug/net10.0/Velune.Application.GeneratedMSBuildEditorConfig.editorconfig
+/Users/augustin/RiderProjects/velune/src/Velune.Application/obj/Debug/net10.0/Velune.Application.AssemblyInfoInputs.cache
+/Users/augustin/RiderProjects/velune/src/Velune.Application/obj/Debug/net10.0/Velune.Application.AssemblyInfo.cs
+/Users/augustin/RiderProjects/velune/src/Velune.Application/obj/Debug/net10.0/Velune.Application.csproj.CoreCompileInputs.cache
+/Users/augustin/RiderProjects/velune/src/Velune.Application/obj/Debug/net10.0/Velune.Application.sourcelink.json
+/Users/augustin/RiderProjects/velune/src/Velune.Application/obj/Debug/net10.0/Velune.A.120864B4.Up2Date
+/Users/augustin/RiderProjects/velune/src/Velune.Application/obj/Debug/net10.0/Velune.Application.dll
+/Users/augustin/RiderProjects/velune/src/Velune.Application/obj/Debug/net10.0/refint/Velune.Application.dll
+/Users/augustin/RiderProjects/velune/src/Velune.Application/obj/Debug/net10.0/Velune.Application.pdb
+/Users/augustin/RiderProjects/velune/src/Velune.Application/obj/Debug/net10.0/ref/Velune.Application.dll

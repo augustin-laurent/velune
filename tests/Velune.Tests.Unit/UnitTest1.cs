@@ -1,4 +1,4 @@
-﻿namespace Velune.Tests.Unit;
+namespace Velune.Tests.Unit;
 
 public class UnitTest1
 {

@@ -10,3 +10,5 @@
 /Users/augustin/RiderProjects/velune/src/Velune.Domain/obj/Debug/net10.0/refint/Velune.Domain.dll
 /Users/augustin/RiderProjects/velune/src/Velune.Domain/obj/Debug/net10.0/Velune.Domain.pdb
 /Users/augustin/RiderProjects/velune/src/Velune.Domain/obj/Debug/net10.0/ref/Velune.Domain.dll
+/Users/augustin/RiderProjects/velune/src/Velune.Domain/bin/Debug/net10.0/Velune.Domain.xml
+/Users/augustin/RiderProjects/velune/src/Velune.Domain/obj/Debug/net10.0/Velune.Domain.xml

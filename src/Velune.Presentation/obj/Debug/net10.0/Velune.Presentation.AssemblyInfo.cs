@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Velune.Presentation")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ed731c889d0dae7eddd063a615e2a46a3fbf0b21")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e6dbf79d8a0aa1216bcf36304b0fc7d6431be5df")]
 [assembly: System.Reflection.AssemblyProductAttribute("Velune.Presentation")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Velune.Presentation")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

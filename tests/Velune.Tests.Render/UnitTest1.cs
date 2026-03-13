@@ -1,4 +1,4 @@
-﻿namespace Velune.Tests.Render;
+namespace Velune.Tests.Render;
 
 public class UnitTest1
 {

@@ -80,3 +80,9 @@
 /Users/augustin/RiderProjects/velune/src/Velune.App/obj/Debug/net10.0/Velune.App.pdb
 /Users/augustin/RiderProjects/velune/src/Velune.App/obj/Debug/net10.0/Velune.App.genruntimeconfig.cache
 /Users/augustin/RiderProjects/velune/src/Velune.App/obj/Debug/net10.0/ref/Velune.App.dll
+/Users/augustin/RiderProjects/velune/src/Velune.App/obj/Debug/net10.0/Velune.App.xml
+/Users/augustin/RiderProjects/velune/src/Velune.App/bin/Debug/net10.0/Velune.App.xml
+/Users/augustin/RiderProjects/velune/src/Velune.App/bin/Debug/net10.0/Velune.Presentation.xml
+/Users/augustin/RiderProjects/velune/src/Velune.App/bin/Debug/net10.0/Velune.Application.xml
+/Users/augustin/RiderProjects/velune/src/Velune.App/bin/Debug/net10.0/Velune.Infrastructure.xml
+/Users/augustin/RiderProjects/velune/src/Velune.App/bin/Debug/net10.0/Velune.Domain.xml

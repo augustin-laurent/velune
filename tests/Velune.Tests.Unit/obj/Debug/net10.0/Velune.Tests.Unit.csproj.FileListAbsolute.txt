@@ -100,3 +100,5 @@
 /Users/augustin/RiderProjects/velune/tests/Velune.Tests.Unit/obj/Debug/net10.0/Velune.Tests.Unit.pdb
 /Users/augustin/RiderProjects/velune/tests/Velune.Tests.Unit/obj/Debug/net10.0/Velune.Tests.Unit.genruntimeconfig.cache
 /Users/augustin/RiderProjects/velune/tests/Velune.Tests.Unit/obj/Debug/net10.0/ref/Velune.Tests.Unit.dll
+/Users/augustin/RiderProjects/velune/tests/Velune.Tests.Unit/bin/Debug/net10.0/Velune.Domain.xml
+/Users/augustin/RiderProjects/velune/tests/Velune.Tests.Unit/bin/Debug/net10.0/Velune.Application.xml

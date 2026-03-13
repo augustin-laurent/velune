@@ -16,3 +16,7 @@
 /Users/augustin/RiderProjects/velune/src/Velune.Infrastructure/obj/Debug/net10.0/refint/Velune.Infrastructure.dll
 /Users/augustin/RiderProjects/velune/src/Velune.Infrastructure/obj/Debug/net10.0/Velune.Infrastructure.pdb
 /Users/augustin/RiderProjects/velune/src/Velune.Infrastructure/obj/Debug/net10.0/ref/Velune.Infrastructure.dll
+/Users/augustin/RiderProjects/velune/src/Velune.Infrastructure/bin/Debug/net10.0/Velune.Infrastructure.xml
+/Users/augustin/RiderProjects/velune/src/Velune.Infrastructure/bin/Debug/net10.0/Velune.Application.xml
+/Users/augustin/RiderProjects/velune/src/Velune.Infrastructure/bin/Debug/net10.0/Velune.Domain.xml
+/Users/augustin/RiderProjects/velune/src/Velune.Infrastructure/obj/Debug/net10.0/Velune.Infrastructure.xml

@@ -1,6 +1,6 @@
 using Avalonia.Controls;
 
-namespace Velune.App;
+namespace Velune.Presentation;
 
 public partial class MainWindow : Window
 {

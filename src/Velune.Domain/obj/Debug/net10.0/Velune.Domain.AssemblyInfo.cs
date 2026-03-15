@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Velune.Domain")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e6dbf79d8a0aa1216bcf36304b0fc7d6431be5df")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ee6f78fe8e82aa15ca278764a9daa9f9704ad73d")]
 [assembly: System.Reflection.AssemblyProductAttribute("Velune.Domain")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Velune.Domain")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -102,3 +102,11 @@
 /Users/augustin/RiderProjects/velune/tests/Velune.Tests.Unit/obj/Debug/net10.0/ref/Velune.Tests.Unit.dll
 /Users/augustin/RiderProjects/velune/tests/Velune.Tests.Unit/bin/Debug/net10.0/Velune.Domain.xml
 /Users/augustin/RiderProjects/velune/tests/Velune.Tests.Unit/bin/Debug/net10.0/Velune.Application.xml
+/Users/augustin/RiderProjects/velune/tests/Velune.Tests.Unit/bin/Debug/net10.0/Microsoft.Extensions.Configuration.dll
+/Users/augustin/RiderProjects/velune/tests/Velune.Tests.Unit/bin/Debug/net10.0/Microsoft.Extensions.Configuration.Abstractions.dll
+/Users/augustin/RiderProjects/velune/tests/Velune.Tests.Unit/bin/Debug/net10.0/Microsoft.Extensions.Configuration.Binder.dll
+/Users/augustin/RiderProjects/velune/tests/Velune.Tests.Unit/bin/Debug/net10.0/Microsoft.Extensions.DependencyInjection.Abstractions.dll
+/Users/augustin/RiderProjects/velune/tests/Velune.Tests.Unit/bin/Debug/net10.0/Microsoft.Extensions.Logging.Abstractions.dll
+/Users/augustin/RiderProjects/velune/tests/Velune.Tests.Unit/bin/Debug/net10.0/Microsoft.Extensions.Options.dll
+/Users/augustin/RiderProjects/velune/tests/Velune.Tests.Unit/bin/Debug/net10.0/Microsoft.Extensions.Options.ConfigurationExtensions.dll
+/Users/augustin/RiderProjects/velune/tests/Velune.Tests.Unit/bin/Debug/net10.0/Microsoft.Extensions.Primitives.dll

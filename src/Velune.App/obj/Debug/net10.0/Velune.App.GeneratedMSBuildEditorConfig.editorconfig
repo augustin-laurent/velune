@@ -25,6 +25,3 @@ build_property.EnableCodeStyleSeverity =
 
 [/Users/augustin/RiderProjects/velune/src/Velune.App/App.axaml]
 build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml
-
-[/Users/augustin/RiderProjects/velune/src/Velune.App/MainWindow.axaml]
-build_metadata.AdditionalFiles.SourceItemGroup = AvaloniaXaml

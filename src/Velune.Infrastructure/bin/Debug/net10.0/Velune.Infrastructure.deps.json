@@ -1,0 +1,56 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "Velune.Infrastructure/1.0.0": {
+        "dependencies": {
+          "Velune.Application": "1.0.0",
+          "Velune.Domain": "1.0.0"
+        },
+        "runtime": {
+          "Velune.Infrastructure.dll": {}
+        }
+      },
+      "Velune.Application/1.0.0": {
+        "dependencies": {
+          "Velune.Domain": "1.0.0"
+        },
+        "runtime": {
+          "Velune.Application.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "Velune.Domain/1.0.0": {
+        "runtime": {
+          "Velune.Domain.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "Velune.Infrastructure/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Velune.Application/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "Velune.Domain/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

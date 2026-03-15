@@ -1,11 +1,10 @@
+using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-using Microsoft.Extensions.DependencyInjection;
-using Velune.Presentation;
 
 namespace Velune.App;
 
-public partial class App : Avalonia.Application
+public partial class App : Application
 {
     public override void Initialize()
     {
@@ -16,7 +15,7 @@ public partial class App : Avalonia.Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = Program.AppHost.Services.GetRequiredService<MainWindow>();
+            desktop.MainWindow = new MainWindow();
         }
 
         base.OnFrameworkInitializationCompleted();

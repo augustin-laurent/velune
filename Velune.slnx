@@ -1,14 +1,14 @@
 <Solution>
-    <Folder Name="/src/">
-        <Project Path="src/Velune.App/Velune.App.csproj"/>
-        <Project Path="src/Velune.Application/Velune.Application.csproj"/>
-        <Project Path="src/Velune.Domain/Velune.Domain.csproj"/>
-        <Project Path="src/Velune.Infrastructure/Velune.Infrastructure.csproj"/>
-        <Project Path="src/Velune.Presentation/Velune.Presentation.csproj"/>
-    </Folder>
-    <Folder Name="/tests/">
-        <Project Path="tests/Velune.Tests.Integration/Velune.Tests.Integration.csproj"/>
-        <Project Path="tests/Velune.Tests.Render/Velune.Tests.Render.csproj"/>
-        <Project Path="tests/Velune.Tests.Unit/Velune.Tests.Unit.csproj"/>
-    </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Velune.App/Velune.App.csproj" />
+    <Project Path="src/Velune.Application/Velune.Application.csproj" />
+    <Project Path="src/Velune.Domain/Velune.Domain.csproj" />
+    <Project Path="src/Velune.Infrastructure/Velune.Infrastructure.csproj" />
+    <Project Path="src/Velune.Presentation/Velune.Presentation.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Velune.Tests.Integration/Velune.Tests.Integration.csproj" />
+    <Project Path="tests/Velune.Tests.Render/Velune.Tests.Render.csproj" />
+    <Project Path="tests/Velune.Tests.Unit/Velune.Tests.Unit.csproj" />
+  </Folder>
 </Solution>

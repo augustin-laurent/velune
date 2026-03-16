@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Velune.Application.Abstractions;
 using Velune.Application.Configuration;
+using Velune.Application.UseCases;
 
 namespace Velune.Application.DependencyInjection;
 
@@ -15,6 +17,15 @@ public static class ServiceCollectionExtensions
 
         services.Configure<AppOptions>(
             configuration.GetSection(AppOptions.SectionName));
+
+        services.AddSingleton<IDocumentSessionStore, InMemoryDocumentSessionStore>();
+
+        services.AddTransient<OpenDocumentUseCase>();
+        services.AddTransient<CloseDocumentUseCase>();
+        services.AddTransient<RenderVisiblePageUseCase>();
+        services.AddTransient<GenerateThumbnailUseCase>();
+        services.AddTransient<ChangeZoomUseCase>();
+        services.AddTransient<RotateDocumentUseCase>();
 
         return services;
     }

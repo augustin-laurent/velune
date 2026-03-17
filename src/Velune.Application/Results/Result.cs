@@ -1,11 +1,20 @@
 namespace Velune.Application.Results;
 
-public sealed class Result<T>
+public class Result
 {
-    internal Result(bool isSuccess, T? value, string? error)
+    internal Result(bool isSuccess, AppError? error)
     {
+        if (isSuccess && error is not null)
+        {
+            throw new ArgumentException("A successful result cannot contain an error.", nameof(error));
+        }
+
+        if (!isSuccess && error is null)
+        {
+            throw new ArgumentNullException(nameof(error), "A failure result must contain an error.");
+        }
+
         IsSuccess = isSuccess;
-        Value = value;
         Error = error;
     }
 
@@ -14,23 +23,47 @@ public sealed class Result<T>
         get;
     }
     public bool IsFailure => !IsSuccess;
-    public T? Value
-    {
-        get;
-    }
-    public string? Error
+    public AppError? Error
     {
         get;
     }
 }
 
-public static class Result
+public sealed class Result<T> : Result
 {
-    public static Result<T> Success<T>(T value) => new(true, value, null);
-
-    public static Result<T> Failure<T>(string error)
+    internal Result(T value)
+        : base(true, null)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(error);
-        return new Result<T>(false, default, error);
+        Value = value;
+    }
+
+    internal Result(AppError error)
+        : base(false, error)
+    {
+        Value = default;
+    }
+
+    public T? Value
+    {
+        get;
+    }
+}
+
+public static class ResultFactory
+{
+    public static Result Success() => new(true, null);
+
+    public static Result Failure(AppError error)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+        return new Result(false, error);
+    }
+
+    public static Result<T> Success<T>(T value) => new(value);
+
+    public static Result<T> Failure<T>(AppError error)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+        return new Result<T>(error);
     }
 }

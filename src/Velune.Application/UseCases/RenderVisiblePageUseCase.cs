@@ -31,7 +31,10 @@ public sealed class RenderVisiblePageUseCase
         var session = _sessionStore.Current;
         if (session is null)
         {
-            return Result.Failure<RenderedPage>("No active document session.");
+            return ResultFactory.Failure<RenderedPage>(
+                AppError.NotFound(
+                    "document.session.missing",
+                    "No active document session."));
         }
 
         var viewport = session.Viewport;
@@ -43,6 +46,6 @@ public sealed class RenderVisiblePageUseCase
             viewport.Rotation,
             cancellationToken);
 
-        return Result.Success(renderedPage);
+        return ResultFactory.Success(renderedPage);
     }
 }

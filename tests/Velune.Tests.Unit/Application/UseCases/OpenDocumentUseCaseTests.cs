@@ -1,5 +1,6 @@
 using Velune.Application.Abstractions;
 using Velune.Application.DTOs;
+using Velune.Application.Results;
 using Velune.Application.UseCases;
 using Velune.Domain.Abstractions;
 using Velune.Domain.Documents;
@@ -19,7 +20,9 @@ public sealed class OpenDocumentUseCaseTests
         var result = await useCase.ExecuteAsync(new OpenDocumentRequest(string.Empty));
 
         Assert.True(result.IsFailure);
-        Assert.Equal("File path cannot be empty.", result.Error);
+        Assert.NotNull(result.Error);
+        Assert.Equal("document.path.empty", result.Error.Code);
+        Assert.Equal(ErrorType.Validation, result.Error.Type);
     }
 
     [Fact]

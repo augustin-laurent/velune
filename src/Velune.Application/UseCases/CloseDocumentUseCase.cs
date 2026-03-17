@@ -16,6 +16,6 @@ public sealed class CloseDocumentUseCase
     public Result<bool> Execute()
     {
         _sessionStore.Clear();
-        return Result.Success(true);
+        return ResultFactory.Success(true);
     }
 }

@@ -22,7 +22,10 @@ public sealed class RotateDocumentUseCase
         var session = _sessionStore.Current;
         if (session is null)
         {
-            return Result.Failure<ViewportState>("No active document session.");
+            return ResultFactory.Failure<ViewportState>(
+                AppError.NotFound(
+                    "document.session.missing",
+                    "No active document session."));
         }
 
         var updatedViewport = session.Viewport.WithRotation(request.Rotation);
@@ -30,6 +33,6 @@ public sealed class RotateDocumentUseCase
 
         _sessionStore.SetCurrent(updatedSession);
 
-        return Result.Success(updatedViewport);
+        return ResultFactory.Success(updatedViewport);
     }
 }

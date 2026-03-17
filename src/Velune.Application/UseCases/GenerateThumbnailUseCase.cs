@@ -31,7 +31,10 @@ public sealed class GenerateThumbnailUseCase
         var session = _sessionStore.Current;
         if (session is null)
         {
-            return Result.Failure<RenderedPage>("No active document session.");
+            return ResultFactory.Failure<RenderedPage>(
+                AppError.NotFound(
+                    "document.session.missing",
+                    "No active document session."));
         }
 
         var thumbnail = await _thumbnailService.GenerateThumbnailAsync(
@@ -41,6 +44,6 @@ public sealed class GenerateThumbnailUseCase
             request.MaxHeight,
             cancellationToken);
 
-        return Result.Success(thumbnail);
+        return ResultFactory.Success(thumbnail);
     }
 }

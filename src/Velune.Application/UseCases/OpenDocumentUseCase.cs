@@ -29,12 +29,15 @@ public sealed class OpenDocumentUseCase
 
         if (string.IsNullOrWhiteSpace(request.FilePath))
         {
-            return Result.Failure<IDocumentSession>("File path cannot be empty.");
+            return ResultFactory.Failure<IDocumentSession>(
+                AppError.Validation(
+                    "document.path.empty",
+                    "File path cannot be empty."));
         }
 
         var session = await _documentOpener.OpenAsync(request.FilePath, cancellationToken);
         _sessionStore.SetCurrent(session);
 
-        return Result.Success(session);
+        return ResultFactory.Success(session);
     }
 }

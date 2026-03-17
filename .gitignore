@@ -1,1 +1,85 @@
-.idea/*
+# =========================
+# .NET / C#
+# =========================
+bin/
+obj/
+[Bb]uild/
+[Ll]og/
+[Tt]est[Rr]esult*/
+*.user
+*.rsuser
+*.suo
+*.userprefs
+*.sln.docstates
+*.cache
+*.pdb
+*.mdb
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+!**/packages/build/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Coverage / test reports
+coverage/
+coverage.*
+*.coverage
+*.coveragexml
+TestResults/
+BenchmarkDotNet.Artifacts/
+
+# =========================
+# JetBrains Rider / IntelliJ
+# =========================
+.idea/
+*.iml
+
+# =========================
+# VS Code
+# =========================
+.vscode/
+
+# =========================
+# Avalonia / generated
+# =========================
+*.g.cs
+*.g.i.cs
+*.Designer.cs
+
+# =========================
+# macOS
+# =========================
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+
+# =========================
+# Logs / temp
+# =========================
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+*.orig
+
+# =========================
+# Local config overrides
+# =========================
+appsettings.Local.json
+appsettings.Development.local.json
+
+# =========================
+# Environment files
+# =========================
+.env
+.env.*
+!.env.example

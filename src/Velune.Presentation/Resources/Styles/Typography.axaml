@@ -1,0 +1,9 @@
+<ResourceDictionary
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <x:Double x:Key="FontSize.Body">14</x:Double>
+  <x:Double x:Key="FontSize.BodyLarge">15</x:Double>
+  <x:Double x:Key="FontSize.Title">20</x:Double>
+  <x:Double x:Key="FontSize.Hero">28</x:Double>
+</ResourceDictionary>

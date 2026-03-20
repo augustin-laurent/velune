@@ -1,10 +1,34 @@
-<Application xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="Velune.App.App"
-             RequestedThemeVariant="Default">
-             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+<Application
+    x:Class="Velune.App.App"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    RequestedThemeVariant="Default">
 
-    <Application.Styles>
-        <FluentTheme />
-    </Application.Styles>
+  <Application.Styles>
+    <FluentTheme />
+    <StyleInclude Source="avares://Velune.Presentation/Resources/Styles/Controls.axaml" />
+  </Application.Styles>
+
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://Velune.Presentation/Resources/Styles/Spacing.axaml" />
+        <ResourceInclude Source="avares://Velune.Presentation/Resources/Styles/Typography.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <ResourceDictionary.MergedDictionaries>
+            <ResourceInclude Source="avares://Velune.Presentation/Resources/Themes/LightTheme.axaml" />
+          </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+
+        <ResourceDictionary x:Key="Dark">
+          <ResourceDictionary.MergedDictionaries>
+            <ResourceInclude Source="avares://Velune.Presentation/Resources/Themes/DarkTheme.axaml" />
+          </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
 </Application>

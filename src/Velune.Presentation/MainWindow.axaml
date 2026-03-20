@@ -8,8 +8,9 @@
     MinHeight="600"
     Title="{Binding Title}">
 
-  <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="260,*">
+  <Grid RowDefinitions="Auto,Auto,*,Auto" ColumnDefinitions="260,*">
 
+    <!-- Header -->
     <Border Grid.Row="0"
             Grid.Column="0"
             Grid.ColumnSpan="2"
@@ -30,11 +31,13 @@
           <Button Content="Zoom Out" Command="{Binding ZoomOutCommand}" />
           <Button Content="Rotate Left" Command="{Binding RotateLeftCommand}" />
           <Button Content="Rotate Right" Command="{Binding RotateRightCommand}" />
+          <Button Content="Simulate Error" Command="{Binding SimulateErrorCommand}" />
         </StackPanel>
       </DockPanel>
     </Border>
 
-    <Border Grid.Row="1"
+    <!-- Sidebar -->
+    <Border Grid.Row="2"
             Grid.Column="0"
             Padding="12"
             BorderBrush="{DynamicResource Brush.Border}"
@@ -53,15 +56,52 @@
       </StackPanel>
     </Border>
 
-    <Grid Grid.Row="1" Grid.Column="1"
-          Background="{DynamicResource Brush.Background}">
+    <!-- Main content -->
+    <Grid Grid.Row="2"
+      Grid.Column="1"
+      Background="{DynamicResource Brush.Background}">
+
+      <!-- Toast / popup -->
+      <Border Classes="banner"
+              HorizontalAlignment="Right"
+              VerticalAlignment="Top"
+              Margin="16"
+              Padding="12,10"
+              MinWidth="320"
+              MaxWidth="420"
+              ZIndex="10"
+              IsVisible="{Binding HasUserMessage}">
+        <DockPanel LastChildFill="True">
+          <Button Content="Dismiss"
+                  DockPanel.Dock="Right"
+                  Command="{Binding DismissMessageCommand}" />
+
+          <TextBlock Text="{Binding UserMessage}"
+                     Classes="muted"
+                     VerticalAlignment="Center"
+                     Margin="0,0,12,0"
+                     TextWrapping="Wrap" />
+        </DockPanel>
+      </Border>
+
+      <!-- Empty state -->
       <StackPanel HorizontalAlignment="Center"
                   VerticalAlignment="Center"
-                  Spacing="12"
+                  Spacing="16"
+                  MaxWidth="420"
                   IsVisible="{Binding IsEmptyStateVisible}">
+        <Border Classes="card"
+                Padding="20"
+                HorizontalAlignment="Center">
+          <TextBlock Text="📄"
+                     FontSize="40"
+                     HorizontalAlignment="Center" />
+        </Border>
+
         <TextBlock Text="{Binding EmptyStateTitle}"
                    Classes="hero"
-                   HorizontalAlignment="Center" />
+                   HorizontalAlignment="Center"
+                   TextAlignment="Center" />
 
         <TextBlock Text="{Binding EmptyStateDescription}"
                    Classes="muted"
@@ -69,14 +109,21 @@
                    HorizontalAlignment="Center"
                    TextAlignment="Center" />
 
-        <Button Content="Open a file"
-                HorizontalAlignment="Center"
-                Width="140"
-                Command="{Binding OpenCommand}" />
+        <StackPanel Orientation="Horizontal"
+                    HorizontalAlignment="Center"
+                    Spacing="8">
+          <Button Content="Open a file"
+                  Width="140"
+                  Command="{Binding OpenCommand}" />
+          <Button Content="Simulate error"
+                  Width="140"
+                  Command="{Binding SimulateErrorCommand}" />
+        </StackPanel>
       </StackPanel>
     </Grid>
 
-    <Border Grid.Row="2"
+    <!-- Status bar -->
+    <Border Grid.Row="3"
             Grid.Column="0"
             Grid.ColumnSpan="2"
             Padding="12,8"

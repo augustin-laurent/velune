@@ -46,4 +46,11 @@
   <Style Selector="TextBlock.muted">
     <Setter Property="Foreground" Value="{DynamicResource Brush.ForegroundMuted}" />
   </Style>
+
+   <Style Selector="Border.banner">
+     <Setter Property="Background" Value="{DynamicResource Brush.SurfaceMuted}" />
+     <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
+     <Setter Property="BorderThickness" Value="1" />
+     <Setter Property="CornerRadius" Value="10" />
+   </Style>
 </Styles>

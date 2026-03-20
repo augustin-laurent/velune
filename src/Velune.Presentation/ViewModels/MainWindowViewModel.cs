@@ -26,17 +26,32 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasOpenDocument;
 
+    [ObservableProperty]
+    private string? _userMessage;
+
     public bool IsEmptyStateVisible => !HasOpenDocument;
+
+    public bool HasUserMessage => !string.IsNullOrWhiteSpace(UserMessage);
+
+    public bool CanDismissUserMessage => HasUserMessage;
 
     partial void OnHasOpenDocumentChanged(bool value)
     {
         OnPropertyChanged(nameof(IsEmptyStateVisible));
     }
 
+    partial void OnUserMessageChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasUserMessage));
+        OnPropertyChanged(nameof(CanDismissUserMessage));
+        DismissMessageCommand.NotifyCanExecuteChanged();
+    }
+
     [RelayCommand]
     private void Open()
     {
         StatusText = "Open command triggered";
+        UserMessage = "Document opening is not implemented yet.";
     }
 
     [RelayCommand]
@@ -61,5 +76,19 @@ public partial class MainWindowViewModel : ObservableObject
     private void RotateRight()
     {
         StatusText = "Rotate right command triggered";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanDismissUserMessage))]
+    private void DismissMessage()
+    {
+        UserMessage = null;
+        StatusText = "Message dismissed";
+    }
+
+    [RelayCommand]
+    private void SimulateError()
+    {
+        UserMessage = "Unable to load the requested document.";
+        StatusText = "An error was simulated";
     }
 }

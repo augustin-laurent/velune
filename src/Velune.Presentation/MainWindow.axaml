@@ -10,17 +10,16 @@
 
   <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="260,*">
 
-    <!-- Header -->
     <Border Grid.Row="0"
             Grid.Column="0"
             Grid.ColumnSpan="2"
             Padding="16,12"
-            BorderBrush="#22000000"
-            BorderThickness="0,0,0,1">
+            BorderBrush="{DynamicResource Brush.Border}"
+            BorderThickness="0,0,0,1"
+            Background="{DynamicResource Brush.Surface}">
       <DockPanel LastChildFill="False">
         <TextBlock Text="{Binding ApplicationTitle}"
-                   FontSize="20"
-                   FontWeight="SemiBold"
+                   Classes="title"
                    VerticalAlignment="Center" />
 
         <StackPanel Orientation="Horizontal"
@@ -35,39 +34,39 @@
       </DockPanel>
     </Border>
 
-    <!-- Sidebar -->
     <Border Grid.Row="1"
             Grid.Column="0"
             Padding="12"
-            BorderBrush="#22000000"
-            BorderThickness="0,0,1,0">
+            BorderBrush="{DynamicResource Brush.Border}"
+            BorderThickness="0,0,1,0"
+            Background="{DynamicResource Brush.Surface}">
       <StackPanel Spacing="8">
         <TextBlock Text="{Binding SidebarTitle}"
-                   FontSize="16"
-                   FontWeight="SemiBold" />
+                   Classes="title" />
 
-        <Border Padding="12"
-                CornerRadius="8"
-                Background="#11000000">
-          <TextBlock Text="Thumbnails will appear here." />
+        <Border Classes="card"
+                Padding="12"
+                Background="{DynamicResource Brush.SurfaceMuted}">
+          <TextBlock Text="Thumbnails will appear here."
+                     Classes="muted" />
         </Border>
       </StackPanel>
     </Border>
 
-    <!-- Main content -->
     <Border Grid.Row="1"
             Grid.Column="1"
-            Padding="24">
+            Padding="24"
+            Background="{DynamicResource Brush.Background}">
       <StackPanel HorizontalAlignment="Center"
                   VerticalAlignment="Center"
                   Spacing="12">
         <TextBlock Text="{Binding EmptyStateTitle}"
-                   FontSize="28"
-                   FontWeight="SemiBold"
+                   Classes="hero"
                    HorizontalAlignment="Center" />
 
         <TextBlock Text="{Binding EmptyStateDescription}"
-                   FontSize="15"
+                   Classes="muted"
+                   FontSize="{DynamicResource FontSize.BodyLarge}"
                    HorizontalAlignment="Center"
                    TextAlignment="Center" />
 
@@ -77,14 +76,15 @@
       </StackPanel>
     </Border>
 
-    <!-- Status bar -->
     <Border Grid.Row="2"
             Grid.Column="0"
             Grid.ColumnSpan="2"
             Padding="12,8"
-            BorderBrush="#22000000"
-            BorderThickness="0,1,0,0">
-      <TextBlock Text="{Binding StatusText}" />
+            BorderBrush="{DynamicResource Brush.Border}"
+            BorderThickness="0,1,0,0"
+            Background="{DynamicResource Brush.Surface}">
+      <TextBlock Text="{Binding StatusText}"
+                 Classes="muted" />
     </Border>
   </Grid>
 </Window>

@@ -10,16 +10,24 @@ public partial class MainWindowViewModel : ObservableObject
 {
     private readonly IFilePickerService _filePickerService;
     private readonly OpenDocumentUseCase _openDocumentUseCase;
+    private readonly CloseDocumentUseCase _closeDocumentUseCase;
+    private readonly IDocumentSessionStore _documentSessionStore;
 
     public MainWindowViewModel(
         IFilePickerService filePickerService,
-        OpenDocumentUseCase openDocumentUseCase)
+        OpenDocumentUseCase openDocumentUseCase,
+        CloseDocumentUseCase closeDocumentUseCase,
+        IDocumentSessionStore documentSessionStore)
     {
         ArgumentNullException.ThrowIfNull(filePickerService);
         ArgumentNullException.ThrowIfNull(openDocumentUseCase);
+        ArgumentNullException.ThrowIfNull(closeDocumentUseCase);
+        ArgumentNullException.ThrowIfNull(documentSessionStore);
 
         _filePickerService = filePickerService;
         _openDocumentUseCase = openDocumentUseCase;
+        _closeDocumentUseCase = closeDocumentUseCase;
+        _documentSessionStore = documentSessionStore;
     }
 
     [ObservableProperty]
@@ -46,13 +54,37 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty]
     private string? _userMessage;
 
+    [ObservableProperty]
+    private string? _currentDocumentName;
+
+    [ObservableProperty]
+    private string? _currentDocumentType;
+
+    [ObservableProperty]
+    private string? _currentDocumentPath;
+
+    [ObservableProperty]
+    private int? _currentPage;
+
+    [ObservableProperty]
+    private string _currentZoom = "100%";
+
+    [ObservableProperty]
+    private string _currentRotation = "0°";
+
     public bool IsEmptyStateVisible => !HasOpenDocument;
+
     public bool HasUserMessage => !string.IsNullOrWhiteSpace(UserMessage);
+
     public bool CanDismissUserMessage => HasUserMessage;
+
+    public bool HasDocumentInfo => HasOpenDocument && !string.IsNullOrWhiteSpace(CurrentDocumentName);
 
     partial void OnHasOpenDocumentChanged(bool value)
     {
         OnPropertyChanged(nameof(IsEmptyStateVisible));
+        OnPropertyChanged(nameof(HasDocumentInfo));
+        CloseCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnUserMessageChanged(string? value)
@@ -84,25 +116,26 @@ public partial class MainWindowViewModel : ObservableObject
                 return;
             }
 
-            var session = result.Value;
-            if (session is null)
-            {
-                UserMessage = "No document session was created.";
-                StatusText = "Open failed";
-                return;
-            }
+            RefreshFromSession();
 
-            HasOpenDocument = true;
             UserMessage = null;
-            EmptyStateTitle = session.Metadata.FileName;
-            EmptyStateDescription = $"Opened {session.Metadata.DocumentType} document.";
-            StatusText = $"Opened {session.Metadata.FileName}";
+            StatusText = $"Opened {CurrentDocumentName}";
         }
         catch (Exception ex)
         {
             UserMessage = ex.Message;
             StatusText = "Open failed";
         }
+    }
+
+    [RelayCommand(CanExecute = nameof(HasOpenDocument))]
+    private void Close()
+    {
+        _closeDocumentUseCase.Execute();
+        ResetDocumentState();
+
+        UserMessage = null;
+        StatusText = "Document closed";
     }
 
     [RelayCommand]
@@ -141,5 +174,40 @@ public partial class MainWindowViewModel : ObservableObject
     {
         UserMessage = "Unable to load the requested document.";
         StatusText = "An error was simulated";
+    }
+
+    private void RefreshFromSession()
+    {
+        var session = _documentSessionStore.Current;
+        if (session is null)
+        {
+            ResetDocumentState();
+            return;
+        }
+
+        HasOpenDocument = true;
+        CurrentDocumentName = session.Metadata.FileName;
+        CurrentDocumentType = session.Metadata.DocumentType.ToString();
+        CurrentDocumentPath = session.Metadata.FilePath;
+        CurrentPage = session.Viewport.CurrentPage.Value + 1;
+        CurrentZoom = $"{session.Viewport.ZoomFactor * 100:0}%";
+        CurrentRotation = $"{(int)session.Viewport.Rotation}°";
+
+        EmptyStateTitle = session.Metadata.FileName;
+        EmptyStateDescription = $"Opened {session.Metadata.DocumentType} document.";
+    }
+
+    private void ResetDocumentState()
+    {
+        HasOpenDocument = false;
+        CurrentDocumentName = null;
+        CurrentDocumentType = null;
+        CurrentDocumentPath = null;
+        CurrentPage = null;
+        CurrentZoom = "100%";
+        CurrentRotation = "0°";
+
+        EmptyStateTitle = "Open a document";
+        EmptyStateDescription = "Open a PDF or an image to start viewing it.";
     }
 }

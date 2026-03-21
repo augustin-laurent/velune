@@ -1,10 +1,27 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Velune.Application.Abstractions;
+using Velune.Application.DTOs;
+using Velune.Application.UseCases;
 
 namespace Velune.Presentation.ViewModels;
 
 public partial class MainWindowViewModel : ObservableObject
 {
+    private readonly IFilePickerService _filePickerService;
+    private readonly OpenDocumentUseCase _openDocumentUseCase;
+
+    public MainWindowViewModel(
+        IFilePickerService filePickerService,
+        OpenDocumentUseCase openDocumentUseCase)
+    {
+        ArgumentNullException.ThrowIfNull(filePickerService);
+        ArgumentNullException.ThrowIfNull(openDocumentUseCase);
+
+        _filePickerService = filePickerService;
+        _openDocumentUseCase = openDocumentUseCase;
+    }
+
     [ObservableProperty]
     private string _title = "Velune";
 
@@ -30,9 +47,7 @@ public partial class MainWindowViewModel : ObservableObject
     private string? _userMessage;
 
     public bool IsEmptyStateVisible => !HasOpenDocument;
-
     public bool HasUserMessage => !string.IsNullOrWhiteSpace(UserMessage);
-
     public bool CanDismissUserMessage => HasUserMessage;
 
     partial void OnHasOpenDocumentChanged(bool value)
@@ -48,10 +63,46 @@ public partial class MainWindowViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void Open()
+    private async Task OpenAsync()
     {
-        StatusText = "Open command triggered";
-        UserMessage = "Document opening is not implemented yet.";
+        var filePath = await _filePickerService.PickOpenFileAsync();
+
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            StatusText = "Open cancelled";
+            return;
+        }
+
+        try
+        {
+            var result = await _openDocumentUseCase.ExecuteAsync(new OpenDocumentRequest(filePath));
+
+            if (result.IsFailure)
+            {
+                UserMessage = result.Error?.Message ?? "Unable to open the selected document.";
+                StatusText = "Open failed";
+                return;
+            }
+
+            var session = result.Value;
+            if (session is null)
+            {
+                UserMessage = "No document session was created.";
+                StatusText = "Open failed";
+                return;
+            }
+
+            HasOpenDocument = true;
+            UserMessage = null;
+            EmptyStateTitle = session.Metadata.FileName;
+            EmptyStateDescription = $"Opened {session.Metadata.DocumentType} document.";
+            StatusText = $"Opened {session.Metadata.FileName}";
+        }
+        catch (Exception ex)
+        {
+            UserMessage = ex.Message;
+            StatusText = "Open failed";
+        }
     }
 
     [RelayCommand]

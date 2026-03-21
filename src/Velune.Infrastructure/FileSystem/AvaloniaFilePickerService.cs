@@ -27,10 +27,10 @@ public sealed class AvaloniaFilePickerService : IFilePickerService
             AllowMultiple = false,
             FileTypeFilter =
             [
-                new FilePickerFileType("Supported files")
-                {
-                    Patterns = ["*.pdf", "*.png", "*.jpg", "*.jpeg", "*.webp"]
-                }
+                FilePickerFileTypes.Pdf,
+                FilePickerFileTypes.ImageJpg,
+                FilePickerFileTypes.ImagePng,
+                FilePickerFileTypes.ImageWebp
             ]
         });
 

@@ -85,11 +85,11 @@
         </DockPanel>
       </Border>
 
-      <!-- Empty state -->
+            <!-- Empty state -->
       <StackPanel HorizontalAlignment="Center"
                   VerticalAlignment="Center"
                   Spacing="16"
-                  MaxWidth="420"
+                  MaxWidth="520"
                   IsVisible="{Binding IsEmptyStateVisible}">
         <Border Classes="card"
                 Padding="20"
@@ -120,44 +120,47 @@
                   Width="140"
                   Command="{Binding SimulateErrorCommand}" />
         </StackPanel>
+
+        <Border Classes="card"
+            Padding="16"
+            Margin="0,12,0,0"
+            IsVisible="{Binding HasRecentFiles}">
+          <StackPanel Spacing="10">
+            <DockPanel LastChildFill="False">
+              <TextBlock Text="Recent files"
+                         Classes="title"
+                         VerticalAlignment="Center" />
+
+              <Button Content="Clear"
+                      DockPanel.Dock="Right"
+                      Command="{Binding ClearRecentFilesCommand}" />
+            </DockPanel>
+
+            <ItemsControl ItemsSource="{Binding RecentFiles}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Button Classes="recent-file-button"
+                          Command="{Binding $parent[Window].DataContext.OpenRecentFileCommand}"
+                          CommandParameter="{Binding}"
+                          HorizontalContentAlignment="Stretch">
+                    <Border Classes="recent-file-item">
+                      <StackPanel>
+                        <TextBlock Text="{Binding FileName}"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding DocumentType}"
+                                   Classes="muted" />
+                        <TextBlock Text="{Binding FilePath}"
+                                   Classes="muted"
+                                   TextWrapping="Wrap" />
+                      </StackPanel>
+                    </Border>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
       </StackPanel>
-
-      <!-- Document info state -->
-      <Border Classes="card"
-              Margin="24"
-              Padding="24"
-              HorizontalAlignment="Center"
-              VerticalAlignment="Center"
-              Width="520"
-              IsVisible="{Binding HasDocumentInfo}">
-        <StackPanel Spacing="12">
-          <TextBlock Text="Document session created"
-                     Classes="hero"
-                     TextAlignment="Center"
-                     HorizontalAlignment="Center" />
-
-          <TextBlock Text="{Binding CurrentDocumentName}"
-                     Classes="title"
-                     TextAlignment="Center"
-                     HorizontalAlignment="Center" />
-
-          <Grid ColumnDefinitions="Auto,*"
-                RowDefinitions="Auto,Auto,Auto,Auto"
-                Margin="0,8,0,0">
-            <TextBlock Grid.Row="0" Grid.Column="0" Text="Type:" Classes="muted" Margin="0,0,12,8" />
-            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding CurrentDocumentType}" Margin="0,0,0,8" />
-
-            <TextBlock Grid.Row="1" Grid.Column="0" Text="Path:" Classes="muted" Margin="0,0,12,8" />
-            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CurrentDocumentPath}" TextWrapping="Wrap" Margin="0,0,0,8" />
-
-            <TextBlock Grid.Row="2" Grid.Column="0" Text="Page:" Classes="muted" Margin="0,0,12,8" />
-            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding CurrentPage}" Margin="0,0,0,8" />
-
-            <TextBlock Grid.Row="3" Grid.Column="0" Text="Viewport:" Classes="muted" Margin="0,0,12,0" />
-            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding CurrentZoom}" />
-          </Grid>
-        </StackPanel>
-      </Border>
     </Grid>
 
     <!-- Status bar -->

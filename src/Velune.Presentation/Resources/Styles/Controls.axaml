@@ -53,4 +53,22 @@
      <Setter Property="BorderThickness" Value="1" />
      <Setter Property="CornerRadius" Value="10" />
    </Style>
+
+    <Style Selector="Border.recent-file-item">
+      <Setter Property="Padding" Value="10" />
+      <Setter Property="Background" Value="{DynamicResource Brush.SurfaceMuted}" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+
+    <Style Selector="Button.recent-file-button">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+
+    <Style Selector="Button.recent-file-button:pointerover /template/ ContentPresenter">
+      <Setter Property="Opacity" Value="0.92" />
+    </Style>
 </Styles>

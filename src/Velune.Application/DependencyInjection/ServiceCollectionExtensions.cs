@@ -19,6 +19,7 @@ public static class ServiceCollectionExtensions
             configuration.GetSection(AppOptions.SectionName));
 
         services.AddSingleton<IDocumentSessionStore, InMemoryDocumentSessionStore>();
+        services.AddSingleton<IRecentFilesService, InMemoryRecentFilesService>();
 
         services.AddTransient<OpenDocumentUseCase>();
         services.AddTransient<CloseDocumentUseCase>();

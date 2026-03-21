@@ -8,7 +8,7 @@
     MinHeight="600"
     Title="{Binding Title}">
 
-  <Grid RowDefinitions="Auto,Auto,*,Auto" ColumnDefinitions="260,*">
+  <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="260,*">
 
     <!-- Header -->
     <Border Grid.Row="0"
@@ -27,6 +27,7 @@
                     Spacing="8"
                     DockPanel.Dock="Right">
           <Button Content="Open" Command="{Binding OpenCommand}" />
+          <Button Content="Close" Command="{Binding CloseCommand}" />
           <Button Content="Zoom In" Command="{Binding ZoomInCommand}" />
           <Button Content="Zoom Out" Command="{Binding ZoomOutCommand}" />
           <Button Content="Rotate Left" Command="{Binding RotateLeftCommand}" />
@@ -37,7 +38,7 @@
     </Border>
 
     <!-- Sidebar -->
-    <Border Grid.Row="2"
+    <Border Grid.Row="1"
             Grid.Column="0"
             Padding="12"
             BorderBrush="{DynamicResource Brush.Border}"
@@ -57,11 +58,11 @@
     </Border>
 
     <!-- Main content -->
-    <Grid Grid.Row="2"
-      Grid.Column="1"
-      Background="{DynamicResource Brush.Background}">
+    <Grid Grid.Row="1"
+          Grid.Column="1"
+          Background="{DynamicResource Brush.Background}">
 
-      <!-- Toast / popup -->
+      <!-- Toast -->
       <Border Classes="banner"
               HorizontalAlignment="Right"
               VerticalAlignment="Top"
@@ -84,11 +85,11 @@
         </DockPanel>
       </Border>
 
-      <!-- Empty state -->
+            <!-- Empty state -->
       <StackPanel HorizontalAlignment="Center"
                   VerticalAlignment="Center"
                   Spacing="16"
-                  MaxWidth="420"
+                  MaxWidth="520"
                   IsVisible="{Binding IsEmptyStateVisible}">
         <Border Classes="card"
                 Padding="20"
@@ -119,11 +120,51 @@
                   Width="140"
                   Command="{Binding SimulateErrorCommand}" />
         </StackPanel>
+
+        <Border Classes="card"
+            Padding="16"
+            Margin="0,12,0,0"
+            IsVisible="{Binding HasRecentFiles}">
+          <StackPanel Spacing="10">
+            <DockPanel LastChildFill="False">
+              <TextBlock Text="Recent files"
+                         Classes="title"
+                         VerticalAlignment="Center" />
+
+              <Button Content="Clear"
+                      DockPanel.Dock="Right"
+                      Command="{Binding ClearRecentFilesCommand}" />
+            </DockPanel>
+
+            <ItemsControl ItemsSource="{Binding RecentFiles}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Button Classes="recent-file-button"
+                          Command="{Binding $parent[Window].DataContext.OpenRecentFileCommand}"
+                          CommandParameter="{Binding}"
+                          HorizontalContentAlignment="Stretch">
+                    <Border Classes="recent-file-item">
+                      <StackPanel>
+                        <TextBlock Text="{Binding FileName}"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding DocumentType}"
+                                   Classes="muted" />
+                        <TextBlock Text="{Binding FilePath}"
+                                   Classes="muted"
+                                   TextWrapping="Wrap" />
+                      </StackPanel>
+                    </Border>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </Border>
       </StackPanel>
     </Grid>
 
     <!-- Status bar -->
-    <Border Grid.Row="3"
+    <Border Grid.Row="2"
             Grid.Column="0"
             Grid.ColumnSpan="2"
             Padding="12,8"

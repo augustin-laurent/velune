@@ -35,9 +35,47 @@ public sealed class OpenDocumentUseCase
                     "File path cannot be empty."));
         }
 
-        var session = await _documentOpener.OpenAsync(request.FilePath, cancellationToken);
-        _sessionStore.SetCurrent(session);
+        try
+        {
+            var session = await _documentOpener.OpenAsync(request.FilePath, cancellationToken);
+            _sessionStore.SetCurrent(session);
 
-        return ResultFactory.Success(session);
+            return ResultFactory.Success(session);
+        }
+        catch (FileNotFoundException)
+        {
+            return ResultFactory.Failure<IDocumentSession>(
+                AppError.NotFound(
+                    "document.file.missing",
+                    "The selected document could not be found."));
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return ResultFactory.Failure<IDocumentSession>(
+                AppError.NotFound(
+                    "document.directory.missing",
+                    "The selected document directory could not be found."));
+        }
+        catch (NotSupportedException ex)
+        {
+            return ResultFactory.Failure<IDocumentSession>(
+                AppError.Unsupported(
+                    "document.format.unsupported",
+                    ex.Message));
+        }
+        catch (InvalidDataException ex)
+        {
+            return ResultFactory.Failure<IDocumentSession>(
+                AppError.Infrastructure(
+                    "document.data.invalid",
+                    ex.Message));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ResultFactory.Failure<IDocumentSession>(
+                AppError.Infrastructure(
+                    "document.open.failed",
+                    ex.Message));
+        }
     }
 }

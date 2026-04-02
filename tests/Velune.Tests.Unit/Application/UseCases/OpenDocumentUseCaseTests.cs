@@ -3,17 +3,15 @@ using Velune.Application.DTOs;
 using Velune.Application.Results;
 using Velune.Application.UseCases;
 using Velune.Domain.Abstractions;
-using Velune.Domain.Documents;
-using Velune.Domain.ValueObjects;
 
 namespace Velune.Tests.Unit.Application.UseCases;
 
 public sealed class OpenDocumentUseCaseTests
 {
     [Fact]
-    public async Task ExecuteAsync_ShouldFail_WhenFilePathIsEmpty()
+    public async Task ExecuteAsync_ShouldReturnValidationError_WhenPathIsEmpty()
     {
-        var opener = new FakeDocumentOpener();
+        var opener = new ThrowingDocumentOpener();
         var store = new InMemoryDocumentSessionStore();
         var useCase = new OpenDocumentUseCase(opener, store);
 
@@ -26,59 +24,69 @@ public sealed class OpenDocumentUseCaseTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_ShouldStoreSession_WhenOpenSucceeds()
+    public async Task ExecuteAsync_ShouldReturnNotFoundError_WhenFileIsMissing()
     {
-        var opener = new FakeDocumentOpener();
+        var opener = new ThrowingDocumentOpener(new FileNotFoundException("Missing file"));
         var store = new InMemoryDocumentSessionStore();
         var useCase = new OpenDocumentUseCase(opener, store);
 
-        var result = await useCase.ExecuteAsync(new OpenDocumentRequest("/tmp/test.pdf"));
+        var result = await useCase.ExecuteAsync(new OpenDocumentRequest("/tmp/missing.pdf"));
 
-        Assert.True(result.IsSuccess);
-        Assert.NotNull(store.Current);
+        Assert.True(result.IsFailure);
+        Assert.NotNull(result.Error);
+        Assert.Equal("document.file.missing", result.Error.Code);
+        Assert.Equal(ErrorType.NotFound, result.Error.Type);
     }
 
-    private sealed class FakeDocumentOpener : IDocumentOpener
+    [Fact]
+    public async Task ExecuteAsync_ShouldReturnUnsupportedError_WhenFormatIsUnsupported()
     {
+        var opener = new ThrowingDocumentOpener(new NotSupportedException("Unsupported format"));
+        var store = new InMemoryDocumentSessionStore();
+        var useCase = new OpenDocumentUseCase(opener, store);
+
+        var result = await useCase.ExecuteAsync(new OpenDocumentRequest("/tmp/file.xyz"));
+
+        Assert.True(result.IsFailure);
+        Assert.NotNull(result.Error);
+        Assert.Equal("document.format.unsupported", result.Error.Code);
+        Assert.Equal(ErrorType.Unsupported, result.Error.Type);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ShouldReturnInfrastructureError_WhenOpenFails()
+    {
+        var opener = new ThrowingDocumentOpener(new InvalidOperationException("PDFium failed"));
+        var store = new InMemoryDocumentSessionStore();
+        var useCase = new OpenDocumentUseCase(opener, store);
+
+        var result = await useCase.ExecuteAsync(new OpenDocumentRequest("/tmp/file.pdf"));
+
+        Assert.True(result.IsFailure);
+        Assert.NotNull(result.Error);
+        Assert.Equal("document.open.failed", result.Error.Code);
+        Assert.Equal(ErrorType.Infrastructure, result.Error.Type);
+    }
+
+    private sealed class ThrowingDocumentOpener : IDocumentOpener
+    {
+        private readonly Exception? _exception;
+
+        public ThrowingDocumentOpener(Exception? exception = null)
+        {
+            _exception = exception;
+        }
+
         public Task<IDocumentSession> OpenAsync(
             string filePath,
             CancellationToken cancellationToken = default)
         {
-            IDocumentSession session = new FakeDocumentSession(
-                DocumentId.New(),
-                new DocumentMetadata("test.pdf", filePath, DocumentType.Pdf, 100, 1),
-                ViewportState.Default);
+            if (_exception is not null)
+            {
+                throw _exception;
+            }
 
-            return Task.FromResult(session);
+            throw new InvalidOperationException("No session configured.");
         }
-    }
-
-    private sealed class FakeDocumentSession : IDocumentSession
-    {
-        public FakeDocumentSession(
-            DocumentId id,
-            DocumentMetadata metadata,
-            ViewportState viewport)
-        {
-            Id = id;
-            Metadata = metadata;
-            Viewport = viewport;
-        }
-
-        public DocumentId Id
-        {
-            get;
-        }
-        public DocumentMetadata Metadata
-        {
-            get;
-        }
-        public ViewportState Viewport
-        {
-            get;
-        }
-
-        public IDocumentSession WithViewport(ViewportState viewport) =>
-            new FakeDocumentSession(Id, Metadata, viewport);
     }
 }

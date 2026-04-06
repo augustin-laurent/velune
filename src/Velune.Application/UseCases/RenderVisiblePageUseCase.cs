@@ -59,6 +59,20 @@ public sealed class RenderVisiblePageUseCase
 
             return ResultFactory.Success(renderedPage);
         }
+        catch (DllNotFoundException ex)
+        {
+            return ResultFactory.Failure<RenderedPage>(
+                AppError.Infrastructure(
+                    "document.pdfium.missing",
+                    $"PDF rendering engine not found: {ex.Message}"));
+        }
+        catch (BadImageFormatException ex)
+        {
+            return ResultFactory.Failure<RenderedPage>(
+                AppError.Infrastructure(
+                    "document.pdfium.invalid_binary",
+                    $"PDF rendering engine is invalid or incompatible: {ex.Message}"));
+        }
         catch (InvalidOperationException ex)
         {
             return ResultFactory.Failure<RenderedPage>(

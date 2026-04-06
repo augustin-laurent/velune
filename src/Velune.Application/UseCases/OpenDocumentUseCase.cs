@@ -63,6 +63,20 @@ public sealed class OpenDocumentUseCase
                     "document.format.unsupported",
                     ex.Message));
         }
+        catch (DllNotFoundException ex)
+        {
+            return ResultFactory.Failure<IDocumentSession>(
+                AppError.Infrastructure(
+                    "document.pdfium.missing",
+                    $"PDF rendering engine not found: {ex.Message}"));
+        }
+        catch (BadImageFormatException ex)
+        {
+            return ResultFactory.Failure<IDocumentSession>(
+                AppError.Infrastructure(
+                    "document.pdfium.invalid_binary",
+                    $"PDF rendering engine is invalid or incompatible: {ex.Message}"));
+        }
         catch (InvalidDataException ex)
         {
             return ResultFactory.Failure<IDocumentSession>(

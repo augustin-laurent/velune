@@ -8,6 +8,11 @@
     MinHeight="700"
     Title="{Binding Title}">
 
+  <Window.KeyBindings>
+    <KeyBinding Gesture="PageDown" Command="{Binding NextPageCommand}" />
+    <KeyBinding Gesture="PageUp" Command="{Binding PreviousPageCommand}" />
+  </Window.KeyBindings>
+
   <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="240,*">
 
     <!-- Header -->
@@ -30,6 +35,14 @@
           <Button Content="Close" Command="{Binding CloseCommand}" />
           <Button Content="Prev" Command="{Binding PreviousPageCommand}" />
           <Button Content="Next" Command="{Binding NextPageCommand}" />
+
+          <TextBox Width="72"
+                   Watermark="Page"
+                   Text="{Binding GoToPageInput}" />
+
+          <Button Content="Go"
+                  Command="{Binding GoToPageCommand}" />
+
           <Button Content="Zoom In" Command="{Binding ZoomInCommand}" />
           <Button Content="Zoom Out" Command="{Binding ZoomOutCommand}" />
           <Button Content="Rotate Left" Command="{Binding RotateLeftCommand}" />
@@ -244,7 +257,9 @@
             </DockPanel>
 
             <Grid Grid.Row="1">
-              <ScrollViewer HorizontalScrollBarVisibility="Auto"
+              <ScrollViewer x:Name="DocumentScrollViewer"
+                            PointerWheelChanged="OnDocumentPointerWheelChanged"
+                            HorizontalScrollBarVisibility="Auto"
                             VerticalScrollBarVisibility="Auto">
                 <Image Source="{Binding CurrentRenderedBitmap}"
                        Stretch="None"

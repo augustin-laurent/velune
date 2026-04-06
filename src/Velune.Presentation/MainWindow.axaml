@@ -8,7 +8,12 @@
     MinHeight="700"
     Title="{Binding Title}">
 
-  <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="280,*">
+  <Window.KeyBindings>
+    <KeyBinding Gesture="PageDown" Command="{Binding NextPageCommand}" />
+    <KeyBinding Gesture="PageUp" Command="{Binding PreviousPageCommand}" />
+  </Window.KeyBindings>
+
+  <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="240,*">
 
     <!-- Header -->
     <Border Grid.Row="0"
@@ -30,6 +35,14 @@
           <Button Content="Close" Command="{Binding CloseCommand}" />
           <Button Content="Prev" Command="{Binding PreviousPageCommand}" />
           <Button Content="Next" Command="{Binding NextPageCommand}" />
+
+          <TextBox Width="72"
+                   Watermark="Page"
+                   Text="{Binding GoToPageInput}" />
+
+          <Button Content="Go"
+                  Command="{Binding GoToPageCommand}" />
+
           <Button Content="Zoom In" Command="{Binding ZoomInCommand}" />
           <Button Content="Zoom Out" Command="{Binding ZoomOutCommand}" />
           <Button Content="Rotate Left" Command="{Binding RotateLeftCommand}" />
@@ -41,39 +54,79 @@
     <!-- Sidebar -->
     <Border Grid.Row="1"
             Grid.Column="0"
+            Width="240"
             Padding="12"
             BorderBrush="{DynamicResource Brush.Border}"
             BorderThickness="0,0,1,0"
             Background="{DynamicResource Brush.Surface}">
-      <StackPanel Spacing="10">
-        <TextBlock Text="Pages"
-                   Classes="title" />
+      <Grid RowDefinitions="Auto,*">
+        <DockPanel Grid.Row="0"
+                   LastChildFill="False"
+                   Margin="0,0,0,10">
+          <TextBlock Text="Pages"
+                     Classes="title"
+                     VerticalAlignment="Center" />
 
-        <Border Classes="card"
-                Padding="12">
-          <TextBlock Text="Page thumbnails will appear here."
+          <TextBlock Text="Loading..."
                      Classes="muted"
-                     TextWrapping="Wrap" />
-        </Border>
+                     DockPanel.Dock="Right"
+                     IsVisible="{Binding IsGeneratingThumbnails}" />
+        </DockPanel>
 
-        <Border Classes="card"
-        Padding="12"
-        IsVisible="{Binding HasOpenDocument}">
-          <StackPanel Spacing="6">
-            <TextBlock Text="Selected page"
-                       Classes="title" />
+        <ScrollViewer Grid.Row="1"
+                      Width="216"
+                      MaxWidth="216"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+          <ItemsControl ItemsSource="{Binding Thumbnails}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Button Classes="thumbnail-button"
+                        Command="{Binding $parent[Window].DataContext.SelectThumbnailCommand}"
+                        CommandParameter="{Binding}"
+                        HorizontalContentAlignment="Stretch">
+                  <Border Classes="thumbnail-item"
+                          Width="200"
+                          MaxWidth="200"
+                          MinHeight="120">
+                    <StackPanel Spacing="8">
+                      <Border Classes="thumbnail-image-host"
+                              Width="180"
+                              MaxWidth="180"
+                              Height="160"
+                              HorizontalAlignment="Center">
+                        <Grid>
+                          <Image Source="{Binding Thumbnail}"
+                                 Stretch="Uniform"
+                                 MaxWidth="170"
+                                 MaxHeight="150"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center" />
+                          <TextBlock Text="Loading..."
+                                     Classes="muted"
+                                     HorizontalAlignment="Center"
+                                     VerticalAlignment="Center"
+                                     IsVisible="{Binding IsLoading}" />
+                        </Grid>
+                      </Border>
 
-            <TextBlock Text="{Binding PageIndicator}"
-                       FontWeight="SemiBold" />
-
-            <TextBlock Text="{Binding CurrentZoom, StringFormat=Zoom: {0}}"
-                       Classes="muted" />
-
-            <TextBlock Text="{Binding CurrentRotation, StringFormat=Rotation: {0}}"
-                       Classes="muted" />
-          </StackPanel>
-        </Border>
-      </StackPanel>
+                      <StackPanel Orientation="Horizontal"
+                                  HorizontalAlignment="Center"
+                                  Spacing="6">
+                        <TextBlock Text="{Binding PageNumber, StringFormat=Page {0}}"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Text="●"
+                                   Foreground="{DynamicResource Brush.Accent}"
+                                   IsVisible="{Binding IsSelected}" />
+                      </StackPanel>
+                    </StackPanel>
+                  </Border>
+                </Button>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Grid>
     </Border>
 
     <!-- Main content -->
@@ -204,7 +257,9 @@
             </DockPanel>
 
             <Grid Grid.Row="1">
-              <ScrollViewer HorizontalScrollBarVisibility="Auto"
+              <ScrollViewer x:Name="DocumentScrollViewer"
+                            PointerWheelChanged="OnDocumentPointerWheelChanged"
+                            HorizontalScrollBarVisibility="Auto"
                             VerticalScrollBarVisibility="Auto">
                 <Image Source="{Binding CurrentRenderedBitmap}"
                        Stretch="None"

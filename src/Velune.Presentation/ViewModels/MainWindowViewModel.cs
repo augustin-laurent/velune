@@ -15,6 +15,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private const double ZoomStep = 0.10;
     private const double MinZoom = 0.25;
     private const double MaxZoom = 5.00;
+    private const double ThumbnailZoomFactor = 0.20;
 
     private readonly IFilePickerService _filePickerService;
     private readonly OpenDocumentUseCase _openDocumentUseCase;
@@ -26,6 +27,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private readonly IPageViewportStore _pageViewportStore;
 
     private CancellationTokenSource? _renderCancellationTokenSource;
+    private CancellationTokenSource? _thumbnailCancellationTokenSource;
     private bool _disposed;
 
     public MainWindowViewModel(
@@ -57,6 +59,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _pageViewportStore = pageViewportStore;
 
         RecentFiles = [];
+        Thumbnails = [];
         RefreshRecentFiles();
     }
 
@@ -111,7 +114,14 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private Bitmap? _currentRenderedBitmap;
 
+    [ObservableProperty]
+    private bool _isGeneratingThumbnails;
+
     public ObservableCollection<RecentFileItem> RecentFiles
+    {
+        get;
+    }
+    public ObservableCollection<PageThumbnailItemViewModel> Thumbnails
     {
         get;
     }
@@ -122,6 +132,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public bool HasRecentFiles => RecentFiles.Count > 0;
     public bool HasRenderedPage => CurrentRenderedBitmap is not null;
     public bool HasMultiplePages => TotalPages > 1;
+    public bool HasThumbnails => Thumbnails.Count > 0;
     public string PageIndicator => TotalPages > 0 ? $"{CurrentPage} / {TotalPages}" : "-";
 
     public bool CanGoPreviousPage => HasOpenDocument && CurrentPage > 1;
@@ -155,6 +166,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(PageIndicator));
         PreviousPageCommand.NotifyCanExecuteChanged();
         NextPageCommand.NotifyCanExecuteChanged();
+        UpdateSelectedThumbnail();
     }
 
     partial void OnTotalPagesChanged(int value)
@@ -194,9 +206,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private void Close()
     {
         CancelCurrentRender();
+        CancelThumbnailGeneration();
 
         _closeDocumentUseCase.Execute();
         _pageViewportStore.Clear();
+        ClearThumbnails();
         ResetDocumentState();
 
         UserMessage = null;
@@ -214,53 +228,24 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(CanGoPreviousPage))]
     private async Task PreviousPageAsync()
     {
-        var targetPage = CurrentPage - 1;
-        if (targetPage < 1)
-        {
-            return;
-        }
-
-        var result = _changePageUseCase.Execute(
-            new ChangePageRequest(new PageIndex(targetPage - 1)));
-
-        if (result.IsFailure)
-        {
-            UserMessage = result.Error?.Message ?? "Unable to change page.";
-            StatusText = "Previous page failed";
-            return;
-        }
-
-        _pageViewportStore.SetActivePage(new PageIndex(targetPage - 1));
-        RefreshFromSession();
-        RefreshPageViewState();
-        await RenderCurrentPageAsync();
-        StatusText = $"Page {CurrentPage}";
+        await ChangeToPageAsync(CurrentPage - 1);
     }
 
     [RelayCommand(CanExecute = nameof(CanGoNextPage))]
     private async Task NextPageAsync()
     {
-        var targetPage = CurrentPage + 1;
-        if (TotalPages > 0 && targetPage > TotalPages)
+        await ChangeToPageAsync(CurrentPage + 1);
+    }
+
+    [RelayCommand(CanExecute = nameof(HasOpenDocument))]
+    private async Task SelectThumbnailAsync(PageThumbnailItemViewModel? thumbnail)
+    {
+        if (thumbnail is null)
         {
             return;
         }
 
-        var result = _changePageUseCase.Execute(
-            new ChangePageRequest(new PageIndex(targetPage - 1)));
-
-        if (result.IsFailure)
-        {
-            UserMessage = result.Error?.Message ?? "Unable to change page.";
-            StatusText = "Next page failed";
-            return;
-        }
-
-        _pageViewportStore.SetActivePage(new PageIndex(targetPage - 1));
-        RefreshFromSession();
-        RefreshPageViewState();
-        await RenderCurrentPageAsync();
-        StatusText = $"Page {CurrentPage}";
+        await ChangeToPageAsync(thumbnail.PageNumber);
     }
 
     [RelayCommand(CanExecute = nameof(HasOpenDocument))]
@@ -307,6 +292,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         RefreshPageViewState();
 
         await RenderCurrentPageAsync();
+        await RefreshThumbnailForActivePageAsync();
         StatusText = $"Rotation set to {CurrentRotation}";
     }
 
@@ -328,6 +314,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         RefreshPageViewState();
 
         await RenderCurrentPageAsync();
+        await RefreshThumbnailForActivePageAsync();
         StatusText = $"Rotation set to {CurrentRotation}";
     }
 
@@ -364,6 +351,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             _pageViewportStore.SetActivePage(new PageIndex(0));
             RefreshPageViewState();
 
+            BuildThumbnailPlaceholders();
+            _ = GenerateThumbnailsAsync();
+
             AddCurrentDocumentToRecentFiles();
 
             UserMessage = null;
@@ -388,6 +378,30 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
+    private async Task ChangeToPageAsync(int pageNumber)
+    {
+        if (pageNumber < 1 || (TotalPages > 0 && pageNumber > TotalPages))
+        {
+            return;
+        }
+
+        var result = _changePageUseCase.Execute(
+            new ChangePageRequest(new PageIndex(pageNumber - 1)));
+
+        if (result.IsFailure)
+        {
+            UserMessage = result.Error?.Message ?? "Unable to change page.";
+            StatusText = "Page change failed";
+            return;
+        }
+
+        _pageViewportStore.SetActivePage(new PageIndex(pageNumber - 1));
+        RefreshFromSession();
+        RefreshPageViewState();
+        await RenderCurrentPageAsync();
+        StatusText = $"Page {CurrentPage}";
+    }
+
     private async Task RenderCurrentPageAsync()
     {
         CancelCurrentRender();
@@ -401,6 +415,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         var pageState = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex);
+        RefreshPageViewState();
 
         _renderCancellationTokenSource = new CancellationTokenSource();
         var cancellationToken = _renderCancellationTokenSource.Token;
@@ -457,6 +472,133 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
+    private async Task GenerateThumbnailsAsync()
+    {
+        CancelThumbnailGeneration();
+
+        var session = _documentSessionStore.Current;
+        if (session is null)
+        {
+            return;
+        }
+
+        _thumbnailCancellationTokenSource = new CancellationTokenSource();
+        var cancellationToken = _thumbnailCancellationTokenSource.Token;
+
+        try
+        {
+            IsGeneratingThumbnails = true;
+
+            for (var i = 0; i < Thumbnails.Count; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var thumbnailItem = Thumbnails[i];
+                var thumbnailPageIndex = new PageIndex(i);
+                var thumbnailPageState = _pageViewportStore.GetPageState(thumbnailPageIndex);
+
+                try
+                {
+                    var result = await _renderPageUseCase.ExecuteAsync(
+                        new RenderPageRequest(
+                            thumbnailPageIndex,
+                            ThumbnailZoomFactor,
+                            thumbnailPageState.Rotation),
+                        cancellationToken);
+
+                    if (result.IsSuccess && result.Value is not null)
+                    {
+                        var bitmap = RenderedPageBitmapFactory.Create(result.Value);
+
+                        thumbnailItem.Thumbnail?.Dispose();
+                        thumbnailItem.Thumbnail = bitmap;
+                    }
+                }
+                finally
+                {
+                    thumbnailItem.IsLoading = false;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            IsGeneratingThumbnails = false;
+        }
+    }
+
+    private async Task RefreshThumbnailForActivePageAsync()
+    {
+        if (!HasOpenDocument || CurrentPage < 1 || CurrentPage > Thumbnails.Count)
+        {
+            return;
+        }
+
+        var thumbnailIndex = CurrentPage - 1;
+        var thumbnailItem = Thumbnails[thumbnailIndex];
+        var pageIndex = new PageIndex(thumbnailIndex);
+        var pageState = _pageViewportStore.GetPageState(pageIndex);
+
+        try
+        {
+            thumbnailItem.IsLoading = true;
+
+            var result = await _renderPageUseCase.ExecuteAsync(
+                new RenderPageRequest(
+                    pageIndex,
+                    ThumbnailZoomFactor,
+                    pageState.Rotation));
+
+            if (result.IsSuccess && result.Value is not null)
+            {
+                var bitmap = RenderedPageBitmapFactory.Create(result.Value);
+
+                thumbnailItem.Thumbnail?.Dispose();
+                thumbnailItem.Thumbnail = bitmap;
+            }
+        }
+        finally
+        {
+            thumbnailItem.IsLoading = false;
+        }
+    }
+
+    private void BuildThumbnailPlaceholders()
+    {
+        ClearThumbnails();
+
+        for (var i = 1; i <= TotalPages; i++)
+        {
+            Thumbnails.Add(new PageThumbnailItemViewModel(i)
+            {
+                IsSelected = i == CurrentPage
+            });
+        }
+
+        OnPropertyChanged(nameof(HasThumbnails));
+    }
+
+    private void UpdateSelectedThumbnail()
+    {
+        foreach (var item in Thumbnails)
+        {
+            item.IsSelected = item.PageNumber == CurrentPage;
+        }
+    }
+
+    private void ClearThumbnails()
+    {
+        foreach (var item in Thumbnails)
+        {
+            item.Dispose();
+        }
+
+        Thumbnails.Clear();
+        OnPropertyChanged(nameof(HasThumbnails));
+    }
+
     private void CancelCurrentRender()
     {
         if (_renderCancellationTokenSource is null)
@@ -467,6 +609,18 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _renderCancellationTokenSource.Cancel();
         _renderCancellationTokenSource.Dispose();
         _renderCancellationTokenSource = null;
+    }
+
+    private void CancelThumbnailGeneration()
+    {
+        if (_thumbnailCancellationTokenSource is null)
+        {
+            return;
+        }
+
+        _thumbnailCancellationTokenSource.Cancel();
+        _thumbnailCancellationTokenSource.Dispose();
+        _thumbnailCancellationTokenSource = null;
     }
 
     private void RefreshFromSession()
@@ -564,8 +718,14 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             _renderCancellationTokenSource?.Dispose();
             _renderCancellationTokenSource = null;
 
+            _thumbnailCancellationTokenSource?.Cancel();
+            _thumbnailCancellationTokenSource?.Dispose();
+            _thumbnailCancellationTokenSource = null;
+
             CurrentRenderedBitmap?.Dispose();
             CurrentRenderedBitmap = null;
+
+            ClearThumbnails();
         }
 
         _disposed = true;

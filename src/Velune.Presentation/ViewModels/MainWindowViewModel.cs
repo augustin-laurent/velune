@@ -117,6 +117,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isGeneratingThumbnails;
 
+    [ObservableProperty]
+    private string _goToPageInput = "1";
+
     public ObservableCollection<RecentFileItem> RecentFiles
     {
         get;
@@ -137,13 +140,19 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public bool CanGoPreviousPage => HasOpenDocument && CurrentPage > 1;
     public bool CanGoNextPage => HasOpenDocument && TotalPages > 0 && CurrentPage < TotalPages;
+    public bool CanGoToPage => HasOpenDocument && TotalPages > 0;
+    public bool ShouldUseTrackpadForPan =>
+        HasOpenDocument &&
+        _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex).ZoomFactor > 1.0;
 
     partial void OnHasOpenDocumentChanged(bool value)
     {
         OnPropertyChanged(nameof(IsEmptyStateVisible));
+        OnPropertyChanged(nameof(CanGoToPage));
         CloseCommand.NotifyCanExecuteChanged();
         PreviousPageCommand.NotifyCanExecuteChanged();
         NextPageCommand.NotifyCanExecuteChanged();
+        GoToPageCommand.NotifyCanExecuteChanged();
         ZoomInCommand.NotifyCanExecuteChanged();
         ZoomOutCommand.NotifyCanExecuteChanged();
         RotateLeftCommand.NotifyCanExecuteChanged();
@@ -167,14 +176,17 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         PreviousPageCommand.NotifyCanExecuteChanged();
         NextPageCommand.NotifyCanExecuteChanged();
         UpdateSelectedThumbnail();
+        GoToPageInput = value.ToString();
     }
 
     partial void OnTotalPagesChanged(int value)
     {
         OnPropertyChanged(nameof(HasMultiplePages));
         OnPropertyChanged(nameof(PageIndicator));
+        OnPropertyChanged(nameof(CanGoToPage));
         PreviousPageCommand.NotifyCanExecuteChanged();
         NextPageCommand.NotifyCanExecuteChanged();
+        GoToPageCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand]
@@ -235,6 +247,33 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private async Task NextPageAsync()
     {
         await ChangeToPageAsync(CurrentPage + 1);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanGoToPage))]
+    private async Task GoToPageAsync()
+    {
+        if (string.IsNullOrWhiteSpace(GoToPageInput))
+        {
+            UserMessage = "Enter a page number.";
+            StatusText = "Invalid page number";
+            return;
+        }
+
+        if (!int.TryParse(GoToPageInput, out var pageNumber))
+        {
+            UserMessage = "Page number must be numeric.";
+            StatusText = "Invalid page number";
+            return;
+        }
+
+        if (pageNumber < 1 || pageNumber > TotalPages)
+        {
+            UserMessage = $"Page number must be between 1 and {TotalPages}.";
+            StatusText = "Invalid page number";
+            return;
+        }
+
+        await ChangeToPageAsync(pageNumber);
     }
 
     [RelayCommand(CanExecute = nameof(HasOpenDocument))]
@@ -382,6 +421,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         if (pageNumber < 1 || (TotalPages > 0 && pageNumber > TotalPages))
         {
+            UserMessage = $"Page number must be between 1 and {TotalPages}.";
+            StatusText = "Invalid page number";
             return;
         }
 
@@ -661,6 +702,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         TotalPages = 0;
         CurrentZoom = "100%";
         CurrentRotation = "0°";
+        GoToPageInput = "1";
 
         CurrentRenderedBitmap?.Dispose();
         CurrentRenderedBitmap = null;
@@ -729,5 +771,21 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         _disposed = true;
+    }
+
+    public async Task NavigateToPreviousPageFromTrackpadAsync()
+    {
+        if (CanGoPreviousPage)
+        {
+            await PreviousPageAsync();
+        }
+    }
+
+    public async Task NavigateToNextPageFromTrackpadAsync()
+    {
+        if (CanGoNextPage)
+        {
+            await NextPageAsync();
+        }
     }
 }

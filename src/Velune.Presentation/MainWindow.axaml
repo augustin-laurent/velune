@@ -2,13 +2,13 @@
     x:Class="Velune.Presentation.Views.MainWindow"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Width="1200"
-    Height="800"
-    MinWidth="900"
-    MinHeight="600"
+    Width="1280"
+    Height="860"
+    MinWidth="1000"
+    MinHeight="700"
     Title="{Binding Title}">
 
-  <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="260,*">
+  <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="280,*">
 
     <!-- Header -->
     <Border Grid.Row="0"
@@ -28,11 +28,12 @@
                     DockPanel.Dock="Right">
           <Button Content="Open" Command="{Binding OpenCommand}" />
           <Button Content="Close" Command="{Binding CloseCommand}" />
+          <Button Content="Prev" Command="{Binding PreviousPageCommand}" />
+          <Button Content="Next" Command="{Binding NextPageCommand}" />
           <Button Content="Zoom In" Command="{Binding ZoomInCommand}" />
           <Button Content="Zoom Out" Command="{Binding ZoomOutCommand}" />
           <Button Content="Rotate Left" Command="{Binding RotateLeftCommand}" />
           <Button Content="Rotate Right" Command="{Binding RotateRightCommand}" />
-          <Button Content="Simulate Error" Command="{Binding SimulateErrorCommand}" />
         </StackPanel>
       </DockPanel>
     </Border>
@@ -44,15 +45,33 @@
             BorderBrush="{DynamicResource Brush.Border}"
             BorderThickness="0,0,1,0"
             Background="{DynamicResource Brush.Surface}">
-      <StackPanel Spacing="8">
-        <TextBlock Text="{Binding SidebarTitle}"
+      <StackPanel Spacing="10">
+        <TextBlock Text="Pages"
                    Classes="title" />
 
         <Border Classes="card"
-                Padding="12"
-                Background="{DynamicResource Brush.SurfaceMuted}">
-          <TextBlock Text="Thumbnails will appear here."
-                     Classes="muted" />
+                Padding="12">
+          <TextBlock Text="Page thumbnails will appear here."
+                     Classes="muted"
+                     TextWrapping="Wrap" />
+        </Border>
+
+        <Border Classes="card"
+        Padding="12"
+        IsVisible="{Binding HasOpenDocument}">
+          <StackPanel Spacing="6">
+            <TextBlock Text="Selected page"
+                       Classes="title" />
+
+            <TextBlock Text="{Binding PageIndicator}"
+                       FontWeight="SemiBold" />
+
+            <TextBlock Text="{Binding CurrentZoom, StringFormat=Zoom: {0}}"
+                       Classes="muted" />
+
+            <TextBlock Text="{Binding CurrentRotation, StringFormat=Rotation: {0}}"
+                       Classes="muted" />
+          </StackPanel>
         </Border>
       </StackPanel>
     </Border>
@@ -85,7 +104,7 @@
         </DockPanel>
       </Border>
 
-            <!-- Empty state -->
+      <!-- Empty state -->
       <StackPanel HorizontalAlignment="Center"
                   VerticalAlignment="Center"
                   Spacing="16"
@@ -122,9 +141,9 @@
         </StackPanel>
 
         <Border Classes="card"
-            Padding="16"
-            Margin="0,12,0,0"
-            IsVisible="{Binding HasRecentFiles}">
+                Padding="16"
+                Margin="0,12,0,0"
+                IsVisible="{Binding HasRecentFiles}">
           <StackPanel Spacing="10">
             <DockPanel LastChildFill="False">
               <TextBlock Text="Recent files"
@@ -161,6 +180,50 @@
           </StackPanel>
         </Border>
       </StackPanel>
+
+      <!-- Viewer -->
+      <Grid Margin="24"
+            IsVisible="{Binding HasOpenDocument}">
+        <Border Classes="card"
+                Padding="16">
+          <Grid RowDefinitions="Auto,*">
+            <DockPanel Grid.Row="0"
+                       Margin="0,0,0,12"
+                       LastChildFill="False">
+              <TextBlock Text="{Binding CurrentDocumentName}"
+                         Classes="title"
+                         VerticalAlignment="Center" />
+
+              <StackPanel Orientation="Horizontal"
+                          Spacing="12"
+                          DockPanel.Dock="Right">
+                <TextBlock Text="{Binding PageIndicator}" Classes="muted" />
+                <TextBlock Text="{Binding CurrentZoom}" Classes="muted" />
+                <TextBlock Text="{Binding CurrentRotation}" Classes="muted" />
+              </StackPanel>
+            </DockPanel>
+
+            <Grid Grid.Row="1">
+              <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                            VerticalScrollBarVisibility="Auto">
+                <Image Source="{Binding CurrentRenderedBitmap}"
+                       Stretch="None"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Top" />
+              </ScrollViewer>
+
+              <Border Classes="banner"
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Center"
+                      Padding="12,10"
+                      IsVisible="{Binding IsRendering}">
+                <TextBlock Text="Rendering..."
+                           Classes="muted" />
+              </Border>
+            </Grid>
+          </Grid>
+        </Border>
+      </Grid>
     </Grid>
 
     <!-- Status bar -->

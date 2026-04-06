@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Velune.Domain.Abstractions;
 using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
@@ -22,100 +23,110 @@ public sealed class PdfiumRenderService : IRenderService
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(session);
-
-        if (session is not PdfiumDocumentSession pdfSession)
-        {
-            throw new NotSupportedException("The active session is not backed by PDFium.");
-        }
-
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(zoomFactor);
 
-        _initializer.EnsureInitialized();
-
-        var pageHandle = PdfiumNative.FPDF_LoadPage(pdfSession.Resource.Handle, pageIndex.Value);
-        if (pageHandle == nint.Zero)
+        return Task.Run(() =>
         {
-            throw new InvalidOperationException($"Unable to load PDF page at index {pageIndex.Value}.");
-        }
+            cancellationToken.ThrowIfCancellationRequested();
 
-        nint bitmapHandle = nint.Zero;
-
-        try
-        {
-            var pageWidth = Math.Max(1, (int)Math.Ceiling(PdfiumNative.FPDF_GetPageWidthF(pageHandle) * zoomFactor));
-            var pageHeight = Math.Max(1, (int)Math.Ceiling(PdfiumNative.FPDF_GetPageHeightF(pageHandle) * zoomFactor));
-
-            bitmapHandle = PdfiumNative.FPDFBitmap_CreateEx(
-                pageWidth,
-                pageHeight,
-                PdfiumNative.FPDFBitmap_BGRA,
-                nint.Zero,
-                0);
-
-            if (bitmapHandle == nint.Zero)
+            if (session is not PdfiumDocumentSession pdfSession)
             {
-                throw new InvalidOperationException("Unable to create PDFium bitmap.");
+                throw new NotSupportedException("The active session is not backed by PDFium.");
             }
 
-            var hasTransparency = PdfiumNative.FPDFPage_HasTransparency(pageHandle) != 0;
-            var background = hasTransparency ? 0x00000000u : 0xFFFFFFFFu;
+            _initializer.EnsureInitialized();
 
-            PdfiumNative.FPDFBitmap_FillRect(
-                bitmapHandle,
-                0,
-                0,
-                pageWidth,
-                pageHeight,
-                background);
-
-            PdfiumNative.FPDF_RenderPageBitmap(
-                bitmapHandle,
-                pageHandle,
-                0,
-                0,
-                pageWidth,
-                pageHeight,
-                ToPdfiumRotation(rotation),
-                PdfiumNative.FPDF_ANNOT);
-
-            var stride = PdfiumNative.FPDFBitmap_GetStride(bitmapHandle);
-            var sourceBuffer = PdfiumNative.FPDFBitmap_GetBuffer(bitmapHandle);
-
-            if (sourceBuffer == nint.Zero || stride <= 0)
+            var pageHandle = PdfiumNative.FPDF_LoadPage(pdfSession.Resource.Handle, pageIndex.Value);
+            if (pageHandle == nint.Zero)
             {
-                throw new InvalidOperationException("Unable to access PDFium bitmap buffer.");
+                throw new InvalidOperationException($"Unable to load PDF page at index {pageIndex.Value}.");
             }
 
-            var pixelData = new byte[pageWidth * pageHeight * 4];
+            nint bitmapHandle = nint.Zero;
 
-            for (var y = 0; y < pageHeight; y++)
+            try
             {
-                var rowSource = sourceBuffer + (y * stride);
-                var rowTargetOffset = y * pageWidth * 4;
-                System.Runtime.InteropServices.Marshal.Copy(
-                    rowSource,
-                    pixelData,
-                    rowTargetOffset,
-                    pageWidth * 4);
+                var rawWidth = Math.Max(1, (int)Math.Ceiling(PdfiumNative.FPDF_GetPageWidthF(pageHandle) * zoomFactor));
+                var rawHeight = Math.Max(1, (int)Math.Ceiling(PdfiumNative.FPDF_GetPageHeightF(pageHandle) * zoomFactor));
+
+                var isQuarterTurn = rotation is Rotation.Deg90 or Rotation.Deg270;
+
+                var targetWidth = isQuarterTurn ? rawHeight : rawWidth;
+                var targetHeight = isQuarterTurn ? rawWidth : rawHeight;
+
+                bitmapHandle = PdfiumNative.FPDFBitmap_CreateEx(
+                    targetWidth,
+                    targetHeight,
+                    PdfiumNative.FPDFBitmap_BGRA,
+                    nint.Zero,
+                    0);
+
+                if (bitmapHandle == nint.Zero)
+                {
+                    throw new InvalidOperationException("Unable to create PDFium bitmap.");
+                }
+
+                var hasTransparency = PdfiumNative.FPDFPage_HasTransparency(pageHandle) != 0;
+                var background = hasTransparency ? 0x00000000u : 0xFFFFFFFFu;
+
+                PdfiumNative.FPDFBitmap_FillRect(
+                    bitmapHandle,
+                    0,
+                    0,
+                    targetWidth,
+                    targetHeight,
+                    background);
+
+                PdfiumNative.FPDF_RenderPageBitmap(
+                    bitmapHandle,
+                    pageHandle,
+                    0,
+                    0,
+                    targetWidth,
+                    targetHeight,
+                    ToPdfiumRotation(rotation),
+                    PdfiumNative.FPDF_ANNOT);
+
+                var stride = PdfiumNative.FPDFBitmap_GetStride(bitmapHandle);
+                var sourceBuffer = PdfiumNative.FPDFBitmap_GetBuffer(bitmapHandle);
+
+                if (sourceBuffer == nint.Zero || stride <= 0)
+                {
+                    throw new InvalidOperationException("Unable to access PDFium bitmap buffer.");
+                }
+
+                var pixelData = new byte[targetWidth * targetHeight * 4];
+
+                for (var y = 0; y < targetHeight; y++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    var rowSource = sourceBuffer + (y * stride);
+                    var rowTargetOffset = y * targetWidth * 4;
+
+                    Marshal.Copy(
+                        rowSource,
+                        pixelData,
+                        rowTargetOffset,
+                        targetWidth * 4);
+                }
+
+                return new RenderedPage(
+                    pageIndex: pageIndex,
+                    pixelData: pixelData,
+                    width: targetWidth,
+                    height: targetHeight);
             }
-
-            var renderedPage = new RenderedPage(
-                pageIndex: pageIndex,
-                pixelData: pixelData,
-                width: pageWidth,
-                height: pageHeight);
-
-            return Task.FromResult(renderedPage);
-        }
-        finally
-        {
-            if (bitmapHandle != nint.Zero)
+            finally
             {
-                PdfiumNative.FPDFBitmap_Destroy(bitmapHandle);
-            }
+                if (bitmapHandle != nint.Zero)
+                {
+                    PdfiumNative.FPDFBitmap_Destroy(bitmapHandle);
+                }
 
-            PdfiumNative.FPDF_ClosePage(pageHandle);
-        }
+                PdfiumNative.FPDF_ClosePage(pageHandle);
+            }
+        }, cancellationToken);
     }
 
     private static int ToPdfiumRotation(Rotation rotation)

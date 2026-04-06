@@ -23,10 +23,11 @@ public sealed class RenderVisiblePageUseCase
     }
 
     public async Task<Result<RenderedPage>> ExecuteAsync(
-        RenderVisiblePageRequest request,
+        RenderPageRequest request,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(request.ZoomFactor);
 
         var session = _sessionStore.Current;
         if (session is null)
@@ -37,15 +38,33 @@ public sealed class RenderVisiblePageUseCase
                     "No active document session."));
         }
 
-        var viewport = session.Viewport;
+        var pageCount = session.Metadata.PageCount;
+        if (pageCount.HasValue &&
+            (request.PageIndex.Value < 0 || request.PageIndex.Value >= pageCount.Value))
+        {
+            return ResultFactory.Failure<RenderedPage>(
+                AppError.Validation(
+                    "document.page.out_of_range",
+                    "The requested page is out of range."));
+        }
 
-        var renderedPage = await _renderService.RenderPageAsync(
-            session,
-            viewport.CurrentPage,
-            viewport.ZoomFactor,
-            viewport.Rotation,
-            cancellationToken);
+        try
+        {
+            var renderedPage = await _renderService.RenderPageAsync(
+                session,
+                request.PageIndex,
+                request.ZoomFactor,
+                request.Rotation,
+                cancellationToken);
 
-        return ResultFactory.Success(renderedPage);
+            return ResultFactory.Success(renderedPage);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ResultFactory.Failure<RenderedPage>(
+                AppError.Infrastructure(
+                    "document.render.failed",
+                    ex.Message));
+        }
     }
 }

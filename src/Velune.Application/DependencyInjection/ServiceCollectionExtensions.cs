@@ -20,6 +20,7 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<IDocumentSessionStore, InMemoryDocumentSessionStore>();
         services.AddSingleton<IRecentFilesService, InMemoryRecentFilesService>();
+        services.AddSingleton<IPageViewportStore, InMemoryPageViewportStore>();
 
         services.AddTransient<OpenDocumentUseCase>();
         services.AddTransient<CloseDocumentUseCase>();
@@ -27,6 +28,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<GenerateThumbnailUseCase>();
         services.AddTransient<ChangeZoomUseCase>();
         services.AddTransient<RotateDocumentUseCase>();
+        services.AddTransient<ChangePageUseCase>();
 
         return services;
     }

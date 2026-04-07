@@ -3,6 +3,7 @@ using Velune.Application.Abstractions;
 using Velune.Domain.Abstractions;
 using Velune.Infrastructure.Documents;
 using Velune.Infrastructure.FileSystem;
+using Velune.Infrastructure.Image;
 using Velune.Infrastructure.Pdf;
 using Velune.Infrastructure.Rendering;
 
@@ -18,10 +19,20 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IFilePickerService, AvaloniaFilePickerService>();
 
         services.AddSingleton<PdfiumInitializer>();
+
         services.AddTransient<PdfiumDocumentOpener>();
-        services.AddTransient<SimpleImageDocumentOpener>();
-        services.AddTransient<IDocumentOpener, CompositeDocumentOpener>();
-        services.AddTransient<IRenderService, PdfiumRenderService>();
+        services.AddTransient<AvaloniaImageDocumentOpener>();
+
+        services.AddTransient<CompositeDocumentOpener>();
+        services.AddTransient<IDocumentOpener>(sp =>
+            sp.GetRequiredService<CompositeDocumentOpener>());
+
+        services.AddTransient<PdfiumRenderService>();
+        services.AddTransient<ImageRenderService>();
+
+        services.AddTransient<CompositeRenderService>();
+        services.AddTransient<IRenderService>(sp =>
+            sp.GetRequiredService<CompositeRenderService>());
 
         services.AddTransient<IThumbnailService, UnsupportedThumbnailService>();
 

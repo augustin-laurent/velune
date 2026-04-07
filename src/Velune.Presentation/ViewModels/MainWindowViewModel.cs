@@ -371,50 +371,52 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         StatusText = "An error was simulated";
     }
 
+    public async Task NavigateToPreviousPageFromTrackpadAsync()
+    {
+        if (!CanGoPreviousPage || IsRendering)
+        {
+            return;
+        }
+
+        await PreviousPageAsync();
+    }
+
+    public async Task NavigateToNextPageFromTrackpadAsync()
+    {
+        if (!CanGoNextPage || IsRendering)
+        {
+            return;
+        }
+
+        await NextPageAsync();
+    }
+
     private async Task OpenDocumentFromPathAsync(string filePath)
     {
-        try
+        var result = await _openDocumentUseCase.ExecuteAsync(new OpenDocumentRequest(filePath));
+
+        if (result.IsFailure)
         {
-            var result = await _openDocumentUseCase.ExecuteAsync(new OpenDocumentRequest(filePath));
-
-            if (result.IsFailure)
-            {
-                UserMessage = result.Error?.Message ?? "Unable to open the selected document.";
-                StatusText = "Open failed";
-                return;
-            }
-
-            RefreshFromSession();
-
-            _pageViewportStore.Initialize(TotalPages > 0 ? TotalPages : 1);
-            _pageViewportStore.SetActivePage(new PageIndex(0));
-            RefreshPageViewState();
-
-            BuildThumbnailPlaceholders();
-            _ = GenerateThumbnailsAsync();
-
-            AddCurrentDocumentToRecentFiles();
-
-            UserMessage = null;
-            StatusText = $"Opened {CurrentDocumentName}";
-
-            await RenderCurrentPageAsync();
-        }
-        catch (FileNotFoundException)
-        {
-            UserMessage = "The selected file could not be found.";
+            UserMessage = result.Error?.Message ?? "Unable to open the selected document.";
             StatusText = "Open failed";
+            return;
         }
-        catch (DirectoryNotFoundException)
-        {
-            UserMessage = "The selected file location does not exist anymore.";
-            StatusText = "Open failed";
-        }
-        catch (Exception ex)
-        {
-            UserMessage = ex.Message;
-            StatusText = "Open failed";
-        }
+
+        RefreshFromSession();
+
+        _pageViewportStore.Initialize(TotalPages > 0 ? TotalPages : 1);
+        _pageViewportStore.SetActivePage(new PageIndex(0));
+        RefreshPageViewState();
+
+        BuildThumbnailPlaceholders();
+        _ = GenerateThumbnailsAsync();
+
+        AddCurrentDocumentToRecentFiles();
+
+        UserMessage = null;
+        StatusText = $"Opened {CurrentDocumentName}";
+
+        await RenderCurrentPageAsync();
     }
 
     private async Task ChangeToPageAsync(int pageNumber)
@@ -498,14 +500,6 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
         catch (OperationCanceledException)
         {
-        }
-        catch (Exception ex)
-        {
-            UserMessage = ex.Message;
-            StatusText = "Render failed";
-
-            CurrentRenderedBitmap?.Dispose();
-            CurrentRenderedBitmap = null;
         }
         finally
         {
@@ -773,19 +767,4 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _disposed = true;
     }
 
-    public async Task NavigateToPreviousPageFromTrackpadAsync()
-    {
-        if (CanGoPreviousPage)
-        {
-            await PreviousPageAsync();
-        }
-    }
-
-    public async Task NavigateToNextPageFromTrackpadAsync()
-    {
-        if (CanGoNextPage)
-        {
-            await NextPageAsync();
-        }
-    }
 }

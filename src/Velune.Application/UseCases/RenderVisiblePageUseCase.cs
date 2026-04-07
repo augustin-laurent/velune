@@ -48,23 +48,13 @@ public sealed class RenderVisiblePageUseCase
                     "The requested page is out of range."));
         }
 
-        try
-        {
-            var renderedPage = await _renderService.RenderPageAsync(
-                session,
-                request.PageIndex,
-                request.ZoomFactor,
-                request.Rotation,
-                cancellationToken);
+        var renderedPage = await _renderService.RenderPageAsync(
+            session,
+            request.PageIndex,
+            request.ZoomFactor,
+            request.Rotation,
+            cancellationToken);
 
-            return ResultFactory.Success(renderedPage);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return ResultFactory.Failure<RenderedPage>(
-                AppError.Infrastructure(
-                    "document.render.failed",
-                    ex.Message));
-        }
+        return ResultFactory.Success(renderedPage);
     }
 }

@@ -48,37 +48,13 @@ public sealed class RenderVisiblePageUseCase
                     "The requested page is out of range."));
         }
 
-        try
-        {
-            var renderedPage = await _renderService.RenderPageAsync(
-                session,
-                request.PageIndex,
-                request.ZoomFactor,
-                request.Rotation,
-                cancellationToken);
+        var renderedPage = await _renderService.RenderPageAsync(
+            session,
+            request.PageIndex,
+            request.ZoomFactor,
+            request.Rotation,
+            cancellationToken);
 
-            return ResultFactory.Success(renderedPage);
-        }
-        catch (DllNotFoundException ex)
-        {
-            return ResultFactory.Failure<RenderedPage>(
-                AppError.Infrastructure(
-                    "document.pdfium.missing",
-                    $"PDF rendering engine not found: {ex.Message}"));
-        }
-        catch (BadImageFormatException ex)
-        {
-            return ResultFactory.Failure<RenderedPage>(
-                AppError.Infrastructure(
-                    "document.pdfium.invalid_binary",
-                    $"PDF rendering engine is invalid or incompatible: {ex.Message}"));
-        }
-        catch (InvalidOperationException ex)
-        {
-            return ResultFactory.Failure<RenderedPage>(
-                AppError.Infrastructure(
-                    "document.render.failed",
-                    ex.Message));
-        }
+        return ResultFactory.Success(renderedPage);
     }
 }

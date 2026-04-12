@@ -14,6 +14,7 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
     private readonly object _gate = new();
     private readonly Queue<Guid> _queue = [];
     private readonly Dictionary<Guid, QueuedRenderJob> _jobs = [];
+    private readonly IPerformanceMetrics _performanceMetrics;
     private readonly IRenderMemoryCache _renderMemoryCache;
     private readonly IThumbnailDiskCache _thumbnailDiskCache;
     private readonly IDocumentSessionStore _sessionStore;
@@ -24,16 +25,19 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
     private bool _disposed;
 
     public RenderOrchestrator(
+        IPerformanceMetrics performanceMetrics,
         IRenderMemoryCache renderMemoryCache,
         IThumbnailDiskCache thumbnailDiskCache,
         IDocumentSessionStore sessionStore,
         IRenderService renderService)
     {
+        ArgumentNullException.ThrowIfNull(performanceMetrics);
         ArgumentNullException.ThrowIfNull(renderMemoryCache);
         ArgumentNullException.ThrowIfNull(thumbnailDiskCache);
         ArgumentNullException.ThrowIfNull(sessionStore);
         ArgumentNullException.ThrowIfNull(renderService);
 
+        _performanceMetrics = performanceMetrics;
         _renderMemoryCache = renderMemoryCache;
         _thumbnailDiskCache = thumbnailDiskCache;
         _sessionStore = sessionStore;
@@ -117,19 +121,22 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
             cachedPage is not null)
         {
             var cachedJobId = Guid.NewGuid();
+            var cachedResult = new RenderResult(
+                cachedJobId,
+                session.Id,
+                request.JobKey,
+                request.PageIndex,
+                TimeSpan.Zero,
+                cachedPage,
+                Error: null,
+                IsCanceled: false,
+                IsObsolete: false);
+
+            RecordPerformanceMetric(session, request, cachedResult);
 
             return new RenderJobHandle(
                 cachedJobId,
-                Task.FromResult(new RenderResult(
-                    cachedJobId,
-                    session.Id,
-                    request.JobKey,
-                    request.PageIndex,
-                    TimeSpan.Zero,
-                    cachedPage,
-                    Error: null,
-                    IsCanceled: false,
-                    IsObsolete: false)));
+                Task.FromResult(cachedResult));
         }
 
         var job = new QueuedRenderJob(
@@ -380,6 +387,8 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
             }
         }
 
+        RecordPerformanceMetric(job.Session, job.Request, result);
+
         if (job.TryComplete(result))
         {
             job.Dispose();
@@ -436,6 +445,29 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
     {
         ArgumentNullException.ThrowIfNull(request);
         return request.RequestedWidth.HasValue && request.RequestedHeight.HasValue;
+    }
+
+    private void RecordPerformanceMetric(
+        IDocumentSession session,
+        RenderRequest request,
+        RenderResult result)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(result);
+
+        if (!result.IsSuccess)
+        {
+            return;
+        }
+
+        if (IsThumbnailRequest(request))
+        {
+            _performanceMetrics.RecordThumbnailCompleted(session, result);
+            return;
+        }
+
+        _performanceMetrics.RecordViewerRenderCompleted(session, result);
     }
 
     private sealed class QueuedRenderJob : IDisposable

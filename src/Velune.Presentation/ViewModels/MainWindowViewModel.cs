@@ -32,6 +32,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private readonly OpenDocumentUseCase _openDocumentUseCase;
     private readonly CloseDocumentUseCase _closeDocumentUseCase;
     private readonly ChangePageUseCase _changePageUseCase;
+    private readonly ChangeZoomUseCase _changeZoomUseCase;
+    private readonly RotateDocumentUseCase _rotateDocumentUseCase;
     private readonly IRenderOrchestrator _renderOrchestrator;
     private readonly IDocumentSessionStore _documentSessionStore;
     private readonly IRecentFilesService _recentFilesService;
@@ -50,6 +52,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OpenDocumentUseCase openDocumentUseCase,
         CloseDocumentUseCase closeDocumentUseCase,
         ChangePageUseCase changePageUseCase,
+        ChangeZoomUseCase changeZoomUseCase,
+        RotateDocumentUseCase rotateDocumentUseCase,
         IRenderOrchestrator renderOrchestrator,
         IDocumentSessionStore documentSessionStore,
         IRecentFilesService recentFilesService,
@@ -59,6 +63,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         ArgumentNullException.ThrowIfNull(openDocumentUseCase);
         ArgumentNullException.ThrowIfNull(closeDocumentUseCase);
         ArgumentNullException.ThrowIfNull(changePageUseCase);
+        ArgumentNullException.ThrowIfNull(changeZoomUseCase);
+        ArgumentNullException.ThrowIfNull(rotateDocumentUseCase);
         ArgumentNullException.ThrowIfNull(renderOrchestrator);
         ArgumentNullException.ThrowIfNull(documentSessionStore);
         ArgumentNullException.ThrowIfNull(recentFilesService);
@@ -68,6 +74,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _openDocumentUseCase = openDocumentUseCase;
         _closeDocumentUseCase = closeDocumentUseCase;
         _changePageUseCase = changePageUseCase;
+        _changeZoomUseCase = changeZoomUseCase;
+        _rotateDocumentUseCase = rotateDocumentUseCase;
         _renderOrchestrator = renderOrchestrator;
         _documentSessionStore = documentSessionStore;
         _recentFilesService = recentFilesService;
@@ -165,6 +173,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public bool CanGoPreviousPage => HasOpenDocument && CurrentPage > 1;
     public bool CanGoNextPage => HasOpenDocument && TotalPages > 0 && CurrentPage < TotalPages;
     public bool CanGoToPage => HasOpenDocument && TotalPages > 0;
+    public bool CanUseFitCommands =>
+        HasOpenDocument &&
+        _documentViewportWidth > 0 &&
+        _documentViewportHeight > 0 &&
+        (HasRenderedPage || IsCurrentImageDocument);
     public bool ShouldUseTrackpadForPan =>
         HasOpenDocument &&
         (IsCurrentImageDocument ||
@@ -184,6 +197,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         GoToPageCommand.NotifyCanExecuteChanged();
         ZoomInCommand.NotifyCanExecuteChanged();
         ZoomOutCommand.NotifyCanExecuteChanged();
+        FitToWidthCommand.NotifyCanExecuteChanged();
+        FitToPageCommand.NotifyCanExecuteChanged();
         RotateLeftCommand.NotifyCanExecuteChanged();
         RotateRightCommand.NotifyCanExecuteChanged();
     }
@@ -205,6 +220,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     partial void OnCurrentRenderedBitmapChanged(Bitmap? value)
     {
         OnPropertyChanged(nameof(HasRenderedPage));
+        FitToWidthCommand.NotifyCanExecuteChanged();
+        FitToPageCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnCurrentDocumentNameChanged(string? value)
@@ -338,6 +355,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         var nextZoom = Math.Min(MaxZoom, pageState.ZoomFactor + ZoomStep);
 
         _pageViewportStore.SetPageState(pageState.WithZoom(nextZoom));
+        if (!TryUpdateZoom(nextZoom, ZoomMode.Custom))
+        {
+            return;
+        }
+
         RefreshPageViewState();
 
         await RenderCurrentPageAsync();
@@ -353,10 +375,37 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         var nextZoom = Math.Max(MinZoom, pageState.ZoomFactor - ZoomStep);
 
         _pageViewportStore.SetPageState(pageState.WithZoom(nextZoom));
+        if (!TryUpdateZoom(nextZoom, ZoomMode.Custom))
+        {
+            return;
+        }
+
         RefreshPageViewState();
 
         await RenderCurrentPageAsync();
         StatusText = $"Zoom set to {CurrentZoom}";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanUseFitCommands))]
+    private async Task FitToWidthAsync()
+    {
+        if (!await TryApplyViewportFitAsync(ZoomMode.FitToWidth, forceRender: true))
+        {
+            return;
+        }
+
+        StatusText = "Fit to width applied";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanUseFitCommands))]
+    private async Task FitToPageAsync()
+    {
+        if (!await TryApplyViewportFitAsync(ZoomMode.FitToPage, forceRender: true))
+        {
+            return;
+        }
+
+        StatusText = "Fit to page applied";
     }
 
     [RelayCommand(CanExecute = nameof(HasOpenDocument))]
@@ -374,9 +423,19 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         };
 
         _pageViewportStore.SetPageState(pageState.WithRotation(nextRotation));
+        if (!TryUpdateRotation(nextRotation))
+        {
+            return;
+        }
+
         RefreshPageViewState();
 
-        if (!await TryApplyImageAutoFitAsync(forceRender: true))
+        if (CurrentZoomMode is ZoomMode.FitToPage or ZoomMode.FitToWidth)
+        {
+            await RenderCurrentPageAsync(preserveStatusText: true);
+        }
+
+        if (!await TryApplyViewportFitAsync(CurrentZoomMode, forceRender: true))
         {
             await RenderCurrentPageAsync();
         }
@@ -400,9 +459,19 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         };
 
         _pageViewportStore.SetPageState(pageState.WithRotation(nextRotation));
+        if (!TryUpdateRotation(nextRotation))
+        {
+            return;
+        }
+
         RefreshPageViewState();
 
-        if (!await TryApplyImageAutoFitAsync(forceRender: true))
+        if (CurrentZoomMode is ZoomMode.FitToPage or ZoomMode.FitToWidth)
+        {
+            await RenderCurrentPageAsync(preserveStatusText: true);
+        }
+
+        if (!await TryApplyViewportFitAsync(CurrentZoomMode, forceRender: true))
         {
             await RenderCurrentPageAsync();
         }
@@ -457,13 +526,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         _documentViewportWidth = viewportWidth;
         _documentViewportHeight = viewportHeight;
+        FitToWidthCommand.NotifyCanExecuteChanged();
+        FitToPageCommand.NotifyCanExecuteChanged();
 
         if (!widthChanged && !heightChanged)
         {
             return;
         }
 
-        await TryApplyImageAutoFitAsync(preserveStatusText: true);
+        await TryApplyViewportFitAsync(CurrentZoomMode, preserveStatusText: true);
     }
 
     private async Task OpenDocumentFromPathAsync(string filePath)
@@ -483,9 +554,6 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _pageViewportStore.SetActivePage(new PageIndex(0));
         RefreshPageViewState();
 
-        _isImageAutoFitEnabled = IsCurrentImageDocument;
-        NotifyViewerModeChanged();
-
         ClearThumbnails();
         if (!IsCurrentImageDocument)
         {
@@ -497,7 +565,19 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         UserMessage = null;
         StatusText = $"Opened {CurrentDocumentName}";
 
-        if (!await TryApplyImageAutoFitAsync(forceRender: true))
+        if (IsCurrentImageDocument)
+        {
+            if (!await TryApplyViewportFitAsync(ZoomMode.FitToPage, forceRender: true))
+            {
+                _isImageAutoFitEnabled = true;
+                NotifyViewerModeChanged();
+                TryUpdateZoom(
+                    _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex).ZoomFactor,
+                    ZoomMode.FitToPage);
+                await RenderCurrentPageAsync();
+            }
+        }
+        else
         {
             await RenderCurrentPageAsync();
         }
@@ -528,9 +608,25 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         _pageViewportStore.SetActivePage(new PageIndex(pageNumber - 1));
+        var activePageState = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex);
+        if (!TrySyncSessionToActivePageState(activePageState))
+        {
+            return;
+        }
+
         RefreshFromSession();
         RefreshPageViewState();
-        await RenderCurrentPageAsync();
+
+        if (CurrentZoomMode is ZoomMode.FitToPage or ZoomMode.FitToWidth)
+        {
+            await RenderCurrentPageAsync(preserveStatusText: true);
+            await TryApplyViewportFitAsync(CurrentZoomMode, forceRender: true);
+        }
+        else
+        {
+            await RenderCurrentPageAsync();
+        }
+
         StatusText = $"Page {CurrentPage}";
     }
 
@@ -842,40 +938,160 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         NotifyViewerModeChanged();
     }
 
-    private async Task<bool> TryApplyImageAutoFitAsync(
+    private async Task<bool> TryApplyViewportFitAsync(
+        ZoomMode zoomMode,
         bool preserveStatusText = false,
         bool forceRender = false)
     {
-        if (!_isImageAutoFitEnabled ||
+        if (zoomMode is ZoomMode.Custom ||
+            !HasOpenDocument ||
             _documentViewportWidth <= 0 ||
-            _documentViewportHeight <= 0 ||
-            _documentSessionStore.Current is not IImageDocumentSession imageSession)
+            _documentViewportHeight <= 0)
+        {
+            return false;
+        }
+
+        if (!TryCalculateFitZoom(zoomMode, out var fitZoom))
         {
             return false;
         }
 
         var pageState = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex);
-        var fitZoom = ImageViewportCalculator.CalculateFitZoom(
-            imageSession.ImageMetadata,
-            pageState.Rotation,
-            Math.Max(1, _documentViewportWidth - (ViewerContentPadding * 2)),
-            Math.Max(1, _documentViewportHeight - (ViewerContentPadding * 2)));
+        fitZoom = Math.Clamp(fitZoom, MinZoom, MaxZoom);
 
         var zoomChanged = Math.Abs(pageState.ZoomFactor - fitZoom) > ZoomComparisonTolerance;
-        if (!zoomChanged && !forceRender && CurrentRenderedBitmap is not null)
+        var zoomModeChanged = CurrentZoomMode != zoomMode;
+        var shouldEnableImageAutoFit = IsCurrentImageDocument && zoomMode is ZoomMode.FitToPage;
+
+        if (_isImageAutoFitEnabled != shouldEnableImageAutoFit)
+        {
+            _isImageAutoFitEnabled = shouldEnableImageAutoFit;
+            NotifyViewerModeChanged();
+        }
+
+        if (!zoomChanged &&
+            !zoomModeChanged &&
+            !forceRender &&
+            CurrentRenderedBitmap is not null)
         {
             return false;
         }
 
-        if (zoomChanged)
+        if (zoomChanged || zoomModeChanged)
         {
             _pageViewportStore.SetPageState(pageState.WithZoom(fitZoom));
+            if (!TryUpdateZoom(fitZoom, zoomMode))
+            {
+                return false;
+            }
+
             RefreshPageViewState();
         }
 
         await RenderCurrentPageAsync(preserveStatusText);
         return true;
     }
+
+    private bool TryCalculateFitZoom(ZoomMode zoomMode, out double fitZoom)
+    {
+        var availableWidth = Math.Max(1, _documentViewportWidth - (ViewerContentPadding * 2));
+        var availableHeight = Math.Max(1, _documentViewportHeight - (ViewerContentPadding * 2));
+        var pageState = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex);
+
+        if (_documentSessionStore.Current is IImageDocumentSession imageSession)
+        {
+            fitZoom = zoomMode switch
+            {
+                ZoomMode.FitToWidth => ImageViewportCalculator.CalculateFitWidthZoom(
+                    imageSession.ImageMetadata,
+                    pageState.Rotation,
+                    availableWidth),
+                ZoomMode.FitToPage => ImageViewportCalculator.CalculateFitZoom(
+                    imageSession.ImageMetadata,
+                    pageState.Rotation,
+                    availableWidth,
+                    availableHeight),
+                _ => 0
+            };
+
+            return zoomMode is ZoomMode.FitToPage or ZoomMode.FitToWidth;
+        }
+
+        if (CurrentRenderedBitmap is null)
+        {
+            fitZoom = 0;
+            return false;
+        }
+
+        fitZoom = zoomMode switch
+        {
+            ZoomMode.FitToWidth => RenderedPageViewportCalculator.CalculateFitToWidthZoom(
+                CurrentRenderedBitmap.PixelSize.Width,
+                pageState.ZoomFactor,
+                availableWidth),
+            ZoomMode.FitToPage => RenderedPageViewportCalculator.CalculateFitToPageZoom(
+                CurrentRenderedBitmap.PixelSize.Width,
+                CurrentRenderedBitmap.PixelSize.Height,
+                pageState.ZoomFactor,
+                availableWidth,
+                availableHeight),
+            _ => 0
+        };
+
+        return zoomMode is ZoomMode.FitToPage or ZoomMode.FitToWidth;
+    }
+
+    private bool TryUpdateZoom(double zoomFactor, ZoomMode zoomMode)
+    {
+        var result = _changeZoomUseCase.Execute(
+            new ChangeZoomRequest(zoomFactor, zoomMode));
+
+        if (result.IsFailure)
+        {
+            UserMessage = result.Error?.Message ?? "Unable to update zoom.";
+            StatusText = "Zoom update failed";
+            return false;
+        }
+
+        RefreshFromSession();
+        return true;
+    }
+
+    private bool TryUpdateRotation(Rotation rotation)
+    {
+        var result = _rotateDocumentUseCase.Execute(
+            new RotateDocumentRequest(rotation));
+
+        if (result.IsFailure)
+        {
+            UserMessage = result.Error?.Message ?? "Unable to update rotation.";
+            StatusText = "Rotation update failed";
+            return false;
+        }
+
+        RefreshFromSession();
+        return true;
+    }
+
+    private bool TrySyncSessionToActivePageState(PageViewportState pageState)
+    {
+        ArgumentNullException.ThrowIfNull(pageState);
+
+        if (!TryUpdateRotation(pageState.Rotation))
+        {
+            return false;
+        }
+
+        var zoomMode = CurrentZoomMode;
+        var targetZoom = zoomMode is ZoomMode.Custom
+            ? pageState.ZoomFactor
+            : (_documentSessionStore.CurrentViewport?.ZoomFactor ?? pageState.ZoomFactor);
+
+        return TryUpdateZoom(targetZoom, zoomMode);
+    }
+
+    private ZoomMode CurrentZoomMode =>
+        _documentSessionStore.CurrentViewport?.ZoomMode ?? ZoomMode.Custom;
 
     private void NotifyViewerModeChanged()
     {

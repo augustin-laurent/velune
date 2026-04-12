@@ -14,6 +14,7 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
     private readonly object _gate = new();
     private readonly Queue<Guid> _queue = [];
     private readonly Dictionary<Guid, QueuedRenderJob> _jobs = [];
+    private readonly IRenderMemoryCache _renderMemoryCache;
     private readonly IDocumentSessionStore _sessionStore;
     private readonly IRenderService _renderService;
     private readonly CancellationTokenSource _shutdownCancellationTokenSource = new();
@@ -22,12 +23,15 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
     private bool _disposed;
 
     public RenderOrchestrator(
+        IRenderMemoryCache renderMemoryCache,
         IDocumentSessionStore sessionStore,
         IRenderService renderService)
     {
+        ArgumentNullException.ThrowIfNull(renderMemoryCache);
         ArgumentNullException.ThrowIfNull(sessionStore);
         ArgumentNullException.ThrowIfNull(renderService);
 
+        _renderMemoryCache = renderMemoryCache;
         _sessionStore = sessionStore;
         _renderService = renderService;
         _worker = Task.Run(ProcessQueueAsync);
@@ -85,13 +89,6 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
                         "The requested page is out of range.")));
         }
 
-        var job = new QueuedRenderJob(
-            Guid.NewGuid(),
-            request,
-            session,
-            TaskCompletionSourceFactory.Create<RenderResult>(),
-            CancellationTokenSource.CreateLinkedTokenSource(_shutdownCancellationTokenSource.Token));
-
         List<QueuedRenderJob> obsoleteJobs = [];
 
         lock (_gate)
@@ -105,14 +102,43 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
             {
                 _jobs.Remove(obsoleteJob.Id);
             }
-
-            _jobs[job.Id] = job;
-            _queue.Enqueue(job.Id);
         }
 
         foreach (var obsoleteJob in obsoleteJobs)
         {
             CancelJob(obsoleteJob, isObsolete: true);
+        }
+
+        if (_renderMemoryCache.TryGet(session.Id, request, out var cachedPage) &&
+            cachedPage is not null)
+        {
+            var cachedJobId = Guid.NewGuid();
+
+            return new RenderJobHandle(
+                cachedJobId,
+                Task.FromResult(new RenderResult(
+                    cachedJobId,
+                    session.Id,
+                    request.JobKey,
+                    request.PageIndex,
+                    TimeSpan.Zero,
+                    cachedPage,
+                    Error: null,
+                    IsCanceled: false,
+                    IsObsolete: false)));
+        }
+
+        var job = new QueuedRenderJob(
+            Guid.NewGuid(),
+            request,
+            session,
+            TaskCompletionSourceFactory.Create<RenderResult>(),
+            CancellationTokenSource.CreateLinkedTokenSource(_shutdownCancellationTokenSource.Token));
+
+        lock (_gate)
+        {
+            _jobs[job.Id] = job;
+            _queue.Enqueue(job.Id);
         }
 
         _signal.Release();
@@ -290,6 +316,11 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
                 ResultFactory.Success(renderedPage),
                 isCanceled: false,
                 isObsolete: job.IsObsolete);
+
+            _renderMemoryCache.Store(
+                job.Session.Id,
+                job.Request,
+                renderedPage);
         }
         catch (OperationCanceledException)
         {

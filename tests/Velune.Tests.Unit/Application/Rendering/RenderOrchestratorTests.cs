@@ -1,4 +1,7 @@
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Velune.Application.Abstractions;
+using Velune.Application.Configuration;
 using Velune.Application.DTOs;
 using Velune.Application.Rendering;
 using Velune.Domain.Abstractions;
@@ -15,7 +18,7 @@ public sealed class RenderOrchestratorTests
         var store = CreateStoreWithSession();
         var renderService = new ControlledRenderService();
         var releaseGate = renderService.EnqueueGate();
-        using var orchestrator = new RenderOrchestrator(store, renderService);
+        using var orchestrator = new RenderOrchestrator(CreateCache(), store, renderService);
 
         var handle = orchestrator.Submit(
             new RenderRequest("viewer", new PageIndex(0), 1.0, Rotation.Deg0));
@@ -38,7 +41,7 @@ public sealed class RenderOrchestratorTests
         var store = CreateStoreWithSession();
         var renderService = new ControlledRenderService();
         var releaseGate = renderService.EnqueueGate();
-        using var orchestrator = new RenderOrchestrator(store, renderService);
+        using var orchestrator = new RenderOrchestrator(CreateCache(), store, renderService);
 
         var handle = orchestrator.Submit(
             new RenderRequest("viewer", new PageIndex(0), 1.0, Rotation.Deg0));
@@ -60,7 +63,7 @@ public sealed class RenderOrchestratorTests
         var store = CreateStoreWithSession();
         var renderService = new ControlledRenderService();
         var blockerGate = renderService.EnqueueGate();
-        using var orchestrator = new RenderOrchestrator(store, renderService);
+        using var orchestrator = new RenderOrchestrator(CreateCache(), store, renderService);
 
         var blocker = orchestrator.Submit(
             new RenderRequest("blocker", new PageIndex(0), 1.0, Rotation.Deg0));
@@ -97,6 +100,16 @@ public sealed class RenderOrchestratorTests
             ViewportState.Default));
 
         return store;
+    }
+
+    private static IRenderMemoryCache CreateCache()
+    {
+        return new RenderMemoryCache(
+            NullLogger<RenderMemoryCache>.Instance,
+            Options.Create(new AppOptions
+            {
+                RenderCacheEntryLimit = 8
+            }));
     }
 
     private sealed class ControlledRenderService : IRenderService

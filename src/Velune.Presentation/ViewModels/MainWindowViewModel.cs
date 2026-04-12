@@ -17,6 +17,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 {
     private const string ViewerRenderJobKey = "viewer";
     private const string ThumbnailRenderJobPrefix = "thumbnail:";
+    private const int ThumbnailRequestedWidth = 170;
+    private const int ThumbnailRequestedHeight = 150;
     private const double ZoomStep = 0.10;
     private const double MinZoom = 0.25;
     private const double MaxZoom = 5.00;
@@ -898,7 +900,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             CreateThumbnailJobKey(pageIndex),
             pageIndex,
             ThumbnailZoomFactor,
-            rotation);
+            rotation,
+            ThumbnailRequestedWidth,
+            ThumbnailRequestedHeight);
     }
 
     private static string CreateThumbnailJobKey(PageIndex pageIndex) =>

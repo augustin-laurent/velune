@@ -18,7 +18,7 @@ public sealed class RenderOrchestratorTests
         var store = CreateStoreWithSession();
         var renderService = new ControlledRenderService();
         var releaseGate = renderService.EnqueueGate();
-        using var orchestrator = new RenderOrchestrator(CreateCache(), store, renderService);
+        using var orchestrator = new RenderOrchestrator(CreateCache(), new NullThumbnailDiskCache(), store, renderService);
 
         var handle = orchestrator.Submit(
             new RenderRequest("viewer", new PageIndex(0), 1.0, Rotation.Deg0));
@@ -41,7 +41,7 @@ public sealed class RenderOrchestratorTests
         var store = CreateStoreWithSession();
         var renderService = new ControlledRenderService();
         var releaseGate = renderService.EnqueueGate();
-        using var orchestrator = new RenderOrchestrator(CreateCache(), store, renderService);
+        using var orchestrator = new RenderOrchestrator(CreateCache(), new NullThumbnailDiskCache(), store, renderService);
 
         var handle = orchestrator.Submit(
             new RenderRequest("viewer", new PageIndex(0), 1.0, Rotation.Deg0));
@@ -63,7 +63,7 @@ public sealed class RenderOrchestratorTests
         var store = CreateStoreWithSession();
         var renderService = new ControlledRenderService();
         var blockerGate = renderService.EnqueueGate();
-        using var orchestrator = new RenderOrchestrator(CreateCache(), store, renderService);
+        using var orchestrator = new RenderOrchestrator(CreateCache(), new NullThumbnailDiskCache(), store, renderService);
 
         var blocker = orchestrator.Submit(
             new RenderRequest("blocker", new PageIndex(0), 1.0, Rotation.Deg0));
@@ -91,6 +91,25 @@ public sealed class RenderOrchestratorTests
         Assert.Equal(2, renderService.InvocationCount);
     }
 
+    [Fact]
+    public async Task Submit_ShouldReuseThumbnailFromDiskCache()
+    {
+        var store = CreateStoreWithSession();
+        var renderService = new ControlledRenderService();
+        var diskCache = new StubThumbnailDiskCache(CreatePage(pageIndex: 0));
+        using var orchestrator = new RenderOrchestrator(CreateCache(), diskCache, store, renderService);
+
+        var handle = orchestrator.Submit(
+            new RenderRequest("thumbnail:0", new PageIndex(0), 0.20, Rotation.Deg0, 170, 150));
+
+        var result = await handle.Completion.WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Page);
+        Assert.Equal(0, renderService.InvocationCount);
+        Assert.Equal(1, diskCache.HitCount);
+    }
+
     private static InMemoryDocumentSessionStore CreateStoreWithSession()
     {
         var store = new InMemoryDocumentSessionStore();
@@ -110,6 +129,15 @@ public sealed class RenderOrchestratorTests
             {
                 RenderCacheEntryLimit = 8
             }));
+    }
+
+    private static RenderedPage CreatePage(int pageIndex)
+    {
+        return new RenderedPage(
+            new PageIndex(pageIndex),
+            [0, 0, 0, 255],
+            1,
+            1);
     }
 
     private sealed class ControlledRenderService : IRenderService
@@ -163,6 +191,43 @@ public sealed class RenderOrchestratorTests
                 [0, 0, 0, 255],
                 1,
                 1);
+        }
+    }
+
+    private sealed class StubThumbnailDiskCache : IThumbnailDiskCache
+    {
+        private readonly RenderedPage _renderedPage;
+
+        public StubThumbnailDiskCache(RenderedPage renderedPage)
+        {
+            ArgumentNullException.ThrowIfNull(renderedPage);
+            _renderedPage = renderedPage;
+        }
+
+        public int HitCount
+        {
+            get;
+            private set;
+        }
+
+        public bool TryGet(
+            IDocumentSession session,
+            RenderRequest request,
+            out RenderedPage? renderedPage)
+        {
+            ArgumentNullException.ThrowIfNull(session);
+            ArgumentNullException.ThrowIfNull(request);
+
+            HitCount++;
+            renderedPage = _renderedPage;
+            return true;
+        }
+
+        public void Store(
+            IDocumentSession session,
+            RenderRequest request,
+            RenderedPage renderedPage)
+        {
         }
     }
 }

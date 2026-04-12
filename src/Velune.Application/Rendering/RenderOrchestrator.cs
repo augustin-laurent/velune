@@ -15,6 +15,7 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
     private readonly Queue<Guid> _queue = [];
     private readonly Dictionary<Guid, QueuedRenderJob> _jobs = [];
     private readonly IRenderMemoryCache _renderMemoryCache;
+    private readonly IThumbnailDiskCache _thumbnailDiskCache;
     private readonly IDocumentSessionStore _sessionStore;
     private readonly IRenderService _renderService;
     private readonly CancellationTokenSource _shutdownCancellationTokenSource = new();
@@ -24,14 +25,17 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
 
     public RenderOrchestrator(
         IRenderMemoryCache renderMemoryCache,
+        IThumbnailDiskCache thumbnailDiskCache,
         IDocumentSessionStore sessionStore,
         IRenderService renderService)
     {
         ArgumentNullException.ThrowIfNull(renderMemoryCache);
+        ArgumentNullException.ThrowIfNull(thumbnailDiskCache);
         ArgumentNullException.ThrowIfNull(sessionStore);
         ArgumentNullException.ThrowIfNull(renderService);
 
         _renderMemoryCache = renderMemoryCache;
+        _thumbnailDiskCache = thumbnailDiskCache;
         _sessionStore = sessionStore;
         _renderService = renderService;
         _worker = Task.Run(ProcessQueueAsync);
@@ -301,26 +305,55 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
 
         try
         {
-            var renderedPage = await _renderService.RenderPageAsync(
-                job.Session,
-                job.Request.PageIndex,
-                job.Request.ZoomFactor,
-                job.Request.Rotation,
-                job.CancellationTokenSource.Token);
+            if (IsThumbnailRequest(job.Request) &&
+                _thumbnailDiskCache.TryGet(job.Session, job.Request, out var cachedThumbnail) &&
+                cachedThumbnail is not null)
+            {
+                result = CreateResult(
+                    job.Id,
+                    job.Session.Id,
+                    job.Request,
+                    stopwatch.Elapsed,
+                    ResultFactory.Success(cachedThumbnail),
+                    isCanceled: false,
+                    isObsolete: job.IsObsolete);
 
-            result = CreateResult(
-                job.Id,
-                job.Session.Id,
-                job.Request,
-                stopwatch.Elapsed,
-                ResultFactory.Success(renderedPage),
-                isCanceled: false,
-                isObsolete: job.IsObsolete);
+                _renderMemoryCache.Store(
+                    job.Session.Id,
+                    job.Request,
+                    cachedThumbnail);
+            }
+            else
+            {
+                var renderedPage = await _renderService.RenderPageAsync(
+                    job.Session,
+                    job.Request.PageIndex,
+                    job.Request.ZoomFactor,
+                    job.Request.Rotation,
+                    job.CancellationTokenSource.Token);
 
-            _renderMemoryCache.Store(
-                job.Session.Id,
-                job.Request,
-                renderedPage);
+                result = CreateResult(
+                    job.Id,
+                    job.Session.Id,
+                    job.Request,
+                    stopwatch.Elapsed,
+                    ResultFactory.Success(renderedPage),
+                    isCanceled: false,
+                    isObsolete: job.IsObsolete);
+
+                _renderMemoryCache.Store(
+                    job.Session.Id,
+                    job.Request,
+                    renderedPage);
+
+                if (IsThumbnailRequest(job.Request))
+                {
+                    _thumbnailDiskCache.Store(
+                        job.Session,
+                        job.Request,
+                        renderedPage);
+                }
+            }
         }
         catch (OperationCanceledException)
         {
@@ -397,6 +430,12 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
     private void ThrowIfDisposed()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+    }
+
+    private static bool IsThumbnailRequest(RenderRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return request.RequestedWidth.HasValue && request.RequestedHeight.HasValue;
     }
 
     private sealed class QueuedRenderJob : IDisposable

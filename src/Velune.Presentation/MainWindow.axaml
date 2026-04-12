@@ -49,6 +49,8 @@
 
           <Button Content="Zoom In" Command="{Binding ZoomInCommand}" />
           <Button Content="Zoom Out" Command="{Binding ZoomOutCommand}" />
+          <Button Content="Fit Width" Command="{Binding FitToWidthCommand}" />
+          <Button Content="Fit Page" Command="{Binding FitToPageCommand}" />
           <Button Content="Rotate Left" Command="{Binding RotateLeftCommand}" />
           <Button Content="Rotate Right" Command="{Binding RotateRightCommand}" />
         </StackPanel>

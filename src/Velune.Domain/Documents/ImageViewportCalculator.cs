@@ -34,4 +34,29 @@ public static class ImageViewportCalculator
 
         return Math.Min(availableWidth / imageWidth, availableHeight / imageHeight);
     }
+
+    public static double CalculateFitWidthZoom(
+        ImageMetadata imageMetadata,
+        Rotation rotation,
+        double availableWidth)
+    {
+        ArgumentNullException.ThrowIfNull(imageMetadata);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(availableWidth);
+
+        if (imageMetadata.Width <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(imageMetadata), "Image width must be greater than zero.");
+        }
+
+        if (imageMetadata.Height <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(imageMetadata), "Image height must be greater than zero.");
+        }
+
+        var imageWidth = rotation is Rotation.Deg90 or Rotation.Deg270
+            ? imageMetadata.Height
+            : imageMetadata.Width;
+
+        return availableWidth / imageWidth;
+    }
 }

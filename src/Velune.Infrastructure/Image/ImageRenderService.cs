@@ -41,8 +41,8 @@ public sealed class ImageRenderService : IRenderService
             var sourceWidth = source.PixelSize.Width;
             var sourceHeight = source.PixelSize.Height;
 
-            var scaledWidth = Math.Max(1, (int)Math.Round(sourceWidth * zoomFactor));
-            var scaledHeight = Math.Max(1, (int)Math.Round(sourceHeight * zoomFactor));
+            var scaledWidth = Math.Max(1, (int)Math.Floor(sourceWidth * zoomFactor));
+            var scaledHeight = Math.Max(1, (int)Math.Floor(sourceHeight * zoomFactor));
 
             using var resized = source.CreateScaledBitmap(
                 new PixelSize(scaledWidth, scaledHeight),

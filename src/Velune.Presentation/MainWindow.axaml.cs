@@ -63,4 +63,16 @@ public partial class MainWindow : Window
             await viewModel.NavigateToNextPageFromTrackpadAsync();
         }
     }
+
+    private async void OnDocumentViewerSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel viewModel)
+        {
+            return;
+        }
+
+        await viewModel.UpdateDocumentViewportAsync(
+            e.NewSize.Width,
+            e.NewSize.Height);
+    }
 }

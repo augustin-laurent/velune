@@ -7,4 +7,5 @@ public sealed class AppOptions
     public string Name { get; set; } = "Velune";
     public string Environment { get; set; } = "Development";
     public int RecentFilesLimit { get; set; } = 10;
+    public int RenderCacheEntryLimit { get; set; } = 64;
 }

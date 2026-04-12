@@ -22,6 +22,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IDocumentSessionStore, InMemoryDocumentSessionStore>();
         services.AddSingleton<IRecentFilesService, InMemoryRecentFilesService>();
         services.AddSingleton<IPageViewportStore, InMemoryPageViewportStore>();
+        services.AddSingleton<IRenderMemoryCache, RenderMemoryCache>();
         services.AddSingleton<IRenderOrchestrator, RenderOrchestrator>();
 
         services.AddTransient<OpenDocumentUseCase>();

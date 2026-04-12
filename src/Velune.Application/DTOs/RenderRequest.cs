@@ -6,4 +6,6 @@ public sealed record RenderRequest(
     string JobKey,
     PageIndex PageIndex,
     double ZoomFactor,
-    Rotation Rotation);
+    Rotation Rotation,
+    int? RequestedWidth = null,
+    int? RequestedHeight = null);

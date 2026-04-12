@@ -1,5 +1,6 @@
 using Velune.Application.Abstractions;
 using Velune.Application.DTOs;
+using Velune.Application.Rendering;
 using Velune.Application.Results;
 using Velune.Domain.Abstractions;
 using Velune.Domain.Documents;
@@ -48,13 +49,25 @@ public sealed class RenderVisiblePageUseCase
                     "The requested page is out of range."));
         }
 
-        var renderedPage = await _renderService.RenderPageAsync(
-            session,
-            request.PageIndex,
-            request.ZoomFactor,
-            request.Rotation,
-            cancellationToken);
+        try
+        {
+            var renderedPage = await _renderService.RenderPageAsync(
+                session,
+                request.PageIndex,
+                request.ZoomFactor,
+                request.Rotation,
+                cancellationToken);
 
-        return ResultFactory.Success(renderedPage);
+            return ResultFactory.Success(renderedPage);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            return ResultFactory.Failure<RenderedPage>(
+                RenderErrorMapper.Map(exception));
+        }
     }
 }

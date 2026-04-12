@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Velune.Application.Abstractions;
 using Velune.Application.Configuration;
+using Velune.Application.Rendering;
 using Velune.Application.UseCases;
 
 namespace Velune.Application.DependencyInjection;
@@ -21,6 +22,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IDocumentSessionStore, InMemoryDocumentSessionStore>();
         services.AddSingleton<IRecentFilesService, InMemoryRecentFilesService>();
         services.AddSingleton<IPageViewportStore, InMemoryPageViewportStore>();
+        services.AddSingleton<IRenderOrchestrator, RenderOrchestrator>();
 
         services.AddTransient<OpenDocumentUseCase>();
         services.AddTransient<CloseDocumentUseCase>();

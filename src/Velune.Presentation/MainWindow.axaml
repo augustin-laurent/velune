@@ -9,6 +9,18 @@
     Title="{Binding Title}">
 
   <Window.KeyBindings>
+    <KeyBinding Gesture="Ctrl+O" Command="{Binding OpenCommand}" />
+    <KeyBinding Gesture="Meta+O" Command="{Binding OpenCommand}" />
+    <KeyBinding Gesture="Ctrl+Add" Command="{Binding ZoomInCommand}" />
+    <KeyBinding Gesture="Ctrl+OemPlus" Command="{Binding ZoomInCommand}" />
+    <KeyBinding Gesture="Meta+Add" Command="{Binding ZoomInCommand}" />
+    <KeyBinding Gesture="Meta+OemPlus" Command="{Binding ZoomInCommand}" />
+    <KeyBinding Gesture="Ctrl+Subtract" Command="{Binding ZoomOutCommand}" />
+    <KeyBinding Gesture="Ctrl+OemMinus" Command="{Binding ZoomOutCommand}" />
+    <KeyBinding Gesture="Meta+Subtract" Command="{Binding ZoomOutCommand}" />
+    <KeyBinding Gesture="Meta+OemMinus" Command="{Binding ZoomOutCommand}" />
+    <KeyBinding Gesture="Right" Command="{Binding NextPageCommand}" />
+    <KeyBinding Gesture="Left" Command="{Binding PreviousPageCommand}" />
     <KeyBinding Gesture="PageDown" Command="{Binding NextPageCommand}" />
     <KeyBinding Gesture="PageUp" Command="{Binding PreviousPageCommand}" />
   </Window.KeyBindings>

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Velune.Application.Abstractions;
 using Velune.Application.DTOs;
 using Velune.Application.Results;
@@ -8,17 +9,21 @@ namespace Velune.Application.UseCases;
 public sealed class OpenDocumentUseCase
 {
     private readonly IDocumentOpener _documentOpener;
+    private readonly IPerformanceMetrics _performanceMetrics;
     private readonly IDocumentSessionStore _sessionStore;
 
     public OpenDocumentUseCase(
         IDocumentOpener documentOpener,
-        IDocumentSessionStore sessionStore)
+        IDocumentSessionStore sessionStore,
+        IPerformanceMetrics performanceMetrics)
     {
         ArgumentNullException.ThrowIfNull(documentOpener);
         ArgumentNullException.ThrowIfNull(sessionStore);
+        ArgumentNullException.ThrowIfNull(performanceMetrics);
 
         _documentOpener = documentOpener;
         _sessionStore = sessionStore;
+        _performanceMetrics = performanceMetrics;
     }
 
     public async Task<Result<IDocumentSession>> ExecuteAsync(
@@ -35,10 +40,13 @@ public sealed class OpenDocumentUseCase
                     "File path cannot be empty."));
         }
 
+        var stopwatch = Stopwatch.StartNew();
+
         try
         {
             var session = await _documentOpener.OpenAsync(request.FilePath, cancellationToken);
             _sessionStore.SetCurrent(session);
+            _performanceMetrics.RecordDocumentOpened(session, stopwatch.Elapsed);
 
             return ResultFactory.Success(session);
         }

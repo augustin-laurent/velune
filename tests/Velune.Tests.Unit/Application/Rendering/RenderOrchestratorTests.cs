@@ -3,10 +3,12 @@ using Microsoft.Extensions.Options;
 using Velune.Application.Abstractions;
 using Velune.Application.Configuration;
 using Velune.Application.DTOs;
+using Velune.Application.Instrumentation;
 using Velune.Application.Rendering;
 using Velune.Domain.Abstractions;
 using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
+using Velune.Tests.Unit.Support;
 
 namespace Velune.Tests.Unit.Application.Rendering;
 
@@ -18,7 +20,7 @@ public sealed class RenderOrchestratorTests
         var store = CreateStoreWithSession();
         var renderService = new ControlledRenderService();
         var releaseGate = renderService.EnqueueGate();
-        using var orchestrator = new RenderOrchestrator(CreateCache(), new NullThumbnailDiskCache(), store, renderService);
+        using var orchestrator = new RenderOrchestrator(NoOpPerformanceMetrics.Instance, CreateCache(), new NullThumbnailDiskCache(), store, renderService);
 
         var handle = orchestrator.Submit(
             new RenderRequest("viewer", new PageIndex(0), 1.0, Rotation.Deg0));
@@ -41,7 +43,7 @@ public sealed class RenderOrchestratorTests
         var store = CreateStoreWithSession();
         var renderService = new ControlledRenderService();
         var releaseGate = renderService.EnqueueGate();
-        using var orchestrator = new RenderOrchestrator(CreateCache(), new NullThumbnailDiskCache(), store, renderService);
+        using var orchestrator = new RenderOrchestrator(NoOpPerformanceMetrics.Instance, CreateCache(), new NullThumbnailDiskCache(), store, renderService);
 
         var handle = orchestrator.Submit(
             new RenderRequest("viewer", new PageIndex(0), 1.0, Rotation.Deg0));
@@ -63,7 +65,7 @@ public sealed class RenderOrchestratorTests
         var store = CreateStoreWithSession();
         var renderService = new ControlledRenderService();
         var blockerGate = renderService.EnqueueGate();
-        using var orchestrator = new RenderOrchestrator(CreateCache(), new NullThumbnailDiskCache(), store, renderService);
+        using var orchestrator = new RenderOrchestrator(NoOpPerformanceMetrics.Instance, CreateCache(), new NullThumbnailDiskCache(), store, renderService);
 
         var blocker = orchestrator.Submit(
             new RenderRequest("blocker", new PageIndex(0), 1.0, Rotation.Deg0));
@@ -97,7 +99,7 @@ public sealed class RenderOrchestratorTests
         var store = CreateStoreWithSession();
         var renderService = new ControlledRenderService();
         var diskCache = new StubThumbnailDiskCache(CreatePage(pageIndex: 0));
-        using var orchestrator = new RenderOrchestrator(CreateCache(), diskCache, store, renderService);
+        using var orchestrator = new RenderOrchestrator(NoOpPerformanceMetrics.Instance, CreateCache(), diskCache, store, renderService);
 
         var handle = orchestrator.Submit(
             new RenderRequest("thumbnail:0", new PageIndex(0), 0.20, Rotation.Deg0, 170, 150));
@@ -108,6 +110,53 @@ public sealed class RenderOrchestratorTests
         Assert.NotNull(result.Page);
         Assert.Equal(0, renderService.InvocationCount);
         Assert.Equal(1, diskCache.HitCount);
+    }
+
+    [Fact]
+    public async Task Submit_ShouldLogFirstPageRenderMetric_WhenViewerJobCompletes()
+    {
+        var logger = new ListLogger<DevelopmentPerformanceMetrics>();
+        var metrics = new DevelopmentPerformanceMetrics(
+            logger,
+            Options.Create(new AppOptions()));
+        var store = CreateStoreWithSession();
+        var renderService = new ControlledRenderService();
+        metrics.RecordDocumentOpened(store.Current!, TimeSpan.FromMilliseconds(12));
+        using var orchestrator = new RenderOrchestrator(metrics, CreateCache(), new NullThumbnailDiskCache(), store, renderService);
+
+        var handle = orchestrator.Submit(
+            new RenderRequest("viewer", new PageIndex(0), 1.0, Rotation.Deg0));
+        var result = await handle.Completion;
+
+        Assert.True(result.IsSuccess);
+        Assert.Contains(
+            logger.Entries,
+            entry => entry.LogLevel == Microsoft.Extensions.Logging.LogLevel.Information &&
+                     entry.Message.Contains("FirstPageRender", StringComparison.Ordinal) &&
+                     entry.Message.Contains("TimeToFirstPageMs", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Submit_ShouldLogThumbnailMetric_WhenThumbnailJobCompletes()
+    {
+        var logger = new ListLogger<DevelopmentPerformanceMetrics>();
+        var metrics = new DevelopmentPerformanceMetrics(
+            logger,
+            Options.Create(new AppOptions()));
+        var store = CreateStoreWithSession();
+        var renderService = new ControlledRenderService();
+        using var orchestrator = new RenderOrchestrator(metrics, CreateCache(), new NullThumbnailDiskCache(), store, renderService);
+
+        var handle = orchestrator.Submit(
+            new RenderRequest("thumbnail:0", new PageIndex(0), 0.20, Rotation.Deg0, 170, 150));
+        var result = await handle.Completion;
+
+        Assert.True(result.IsSuccess);
+        Assert.Contains(
+            logger.Entries,
+            entry => entry.LogLevel == Microsoft.Extensions.Logging.LogLevel.Information &&
+                     entry.Message.Contains("ThumbnailRender", StringComparison.Ordinal) &&
+                     entry.Message.Contains("ManagedMemoryMb", StringComparison.Ordinal));
     }
 
     private static InMemoryDocumentSessionStore CreateStoreWithSession()

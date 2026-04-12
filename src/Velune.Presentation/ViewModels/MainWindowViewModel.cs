@@ -514,6 +514,22 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         await NextPageAsync();
     }
 
+    public async Task HandleZoomPointerWheelAsync(double deltaY)
+    {
+        if (!HasOpenDocument || IsRendering || Math.Abs(deltaY) <= double.Epsilon)
+        {
+            return;
+        }
+
+        if (deltaY > 0)
+        {
+            await ZoomInAsync();
+            return;
+        }
+
+        await ZoomOutAsync();
+    }
+
     public async Task UpdateDocumentViewportAsync(double viewportWidth, double viewportHeight)
     {
         if (viewportWidth <= 0 || viewportHeight <= 0)

@@ -13,7 +13,11 @@
     <KeyBinding Gesture="PageUp" Command="{Binding PreviousPageCommand}" />
   </Window.KeyBindings>
 
-  <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="240,*">
+  <Grid RowDefinitions="Auto,*,Auto">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="{Binding SidebarColumnWidth}" />
+      <ColumnDefinition Width="*" />
+    </Grid.ColumnDefinitions>
 
     <!-- Header -->
     <Border Grid.Row="0"
@@ -24,7 +28,7 @@
             BorderThickness="0,0,0,1"
             Background="{DynamicResource Brush.Surface}">
       <DockPanel LastChildFill="False">
-        <TextBlock Text="{Binding ApplicationTitle}"
+        <TextBlock Text="{Binding HeaderTitle}"
                    Classes="title"
                    VerticalAlignment="Center" />
 
@@ -54,11 +58,12 @@
     <!-- Sidebar -->
     <Border Grid.Row="1"
             Grid.Column="0"
-            Width="240"
+            Width="{Binding SidebarWidth}"
             Padding="12"
             BorderBrush="{DynamicResource Brush.Border}"
             BorderThickness="0,0,1,0"
-            Background="{DynamicResource Brush.Surface}">
+            Background="{DynamicResource Brush.Surface}"
+            IsVisible="{Binding IsSidebarVisible}">
       <Grid RowDefinitions="Auto,*">
         <DockPanel Grid.Row="0"
                    LastChildFill="False"
@@ -237,47 +242,48 @@
       <!-- Viewer -->
       <Grid Margin="24"
             IsVisible="{Binding HasOpenDocument}">
-        <Border Classes="card"
-                Padding="16">
-          <Grid RowDefinitions="Auto,*">
-            <DockPanel Grid.Row="0"
-                       Margin="0,0,0,12"
-                       LastChildFill="False">
-              <TextBlock Text="{Binding CurrentDocumentName}"
-                         Classes="title"
-                         VerticalAlignment="Center" />
+        <Grid RowDefinitions="Auto,*">
+          <StackPanel Grid.Row="0"
+                      Orientation="Horizontal"
+                      HorizontalAlignment="Right"
+                      Spacing="12"
+                      Margin="12,0,12,8">
+            <TextBlock Text="{Binding PageIndicator}" Classes="muted" />
+            <TextBlock Text="{Binding CurrentZoom}" Classes="muted" />
+            <TextBlock Text="{Binding CurrentRotation}" Classes="muted" />
+          </StackPanel>
 
-              <StackPanel Orientation="Horizontal"
-                          Spacing="12"
-                          DockPanel.Dock="Right">
-                <TextBlock Text="{Binding PageIndicator}" Classes="muted" />
-                <TextBlock Text="{Binding CurrentZoom}" Classes="muted" />
-                <TextBlock Text="{Binding CurrentRotation}" Classes="muted" />
-              </StackPanel>
-            </DockPanel>
-
-            <Grid Grid.Row="1">
-              <ScrollViewer x:Name="DocumentScrollViewer"
-                            PointerWheelChanged="OnDocumentPointerWheelChanged"
-                            HorizontalScrollBarVisibility="Auto"
-                            VerticalScrollBarVisibility="Auto">
-                <Image Source="{Binding CurrentRenderedBitmap}"
-                       Stretch="None"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Top" />
-              </ScrollViewer>
-
-              <Border Classes="banner"
-                      HorizontalAlignment="Center"
-                      VerticalAlignment="Center"
-                      Padding="12,10"
-                      IsVisible="{Binding IsRendering}">
-                <TextBlock Text="Rendering..."
-                           Classes="muted" />
-              </Border>
+          <Grid Grid.Row="1"
+                Margin="12"
+                SizeChanged="OnDocumentViewerSizeChanged">
+            <Grid IsVisible="{Binding IsImageAutoFitActive}">
+              <Image Source="{Binding CurrentRenderedBitmap}"
+                     Stretch="Uniform"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center" />
             </Grid>
+
+            <ScrollViewer x:Name="DocumentScrollViewer"
+                          IsVisible="{Binding IsScrollableViewerVisible}"
+                          PointerWheelChanged="OnDocumentPointerWheelChanged"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto">
+              <Image Source="{Binding CurrentRenderedBitmap}"
+                     Stretch="None"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Top" />
+            </ScrollViewer>
+
+            <Border Classes="banner"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Padding="12,10"
+                    IsVisible="{Binding IsRendering}">
+              <TextBlock Text="Rendering..."
+                         Classes="muted" />
+            </Border>
           </Grid>
-        </Border>
+        </Grid>
       </Grid>
     </Grid>
 

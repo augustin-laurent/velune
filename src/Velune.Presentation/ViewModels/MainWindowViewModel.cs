@@ -1,10 +1,13 @@
 using System.Collections.ObjectModel;
+using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Velune.Application.Abstractions;
 using Velune.Application.DTOs;
 using Velune.Application.UseCases;
+using Velune.Domain.Abstractions;
+using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
 using Velune.Presentation.Imaging;
 
@@ -16,6 +19,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private const double MinZoom = 0.25;
     private const double MaxZoom = 5.00;
     private const double ThumbnailZoomFactor = 0.20;
+    private const double ViewerContentPadding = 12.0;
+    private const double SidebarExpandedWidth = 240;
+    private const double ViewportResizeThreshold = 1.0;
+    private const double ZoomComparisonTolerance = 0.001;
 
     private readonly IFilePickerService _filePickerService;
     private readonly OpenDocumentUseCase _openDocumentUseCase;
@@ -29,6 +36,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private CancellationTokenSource? _renderCancellationTokenSource;
     private CancellationTokenSource? _thumbnailCancellationTokenSource;
     private bool _disposed;
+    private double _documentViewportWidth;
+    private double _documentViewportHeight;
+    private bool _isImageAutoFitEnabled;
 
     public MainWindowViewModel(
         IFilePickerService filePickerService,
@@ -85,6 +95,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private bool _hasOpenDocument;
 
     [ObservableProperty]
+    private bool _isCurrentImageDocument;
+
+    [ObservableProperty]
     private string? _userMessage;
 
     [ObservableProperty]
@@ -136,6 +149,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public bool HasRenderedPage => CurrentRenderedBitmap is not null;
     public bool HasMultiplePages => TotalPages > 1;
     public bool HasThumbnails => Thumbnails.Count > 0;
+    public string HeaderTitle => CurrentDocumentName ?? ApplicationTitle;
+    public bool IsImageAutoFitActive => HasOpenDocument && IsCurrentImageDocument && _isImageAutoFitEnabled;
+    public bool IsScrollableViewerVisible => !IsImageAutoFitActive;
+    public bool IsSidebarVisible => !HasOpenDocument || !IsCurrentImageDocument;
+    public GridLength SidebarColumnWidth => new(SidebarWidth);
+    public double SidebarWidth => IsSidebarVisible ? SidebarExpandedWidth : 0;
     public string PageIndicator => TotalPages > 0 ? $"{CurrentPage} / {TotalPages}" : "-";
 
     public bool CanGoPreviousPage => HasOpenDocument && CurrentPage > 1;
@@ -143,12 +162,17 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public bool CanGoToPage => HasOpenDocument && TotalPages > 0;
     public bool ShouldUseTrackpadForPan =>
         HasOpenDocument &&
-        _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex).ZoomFactor > 1.0;
+        (IsCurrentImageDocument ||
+         _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex).ZoomFactor > 1.0);
 
     partial void OnHasOpenDocumentChanged(bool value)
     {
         OnPropertyChanged(nameof(IsEmptyStateVisible));
         OnPropertyChanged(nameof(CanGoToPage));
+        NotifyViewerModeChanged();
+        OnPropertyChanged(nameof(IsSidebarVisible));
+        OnPropertyChanged(nameof(SidebarColumnWidth));
+        OnPropertyChanged(nameof(SidebarWidth));
         CloseCommand.NotifyCanExecuteChanged();
         PreviousPageCommand.NotifyCanExecuteChanged();
         NextPageCommand.NotifyCanExecuteChanged();
@@ -157,6 +181,14 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         ZoomOutCommand.NotifyCanExecuteChanged();
         RotateLeftCommand.NotifyCanExecuteChanged();
         RotateRightCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnIsCurrentImageDocumentChanged(bool value)
+    {
+        NotifyViewerModeChanged();
+        OnPropertyChanged(nameof(IsSidebarVisible));
+        OnPropertyChanged(nameof(SidebarColumnWidth));
+        OnPropertyChanged(nameof(SidebarWidth));
     }
 
     partial void OnUserMessageChanged(string? value)
@@ -168,6 +200,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     partial void OnCurrentRenderedBitmapChanged(Bitmap? value)
     {
         OnPropertyChanged(nameof(HasRenderedPage));
+    }
+
+    partial void OnCurrentDocumentNameChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HeaderTitle));
     }
 
     partial void OnCurrentPageChanged(int value)
@@ -290,6 +327,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(HasOpenDocument))]
     private async Task ZoomInAsync()
     {
+        DisableImageAutoFit();
+
         var pageState = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex);
         var nextZoom = Math.Min(MaxZoom, pageState.ZoomFactor + ZoomStep);
 
@@ -303,6 +342,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(HasOpenDocument))]
     private async Task ZoomOutAsync()
     {
+        DisableImageAutoFit();
+
         var pageState = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex);
         var nextZoom = Math.Max(MinZoom, pageState.ZoomFactor - ZoomStep);
 
@@ -330,7 +371,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _pageViewportStore.SetPageState(pageState.WithRotation(nextRotation));
         RefreshPageViewState();
 
-        await RenderCurrentPageAsync();
+        if (!await TryApplyImageAutoFitAsync(forceRender: true))
+        {
+            await RenderCurrentPageAsync();
+        }
+
         await RefreshThumbnailForActivePageAsync();
         StatusText = $"Rotation set to {CurrentRotation}";
     }
@@ -352,7 +397,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _pageViewportStore.SetPageState(pageState.WithRotation(nextRotation));
         RefreshPageViewState();
 
-        await RenderCurrentPageAsync();
+        if (!await TryApplyImageAutoFitAsync(forceRender: true))
+        {
+            await RenderCurrentPageAsync();
+        }
+
         await RefreshThumbnailForActivePageAsync();
         StatusText = $"Rotation set to {CurrentRotation}";
     }
@@ -391,6 +440,27 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         await NextPageAsync();
     }
 
+    public async Task UpdateDocumentViewportAsync(double viewportWidth, double viewportHeight)
+    {
+        if (viewportWidth <= 0 || viewportHeight <= 0)
+        {
+            return;
+        }
+
+        var widthChanged = Math.Abs(_documentViewportWidth - viewportWidth) > ViewportResizeThreshold;
+        var heightChanged = Math.Abs(_documentViewportHeight - viewportHeight) > ViewportResizeThreshold;
+
+        _documentViewportWidth = viewportWidth;
+        _documentViewportHeight = viewportHeight;
+
+        if (!widthChanged && !heightChanged)
+        {
+            return;
+        }
+
+        await TryApplyImageAutoFitAsync(preserveStatusText: true);
+    }
+
     private async Task OpenDocumentFromPathAsync(string filePath)
     {
         var result = await _openDocumentUseCase.ExecuteAsync(new OpenDocumentRequest(filePath));
@@ -408,15 +478,25 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _pageViewportStore.SetActivePage(new PageIndex(0));
         RefreshPageViewState();
 
-        BuildThumbnailPlaceholders();
-        _ = GenerateThumbnailsAsync();
+        _isImageAutoFitEnabled = IsCurrentImageDocument;
+        NotifyViewerModeChanged();
+
+        ClearThumbnails();
+        if (!IsCurrentImageDocument)
+        {
+            BuildThumbnailPlaceholders();
+            _ = GenerateThumbnailsAsync();
+        }
 
         AddCurrentDocumentToRecentFiles();
 
         UserMessage = null;
         StatusText = $"Opened {CurrentDocumentName}";
 
-        await RenderCurrentPageAsync();
+        if (!await TryApplyImageAutoFitAsync(forceRender: true))
+        {
+            await RenderCurrentPageAsync();
+        }
     }
 
     private async Task ChangeToPageAsync(int pageNumber)
@@ -445,7 +525,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         StatusText = $"Page {CurrentPage}";
     }
 
-    private async Task RenderCurrentPageAsync()
+    private async Task RenderCurrentPageAsync(bool preserveStatusText = false)
     {
         CancelCurrentRender();
 
@@ -462,6 +542,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         _renderCancellationTokenSource = new CancellationTokenSource();
         var cancellationToken = _renderCancellationTokenSource.Token;
+        var previousStatusText = StatusText;
+        var renderSucceeded = false;
 
         try
         {
@@ -496,13 +578,19 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
             CurrentRenderedBitmap?.Dispose();
             CurrentRenderedBitmap = RenderedPageBitmapFactory.Create(result.Value);
-            StatusText = $"Rendered page {CurrentPage}";
+            renderSucceeded = true;
+            StatusText = preserveStatusText ? previousStatusText : $"Rendered page {CurrentPage}";
         }
         catch (OperationCanceledException)
         {
         }
         finally
         {
+            if (preserveStatusText && renderSucceeded)
+            {
+                StatusText = previousStatusText;
+            }
+
             IsRendering = false;
         }
     }
@@ -667,6 +755,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
+        IsCurrentImageDocument = session.Metadata.DocumentType is DocumentType.Image;
         HasOpenDocument = true;
         CurrentDocumentName = session.Metadata.FileName;
         CurrentDocumentType = session.Metadata.DocumentType.ToString();
@@ -688,7 +777,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private void ResetDocumentState()
     {
+        _isImageAutoFitEnabled = false;
         HasOpenDocument = false;
+        IsCurrentImageDocument = false;
         CurrentDocumentName = null;
         CurrentDocumentType = null;
         CurrentDocumentPath = null;
@@ -703,6 +794,53 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         EmptyStateTitle = "Open a document";
         EmptyStateDescription = "Open a PDF or an image to start viewing it.";
+    }
+
+    private void DisableImageAutoFit()
+    {
+        _isImageAutoFitEnabled = false;
+        NotifyViewerModeChanged();
+    }
+
+    private async Task<bool> TryApplyImageAutoFitAsync(
+        bool preserveStatusText = false,
+        bool forceRender = false)
+    {
+        if (!_isImageAutoFitEnabled ||
+            _documentViewportWidth <= 0 ||
+            _documentViewportHeight <= 0 ||
+            _documentSessionStore.Current is not IImageDocumentSession imageSession)
+        {
+            return false;
+        }
+
+        var pageState = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex);
+        var fitZoom = ImageViewportCalculator.CalculateFitZoom(
+            imageSession.ImageMetadata,
+            pageState.Rotation,
+            Math.Max(1, _documentViewportWidth - (ViewerContentPadding * 2)),
+            Math.Max(1, _documentViewportHeight - (ViewerContentPadding * 2)));
+
+        var zoomChanged = Math.Abs(pageState.ZoomFactor - fitZoom) > ZoomComparisonTolerance;
+        if (!zoomChanged && !forceRender && CurrentRenderedBitmap is not null)
+        {
+            return false;
+        }
+
+        if (zoomChanged)
+        {
+            _pageViewportStore.SetPageState(pageState.WithZoom(fitZoom));
+            RefreshPageViewState();
+        }
+
+        await RenderCurrentPageAsync(preserveStatusText);
+        return true;
+    }
+
+    private void NotifyViewerModeChanged()
+    {
+        OnPropertyChanged(nameof(IsImageAutoFitActive));
+        OnPropertyChanged(nameof(IsScrollableViewerVisible));
     }
 
     private void AddCurrentDocumentToRecentFiles()

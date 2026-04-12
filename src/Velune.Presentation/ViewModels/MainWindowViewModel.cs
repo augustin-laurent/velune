@@ -15,6 +15,10 @@ namespace Velune.Presentation.ViewModels;
 
 public partial class MainWindowViewModel : ObservableObject, IDisposable
 {
+    private const string ViewerRenderJobKey = "viewer";
+    private const string ThumbnailRenderJobPrefix = "thumbnail:";
+    private const int ThumbnailRequestedWidth = 170;
+    private const int ThumbnailRequestedHeight = 150;
     private const double ZoomStep = 0.10;
     private const double MinZoom = 0.25;
     private const double MaxZoom = 5.00;
@@ -28,24 +32,25 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private readonly OpenDocumentUseCase _openDocumentUseCase;
     private readonly CloseDocumentUseCase _closeDocumentUseCase;
     private readonly ChangePageUseCase _changePageUseCase;
-    private readonly RenderVisiblePageUseCase _renderPageUseCase;
+    private readonly IRenderOrchestrator _renderOrchestrator;
     private readonly IDocumentSessionStore _documentSessionStore;
     private readonly IRecentFilesService _recentFilesService;
     private readonly IPageViewportStore _pageViewportStore;
 
-    private CancellationTokenSource? _renderCancellationTokenSource;
-    private CancellationTokenSource? _thumbnailCancellationTokenSource;
+    private readonly Dictionary<int, RenderJobHandle> _thumbnailRenderJobs = [];
     private bool _disposed;
     private double _documentViewportWidth;
     private double _documentViewportHeight;
     private bool _isImageAutoFitEnabled;
+    private int _thumbnailGenerationVersion;
+    private RenderJobHandle? _currentRenderJob;
 
     public MainWindowViewModel(
         IFilePickerService filePickerService,
         OpenDocumentUseCase openDocumentUseCase,
         CloseDocumentUseCase closeDocumentUseCase,
         ChangePageUseCase changePageUseCase,
-        RenderVisiblePageUseCase renderPageUseCase,
+        IRenderOrchestrator renderOrchestrator,
         IDocumentSessionStore documentSessionStore,
         IRecentFilesService recentFilesService,
         IPageViewportStore pageViewportStore)
@@ -54,7 +59,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         ArgumentNullException.ThrowIfNull(openDocumentUseCase);
         ArgumentNullException.ThrowIfNull(closeDocumentUseCase);
         ArgumentNullException.ThrowIfNull(changePageUseCase);
-        ArgumentNullException.ThrowIfNull(renderPageUseCase);
+        ArgumentNullException.ThrowIfNull(renderOrchestrator);
         ArgumentNullException.ThrowIfNull(documentSessionStore);
         ArgumentNullException.ThrowIfNull(recentFilesService);
         ArgumentNullException.ThrowIfNull(pageViewportStore);
@@ -63,7 +68,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _openDocumentUseCase = openDocumentUseCase;
         _closeDocumentUseCase = closeDocumentUseCase;
         _changePageUseCase = changePageUseCase;
-        _renderPageUseCase = renderPageUseCase;
+        _renderOrchestrator = renderOrchestrator;
         _documentSessionStore = documentSessionStore;
         _recentFilesService = recentFilesService;
         _pageViewportStore = pageViewportStore;
@@ -485,7 +490,6 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         if (!IsCurrentImageDocument)
         {
             BuildThumbnailPlaceholders();
-            _ = GenerateThumbnailsAsync();
         }
 
         AddCurrentDocumentToRecentFiles();
@@ -496,6 +500,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         if (!await TryApplyImageAutoFitAsync(forceRender: true))
         {
             await RenderCurrentPageAsync();
+        }
+
+        if (!IsCurrentImageDocument)
+        {
+            _ = GenerateThumbnailsAsync();
         }
     }
 
@@ -540,8 +549,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         var pageState = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex);
         RefreshPageViewState();
 
-        _renderCancellationTokenSource = new CancellationTokenSource();
-        var cancellationToken = _renderCancellationTokenSource.Token;
+        var renderJob = _renderOrchestrator.Submit(
+            CreateViewerRenderRequest(pageState));
+        _currentRenderJob = renderJob;
+
         var previousStatusText = StatusText;
         var renderSucceeded = false;
 
@@ -549,12 +560,16 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             IsRendering = true;
 
-            var result = await _renderPageUseCase.ExecuteAsync(
-                new RenderPageRequest(
-                    pageState.PageIndex,
-                    pageState.ZoomFactor,
-                    pageState.Rotation),
-                cancellationToken);
+            var result = await renderJob.Completion;
+            if (_currentRenderJob?.JobId != renderJob.JobId)
+            {
+                return;
+            }
+
+            if (result.IsCanceled)
+            {
+                return;
+            }
 
             if (result.IsFailure)
             {
@@ -566,7 +581,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 return;
             }
 
-            if (result.Value is null)
+            if (result.Page is null)
             {
                 UserMessage = "No rendered page was returned.";
                 StatusText = "Render failed";
@@ -577,21 +592,22 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             }
 
             CurrentRenderedBitmap?.Dispose();
-            CurrentRenderedBitmap = RenderedPageBitmapFactory.Create(result.Value);
+            CurrentRenderedBitmap = RenderedPageBitmapFactory.Create(result.Page);
             renderSucceeded = true;
             StatusText = preserveStatusText ? previousStatusText : $"Rendered page {CurrentPage}";
         }
-        catch (OperationCanceledException)
-        {
-        }
         finally
         {
+            if (_currentRenderJob?.JobId == renderJob.JobId)
+            {
+                _currentRenderJob = null;
+                IsRendering = false;
+            }
+
             if (preserveStatusText && renderSucceeded)
             {
                 StatusText = previousStatusText;
             }
-
-            IsRendering = false;
         }
     }
 
@@ -605,8 +621,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        _thumbnailCancellationTokenSource = new CancellationTokenSource();
-        var cancellationToken = _thumbnailCancellationTokenSource.Token;
+        var generationVersion = ++_thumbnailGenerationVersion;
 
         try
         {
@@ -614,7 +629,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
             for (var i = 0; i < Thumbnails.Count; i++)
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                if (generationVersion != _thumbnailGenerationVersion)
+                {
+                    break;
+                }
 
                 var thumbnailItem = Thumbnails[i];
                 var thumbnailPageIndex = new PageIndex(i);
@@ -622,16 +640,28 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
                 try
                 {
-                    var result = await _renderPageUseCase.ExecuteAsync(
-                        new RenderPageRequest(
-                            thumbnailPageIndex,
-                            ThumbnailZoomFactor,
-                            thumbnailPageState.Rotation),
-                        cancellationToken);
+                    var renderJob = _renderOrchestrator.Submit(
+                        CreateThumbnailRenderRequest(thumbnailPageIndex, thumbnailPageState.Rotation));
 
-                    if (result.IsSuccess && result.Value is not null)
+                    _thumbnailRenderJobs[thumbnailPageIndex.Value] = renderJob;
+
+                    var result = await renderJob.Completion;
+                    if (!_thumbnailRenderJobs.TryGetValue(thumbnailPageIndex.Value, out var activeJob) ||
+                        activeJob.JobId != renderJob.JobId)
                     {
-                        var bitmap = RenderedPageBitmapFactory.Create(result.Value);
+                        continue;
+                    }
+
+                    _thumbnailRenderJobs.Remove(thumbnailPageIndex.Value);
+
+                    if (generationVersion != _thumbnailGenerationVersion || result.IsCanceled)
+                    {
+                        continue;
+                    }
+
+                    if (result.IsSuccess && result.Page is not null)
+                    {
+                        var bitmap = RenderedPageBitmapFactory.Create(result.Page);
 
                         thumbnailItem.Thumbnail?.Dispose();
                         thumbnailItem.Thumbnail = bitmap;
@@ -643,12 +673,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 }
             }
         }
-        catch (OperationCanceledException)
-        {
-        }
         finally
         {
-            IsGeneratingThumbnails = false;
+            if (generationVersion == _thumbnailGenerationVersion)
+            {
+                IsGeneratingThumbnails = false;
+            }
         }
     }
 
@@ -668,15 +698,22 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             thumbnailItem.IsLoading = true;
 
-            var result = await _renderPageUseCase.ExecuteAsync(
-                new RenderPageRequest(
-                    pageIndex,
-                    ThumbnailZoomFactor,
-                    pageState.Rotation));
+            var renderJob = _renderOrchestrator.Submit(
+                CreateThumbnailRenderRequest(pageIndex, pageState.Rotation));
+            _thumbnailRenderJobs[pageIndex.Value] = renderJob;
 
-            if (result.IsSuccess && result.Value is not null)
+            var result = await renderJob.Completion;
+            if (!_thumbnailRenderJobs.TryGetValue(pageIndex.Value, out var activeJob) ||
+                activeJob.JobId != renderJob.JobId)
             {
-                var bitmap = RenderedPageBitmapFactory.Create(result.Value);
+                return;
+            }
+
+            _thumbnailRenderJobs.Remove(pageIndex.Value);
+
+            if (result.IsSuccess && result.Page is not null)
+            {
+                var bitmap = RenderedPageBitmapFactory.Create(result.Page);
 
                 thumbnailItem.Thumbnail?.Dispose();
                 thumbnailItem.Thumbnail = bitmap;
@@ -724,26 +761,27 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private void CancelCurrentRender()
     {
-        if (_renderCancellationTokenSource is null)
+        if (_currentRenderJob is null)
         {
             return;
         }
 
-        _renderCancellationTokenSource.Cancel();
-        _renderCancellationTokenSource.Dispose();
-        _renderCancellationTokenSource = null;
+        _renderOrchestrator.Cancel(_currentRenderJob.JobId);
+        _currentRenderJob = null;
+        IsRendering = false;
     }
 
     private void CancelThumbnailGeneration()
     {
-        if (_thumbnailCancellationTokenSource is null)
+        _thumbnailGenerationVersion++;
+        IsGeneratingThumbnails = false;
+
+        foreach (var renderJob in _thumbnailRenderJobs.Values)
         {
-            return;
+            _renderOrchestrator.Cancel(renderJob.JobId);
         }
 
-        _thumbnailCancellationTokenSource.Cancel();
-        _thumbnailCancellationTokenSource.Dispose();
-        _thumbnailCancellationTokenSource = null;
+        _thumbnailRenderJobs.Clear();
     }
 
     private void RefreshFromSession()
@@ -788,6 +826,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         CurrentZoom = "100%";
         CurrentRotation = "0°";
         GoToPageInput = "1";
+        IsRendering = false;
+        IsGeneratingThumbnails = false;
 
         CurrentRenderedBitmap?.Dispose();
         CurrentRenderedBitmap = null;
@@ -843,6 +883,31 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsScrollableViewerVisible));
     }
 
+    private static RenderRequest CreateViewerRenderRequest(PageViewportState pageState)
+    {
+        ArgumentNullException.ThrowIfNull(pageState);
+
+        return new RenderRequest(
+            ViewerRenderJobKey,
+            pageState.PageIndex,
+            pageState.ZoomFactor,
+            pageState.Rotation);
+    }
+
+    private static RenderRequest CreateThumbnailRenderRequest(PageIndex pageIndex, Rotation rotation)
+    {
+        return new RenderRequest(
+            CreateThumbnailJobKey(pageIndex),
+            pageIndex,
+            ThumbnailZoomFactor,
+            rotation,
+            ThumbnailRequestedWidth,
+            ThumbnailRequestedHeight);
+    }
+
+    private static string CreateThumbnailJobKey(PageIndex pageIndex) =>
+        $"{ThumbnailRenderJobPrefix}{pageIndex.Value}";
+
     private void AddCurrentDocumentToRecentFiles()
     {
         if (string.IsNullOrWhiteSpace(CurrentDocumentName) ||
@@ -888,13 +953,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (disposing)
         {
-            _renderCancellationTokenSource?.Cancel();
-            _renderCancellationTokenSource?.Dispose();
-            _renderCancellationTokenSource = null;
-
-            _thumbnailCancellationTokenSource?.Cancel();
-            _thumbnailCancellationTokenSource?.Dispose();
-            _thumbnailCancellationTokenSource = null;
+            CancelCurrentRender();
+            CancelThumbnailGeneration();
 
             CurrentRenderedBitmap?.Dispose();
             CurrentRenderedBitmap = null;

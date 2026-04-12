@@ -17,3 +17,13 @@ Velune est une application desktop cross-platform inspirée d’Aperçu, constru
 - `Application -> Domain`
 - `Infrastructure -> Application + Domain`
 - `App` compose l’ensemble
+
+## Métriques Dev
+
+En mode `Development`, Velune journalise les métriques MVP au niveau `Information`.
+
+- `MVP metric | DocumentOpen` : temps d’ouverture document, type, taille, nombre de pages et mémoire approximative.
+- `MVP metric | FirstPageRender` : temps du premier rendu visible avec `RenderDurationMs` et `TimeToFirstPageMs`.
+- `MVP metric | ThumbnailRender` : temps de génération d’une miniature, dimensions de sortie et mémoire approximative.
+
+Les indications mémoire sont volontairement approximatives et proviennent de `GC.GetTotalMemory(false)` et `Process.WorkingSet64`, convertis en Mo pour rester lisibles dans les logs de dev.

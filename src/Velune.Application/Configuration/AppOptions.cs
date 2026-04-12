@@ -4,7 +4,33 @@ public sealed class AppOptions
 {
     public const string SectionName = "App";
 
-    public string Name { get; set; } = "Velune";
-    public string Environment { get; set; } = "Development";
-    public int RecentFilesLimit { get; set; } = 10;
+    public string Name
+    {
+        get; set;
+    } = "Velune";
+
+    public string Environment
+    {
+        get; set;
+    } = "Development";
+
+    public int RecentFilesLimit
+    {
+        get; set;
+    } = 10;
+
+    public int RenderCacheEntryLimit
+    {
+        get; set;
+    } = 64;
+
+    public string? ThumbnailDiskCachePath
+    {
+        get; set;
+    }
+
+    public int ThumbnailDiskCacheMaxAgeDays
+    {
+        get; set;
+    } = 30;
 }

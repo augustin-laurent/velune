@@ -166,6 +166,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public bool IsImageAutoFitActive => HasOpenDocument && IsCurrentImageDocument && _isImageAutoFitEnabled;
     public bool IsScrollableViewerVisible => !IsImageAutoFitActive;
     public bool IsSidebarVisible => !HasOpenDocument || !IsCurrentImageDocument;
+    public bool IsPageNavigationVisible => !HasOpenDocument || !IsCurrentImageDocument;
     public GridLength SidebarColumnWidth => new(SidebarWidth);
     public double SidebarWidth => IsSidebarVisible ? SidebarExpandedWidth : 0;
     public string PageIndicator => TotalPages > 0 ? $"{CurrentPage} / {TotalPages}" : "-";
@@ -189,6 +190,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(CanGoToPage));
         NotifyViewerModeChanged();
         OnPropertyChanged(nameof(IsSidebarVisible));
+        OnPropertyChanged(nameof(IsPageNavigationVisible));
         OnPropertyChanged(nameof(SidebarColumnWidth));
         OnPropertyChanged(nameof(SidebarWidth));
         CloseCommand.NotifyCanExecuteChanged();
@@ -207,6 +209,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         NotifyViewerModeChanged();
         OnPropertyChanged(nameof(IsSidebarVisible));
+        OnPropertyChanged(nameof(IsPageNavigationVisible));
         OnPropertyChanged(nameof(SidebarColumnWidth));
         OnPropertyChanged(nameof(SidebarWidth));
     }

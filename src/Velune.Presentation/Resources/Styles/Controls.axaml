@@ -1,5 +1,6 @@
 <Styles
     xmlns="https://github.com/avaloniaui"
+    xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
   <Style Selector="Window">
@@ -24,6 +25,12 @@
 
   <Style Selector="Button:pointerover">
     <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
+  </Style>
+
+  <Style Selector="Button:disabled">
+    <Setter Property="Opacity" Value="0.45" />
+    <Setter Property="Background" Value="{DynamicResource Brush.SurfaceMuted}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
   </Style>
 
   <Style Selector="Border.card">
@@ -100,5 +107,123 @@
     <Style Selector="Border.thumbnail-item:selected">
       <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
       <Setter Property="BorderThickness" Value="2" />
+    </Style>
+
+    <Style Selector="Border.toolbar-group">
+      <Setter Property="Background" Value="{DynamicResource Brush.SurfaceMuted}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="4" />
+    </Style>
+
+    <Style Selector="Border.toolbar-divider">
+      <Setter Property="Background" Value="{DynamicResource Brush.Border}" />
+      <Setter Property="Width" Value="1" />
+      <Setter Property="Margin" Value="6,8" />
+    </Style>
+
+    <Style Selector="Button.toolbar-button">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="MinWidth" Value="38" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Icon}" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+
+    <Style Selector="Button.toolbar-button:pointerover">
+      <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Icon}" />
+    </Style>
+
+    <Style Selector="Button.toolbar-button:pressed">
+      <Setter Property="Background" Value="{DynamicResource Brush.SurfaceStrong}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderStrong}" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Icon}" />
+    </Style>
+
+    <Style Selector="Button.toolbar-button:disabled">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.ForegroundMuted}" />
+      <Setter Property="Opacity" Value="0.36" />
+    </Style>
+
+    <Style Selector="Button.toolbar-primary-button">
+      <Setter Property="Padding" Value="12,0" />
+      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="MinWidth" Value="98" />
+      <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Surface}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="9" />
+    </Style>
+
+    <Style Selector="Button.toolbar-primary-button:pointerover">
+      <Setter Property="Opacity" Value="0.94" />
+    </Style>
+
+    <Style Selector="Button.toolbar-primary-button:pressed">
+      <Setter Property="Opacity" Value="0.88" />
+    </Style>
+
+    <Style Selector="Button.toolbar-primary-button:disabled">
+      <Setter Property="Background" Value="{DynamicResource Brush.SurfaceMuted}" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.ForegroundMuted}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
+    </Style>
+
+    <Style Selector="materialIcons|MaterialIcon.toolbar-icon">
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Icon}" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="materialIcons|MaterialIcon.toolbar-primary-icon">
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Surface}" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="TextBlock.toolbar-primary-label">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="Border.toolbar-metric">
+      <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="10,5" />
+      <Setter Property="MinHeight" Value="38" />
+    </Style>
+
+    <Style Selector="TextBlock.toolbar-metric-label">
+      <Setter Property="FontSize" Value="10" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.ForegroundMuted}" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="TextBlock.toolbar-metric-value">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="TextBox.toolbar-input">
+      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="Padding" Value="10,0" />
+      <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
 </Styles>

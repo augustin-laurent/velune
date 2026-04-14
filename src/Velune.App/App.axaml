@@ -1,11 +1,13 @@
 <Application
     x:Class="Velune.App.App"
     xmlns="https://github.com/avaloniaui"
+    xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     RequestedThemeVariant="Default">
 
   <Application.Styles>
     <FluentTheme />
+    <materialIcons:MaterialIconStyles />
     <StyleInclude Source="avares://Velune.Presentation/Resources/Styles/Controls.axaml" />
   </Application.Styles>
 

@@ -109,14 +109,6 @@
       <Setter Property="BorderThickness" Value="2" />
     </Style>
 
-    <Style Selector="Border.toolbar-shell">
-      <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
-      <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="12" />
-      <Setter Property="BoxShadow" Value="0 10 24 0 #12000000" />
-    </Style>
-
     <Style Selector="Border.toolbar-group">
       <Setter Property="Background" Value="{DynamicResource Brush.SurfaceMuted}" />
       <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />

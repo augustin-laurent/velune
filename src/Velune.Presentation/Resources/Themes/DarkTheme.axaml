@@ -4,16 +4,22 @@
   <Color x:Key="Color.Background">#FF111418</Color>
   <Color x:Key="Color.Surface">#FF1A1F24</Color>
   <Color x:Key="Color.SurfaceMuted">#FF20262C</Color>
+  <Color x:Key="Color.SurfaceStrong">#FF2A323A</Color>
   <Color x:Key="Color.Border">#33FFFFFF</Color>
+  <Color x:Key="Color.BorderStrong">#55FFFFFF</Color>
   <Color x:Key="Color.Foreground">#FFF3F4F6</Color>
   <Color x:Key="Color.ForegroundMuted">#FFB0B8C1</Color>
+  <Color x:Key="Color.Icon">#FFFFFFFF</Color>
   <Color x:Key="Color.Accent">#FF60A5FA</Color>
 
   <SolidColorBrush x:Key="Brush.Background" Color="{StaticResource Color.Background}" />
   <SolidColorBrush x:Key="Brush.Surface" Color="{StaticResource Color.Surface}" />
   <SolidColorBrush x:Key="Brush.SurfaceMuted" Color="{StaticResource Color.SurfaceMuted}" />
+  <SolidColorBrush x:Key="Brush.SurfaceStrong" Color="{StaticResource Color.SurfaceStrong}" />
   <SolidColorBrush x:Key="Brush.Border" Color="{StaticResource Color.Border}" />
+  <SolidColorBrush x:Key="Brush.BorderStrong" Color="{StaticResource Color.BorderStrong}" />
   <SolidColorBrush x:Key="Brush.Foreground" Color="{StaticResource Color.Foreground}" />
   <SolidColorBrush x:Key="Brush.ForegroundMuted" Color="{StaticResource Color.ForegroundMuted}" />
+  <SolidColorBrush x:Key="Brush.Icon" Color="{StaticResource Color.Icon}" />
   <SolidColorBrush x:Key="Brush.Accent" Color="{StaticResource Color.Accent}" />
 </ResourceDictionary>

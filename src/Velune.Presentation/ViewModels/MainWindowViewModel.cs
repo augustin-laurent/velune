@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Material.Icons;
 using Velune.Application.Abstractions;
 using Velune.Application.DTOs;
 using Velune.Application.UseCases;
@@ -15,6 +16,24 @@ namespace Velune.Presentation.ViewModels;
 
 public partial class MainWindowViewModel : ObservableObject, IDisposable
 {
+    private enum NotificationKind
+    {
+        Info,
+        Warning,
+        Error,
+        Confirmation
+    }
+
+    private sealed record NotificationEntry(
+        string Title,
+        string Message,
+        NotificationKind Kind,
+        string? PrimaryActionLabel = null,
+        Action? PrimaryAction = null,
+        string? SecondaryActionLabel = null,
+        Action? SecondaryAction = null,
+        bool IsDismissible = true);
+
     private const string ViewerRenderJobKey = "viewer";
     private const string ThumbnailRenderJobPrefix = "thumbnail:";
     private const int ThumbnailRequestedWidth = 170;
@@ -32,17 +51,24 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private readonly OpenDocumentUseCase _openDocumentUseCase;
     private readonly CloseDocumentUseCase _closeDocumentUseCase;
     private readonly ChangePageUseCase _changePageUseCase;
+    private readonly ChangeZoomUseCase _changeZoomUseCase;
+    private readonly RotateDocumentUseCase _rotateDocumentUseCase;
     private readonly IRenderOrchestrator _renderOrchestrator;
     private readonly IDocumentSessionStore _documentSessionStore;
     private readonly IRecentFilesService _recentFilesService;
     private readonly IPageViewportStore _pageViewportStore;
 
+    private readonly Queue<NotificationEntry> _notificationQueue = [];
     private readonly Dictionary<int, RenderJobHandle> _thumbnailRenderJobs = [];
     private bool _disposed;
     private double _documentViewportWidth;
     private double _documentViewportHeight;
     private bool _isImageAutoFitEnabled;
+    private NotificationKind _currentNotificationKind = NotificationKind.Info;
+    private bool _isCurrentNotificationDismissible;
     private int _thumbnailGenerationVersion;
+    private Action? _notificationPrimaryAction;
+    private Action? _notificationSecondaryAction;
     private RenderJobHandle? _currentRenderJob;
 
     public MainWindowViewModel(
@@ -50,6 +76,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OpenDocumentUseCase openDocumentUseCase,
         CloseDocumentUseCase closeDocumentUseCase,
         ChangePageUseCase changePageUseCase,
+        ChangeZoomUseCase changeZoomUseCase,
+        RotateDocumentUseCase rotateDocumentUseCase,
         IRenderOrchestrator renderOrchestrator,
         IDocumentSessionStore documentSessionStore,
         IRecentFilesService recentFilesService,
@@ -59,6 +87,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         ArgumentNullException.ThrowIfNull(openDocumentUseCase);
         ArgumentNullException.ThrowIfNull(closeDocumentUseCase);
         ArgumentNullException.ThrowIfNull(changePageUseCase);
+        ArgumentNullException.ThrowIfNull(changeZoomUseCase);
+        ArgumentNullException.ThrowIfNull(rotateDocumentUseCase);
         ArgumentNullException.ThrowIfNull(renderOrchestrator);
         ArgumentNullException.ThrowIfNull(documentSessionStore);
         ArgumentNullException.ThrowIfNull(recentFilesService);
@@ -68,6 +98,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _openDocumentUseCase = openDocumentUseCase;
         _closeDocumentUseCase = closeDocumentUseCase;
         _changePageUseCase = changePageUseCase;
+        _changeZoomUseCase = changeZoomUseCase;
+        _rotateDocumentUseCase = rotateDocumentUseCase;
         _renderOrchestrator = renderOrchestrator;
         _documentSessionStore = documentSessionStore;
         _recentFilesService = recentFilesService;
@@ -104,6 +136,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private string? _userMessage;
+
+    [ObservableProperty]
+    private string? _userMessageTitle;
+
+    [ObservableProperty]
+    private string? _notificationPrimaryActionLabel;
+
+    [ObservableProperty]
+    private string? _notificationSecondaryActionLabel;
 
     [ObservableProperty]
     private string? _currentDocumentName;
@@ -149,7 +190,18 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public bool IsEmptyStateVisible => !HasOpenDocument;
     public bool HasUserMessage => !string.IsNullOrWhiteSpace(UserMessage);
-    public bool CanDismissUserMessage => HasUserMessage;
+    public bool CanDismissUserMessage => HasUserMessage && _isCurrentNotificationDismissible;
+    public bool HasUserMessageTitle => !string.IsNullOrWhiteSpace(UserMessageTitle);
+    public bool HasNotificationPrimaryAction => !string.IsNullOrWhiteSpace(NotificationPrimaryActionLabel);
+    public bool HasNotificationSecondaryAction => !string.IsNullOrWhiteSpace(NotificationSecondaryActionLabel);
+    public bool IsNotificationConfirmation => HasUserMessage && _currentNotificationKind == NotificationKind.Confirmation;
+    public MaterialIconKind NotificationIconKind => _currentNotificationKind switch
+    {
+        NotificationKind.Error => MaterialIconKind.AlertCircleOutline,
+        NotificationKind.Warning => MaterialIconKind.AlertCircleOutline,
+        NotificationKind.Confirmation => MaterialIconKind.HelpCircleOutline,
+        _ => MaterialIconKind.InformationCircleOutline
+    };
     public bool HasRecentFiles => RecentFiles.Count > 0;
     public bool HasRenderedPage => CurrentRenderedBitmap is not null;
     public bool HasMultiplePages => TotalPages > 1;
@@ -158,6 +210,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public bool IsImageAutoFitActive => HasOpenDocument && IsCurrentImageDocument && _isImageAutoFitEnabled;
     public bool IsScrollableViewerVisible => !IsImageAutoFitActive;
     public bool IsSidebarVisible => !HasOpenDocument || !IsCurrentImageDocument;
+    public bool IsPageNavigationVisible => !HasOpenDocument || !IsCurrentImageDocument;
     public GridLength SidebarColumnWidth => new(SidebarWidth);
     public double SidebarWidth => IsSidebarVisible ? SidebarExpandedWidth : 0;
     public string PageIndicator => TotalPages > 0 ? $"{CurrentPage} / {TotalPages}" : "-";
@@ -165,6 +218,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public bool CanGoPreviousPage => HasOpenDocument && CurrentPage > 1;
     public bool CanGoNextPage => HasOpenDocument && TotalPages > 0 && CurrentPage < TotalPages;
     public bool CanGoToPage => HasOpenDocument && TotalPages > 0;
+    public bool CanUseFitCommands =>
+        HasOpenDocument &&
+        _documentViewportWidth > 0 &&
+        _documentViewportHeight > 0 &&
+        (HasRenderedPage || IsCurrentImageDocument);
     public bool ShouldUseTrackpadForPan =>
         HasOpenDocument &&
         (IsCurrentImageDocument ||
@@ -176,6 +234,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(CanGoToPage));
         NotifyViewerModeChanged();
         OnPropertyChanged(nameof(IsSidebarVisible));
+        OnPropertyChanged(nameof(IsPageNavigationVisible));
         OnPropertyChanged(nameof(SidebarColumnWidth));
         OnPropertyChanged(nameof(SidebarWidth));
         CloseCommand.NotifyCanExecuteChanged();
@@ -184,6 +243,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         GoToPageCommand.NotifyCanExecuteChanged();
         ZoomInCommand.NotifyCanExecuteChanged();
         ZoomOutCommand.NotifyCanExecuteChanged();
+        FitToWidthCommand.NotifyCanExecuteChanged();
+        FitToPageCommand.NotifyCanExecuteChanged();
         RotateLeftCommand.NotifyCanExecuteChanged();
         RotateRightCommand.NotifyCanExecuteChanged();
     }
@@ -192,6 +253,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         NotifyViewerModeChanged();
         OnPropertyChanged(nameof(IsSidebarVisible));
+        OnPropertyChanged(nameof(IsPageNavigationVisible));
         OnPropertyChanged(nameof(SidebarColumnWidth));
         OnPropertyChanged(nameof(SidebarWidth));
     }
@@ -199,12 +261,35 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     partial void OnUserMessageChanged(string? value)
     {
         OnPropertyChanged(nameof(HasUserMessage));
+        OnPropertyChanged(nameof(IsNotificationConfirmation));
+        OnPropertyChanged(nameof(NotificationIconKind));
         DismissMessageCommand.NotifyCanExecuteChanged();
+        NotificationPrimaryActionCommand.NotifyCanExecuteChanged();
+        NotificationSecondaryActionCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnUserMessageTitleChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasUserMessageTitle));
+    }
+
+    partial void OnNotificationPrimaryActionLabelChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasNotificationPrimaryAction));
+        NotificationPrimaryActionCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnNotificationSecondaryActionLabelChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasNotificationSecondaryAction));
+        NotificationSecondaryActionCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnCurrentRenderedBitmapChanged(Bitmap? value)
     {
         OnPropertyChanged(nameof(HasRenderedPage));
+        FitToWidthCommand.NotifyCanExecuteChanged();
+        FitToPageCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnCurrentDocumentNameChanged(string? value)
@@ -267,16 +352,21 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         ClearThumbnails();
         ResetDocumentState();
 
-        UserMessage = null;
+        ClearNotifications();
         StatusText = "Document closed";
     }
 
     [RelayCommand(CanExecute = nameof(HasRecentFiles))]
     private void ClearRecentFiles()
     {
-        _recentFilesService.Clear();
-        RefreshRecentFiles();
-        StatusText = "Recent files cleared";
+        EnqueueConfirmation(
+            "Clear recent files?",
+            "This removes the recent file shortcuts, but your current session stays open.",
+            "Clear",
+            ConfirmClearRecentFiles,
+            "Keep");
+
+        StatusText = "Confirmation required";
     }
 
     [RelayCommand(CanExecute = nameof(CanGoPreviousPage))]
@@ -296,21 +386,21 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         if (string.IsNullOrWhiteSpace(GoToPageInput))
         {
-            UserMessage = "Enter a page number.";
+            EnqueueWarning("Invalid page number", "Enter a page number.");
             StatusText = "Invalid page number";
             return;
         }
 
         if (!int.TryParse(GoToPageInput, out var pageNumber))
         {
-            UserMessage = "Page number must be numeric.";
+            EnqueueWarning("Invalid page number", "Page number must be numeric.");
             StatusText = "Invalid page number";
             return;
         }
 
         if (pageNumber < 1 || pageNumber > TotalPages)
         {
-            UserMessage = $"Page number must be between 1 and {TotalPages}.";
+            EnqueueWarning("Invalid page number", $"Page number must be between 1 and {TotalPages}.");
             StatusText = "Invalid page number";
             return;
         }
@@ -338,6 +428,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         var nextZoom = Math.Min(MaxZoom, pageState.ZoomFactor + ZoomStep);
 
         _pageViewportStore.SetPageState(pageState.WithZoom(nextZoom));
+        if (!TryUpdateZoom(nextZoom, ZoomMode.Custom))
+        {
+            return;
+        }
+
         RefreshPageViewState();
 
         await RenderCurrentPageAsync();
@@ -353,10 +448,37 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         var nextZoom = Math.Max(MinZoom, pageState.ZoomFactor - ZoomStep);
 
         _pageViewportStore.SetPageState(pageState.WithZoom(nextZoom));
+        if (!TryUpdateZoom(nextZoom, ZoomMode.Custom))
+        {
+            return;
+        }
+
         RefreshPageViewState();
 
         await RenderCurrentPageAsync();
         StatusText = $"Zoom set to {CurrentZoom}";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanUseFitCommands))]
+    private async Task FitToWidthAsync()
+    {
+        if (!await TryApplyViewportFitAsync(ZoomMode.FitToWidth, forceRender: true))
+        {
+            return;
+        }
+
+        StatusText = "Fit to width applied";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanUseFitCommands))]
+    private async Task FitToPageAsync()
+    {
+        if (!await TryApplyViewportFitAsync(ZoomMode.FitToPage, forceRender: true))
+        {
+            return;
+        }
+
+        StatusText = "Fit to page applied";
     }
 
     [RelayCommand(CanExecute = nameof(HasOpenDocument))]
@@ -374,9 +496,19 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         };
 
         _pageViewportStore.SetPageState(pageState.WithRotation(nextRotation));
+        if (!TryUpdateRotation(nextRotation))
+        {
+            return;
+        }
+
         RefreshPageViewState();
 
-        if (!await TryApplyImageAutoFitAsync(forceRender: true))
+        if (CurrentZoomMode is ZoomMode.FitToPage or ZoomMode.FitToWidth)
+        {
+            await RenderCurrentPageAsync(preserveStatusText: true);
+        }
+
+        if (!await TryApplyViewportFitAsync(CurrentZoomMode, forceRender: true))
         {
             await RenderCurrentPageAsync();
         }
@@ -400,9 +532,19 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         };
 
         _pageViewportStore.SetPageState(pageState.WithRotation(nextRotation));
+        if (!TryUpdateRotation(nextRotation))
+        {
+            return;
+        }
+
         RefreshPageViewState();
 
-        if (!await TryApplyImageAutoFitAsync(forceRender: true))
+        if (CurrentZoomMode is ZoomMode.FitToPage or ZoomMode.FitToWidth)
+        {
+            await RenderCurrentPageAsync(preserveStatusText: true);
+        }
+
+        if (!await TryApplyViewportFitAsync(CurrentZoomMode, forceRender: true))
         {
             await RenderCurrentPageAsync();
         }
@@ -414,14 +556,30 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(CanDismissUserMessage))]
     private void DismissMessage()
     {
-        UserMessage = null;
-        StatusText = "Message dismissed";
+        AdvanceNotificationQueue();
+        StatusText = "Notification dismissed";
+    }
+
+    [RelayCommand(CanExecute = nameof(HasNotificationPrimaryAction))]
+    private void NotificationPrimaryAction()
+    {
+        var action = _notificationPrimaryAction;
+        AdvanceNotificationQueue();
+        action?.Invoke();
+    }
+
+    [RelayCommand(CanExecute = nameof(HasNotificationSecondaryAction))]
+    private void NotificationSecondaryAction()
+    {
+        var action = _notificationSecondaryAction;
+        AdvanceNotificationQueue();
+        action?.Invoke();
     }
 
     [RelayCommand]
     private void SimulateError()
     {
-        UserMessage = "Unable to load the requested document.";
+        EnqueueError("Unable to load the requested document.");
         StatusText = "An error was simulated";
     }
 
@@ -445,6 +603,22 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         await NextPageAsync();
     }
 
+    public async Task HandleZoomPointerWheelAsync(double deltaY)
+    {
+        if (!HasOpenDocument || IsRendering || Math.Abs(deltaY) <= double.Epsilon)
+        {
+            return;
+        }
+
+        if (deltaY > 0)
+        {
+            await ZoomInAsync();
+            return;
+        }
+
+        await ZoomOutAsync();
+    }
+
     public async Task UpdateDocumentViewportAsync(double viewportWidth, double viewportHeight)
     {
         if (viewportWidth <= 0 || viewportHeight <= 0)
@@ -457,13 +631,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         _documentViewportWidth = viewportWidth;
         _documentViewportHeight = viewportHeight;
+        FitToWidthCommand.NotifyCanExecuteChanged();
+        FitToPageCommand.NotifyCanExecuteChanged();
 
         if (!widthChanged && !heightChanged)
         {
             return;
         }
 
-        await TryApplyImageAutoFitAsync(preserveStatusText: true);
+        await TryApplyViewportFitAsync(CurrentZoomMode, preserveStatusText: true);
     }
 
     private async Task OpenDocumentFromPathAsync(string filePath)
@@ -472,7 +648,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (result.IsFailure)
         {
-            UserMessage = result.Error?.Message ?? "Unable to open the selected document.";
+            EnqueueError(result.Error?.Message ?? "Unable to open the selected document.", "Open failed");
             StatusText = "Open failed";
             return;
         }
@@ -483,9 +659,6 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _pageViewportStore.SetActivePage(new PageIndex(0));
         RefreshPageViewState();
 
-        _isImageAutoFitEnabled = IsCurrentImageDocument;
-        NotifyViewerModeChanged();
-
         ClearThumbnails();
         if (!IsCurrentImageDocument)
         {
@@ -494,10 +667,22 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         AddCurrentDocumentToRecentFiles();
 
-        UserMessage = null;
+        ClearNotifications();
         StatusText = $"Opened {CurrentDocumentName}";
 
-        if (!await TryApplyImageAutoFitAsync(forceRender: true))
+        if (IsCurrentImageDocument)
+        {
+            if (!await TryApplyViewportFitAsync(ZoomMode.FitToPage, forceRender: true))
+            {
+                _isImageAutoFitEnabled = true;
+                NotifyViewerModeChanged();
+                TryUpdateZoom(
+                    _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex).ZoomFactor,
+                    ZoomMode.FitToPage);
+                await RenderCurrentPageAsync();
+            }
+        }
+        else
         {
             await RenderCurrentPageAsync();
         }
@@ -512,7 +697,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         if (pageNumber < 1 || (TotalPages > 0 && pageNumber > TotalPages))
         {
-            UserMessage = $"Page number must be between 1 and {TotalPages}.";
+            EnqueueWarning("Invalid page number", $"Page number must be between 1 and {TotalPages}.");
             StatusText = "Invalid page number";
             return;
         }
@@ -522,15 +707,31 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (result.IsFailure)
         {
-            UserMessage = result.Error?.Message ?? "Unable to change page.";
+            EnqueueError(result.Error?.Message ?? "Unable to change page.", "Page change failed");
             StatusText = "Page change failed";
             return;
         }
 
         _pageViewportStore.SetActivePage(new PageIndex(pageNumber - 1));
+        var activePageState = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex);
+        if (!TrySyncSessionToActivePageState(activePageState))
+        {
+            return;
+        }
+
         RefreshFromSession();
         RefreshPageViewState();
-        await RenderCurrentPageAsync();
+
+        if (CurrentZoomMode is ZoomMode.FitToPage or ZoomMode.FitToWidth)
+        {
+            await RenderCurrentPageAsync(preserveStatusText: true);
+            await TryApplyViewportFitAsync(CurrentZoomMode, forceRender: true);
+        }
+        else
+        {
+            await RenderCurrentPageAsync();
+        }
+
         StatusText = $"Page {CurrentPage}";
     }
 
@@ -573,21 +774,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
             if (result.IsFailure)
             {
-                UserMessage = result.Error?.Message ?? "Unable to render the current page.";
+                EnqueueError(result.Error?.Message ?? "Unable to render the current page.", "Render failed");
                 StatusText = "Render failed";
-
-                CurrentRenderedBitmap?.Dispose();
-                CurrentRenderedBitmap = null;
                 return;
             }
 
             if (result.Page is null)
             {
-                UserMessage = "No rendered page was returned.";
+                EnqueueError("No rendered page was returned.", "Render failed");
                 StatusText = "Render failed";
-
-                CurrentRenderedBitmap?.Dispose();
-                CurrentRenderedBitmap = null;
                 return;
             }
 
@@ -842,40 +1037,160 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         NotifyViewerModeChanged();
     }
 
-    private async Task<bool> TryApplyImageAutoFitAsync(
+    private async Task<bool> TryApplyViewportFitAsync(
+        ZoomMode zoomMode,
         bool preserveStatusText = false,
         bool forceRender = false)
     {
-        if (!_isImageAutoFitEnabled ||
+        if (zoomMode is ZoomMode.Custom ||
+            !HasOpenDocument ||
             _documentViewportWidth <= 0 ||
-            _documentViewportHeight <= 0 ||
-            _documentSessionStore.Current is not IImageDocumentSession imageSession)
+            _documentViewportHeight <= 0)
+        {
+            return false;
+        }
+
+        if (!TryCalculateFitZoom(zoomMode, out var fitZoom))
         {
             return false;
         }
 
         var pageState = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex);
-        var fitZoom = ImageViewportCalculator.CalculateFitZoom(
-            imageSession.ImageMetadata,
-            pageState.Rotation,
-            Math.Max(1, _documentViewportWidth - (ViewerContentPadding * 2)),
-            Math.Max(1, _documentViewportHeight - (ViewerContentPadding * 2)));
+        fitZoom = Math.Clamp(fitZoom, MinZoom, MaxZoom);
 
         var zoomChanged = Math.Abs(pageState.ZoomFactor - fitZoom) > ZoomComparisonTolerance;
-        if (!zoomChanged && !forceRender && CurrentRenderedBitmap is not null)
+        var zoomModeChanged = CurrentZoomMode != zoomMode;
+        var shouldEnableImageAutoFit = IsCurrentImageDocument && zoomMode is ZoomMode.FitToPage;
+
+        if (_isImageAutoFitEnabled != shouldEnableImageAutoFit)
+        {
+            _isImageAutoFitEnabled = shouldEnableImageAutoFit;
+            NotifyViewerModeChanged();
+        }
+
+        if (!zoomChanged &&
+            !zoomModeChanged &&
+            !forceRender &&
+            CurrentRenderedBitmap is not null)
         {
             return false;
         }
 
-        if (zoomChanged)
+        if (zoomChanged || zoomModeChanged)
         {
             _pageViewportStore.SetPageState(pageState.WithZoom(fitZoom));
+            if (!TryUpdateZoom(fitZoom, zoomMode))
+            {
+                return false;
+            }
+
             RefreshPageViewState();
         }
 
         await RenderCurrentPageAsync(preserveStatusText);
         return true;
     }
+
+    private bool TryCalculateFitZoom(ZoomMode zoomMode, out double fitZoom)
+    {
+        var availableWidth = Math.Max(1, _documentViewportWidth - (ViewerContentPadding * 2));
+        var availableHeight = Math.Max(1, _documentViewportHeight - (ViewerContentPadding * 2));
+        var pageState = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex);
+
+        if (_documentSessionStore.Current is IImageDocumentSession imageSession)
+        {
+            fitZoom = zoomMode switch
+            {
+                ZoomMode.FitToWidth => ImageViewportCalculator.CalculateFitWidthZoom(
+                    imageSession.ImageMetadata,
+                    pageState.Rotation,
+                    availableWidth),
+                ZoomMode.FitToPage => ImageViewportCalculator.CalculateFitZoom(
+                    imageSession.ImageMetadata,
+                    pageState.Rotation,
+                    availableWidth,
+                    availableHeight),
+                _ => 0
+            };
+
+            return zoomMode is ZoomMode.FitToPage or ZoomMode.FitToWidth;
+        }
+
+        if (CurrentRenderedBitmap is null)
+        {
+            fitZoom = 0;
+            return false;
+        }
+
+        fitZoom = zoomMode switch
+        {
+            ZoomMode.FitToWidth => RenderedPageViewportCalculator.CalculateFitToWidthZoom(
+                CurrentRenderedBitmap.PixelSize.Width,
+                pageState.ZoomFactor,
+                availableWidth),
+            ZoomMode.FitToPage => RenderedPageViewportCalculator.CalculateFitToPageZoom(
+                CurrentRenderedBitmap.PixelSize.Width,
+                CurrentRenderedBitmap.PixelSize.Height,
+                pageState.ZoomFactor,
+                availableWidth,
+                availableHeight),
+            _ => 0
+        };
+
+        return zoomMode is ZoomMode.FitToPage or ZoomMode.FitToWidth;
+    }
+
+    private bool TryUpdateZoom(double zoomFactor, ZoomMode zoomMode)
+    {
+        var result = _changeZoomUseCase.Execute(
+            new ChangeZoomRequest(zoomFactor, zoomMode));
+
+        if (result.IsFailure)
+        {
+            EnqueueError(result.Error?.Message ?? "Unable to update zoom.", "Zoom update failed");
+            StatusText = "Zoom update failed";
+            return false;
+        }
+
+        RefreshFromSession();
+        return true;
+    }
+
+    private bool TryUpdateRotation(Rotation rotation)
+    {
+        var result = _rotateDocumentUseCase.Execute(
+            new RotateDocumentRequest(rotation));
+
+        if (result.IsFailure)
+        {
+            EnqueueError(result.Error?.Message ?? "Unable to update rotation.", "Rotation update failed");
+            StatusText = "Rotation update failed";
+            return false;
+        }
+
+        RefreshFromSession();
+        return true;
+    }
+
+    private bool TrySyncSessionToActivePageState(PageViewportState pageState)
+    {
+        ArgumentNullException.ThrowIfNull(pageState);
+
+        if (!TryUpdateRotation(pageState.Rotation))
+        {
+            return false;
+        }
+
+        var zoomMode = CurrentZoomMode;
+        var targetZoom = zoomMode is ZoomMode.Custom
+            ? pageState.ZoomFactor
+            : (_documentSessionStore.CurrentViewport?.ZoomFactor ?? pageState.ZoomFactor);
+
+        return TryUpdateZoom(targetZoom, zoomMode);
+    }
+
+    private ZoomMode CurrentZoomMode =>
+        _documentSessionStore.CurrentViewport?.ZoomMode ?? ZoomMode.Custom;
 
     private void NotifyViewerModeChanged()
     {
@@ -907,6 +1222,114 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private static string CreateThumbnailJobKey(PageIndex pageIndex) =>
         $"{ThumbnailRenderJobPrefix}{pageIndex.Value}";
+
+    private void ConfirmClearRecentFiles()
+    {
+        _recentFilesService.Clear();
+        RefreshRecentFiles();
+        EnqueueInfo("Recent files cleared", "The recent files list was cleared.");
+        StatusText = "Recent files cleared";
+    }
+
+    private void EnqueueInfo(string title, string message, bool replaceCurrent = false)
+    {
+        EnqueueNotification(new NotificationEntry(title, message, NotificationKind.Info), replaceCurrent);
+    }
+
+    private void EnqueueWarning(string title, string message, bool replaceCurrent = false)
+    {
+        EnqueueNotification(new NotificationEntry(title, message, NotificationKind.Warning), replaceCurrent);
+    }
+
+    private void EnqueueError(string message, string title = "Non-fatal error", bool replaceCurrent = false)
+    {
+        EnqueueNotification(new NotificationEntry(title, message, NotificationKind.Error), replaceCurrent);
+    }
+
+    private void EnqueueConfirmation(
+        string title,
+        string message,
+        string confirmLabel,
+        Action onConfirm,
+        string cancelLabel = "Cancel")
+    {
+        EnqueueNotification(
+            new NotificationEntry(
+                title,
+                message,
+                NotificationKind.Confirmation,
+                confirmLabel,
+                onConfirm,
+                cancelLabel,
+                () => StatusText = "Action cancelled",
+                IsDismissible: false),
+            replaceCurrent: true);
+    }
+
+    private void EnqueueNotification(NotificationEntry notification, bool replaceCurrent = false)
+    {
+        if (replaceCurrent)
+        {
+            _notificationQueue.Clear();
+            ApplyNotification(notification);
+            return;
+        }
+
+        if (!HasUserMessage)
+        {
+            ApplyNotification(notification);
+            return;
+        }
+
+        _notificationQueue.Enqueue(notification);
+    }
+
+    private void AdvanceNotificationQueue()
+    {
+        if (_notificationQueue.Count > 0)
+        {
+            ApplyNotification(_notificationQueue.Dequeue());
+            return;
+        }
+
+        ClearNotificationState();
+    }
+
+    private void ClearNotifications()
+    {
+        _notificationQueue.Clear();
+        ClearNotificationState();
+    }
+
+    private void ApplyNotification(NotificationEntry notification)
+    {
+        _currentNotificationKind = notification.Kind;
+        _isCurrentNotificationDismissible = notification.IsDismissible;
+        _notificationPrimaryAction = notification.PrimaryAction;
+        _notificationSecondaryAction = notification.SecondaryAction;
+        UserMessageTitle = notification.Title;
+        UserMessage = notification.Message;
+        NotificationPrimaryActionLabel = notification.PrimaryActionLabel;
+        NotificationSecondaryActionLabel = notification.SecondaryActionLabel;
+        OnPropertyChanged(nameof(CanDismissUserMessage));
+        OnPropertyChanged(nameof(IsNotificationConfirmation));
+        OnPropertyChanged(nameof(NotificationIconKind));
+    }
+
+    private void ClearNotificationState()
+    {
+        _currentNotificationKind = NotificationKind.Info;
+        _isCurrentNotificationDismissible = false;
+        _notificationPrimaryAction = null;
+        _notificationSecondaryAction = null;
+        UserMessageTitle = null;
+        UserMessage = null;
+        NotificationPrimaryActionLabel = null;
+        NotificationSecondaryActionLabel = null;
+        OnPropertyChanged(nameof(CanDismissUserMessage));
+        OnPropertyChanged(nameof(IsNotificationConfirmation));
+        OnPropertyChanged(nameof(NotificationIconKind));
+    }
 
     private void AddCurrentDocumentToRecentFiles()
     {

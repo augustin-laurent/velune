@@ -1,6 +1,7 @@
 <Window
     x:Class="Velune.Presentation.Views.MainWindow"
     xmlns="https://github.com/avaloniaui"
+    xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Width="1280"
     Height="860"
@@ -9,6 +10,18 @@
     Title="{Binding Title}">
 
   <Window.KeyBindings>
+    <KeyBinding Gesture="Ctrl+O" Command="{Binding OpenCommand}" />
+    <KeyBinding Gesture="Meta+O" Command="{Binding OpenCommand}" />
+    <KeyBinding Gesture="Ctrl+Add" Command="{Binding ZoomInCommand}" />
+    <KeyBinding Gesture="Ctrl+OemPlus" Command="{Binding ZoomInCommand}" />
+    <KeyBinding Gesture="Meta+Add" Command="{Binding ZoomInCommand}" />
+    <KeyBinding Gesture="Meta+OemPlus" Command="{Binding ZoomInCommand}" />
+    <KeyBinding Gesture="Ctrl+Subtract" Command="{Binding ZoomOutCommand}" />
+    <KeyBinding Gesture="Ctrl+OemMinus" Command="{Binding ZoomOutCommand}" />
+    <KeyBinding Gesture="Meta+Subtract" Command="{Binding ZoomOutCommand}" />
+    <KeyBinding Gesture="Meta+OemMinus" Command="{Binding ZoomOutCommand}" />
+    <KeyBinding Gesture="Right" Command="{Binding NextPageCommand}" />
+    <KeyBinding Gesture="Left" Command="{Binding PreviousPageCommand}" />
     <KeyBinding Gesture="PageDown" Command="{Binding NextPageCommand}" />
     <KeyBinding Gesture="PageUp" Command="{Binding PreviousPageCommand}" />
   </Window.KeyBindings>
@@ -27,32 +40,214 @@
             BorderBrush="{DynamicResource Brush.Border}"
             BorderThickness="0,0,0,1"
             Background="{DynamicResource Brush.Surface}">
-      <DockPanel LastChildFill="False">
-        <TextBlock Text="{Binding HeaderTitle}"
-                   Classes="title"
-                   VerticalAlignment="Center" />
-
-        <StackPanel Orientation="Horizontal"
-                    Spacing="8"
-                    DockPanel.Dock="Right">
-          <Button Content="Open" Command="{Binding OpenCommand}" />
-          <Button Content="Close" Command="{Binding CloseCommand}" />
-          <Button Content="Prev" Command="{Binding PreviousPageCommand}" />
-          <Button Content="Next" Command="{Binding NextPageCommand}" />
-
-          <TextBox Width="72"
-                   Watermark="Page"
-                   Text="{Binding GoToPageInput}" />
-
-          <Button Content="Go"
-                  Command="{Binding GoToPageCommand}" />
-
-          <Button Content="Zoom In" Command="{Binding ZoomInCommand}" />
-          <Button Content="Zoom Out" Command="{Binding ZoomOutCommand}" />
-          <Button Content="Rotate Left" Command="{Binding RotateLeftCommand}" />
-          <Button Content="Rotate Right" Command="{Binding RotateRightCommand}" />
+      <Grid ColumnDefinitions="Auto,*"
+            ColumnSpacing="16">
+        <StackPanel Grid.Column="0"
+                    VerticalAlignment="Center"
+                    Spacing="2">
+          <TextBlock Text="{Binding HeaderTitle}"
+                     Classes="title"
+                     VerticalAlignment="Center" />
+          <TextBlock Text="{Binding CurrentDocumentType}"
+                     Classes="muted"
+                     IsVisible="{Binding HasOpenDocument}" />
         </StackPanel>
-      </DockPanel>
+
+        <WrapPanel Grid.Column="1"
+                   HorizontalAlignment="Right"
+                   VerticalAlignment="Center">
+
+          <Border Classes="toolbar-group"
+                  Margin="0,0,6,0">
+            <StackPanel Orientation="Horizontal"
+                        Spacing="4">
+              <Button Classes="toolbar-primary-button"
+                      Command="{Binding OpenCommand}"
+                      ToolTip.Tip="Open a document">
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Spacing="8">
+                  <materialIcons:MaterialIcon Classes="toolbar-primary-icon"
+                                              Kind="FolderOpenOutline"
+                                              Width="20"
+                                              Height="20"
+                                              Foreground="{DynamicResource Brush.Surface}" />
+                  <TextBlock Text="Open"
+                             Classes="toolbar-primary-label" />
+                </StackPanel>
+              </Button>
+
+              <Button Classes="toolbar-button"
+                      Command="{Binding CloseCommand}"
+                      ToolTip.Tip="Close the current document">
+                <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                            Kind="Close"
+                                            Width="20"
+                                            Height="20"
+                                            Foreground="{DynamicResource Brush.Icon}" />
+              </Button>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="toolbar-divider" />
+
+          <StackPanel Orientation="Horizontal"
+                      IsVisible="{Binding IsPageNavigationVisible}">
+            <Border Classes="toolbar-group"
+                    Margin="6,0">
+              <StackPanel Orientation="Horizontal"
+                          Spacing="4">
+                <Button Classes="toolbar-button"
+                        Command="{Binding PreviousPageCommand}"
+                        ToolTip.Tip="Previous page">
+                  <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                              Kind="ChevronLeft"
+                                              Width="20"
+                                              Height="20"
+                                              Foreground="{DynamicResource Brush.Icon}" />
+                </Button>
+
+                <Border Classes="toolbar-metric"
+                        VerticalAlignment="Center">
+                  <StackPanel Spacing="0"
+                              HorizontalAlignment="Center">
+                    <TextBlock Text="Page"
+                               Classes="toolbar-metric-label" />
+                    <TextBlock Text="{Binding PageIndicator}"
+                               Classes="toolbar-metric-value" />
+                  </StackPanel>
+                </Border>
+
+                <TextBox Classes="toolbar-input"
+                         Width="64"
+                         VerticalAlignment="Center"
+                         Watermark="#"
+                         IsEnabled="{Binding CanGoToPage}"
+                         Text="{Binding GoToPageInput}" />
+
+                <Button Classes="toolbar-button"
+                        Command="{Binding GoToPageCommand}"
+                        ToolTip.Tip="Go to page">
+                  <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                              Kind="ArrowRightThin"
+                                              Width="20"
+                                              Height="20"
+                                              Foreground="{DynamicResource Brush.Icon}" />
+                </Button>
+
+                <Button Classes="toolbar-button"
+                        Command="{Binding NextPageCommand}"
+                        ToolTip.Tip="Next page">
+                  <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                              Kind="ChevronRight"
+                                              Width="20"
+                                              Height="20"
+                                              Foreground="{DynamicResource Brush.Icon}" />
+                </Button>
+              </StackPanel>
+            </Border>
+
+            <Border Classes="toolbar-divider" />
+          </StackPanel>
+
+          <Border Classes="toolbar-group"
+                  Margin="6,0">
+            <StackPanel Orientation="Horizontal"
+                        Spacing="4">
+              <Button Classes="toolbar-button"
+                      Command="{Binding ZoomOutCommand}"
+                      ToolTip.Tip="Zoom out">
+                <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                            Kind="MagnifyMinusOutline"
+                                            Width="20"
+                                            Height="20"
+                                            Foreground="{DynamicResource Brush.Icon}" />
+              </Button>
+
+              <Border Classes="toolbar-metric"
+                      VerticalAlignment="Center">
+                <StackPanel Spacing="0"
+                            HorizontalAlignment="Center">
+                  <TextBlock Text="Zoom"
+                             Classes="toolbar-metric-label" />
+                  <TextBlock Text="{Binding CurrentZoom}"
+                             Classes="toolbar-metric-value" />
+                </StackPanel>
+              </Border>
+
+              <Button Classes="toolbar-button"
+                      Command="{Binding FitToWidthCommand}"
+                      ToolTip.Tip="Fit to width">
+                <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                            Kind="ArrowExpandHorizontal"
+                                            Width="20"
+                                            Height="20"
+                                            Foreground="{DynamicResource Brush.Icon}" />
+              </Button>
+
+              <Button Classes="toolbar-button"
+                      Command="{Binding FitToPageCommand}"
+                      ToolTip.Tip="Fit to page">
+                <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                            Kind="FitToPageOutline"
+                                            Width="20"
+                                            Height="20"
+                                            Foreground="{DynamicResource Brush.Icon}" />
+              </Button>
+
+              <Button Classes="toolbar-button"
+                      Command="{Binding ZoomInCommand}"
+                      ToolTip.Tip="Zoom in">
+                <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                            Kind="MagnifyPlusOutline"
+                                            Width="20"
+                                            Height="20"
+                                            Foreground="{DynamicResource Brush.Icon}" />
+              </Button>
+            </StackPanel>
+          </Border>
+
+          <Border Classes="toolbar-divider" />
+
+          <Border Classes="toolbar-group"
+                  Margin="6,0,0,0">
+            <StackPanel Orientation="Horizontal"
+                        Spacing="4">
+              <Button Classes="toolbar-button"
+                      Command="{Binding RotateLeftCommand}"
+                      ToolTip.Tip="Rotate left">
+                <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                            Kind="RotateLeftVariant"
+                                            Width="20"
+                                            Height="20"
+                                            Foreground="{DynamicResource Brush.Icon}" />
+              </Button>
+
+              <Border Classes="toolbar-metric"
+                      VerticalAlignment="Center">
+                <StackPanel Spacing="0"
+                            HorizontalAlignment="Center">
+                  <TextBlock Text="Rotation"
+                             Classes="toolbar-metric-label" />
+                  <TextBlock Text="{Binding CurrentRotation}"
+                             Classes="toolbar-metric-value" />
+                </StackPanel>
+              </Border>
+
+              <Button Classes="toolbar-button"
+                      Command="{Binding RotateRightCommand}"
+                      ToolTip.Tip="Rotate right">
+                <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                            Kind="RotateRightVariant"
+                                            Width="20"
+                                            Height="20"
+                                            Foreground="{DynamicResource Brush.Icon}" />
+              </Button>
+            </StackPanel>
+          </Border>
+        </WrapPanel>
+      </Grid>
     </Border>
 
     <!-- Sidebar -->
@@ -146,20 +341,47 @@
               Margin="16"
               Padding="12,10"
               MinWidth="320"
-              MaxWidth="420"
+              MaxWidth="460"
               ZIndex="10"
               IsVisible="{Binding HasUserMessage}">
-        <DockPanel LastChildFill="True">
-          <Button Content="Dismiss"
-                  DockPanel.Dock="Right"
-                  Command="{Binding DismissMessageCommand}" />
+        <StackPanel Spacing="10">
+          <Grid ColumnDefinitions="Auto,*">
+            <materialIcons:MaterialIcon Grid.Column="0"
+                                        Kind="{Binding NotificationIconKind}"
+                                        Width="18"
+                                        Height="18"
+                                        Foreground="{DynamicResource Brush.Accent}"
+                                        VerticalAlignment="Top"
+                                        Margin="0,1,10,0" />
 
-          <TextBlock Text="{Binding UserMessage}"
-                     Classes="muted"
-                     VerticalAlignment="Center"
-                     Margin="0,0,12,0"
-                     TextWrapping="Wrap" />
-        </DockPanel>
+            <StackPanel Grid.Column="1"
+                        Spacing="4">
+              <TextBlock Text="{Binding UserMessageTitle}"
+                         FontWeight="SemiBold"
+                         IsVisible="{Binding HasUserMessageTitle}" />
+
+              <TextBlock Text="{Binding UserMessage}"
+                         Classes="muted"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+          </Grid>
+
+          <StackPanel Orientation="Horizontal"
+                      HorizontalAlignment="Right"
+                      Spacing="8">
+            <Button Content="{Binding NotificationSecondaryActionLabel}"
+                    Command="{Binding NotificationSecondaryActionCommand}"
+                    IsVisible="{Binding HasNotificationSecondaryAction}" />
+
+            <Button Content="{Binding NotificationPrimaryActionLabel}"
+                    Command="{Binding NotificationPrimaryActionCommand}"
+                    IsVisible="{Binding HasNotificationPrimaryAction}" />
+
+            <Button Content="Dismiss"
+                    Command="{Binding DismissMessageCommand}"
+                    IsVisible="{Binding CanDismissUserMessage}" />
+          </StackPanel>
+        </StackPanel>
       </Border>
 
       <!-- Empty state -->

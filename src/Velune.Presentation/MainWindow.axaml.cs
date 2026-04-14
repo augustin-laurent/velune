@@ -35,6 +35,20 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (HasZoomModifier(e.KeyModifiers))
+        {
+            _trackpadNavigationAccumulator = 0;
+
+            if (Math.Abs(e.Delta.Y) <= double.Epsilon)
+            {
+                return;
+            }
+
+            e.Handled = true;
+            await viewModel.HandleZoomPointerWheelAsync(e.Delta.Y);
+            return;
+        }
+
         if (viewModel.ShouldUseTrackpadForPan)
         {
             _trackpadNavigationAccumulator = 0;
@@ -74,5 +88,11 @@ public partial class MainWindow : Window
         await viewModel.UpdateDocumentViewportAsync(
             e.NewSize.Width,
             e.NewSize.Height);
+    }
+
+    private static bool HasZoomModifier(KeyModifiers modifiers)
+    {
+        return modifiers.HasFlag(KeyModifiers.Control) ||
+               modifiers.HasFlag(KeyModifiers.Meta);
     }
 }

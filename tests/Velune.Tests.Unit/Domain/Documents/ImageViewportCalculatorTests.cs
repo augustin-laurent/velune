@@ -40,4 +40,26 @@ public sealed class ImageViewportCalculatorTests
 
         Assert.Equal(2.5, zoom, 3);
     }
+
+    [Fact]
+    public void CalculateFitWidthZoom_ShouldUseImageWidth()
+    {
+        var zoom = ImageViewportCalculator.CalculateFitWidthZoom(
+            new ImageMetadata(2000, 1000),
+            Rotation.Deg0,
+            availableWidth: 800);
+
+        Assert.Equal(0.4, zoom, 3);
+    }
+
+    [Fact]
+    public void CalculateFitWidthZoom_ShouldSwapDimensionsWhenImageIsRotated()
+    {
+        var zoom = ImageViewportCalculator.CalculateFitWidthZoom(
+            new ImageMetadata(2000, 1000),
+            Rotation.Deg90,
+            availableWidth: 800);
+
+        Assert.Equal(0.8, zoom, 3);
+    }
 }

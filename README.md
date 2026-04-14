@@ -27,3 +27,15 @@ En mode `Development`, Velune journalise les métriques MVP au niveau `Informati
 - `MVP metric | ThumbnailRender` : temps de génération d’une miniature, dimensions de sortie et mémoire approximative.
 
 Les indications mémoire sont volontairement approximatives et proviennent de `GC.GetTotalMemory(false)` et `Process.WorkingSet64`, convertis en Mo pour rester lisibles dans les logs de dev.
+
+## Tests
+
+Les tests unitaires couvrent la base métier et les cas d’usage critiques dans `tests/Velune.Tests.Unit`.
+
+Commande locale simple :
+
+```bash
+dotnet test tests/Velune.Tests.Unit/Velune.Tests.Unit.csproj
+```
+
+Les tests de rendu restent disponibles séparément dans `tests/Velune.Tests.Render`.

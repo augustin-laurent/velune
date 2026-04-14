@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Material.Icons;
 using Velune.Application.Abstractions;
 using Velune.Application.DTOs;
 using Velune.Application.UseCases;
@@ -15,6 +16,24 @@ namespace Velune.Presentation.ViewModels;
 
 public partial class MainWindowViewModel : ObservableObject, IDisposable
 {
+    private enum NotificationKind
+    {
+        Info,
+        Warning,
+        Error,
+        Confirmation
+    }
+
+    private sealed record NotificationEntry(
+        string Title,
+        string Message,
+        NotificationKind Kind,
+        string? PrimaryActionLabel = null,
+        Action? PrimaryAction = null,
+        string? SecondaryActionLabel = null,
+        Action? SecondaryAction = null,
+        bool IsDismissible = true);
+
     private const string ViewerRenderJobKey = "viewer";
     private const string ThumbnailRenderJobPrefix = "thumbnail:";
     private const int ThumbnailRequestedWidth = 170;
@@ -39,12 +58,17 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private readonly IRecentFilesService _recentFilesService;
     private readonly IPageViewportStore _pageViewportStore;
 
+    private readonly Queue<NotificationEntry> _notificationQueue = [];
     private readonly Dictionary<int, RenderJobHandle> _thumbnailRenderJobs = [];
     private bool _disposed;
     private double _documentViewportWidth;
     private double _documentViewportHeight;
     private bool _isImageAutoFitEnabled;
+    private NotificationKind _currentNotificationKind = NotificationKind.Info;
+    private bool _isCurrentNotificationDismissible;
     private int _thumbnailGenerationVersion;
+    private Action? _notificationPrimaryAction;
+    private Action? _notificationSecondaryAction;
     private RenderJobHandle? _currentRenderJob;
 
     public MainWindowViewModel(
@@ -114,6 +138,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private string? _userMessage;
 
     [ObservableProperty]
+    private string? _userMessageTitle;
+
+    [ObservableProperty]
+    private string? _notificationPrimaryActionLabel;
+
+    [ObservableProperty]
+    private string? _notificationSecondaryActionLabel;
+
+    [ObservableProperty]
     private string? _currentDocumentName;
 
     [ObservableProperty]
@@ -157,7 +190,18 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public bool IsEmptyStateVisible => !HasOpenDocument;
     public bool HasUserMessage => !string.IsNullOrWhiteSpace(UserMessage);
-    public bool CanDismissUserMessage => HasUserMessage;
+    public bool CanDismissUserMessage => HasUserMessage && _isCurrentNotificationDismissible;
+    public bool HasUserMessageTitle => !string.IsNullOrWhiteSpace(UserMessageTitle);
+    public bool HasNotificationPrimaryAction => !string.IsNullOrWhiteSpace(NotificationPrimaryActionLabel);
+    public bool HasNotificationSecondaryAction => !string.IsNullOrWhiteSpace(NotificationSecondaryActionLabel);
+    public bool IsNotificationConfirmation => HasUserMessage && _currentNotificationKind == NotificationKind.Confirmation;
+    public MaterialIconKind NotificationIconKind => _currentNotificationKind switch
+    {
+        NotificationKind.Error => MaterialIconKind.AlertCircleOutline,
+        NotificationKind.Warning => MaterialIconKind.AlertCircleOutline,
+        NotificationKind.Confirmation => MaterialIconKind.HelpCircleOutline,
+        _ => MaterialIconKind.InformationCircleOutline
+    };
     public bool HasRecentFiles => RecentFiles.Count > 0;
     public bool HasRenderedPage => CurrentRenderedBitmap is not null;
     public bool HasMultiplePages => TotalPages > 1;
@@ -217,7 +261,28 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     partial void OnUserMessageChanged(string? value)
     {
         OnPropertyChanged(nameof(HasUserMessage));
+        OnPropertyChanged(nameof(IsNotificationConfirmation));
+        OnPropertyChanged(nameof(NotificationIconKind));
         DismissMessageCommand.NotifyCanExecuteChanged();
+        NotificationPrimaryActionCommand.NotifyCanExecuteChanged();
+        NotificationSecondaryActionCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnUserMessageTitleChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasUserMessageTitle));
+    }
+
+    partial void OnNotificationPrimaryActionLabelChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasNotificationPrimaryAction));
+        NotificationPrimaryActionCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnNotificationSecondaryActionLabelChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasNotificationSecondaryAction));
+        NotificationSecondaryActionCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnCurrentRenderedBitmapChanged(Bitmap? value)
@@ -287,16 +352,21 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         ClearThumbnails();
         ResetDocumentState();
 
-        UserMessage = null;
+        ClearNotifications();
         StatusText = "Document closed";
     }
 
     [RelayCommand(CanExecute = nameof(HasRecentFiles))]
     private void ClearRecentFiles()
     {
-        _recentFilesService.Clear();
-        RefreshRecentFiles();
-        StatusText = "Recent files cleared";
+        EnqueueConfirmation(
+            "Clear recent files?",
+            "This removes the recent file shortcuts, but your current session stays open.",
+            "Clear",
+            ConfirmClearRecentFiles,
+            "Keep");
+
+        StatusText = "Confirmation required";
     }
 
     [RelayCommand(CanExecute = nameof(CanGoPreviousPage))]
@@ -316,21 +386,21 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         if (string.IsNullOrWhiteSpace(GoToPageInput))
         {
-            UserMessage = "Enter a page number.";
+            EnqueueWarning("Invalid page number", "Enter a page number.");
             StatusText = "Invalid page number";
             return;
         }
 
         if (!int.TryParse(GoToPageInput, out var pageNumber))
         {
-            UserMessage = "Page number must be numeric.";
+            EnqueueWarning("Invalid page number", "Page number must be numeric.");
             StatusText = "Invalid page number";
             return;
         }
 
         if (pageNumber < 1 || pageNumber > TotalPages)
         {
-            UserMessage = $"Page number must be between 1 and {TotalPages}.";
+            EnqueueWarning("Invalid page number", $"Page number must be between 1 and {TotalPages}.");
             StatusText = "Invalid page number";
             return;
         }
@@ -486,14 +556,30 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(CanDismissUserMessage))]
     private void DismissMessage()
     {
-        UserMessage = null;
-        StatusText = "Message dismissed";
+        AdvanceNotificationQueue();
+        StatusText = "Notification dismissed";
+    }
+
+    [RelayCommand(CanExecute = nameof(HasNotificationPrimaryAction))]
+    private void NotificationPrimaryAction()
+    {
+        var action = _notificationPrimaryAction;
+        AdvanceNotificationQueue();
+        action?.Invoke();
+    }
+
+    [RelayCommand(CanExecute = nameof(HasNotificationSecondaryAction))]
+    private void NotificationSecondaryAction()
+    {
+        var action = _notificationSecondaryAction;
+        AdvanceNotificationQueue();
+        action?.Invoke();
     }
 
     [RelayCommand]
     private void SimulateError()
     {
-        UserMessage = "Unable to load the requested document.";
+        EnqueueError("Unable to load the requested document.");
         StatusText = "An error was simulated";
     }
 
@@ -562,7 +648,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (result.IsFailure)
         {
-            UserMessage = result.Error?.Message ?? "Unable to open the selected document.";
+            EnqueueError(result.Error?.Message ?? "Unable to open the selected document.", "Open failed");
             StatusText = "Open failed";
             return;
         }
@@ -581,7 +667,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         AddCurrentDocumentToRecentFiles();
 
-        UserMessage = null;
+        ClearNotifications();
         StatusText = $"Opened {CurrentDocumentName}";
 
         if (IsCurrentImageDocument)
@@ -611,7 +697,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         if (pageNumber < 1 || (TotalPages > 0 && pageNumber > TotalPages))
         {
-            UserMessage = $"Page number must be between 1 and {TotalPages}.";
+            EnqueueWarning("Invalid page number", $"Page number must be between 1 and {TotalPages}.");
             StatusText = "Invalid page number";
             return;
         }
@@ -621,7 +707,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (result.IsFailure)
         {
-            UserMessage = result.Error?.Message ?? "Unable to change page.";
+            EnqueueError(result.Error?.Message ?? "Unable to change page.", "Page change failed");
             StatusText = "Page change failed";
             return;
         }
@@ -688,21 +774,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
             if (result.IsFailure)
             {
-                UserMessage = result.Error?.Message ?? "Unable to render the current page.";
+                EnqueueError(result.Error?.Message ?? "Unable to render the current page.", "Render failed");
                 StatusText = "Render failed";
-
-                CurrentRenderedBitmap?.Dispose();
-                CurrentRenderedBitmap = null;
                 return;
             }
 
             if (result.Page is null)
             {
-                UserMessage = "No rendered page was returned.";
+                EnqueueError("No rendered page was returned.", "Render failed");
                 StatusText = "Render failed";
-
-                CurrentRenderedBitmap?.Dispose();
-                CurrentRenderedBitmap = null;
                 return;
             }
 
@@ -1067,7 +1147,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (result.IsFailure)
         {
-            UserMessage = result.Error?.Message ?? "Unable to update zoom.";
+            EnqueueError(result.Error?.Message ?? "Unable to update zoom.", "Zoom update failed");
             StatusText = "Zoom update failed";
             return false;
         }
@@ -1083,7 +1163,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (result.IsFailure)
         {
-            UserMessage = result.Error?.Message ?? "Unable to update rotation.";
+            EnqueueError(result.Error?.Message ?? "Unable to update rotation.", "Rotation update failed");
             StatusText = "Rotation update failed";
             return false;
         }
@@ -1142,6 +1222,114 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private static string CreateThumbnailJobKey(PageIndex pageIndex) =>
         $"{ThumbnailRenderJobPrefix}{pageIndex.Value}";
+
+    private void ConfirmClearRecentFiles()
+    {
+        _recentFilesService.Clear();
+        RefreshRecentFiles();
+        EnqueueInfo("Recent files cleared", "The recent files list was cleared.");
+        StatusText = "Recent files cleared";
+    }
+
+    private void EnqueueInfo(string title, string message, bool replaceCurrent = false)
+    {
+        EnqueueNotification(new NotificationEntry(title, message, NotificationKind.Info), replaceCurrent);
+    }
+
+    private void EnqueueWarning(string title, string message, bool replaceCurrent = false)
+    {
+        EnqueueNotification(new NotificationEntry(title, message, NotificationKind.Warning), replaceCurrent);
+    }
+
+    private void EnqueueError(string message, string title = "Non-fatal error", bool replaceCurrent = false)
+    {
+        EnqueueNotification(new NotificationEntry(title, message, NotificationKind.Error), replaceCurrent);
+    }
+
+    private void EnqueueConfirmation(
+        string title,
+        string message,
+        string confirmLabel,
+        Action onConfirm,
+        string cancelLabel = "Cancel")
+    {
+        EnqueueNotification(
+            new NotificationEntry(
+                title,
+                message,
+                NotificationKind.Confirmation,
+                confirmLabel,
+                onConfirm,
+                cancelLabel,
+                () => StatusText = "Action cancelled",
+                IsDismissible: false),
+            replaceCurrent: true);
+    }
+
+    private void EnqueueNotification(NotificationEntry notification, bool replaceCurrent = false)
+    {
+        if (replaceCurrent)
+        {
+            _notificationQueue.Clear();
+            ApplyNotification(notification);
+            return;
+        }
+
+        if (!HasUserMessage)
+        {
+            ApplyNotification(notification);
+            return;
+        }
+
+        _notificationQueue.Enqueue(notification);
+    }
+
+    private void AdvanceNotificationQueue()
+    {
+        if (_notificationQueue.Count > 0)
+        {
+            ApplyNotification(_notificationQueue.Dequeue());
+            return;
+        }
+
+        ClearNotificationState();
+    }
+
+    private void ClearNotifications()
+    {
+        _notificationQueue.Clear();
+        ClearNotificationState();
+    }
+
+    private void ApplyNotification(NotificationEntry notification)
+    {
+        _currentNotificationKind = notification.Kind;
+        _isCurrentNotificationDismissible = notification.IsDismissible;
+        _notificationPrimaryAction = notification.PrimaryAction;
+        _notificationSecondaryAction = notification.SecondaryAction;
+        UserMessageTitle = notification.Title;
+        UserMessage = notification.Message;
+        NotificationPrimaryActionLabel = notification.PrimaryActionLabel;
+        NotificationSecondaryActionLabel = notification.SecondaryActionLabel;
+        OnPropertyChanged(nameof(CanDismissUserMessage));
+        OnPropertyChanged(nameof(IsNotificationConfirmation));
+        OnPropertyChanged(nameof(NotificationIconKind));
+    }
+
+    private void ClearNotificationState()
+    {
+        _currentNotificationKind = NotificationKind.Info;
+        _isCurrentNotificationDismissible = false;
+        _notificationPrimaryAction = null;
+        _notificationSecondaryAction = null;
+        UserMessageTitle = null;
+        UserMessage = null;
+        NotificationPrimaryActionLabel = null;
+        NotificationSecondaryActionLabel = null;
+        OnPropertyChanged(nameof(CanDismissUserMessage));
+        OnPropertyChanged(nameof(IsNotificationConfirmation));
+        OnPropertyChanged(nameof(NotificationIconKind));
+    }
 
     private void AddCurrentDocumentToRecentFiles()
     {

@@ -341,20 +341,47 @@
               Margin="16"
               Padding="12,10"
               MinWidth="320"
-              MaxWidth="420"
+              MaxWidth="460"
               ZIndex="10"
               IsVisible="{Binding HasUserMessage}">
-        <DockPanel LastChildFill="True">
-          <Button Content="Dismiss"
-                  DockPanel.Dock="Right"
-                  Command="{Binding DismissMessageCommand}" />
+        <StackPanel Spacing="10">
+          <Grid ColumnDefinitions="Auto,*">
+            <materialIcons:MaterialIcon Grid.Column="0"
+                                        Kind="{Binding NotificationIconKind}"
+                                        Width="18"
+                                        Height="18"
+                                        Foreground="{DynamicResource Brush.Accent}"
+                                        VerticalAlignment="Top"
+                                        Margin="0,1,10,0" />
 
-          <TextBlock Text="{Binding UserMessage}"
-                     Classes="muted"
-                     VerticalAlignment="Center"
-                     Margin="0,0,12,0"
-                     TextWrapping="Wrap" />
-        </DockPanel>
+            <StackPanel Grid.Column="1"
+                        Spacing="4">
+              <TextBlock Text="{Binding UserMessageTitle}"
+                         FontWeight="SemiBold"
+                         IsVisible="{Binding HasUserMessageTitle}" />
+
+              <TextBlock Text="{Binding UserMessage}"
+                         Classes="muted"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+          </Grid>
+
+          <StackPanel Orientation="Horizontal"
+                      HorizontalAlignment="Right"
+                      Spacing="8">
+            <Button Content="{Binding NotificationSecondaryActionLabel}"
+                    Command="{Binding NotificationSecondaryActionCommand}"
+                    IsVisible="{Binding HasNotificationSecondaryAction}" />
+
+            <Button Content="{Binding NotificationPrimaryActionLabel}"
+                    Command="{Binding NotificationPrimaryActionCommand}"
+                    IsVisible="{Binding HasNotificationPrimaryAction}" />
+
+            <Button Content="Dismiss"
+                    Command="{Binding DismissMessageCommand}"
+                    IsVisible="{Binding CanDismissUserMessage}" />
+          </StackPanel>
+        </StackPanel>
       </Border>
 
       <!-- Empty state -->

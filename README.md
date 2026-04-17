@@ -39,3 +39,18 @@ dotnet test tests/Velune.Tests.Unit/Velune.Tests.Unit.csproj
 ```
 
 Les tests de rendu restent disponibles séparément dans `tests/Velune.Tests.Render`.
+
+Les snapshots de rendu sont stockés dans `tests/Velune.Tests.Render/Snapshots/Approved`.
+
+Stratégie de comparaison :
+
+- rendu piloté par un host desktop dédié pour rester au plus proche du pipeline réel
+- comparaison PNG RGBA déterministe
+- tolérance par canal `<= 2`
+- pixels différents autorisés `<= 0.1%`
+
+Commande locale :
+
+```bash
+dotnet test tests/Velune.Tests.Render/Velune.Tests.Render.csproj
+```

@@ -21,6 +21,18 @@
     <ItemGroup>
         <ProjectReference Include="..\..\src\Velune.Presentation\Velune.Presentation.csproj"/>
         <ProjectReference Include="..\..\src\Velune.App\Velune.App.csproj"/>
+        <ProjectReference Include="..\Velune.Tests.Render.Host\Velune.Tests.Render.Host.csproj"
+                          ReferenceOutputAssembly="false"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="..\Velune.Tests.Integration\Fixtures\**\*">
+            <Link>Fixtures\%(RecursiveDir)%(Filename)%(Extension)</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
+        <None Update="Snapshots/Approved/**">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
     </ItemGroup>
 
 </Project>

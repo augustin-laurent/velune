@@ -54,3 +54,25 @@ Commande locale :
 ```bash
 dotnet test tests/Velune.Tests.Render/Velune.Tests.Render.csproj
 ```
+
+## CI
+
+Le workflow GitHub Actions est défini dans `.github/workflows/ci.yml`.
+
+- une `pull request` déclenche un restore + build sur `ubuntu`, `windows` et `macOS`
+- les tests `unit`, `integration` et `render` sont exécutés sur `ubuntu-latest`
+- un échec de build ou de test remonte directement dans les checks GitHub de la PR
+
+## Qualité
+
+Des workflows dédiés sont aussi présents pour renforcer la qualité et la sécurité :
+
+- [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml) : analyse GitHub CodeQL sur `csharp`
+- [`.github/workflows/semgrep.yml`](.github/workflows/semgrep.yml) : scan Semgrep CE avec upload SARIF vers GitHub code scanning
+- [`.github/workflows/sonarqube-cloud.yml`](.github/workflows/sonarqube-cloud.yml) : analyse SonarQube Cloud pour .NET
+
+Configuration minimale :
+
+- `SONAR_TOKEN` dans les secrets GitHub
+- `SONAR_PROJECT_KEY` et `SONAR_ORGANIZATION` dans les variables GitHub
+- `ENABLE_GITHUB_CODE_SCANNING=true` dans les variables GitHub si le dépôt est privé avec GitHub Code Security activé

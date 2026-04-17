@@ -1,0 +1,76 @@
+name: SonarQube Cloud
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  sonar:
+    name: Analyze
+    runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+      SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+
+    steps:
+      - name: Check SonarQube Cloud configuration
+        id: sonar-config
+        run: |
+          if [ -n "${SONAR_TOKEN}" ] && [ -n "${SONAR_PROJECT_KEY}" ] && [ -n "${SONAR_ORGANIZATION}" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "SonarQube Cloud is not configured. Set SONAR_TOKEN, SONAR_PROJECT_KEY and SONAR_ORGANIZATION to enable this workflow."
+          fi
+
+      - name: Checkout
+        if: steps.sonar-config.outputs.enabled == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java
+        if: steps.sonar-config.outputs.enabled == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup .NET
+        if: steps.sonar-config.outputs.enabled == 'true'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Cache SonarQube packages
+        if: steps.sonar-config.outputs.enabled == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Install SonarScanner for .NET
+        if: steps.sonar-config.outputs.enabled == 'true'
+        run: dotnet tool update --global dotnet-sonarscanner
+
+      - name: Build and analyze
+        if: steps.sonar-config.outputs.enabled == 'true'
+        run: |
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          dotnet-sonarscanner begin \
+            /k:"${SONAR_PROJECT_KEY}" \
+            /o:"${SONAR_ORGANIZATION}" \
+            /d:sonar.host.url="https://sonarcloud.io" \
+            /d:sonar.token="${SONAR_TOKEN}" \
+            /d:sonar.qualitygate.wait=true
+          dotnet build Velune.slnx --configuration Release
+          dotnet-sonarscanner end /d:sonar.token="${SONAR_TOKEN}"

@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore Velune.slnx
+
+      - name: Build
+        run: dotnet build Velune.slnx --configuration Release --no-restore
+
+  test:
+    name: Tests (ubuntu-latest)
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore Velune.slnx
+
+      - name: Unit tests
+        run: dotnet test tests/Velune.Tests.Unit/Velune.Tests.Unit.csproj --configuration Release --no-restore
+
+      - name: Integration tests
+        run: dotnet test tests/Velune.Tests.Integration/Velune.Tests.Integration.csproj --configuration Release --no-restore
+
+      - name: Render tests
+        run: dotnet test tests/Velune.Tests.Render/Velune.Tests.Render.csproj --configuration Release --no-restore

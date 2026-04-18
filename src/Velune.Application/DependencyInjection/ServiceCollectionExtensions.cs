@@ -32,6 +32,8 @@ public static class ServiceCollectionExtensions
         services.AddTransient<CloseDocumentUseCase>();
         services.AddTransient<RenderVisiblePageUseCase>();
         services.AddTransient<GenerateThumbnailUseCase>();
+        services.AddTransient<PrintDocumentUseCase>();
+        services.AddTransient<ShowSystemPrintDialogUseCase>();
         services.AddTransient<ChangeZoomUseCase>();
         services.AddTransient<RotateDocumentUseCase>();
         services.AddTransient<RotatePdfPagesUseCase>();

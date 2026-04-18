@@ -9,6 +9,7 @@ using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
 using Velune.Presentation.ViewModels;
 using Velune.Tests.Unit.Support;
+using AppResult = Velune.Application.Results.Result;
 
 namespace Velune.Tests.Unit.Presentation.ViewModels;
 
@@ -244,6 +245,159 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public async Task PrintDocumentCommand_ShouldUseSystemPrintDialog_WhenAvailable()
+    {
+        using var temporaryFile = new TemporaryFile(".pdf");
+        var printService = new StubPrintService(
+            ResultFactory.Success(),
+            supportsSystemPrintDialog: true);
+
+        using var viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService(temporaryFile.Path),
+            documentOpener: new StubDocumentOpener(
+                new DocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata(Path.GetFileName(temporaryFile.Path), temporaryFile.Path, DocumentType.Pdf, 1024, 1),
+                    ViewportState.Default)),
+            printService: printService);
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        await viewModel.PrintDocumentCommand.ExecuteAsync(null);
+
+        Assert.False(viewModel.IsPrintPanelOpen);
+        Assert.Equal("System print dialog shown", viewModel.StatusText);
+        Assert.Equal(temporaryFile.Path, printService.LastSystemDialogFilePath);
+        Assert.Equal(0, printService.GetAvailablePrintersCallCount);
+    }
+
+    [Fact]
+    public async Task PrintDocumentCommand_ShouldOpenPrintPanelAndLoadPrinters_WhenSystemDialogIsUnavailable()
+    {
+        using var temporaryFile = new TemporaryFile(".pdf");
+        var printService = new StubPrintService(
+            ResultFactory.Success(),
+            [new PrintDestinationInfo("Office Printer", true), new PrintDestinationInfo("Label Printer", false)],
+            supportsSystemPrintDialog: false);
+
+        using var viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService(temporaryFile.Path),
+            documentOpener: new StubDocumentOpener(
+                new DocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata(Path.GetFileName(temporaryFile.Path), temporaryFile.Path, DocumentType.Pdf, 1024, 1),
+                    ViewportState.Default)),
+            printService: printService);
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        await viewModel.PrintDocumentCommand.ExecuteAsync(null);
+
+        Assert.True(viewModel.IsPrintPanelOpen);
+        Assert.Equal("Print panel shown", viewModel.StatusText);
+        Assert.Equal(2, viewModel.PrintDestinations.Count);
+        Assert.Equal("Office Printer", viewModel.SelectedPrintDestination?.Name);
+        Assert.Equal(1, printService.GetAvailablePrintersCallCount);
+    }
+
+    [Fact]
+    public async Task PrintDocumentCommand_ShouldKeepSessionClean_WhenSystemDialogIsCancelled()
+    {
+        using var temporaryFile = new TemporaryFile(".pdf");
+
+        using var viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService(temporaryFile.Path),
+            documentOpener: new StubDocumentOpener(
+                new DocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata(Path.GetFileName(temporaryFile.Path), temporaryFile.Path, DocumentType.Pdf, 1024, 1),
+                    ViewportState.Default)),
+            printService: new StubPrintService(
+                ResultFactory.Success(),
+                supportsSystemPrintDialog: true,
+                systemDialogResult: ResultFactory.Failure(
+                    AppError.Validation(
+                        "print.cancelled",
+                        "Printing was cancelled."))));
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        await viewModel.PrintDocumentCommand.ExecuteAsync(null);
+
+        Assert.Equal("Print cancelled", viewModel.StatusText);
+        Assert.False(viewModel.HasUserMessage);
+        Assert.False(viewModel.IsPrintPanelOpen);
+    }
+
+    [Fact]
+    public async Task SubmitPrintJobCommand_ShouldShowInfoNotification_WhenPrintStarts()
+    {
+        using var temporaryFile = new TemporaryFile(".pdf");
+        var printService = new StubPrintService(
+            ResultFactory.Success(),
+            [new PrintDestinationInfo("Office Printer", true)],
+            supportsSystemPrintDialog: false);
+
+        using var viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService(temporaryFile.Path),
+            documentOpener: new StubDocumentOpener(
+                new DocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata(Path.GetFileName(temporaryFile.Path), temporaryFile.Path, DocumentType.Pdf, 1024, 1),
+                    ViewportState.Default)),
+            printService: printService);
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        await viewModel.PrintDocumentCommand.ExecuteAsync(null);
+
+        viewModel.PrintCopiesInput = "2";
+        viewModel.SelectedPrintPageRangeOption = "Current page";
+        viewModel.SelectedPrintOrientationOption = "Landscape";
+        viewModel.PrintFitToPage = true;
+
+        await viewModel.SubmitPrintJobCommand.ExecuteAsync(null);
+
+        Assert.Equal("Print started", viewModel.UserMessageTitle);
+        Assert.Equal("Print started", viewModel.StatusText);
+        Assert.False(viewModel.IsPrintPanelOpen);
+        Assert.NotNull(printService.LastRequest);
+        Assert.Equal(temporaryFile.Path, printService.LastRequest!.FilePath);
+        Assert.Equal("Office Printer", printService.LastRequest.PrinterName);
+        Assert.Equal(2, printService.LastRequest.Copies);
+        Assert.Equal("1", printService.LastRequest.PageRanges);
+        Assert.Equal(PrintOrientationOption.Landscape, printService.LastRequest.Orientation);
+        Assert.True(printService.LastRequest.FitToPage);
+    }
+
+    [Fact]
+    public async Task SubmitPrintJobCommand_ShouldShowFriendlyError_WhenPrintFails()
+    {
+        using var temporaryFile = new TemporaryFile(".pdf");
+
+        using var viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService(temporaryFile.Path),
+            documentOpener: new StubDocumentOpener(
+                new DocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata(Path.GetFileName(temporaryFile.Path), temporaryFile.Path, DocumentType.Pdf, 1024, 1),
+                    ViewportState.Default)),
+            printService: new StubPrintService(
+                ResultFactory.Failure(
+                    AppError.Unsupported(
+                        "print.platform.unsupported",
+                        "Printing is not available on this platform yet.")),
+                [new PrintDestinationInfo("Office Printer", true)],
+                supportsSystemPrintDialog: false));
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        await viewModel.PrintDocumentCommand.ExecuteAsync(null);
+        await viewModel.SubmitPrintJobCommand.ExecuteAsync(null);
+
+        Assert.Equal("Print failed", viewModel.UserMessageTitle);
+        Assert.Equal("Print failed", viewModel.StatusText);
+        Assert.Equal("Printing is not available on this platform yet.", viewModel.UserMessage);
+        Assert.True(viewModel.IsPrintPanelOpen);
+        Assert.Equal("Printing is not available on this platform yet.", viewModel.PrintPanelNotice);
+    }
+
+    [Fact]
     public async Task HandleThumbnailReorderAsync_ShouldMarkPendingOrderAndMoveThumbnail()
     {
         using var viewModel = CreateViewModel(
@@ -370,17 +524,22 @@ public sealed class MainWindowViewModelTests
         IDocumentOpener? documentOpener = null,
         IRenderOrchestrator? renderOrchestrator = null,
         IPdfDocumentStructureService? pdfDocumentStructureService = null,
-        IUserPreferencesService? userPreferencesService = null)
+        IUserPreferencesService? userPreferencesService = null,
+        IPrintService? printService = null)
     {
         var sessionStore = new InMemoryDocumentSessionStore();
         var viewportStore = new InMemoryPageViewportStore();
         var orchestrator = renderOrchestrator ?? new StubRenderOrchestrator();
         var structureService = pdfDocumentStructureService ?? new StubPdfDocumentStructureService();
+        var activePrintService = printService ?? new StubPrintService(ResultFactory.Success());
 
         return new MainWindowViewModel(
             filePickerService ?? new StubFilePickerService(),
+            activePrintService,
             new OpenDocumentUseCase(documentOpener ?? new StubDocumentOpener(), sessionStore, NoOpPerformanceMetrics.Instance),
             new CloseDocumentUseCase(sessionStore, NoOpPerformanceMetrics.Instance),
+            new PrintDocumentUseCase(activePrintService),
+            new ShowSystemPrintDialogUseCase(activePrintService),
             new ChangePageUseCase(sessionStore),
             new ChangeZoomUseCase(sessionStore),
             new RotateDocumentUseCase(sessionStore),
@@ -514,6 +673,77 @@ public sealed class MainWindowViewModelTests
             Current = preferences;
             PreferencesChanged?.Invoke(this, EventArgs.Empty);
             return Task.CompletedTask;
+        }
+    }
+
+    private sealed class StubPrintService : IPrintService
+    {
+        private readonly AppResult _result;
+        private readonly IReadOnlyList<PrintDestinationInfo> _printers;
+        private readonly AppResult _systemDialogResult;
+
+        public StubPrintService(
+            AppResult result,
+            IReadOnlyList<PrintDestinationInfo>? printers = null,
+            bool supportsSystemPrintDialog = false,
+            AppResult? systemDialogResult = null)
+        {
+            _result = result;
+            _printers = printers ?? [];
+            SupportsSystemPrintDialog = supportsSystemPrintDialog;
+            _systemDialogResult = systemDialogResult ?? ResultFactory.Success();
+        }
+
+        public bool SupportsSystemPrintDialog { get; }
+
+        public int GetAvailablePrintersCallCount { get; private set; }
+
+        public PrintDocumentRequest? LastRequest { get; private set; }
+
+        public string? LastSystemDialogFilePath { get; private set; }
+
+        public Task<AppResult> ShowSystemPrintDialogAsync(string filePath, CancellationToken cancellationToken = default)
+        {
+            LastSystemDialogFilePath = filePath;
+            return Task.FromResult(_systemDialogResult);
+        }
+
+        public Task<Result<IReadOnlyList<PrintDestinationInfo>>> GetAvailablePrintersAsync(CancellationToken cancellationToken = default)
+        {
+            GetAvailablePrintersCallCount++;
+            return Task.FromResult(ResultFactory.Success(_printers));
+        }
+
+        public Task<AppResult> PrintAsync(PrintDocumentRequest request, CancellationToken cancellationToken = default)
+        {
+            LastRequest = request;
+            return Task.FromResult(_result);
+        }
+    }
+
+    private sealed class TemporaryFile : IDisposable
+    {
+        public TemporaryFile(string extension)
+        {
+            Path = System.IO.Path.ChangeExtension(System.IO.Path.GetTempFileName(), extension);
+            File.WriteAllText(Path, "temporary");
+        }
+
+        public string Path { get; }
+
+        public void Dispose()
+        {
+            try
+            {
+                if (File.Exists(Path))
+                {
+                    File.Delete(Path);
+                }
+            }
+            catch
+            {
+                // Best-effort cleanup for temporary test files.
+            }
         }
     }
 

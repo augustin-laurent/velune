@@ -79,11 +79,9 @@
       <Setter Property="Opacity" Value="0.92" />
     </Style>
 
-    <Style Selector="Button.thumbnail-button">
-      <Setter Property="Padding" Value="0" />
+    <Style Selector="Border.thumbnail-hitbox">
       <Setter Property="Background" Value="Transparent" />
-      <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Cursor" Value="Hand" />
     </Style>
 
     <Style Selector="Border.thumbnail-item">
@@ -91,10 +89,40 @@
       <Setter Property="Background" Value="{DynamicResource Brush.SurfaceMuted}" />
       <Setter Property="CornerRadius" Value="8" />
       <Setter Property="Margin" Value="0,0,0,10" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Opacity" Value="1" />
+      <Setter Property="Transitions">
+        <Transitions>
+          <DoubleTransition Property="Opacity" Duration="0:0:0.14" />
+        </Transitions>
+      </Setter>
     </Style>
 
-    <Style Selector="Button.thumbnail-button:pointerover Border.thumbnail-item">
+    <Style Selector="Border.thumbnail-hitbox:pointerover Border.thumbnail-item">
       <Setter Property="Opacity" Value="0.92" />
+    </Style>
+
+    <Style Selector="Border.thumbnail-item.selected">
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
+
+    <Style Selector="Border.thumbnail-item.dragging">
+      <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderStrong}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Opacity" Value="0.16" />
+    </Style>
+
+    <Style Selector="Button.sidebar-action-button">
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="MinHeight" Value="32" />
+      <Setter Property="Background" Value="{DynamicResource Brush.SurfaceMuted}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="FontSize" Value="12" />
     </Style>
 
     <Style Selector="Border.thumbnail-image-host">
@@ -104,9 +132,28 @@
       <Setter Property="CornerRadius" Value="6" />
     </Style>
 
-    <Style Selector="Border.thumbnail-item:selected">
-      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
-      <Setter Property="BorderThickness" Value="2" />
+    <Style Selector="Border.thumbnail-drag-ghost">
+      <Setter Property="IsHitTestVisible" Value="False" />
+      <Setter Property="Opacity" Value="0.985" />
+    </Style>
+
+    <Style Selector="Border.thumbnail-drag-preview-item">
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderStrong}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="BoxShadow" Value="0 18 40 0 #22000000, 0 6 16 0 #16000000" />
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+
+    <Style Selector="Border.thumbnail-drop-indicator">
+      <Setter Property="Height" Value="5" />
+      <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+      <Setter Property="CornerRadius" Value="999" />
+      <Setter Property="IsHitTestVisible" Value="False" />
+      <Setter Property="Opacity" Value="0.96" />
+      <Setter Property="BoxShadow" Value="0 0 0 1 #20FFFFFF, 0 6 16 0 #33256EFF" />
     </Style>
 
     <Style Selector="Border.toolbar-group">

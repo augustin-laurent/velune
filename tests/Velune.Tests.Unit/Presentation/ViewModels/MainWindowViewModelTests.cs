@@ -2,6 +2,7 @@ using Microsoft.Extensions.Options;
 using Velune.Application.Abstractions;
 using Velune.Application.Configuration;
 using Velune.Application.DTOs;
+using Velune.Application.Results;
 using Velune.Application.UseCases;
 using Velune.Domain.Abstractions;
 using Velune.Domain.Documents;
@@ -145,6 +146,123 @@ public sealed class MainWindowViewModelTests
         Assert.Equal("File information shown", viewModel.StatusText);
     }
 
+    [Fact]
+    public async Task HandleThumbnailReorderAsync_ShouldMarkPendingOrderAndMoveThumbnail()
+    {
+        using var viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService("/tmp/document.pdf"),
+            documentOpener: new StubDocumentOpener(
+                new DocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata("Document.pdf", "/tmp/document.pdf", DocumentType.Pdf, 1024, 3),
+                    ViewportState.Default)));
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        await viewModel.HandleThumbnailReorderAsync(1, 3);
+
+        Assert.True(viewModel.HasPendingPageReorder);
+        Assert.Equal("Page order updated", viewModel.UserMessageTitle);
+        Assert.Equal([2, 3, 1], viewModel.Thumbnails.Select(item => item.SourcePageNumber).ToArray());
+        Assert.Equal([1, 2, 3], viewModel.Thumbnails.Select(item => item.DisplayPageNumber).ToArray());
+    }
+
+    [Fact]
+    public async Task HandleThumbnailReorderToIndexAsync_ShouldMoveThumbnailToRequestedSlot()
+    {
+        using var viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService("/tmp/document.pdf"),
+            documentOpener: new StubDocumentOpener(
+                new DocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata("Document.pdf", "/tmp/document.pdf", DocumentType.Pdf, 1024, 4),
+                    ViewportState.Default)));
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        await viewModel.HandleThumbnailReorderToIndexAsync(1, 3);
+
+        Assert.True(viewModel.HasPendingPageReorder);
+        Assert.Equal([2, 3, 4, 1], viewModel.Thumbnails.Select(item => item.SourcePageNumber).ToArray());
+        Assert.Equal([1, 2, 3, 4], viewModel.Thumbnails.Select(item => item.DisplayPageNumber).ToArray());
+    }
+
+    [Fact]
+    public async Task MoveCurrentPageLaterCommand_ShouldMoveCurrentPageByOneSlot()
+    {
+        using var viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService("/tmp/document.pdf"),
+            documentOpener: new StubDocumentOpener(
+                new DocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata("Document.pdf", "/tmp/document.pdf", DocumentType.Pdf, 1024, 3),
+                    ViewportState.Default)));
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        await viewModel.MoveCurrentPageLaterCommand.ExecuteAsync(null);
+
+        Assert.True(viewModel.HasPendingPageReorder);
+        Assert.Equal([2, 1, 3], viewModel.Thumbnails.Select(item => item.SourcePageNumber).ToArray());
+        Assert.Equal("Moved page 1 later", viewModel.StatusText);
+    }
+
+    [Fact]
+    public async Task DeleteCurrentPageCommand_ShouldUseFilePickerAndDeleteSelectedPage()
+    {
+        var filePickerService = new StubFilePickerService(
+            openPath: "/tmp/document.pdf",
+            savePath: "/tmp/document-without-page-1.pdf");
+        var pdfStructureService = new StubPdfDocumentStructureService();
+
+        using var viewModel = CreateViewModel(
+            filePickerService: filePickerService,
+            documentOpener: new StubDocumentOpener(
+                new DocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata("Document.pdf", "/tmp/document.pdf", DocumentType.Pdf, 1024, 3),
+                    ViewportState.Default)),
+            pdfDocumentStructureService: pdfStructureService);
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        await viewModel.DeleteCurrentPageCommand.ExecuteAsync(null);
+
+        Assert.Equal("Save PDF without current page", filePickerService.LastSaveTitle);
+        Assert.Equal("Document.pdf", filePickerService.LastSuggestedFileName);
+        Assert.Equal([1], pdfStructureService.LastDeletedPages);
+        Assert.Equal("/tmp/document-without-page-1.pdf", pdfStructureService.LastOutputPath);
+    }
+
+    [Fact]
+    public async Task PersistCurrentPageRotationCommand_ShouldSaveAllPendingRotations()
+    {
+        var filePickerService = new StubFilePickerService(
+            openPath: "/tmp/document.pdf",
+            savePath: "/tmp/document-rotated.pdf");
+        var pdfStructureService = new StubPdfDocumentStructureService();
+
+        using var viewModel = CreateViewModel(
+            filePickerService: filePickerService,
+            documentOpener: new StubDocumentOpener(
+                new DocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata("Document.pdf", "/tmp/document.pdf", DocumentType.Pdf, 1024, 3),
+                    ViewportState.Default)),
+            pdfDocumentStructureService: pdfStructureService);
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        await viewModel.RotateRightCommand.ExecuteAsync(null);
+        await viewModel.NextPageCommand.ExecuteAsync(null);
+        await viewModel.RotateLeftCommand.ExecuteAsync(null);
+
+        await viewModel.PersistCurrentPageRotationCommand.ExecuteAsync(null);
+
+        Assert.Equal("Save PDF with page rotations", filePickerService.LastSaveTitle);
+        Assert.Equal("Document.pdf", filePickerService.LastSuggestedFileName);
+        Assert.Equal(2, pdfStructureService.RotateCalls.Count);
+        Assert.Equal([1], pdfStructureService.RotateCalls[0].Pages);
+        Assert.Equal(Rotation.Deg90, pdfStructureService.RotateCalls[0].Rotation);
+        Assert.Equal([2], pdfStructureService.RotateCalls[1].Pages);
+        Assert.Equal(Rotation.Deg270, pdfStructureService.RotateCalls[1].Rotation);
+    }
+
     [System.Diagnostics.CodeAnalysis.SuppressMessage(
         "Reliability",
         "CA2000:Dispose objects before losing scope",
@@ -153,11 +271,13 @@ public sealed class MainWindowViewModelTests
         IRecentFilesService? recentFilesService = null,
         IFilePickerService? filePickerService = null,
         IDocumentOpener? documentOpener = null,
-        IRenderOrchestrator? renderOrchestrator = null)
+        IRenderOrchestrator? renderOrchestrator = null,
+        IPdfDocumentStructureService? pdfDocumentStructureService = null)
     {
         var sessionStore = new InMemoryDocumentSessionStore();
         var viewportStore = new InMemoryPageViewportStore();
         var orchestrator = renderOrchestrator ?? new StubRenderOrchestrator();
+        var structureService = pdfDocumentStructureService ?? new StubPdfDocumentStructureService();
 
         return new MainWindowViewModel(
             filePickerService ?? new StubFilePickerService(),
@@ -166,6 +286,10 @@ public sealed class MainWindowViewModelTests
             new ChangePageUseCase(sessionStore),
             new ChangeZoomUseCase(sessionStore),
             new RotateDocumentUseCase(sessionStore),
+            new RotatePdfPagesUseCase(structureService),
+            new DeletePdfPagesUseCase(structureService),
+            new ExtractPdfPagesUseCase(structureService),
+            new ReorderPdfPagesUseCase(structureService),
             orchestrator,
             sessionStore,
             recentFilesService ?? CreateRecentFilesService(),
@@ -179,16 +303,32 @@ public sealed class MainWindowViewModelTests
 
     private sealed class StubFilePickerService : IFilePickerService
     {
-        private readonly string? _selectedPath;
+        private readonly string? _openPath;
+        private readonly string? _savePath;
 
-        public StubFilePickerService(string? selectedPath = null)
+        public StubFilePickerService(string? openPath = null, string? savePath = null)
         {
-            _selectedPath = selectedPath;
+            _openPath = openPath;
+            _savePath = savePath;
         }
+
+        public string? LastSaveTitle { get; private set; }
+
+        public string? LastSuggestedFileName { get; private set; }
 
         public Task<string?> PickOpenFileAsync(CancellationToken cancellationToken = default)
         {
-            return Task.FromResult(_selectedPath);
+            return Task.FromResult(_openPath);
+        }
+
+        public Task<string?> PickSavePdfFileAsync(
+            string title,
+            string suggestedFileName,
+            CancellationToken cancellationToken = default)
+        {
+            LastSaveTitle = title;
+            LastSuggestedFileName = suggestedFileName;
+            return Task.FromResult(_savePath);
         }
     }
 
@@ -241,6 +381,69 @@ public sealed class MainWindowViewModelTests
 
         public void Dispose()
         {
+        }
+    }
+
+    private sealed class StubPdfDocumentStructureService : IPdfDocumentStructureService
+    {
+        public List<(string SourcePath, string OutputPath, IReadOnlyList<int> Pages, Rotation Rotation)> RotateCalls { get; } = [];
+
+        public IReadOnlyList<int>? LastDeletedPages { get; private set; }
+
+        public string? LastOutputPath { get; private set; }
+
+        public bool IsAvailable() => true;
+
+        public Task<Result<string>> RotatePagesAsync(
+            string sourcePath,
+            string outputPath,
+            IReadOnlyList<int> pages,
+            Rotation rotation,
+            CancellationToken cancellationToken = default)
+        {
+            RotateCalls.Add((sourcePath, outputPath, pages.ToArray(), rotation));
+            LastOutputPath = outputPath;
+            return Task.FromResult(ResultFactory.Success(outputPath));
+        }
+
+        public Task<Result<string>> DeletePagesAsync(
+            string sourcePath,
+            string outputPath,
+            IReadOnlyList<int> pages,
+            CancellationToken cancellationToken = default)
+        {
+            LastDeletedPages = pages.ToArray();
+            LastOutputPath = outputPath;
+            return Task.FromResult(ResultFactory.Success(outputPath));
+        }
+
+        public Task<Result<string>> ExtractPagesAsync(
+            string sourcePath,
+            string outputPath,
+            IReadOnlyList<int> pages,
+            CancellationToken cancellationToken = default)
+        {
+            LastOutputPath = outputPath;
+            return Task.FromResult(ResultFactory.Success(outputPath));
+        }
+
+        public Task<Result<string>> MergeDocumentsAsync(
+            IReadOnlyList<string> sourcePaths,
+            string outputPath,
+            CancellationToken cancellationToken = default)
+        {
+            LastOutputPath = outputPath;
+            return Task.FromResult(ResultFactory.Success(outputPath));
+        }
+
+        public Task<Result<string>> ReorderPagesAsync(
+            string sourcePath,
+            string outputPath,
+            IReadOnlyList<int> orderedPages,
+            CancellationToken cancellationToken = default)
+        {
+            LastOutputPath = outputPath;
+            return Task.FromResult(ResultFactory.Success(outputPath));
         }
     }
 }

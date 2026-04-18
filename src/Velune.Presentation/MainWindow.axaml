@@ -20,6 +20,10 @@
     <KeyBinding Gesture="Ctrl+OemMinus" Command="{Binding ZoomOutCommand}" />
     <KeyBinding Gesture="Meta+Subtract" Command="{Binding ZoomOutCommand}" />
     <KeyBinding Gesture="Meta+OemMinus" Command="{Binding ZoomOutCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+Up" Command="{Binding MoveCurrentPageEarlierCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+Down" Command="{Binding MoveCurrentPageLaterCommand}" />
+    <KeyBinding Gesture="Meta+Shift+Up" Command="{Binding MoveCurrentPageEarlierCommand}" />
+    <KeyBinding Gesture="Meta+Shift+Down" Command="{Binding MoveCurrentPageLaterCommand}" />
     <KeyBinding Gesture="Right" Command="{Binding NextPageCommand}" />
     <KeyBinding Gesture="Left" Command="{Binding PreviousPageCommand}" />
     <KeyBinding Gesture="PageDown" Command="{Binding NextPageCommand}" />
@@ -275,72 +279,156 @@
             Background="{DynamicResource Brush.Surface}"
             IsVisible="{Binding IsSidebarVisible}">
       <Grid RowDefinitions="Auto,*">
-        <DockPanel Grid.Row="0"
-                   LastChildFill="False"
-                   Margin="0,0,0,10">
-          <TextBlock Text="Pages"
-                     Classes="title"
-                     VerticalAlignment="Center" />
+        <StackPanel Grid.Row="0"
+                    Spacing="10"
+                    Margin="0,0,0,10">
+          <DockPanel LastChildFill="False">
+            <TextBlock Text="Pages"
+                       Classes="title"
+                       VerticalAlignment="Center" />
 
-          <TextBlock Text="Loading..."
+            <TextBlock Text="Loading..."
+                       Classes="muted"
+                       DockPanel.Dock="Right"
+                       IsVisible="{Binding IsGeneratingThumbnails}" />
+          </DockPanel>
+
+          <WrapPanel ItemSpacing="8"
+                     LineSpacing="8"
+                     IsVisible="{Binding IsPdfStructureActionsVisible}">
+            <Button Classes="sidebar-action-button"
+                    Command="{Binding PersistCurrentPageRotationCommand}">
+              Apply Rotations
+            </Button>
+
+            <Button Classes="sidebar-action-button"
+                    Command="{Binding ExtractCurrentPageCommand}">
+              Extract Page
+            </Button>
+
+            <Button Classes="sidebar-action-button"
+                    Command="{Binding DeleteCurrentPageCommand}">
+              Delete Page
+            </Button>
+
+            <Button Classes="sidebar-action-button"
+                    Command="{Binding SaveReorderedPdfCommand}"
+                    IsVisible="{Binding HasPendingPageReorder}">
+              Save Order
+            </Button>
+          </WrapPanel>
+
+          <TextBlock Text="Drag thumbnails to prepare a new page order, then save a reordered copy."
                      Classes="muted"
-                     DockPanel.Dock="Right"
-                     IsVisible="{Binding IsGeneratingThumbnails}" />
-        </DockPanel>
+                     TextWrapping="Wrap"
+                     IsVisible="{Binding IsPdfStructureActionsVisible}" />
+        </StackPanel>
 
-        <ScrollViewer Grid.Row="1"
-                      Width="216"
-                      MaxWidth="216"
-                      HorizontalScrollBarVisibility="Disabled"
-                      VerticalScrollBarVisibility="Auto">
-          <ItemsControl ItemsSource="{Binding Thumbnails}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <Button Classes="thumbnail-button"
-                        Command="{Binding $parent[Window].DataContext.SelectThumbnailCommand}"
-                        CommandParameter="{Binding}"
-                        HorizontalContentAlignment="Stretch">
-                  <Border Classes="thumbnail-item"
-                          Width="200"
-                          MaxWidth="200"
-                          MinHeight="120">
-                    <StackPanel Spacing="8">
-                      <Border Classes="thumbnail-image-host"
-                              Width="180"
-                              MaxWidth="180"
-                              Height="160"
-                              HorizontalAlignment="Center">
-                        <Grid>
-                          <Image Source="{Binding Thumbnail}"
-                                 Stretch="Uniform"
-                                 MaxWidth="170"
-                                 MaxHeight="150"
-                                 HorizontalAlignment="Center"
-                                 VerticalAlignment="Center" />
-                          <TextBlock Text="Loading..."
-                                     Classes="muted"
-                                     HorizontalAlignment="Center"
-                                     VerticalAlignment="Center"
-                                     IsVisible="{Binding IsLoading}" />
-                        </Grid>
-                      </Border>
+        <Grid x:Name="ThumbnailDragSurface"
+              Grid.Row="1"
+              Width="216"
+              MaxWidth="216"
+              ClipToBounds="False">
+          <ScrollViewer x:Name="ThumbnailScrollViewer"
+                        HorizontalScrollBarVisibility="Disabled"
+                        VerticalScrollBarVisibility="Auto">
+            <ItemsControl x:Name="ThumbnailItemsControl"
+                          ItemsSource="{Binding Thumbnails}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Classes="thumbnail-hitbox"
+                          PointerPressed="OnThumbnailPointerPressed"
+                          PointerMoved="OnThumbnailPointerMoved"
+                          PointerReleased="OnThumbnailPointerReleased"
+                          PointerCaptureLost="OnThumbnailPointerCaptureLost"
+                          Tapped="OnThumbnailTapped">
+                    <Border Classes="thumbnail-item"
+                            Classes.selected="{Binding IsSelected}"
+                            Classes.dragging="{Binding IsDragging}"
+                            Width="200"
+                            MaxWidth="200"
+                            MinHeight="120">
+                      <StackPanel Spacing="8">
+                        <Border Classes="thumbnail-image-host"
+                                Width="180"
+                                MaxWidth="180"
+                                Height="160"
+                                HorizontalAlignment="Center">
+                          <Grid>
+                            <Image Source="{Binding Thumbnail}"
+                                   Stretch="Uniform"
+                                   MaxWidth="170"
+                                   MaxHeight="150"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                            <TextBlock Text="Loading..."
+                                       Classes="muted"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       IsVisible="{Binding IsLoading}" />
+                          </Grid>
+                        </Border>
 
-                      <StackPanel Orientation="Horizontal"
-                                  HorizontalAlignment="Center"
-                                  Spacing="6">
-                        <TextBlock Text="{Binding PageNumber, StringFormat=Page {0}}"
-                                   FontWeight="SemiBold" />
-                        <TextBlock Text="●"
-                                   Foreground="{DynamicResource Brush.Accent}"
-                                   IsVisible="{Binding IsSelected}" />
+                        <StackPanel Orientation="Horizontal"
+                                    HorizontalAlignment="Center"
+                                    Spacing="6">
+                          <TextBlock Text="{Binding DisplayPageNumber, StringFormat=Page {0}}"
+                                     FontWeight="SemiBold" />
+                          <TextBlock Text="●"
+                                     Foreground="{DynamicResource Brush.Accent}"
+                                     IsVisible="{Binding IsSelected}" />
+                        </StackPanel>
                       </StackPanel>
-                    </StackPanel>
+                    </Border>
                   </Border>
-                </Button>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-        </ScrollViewer>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+
+          <Canvas x:Name="ThumbnailDragOverlay"
+                  IsHitTestVisible="False"
+                  ClipToBounds="False">
+            <Border x:Name="ThumbnailDropIndicator"
+                    Classes="thumbnail-drop-indicator"
+                    IsVisible="False" />
+            <Border x:Name="ThumbnailDragGhostHost"
+                    Classes="thumbnail-drag-ghost"
+                    IsVisible="False">
+              <Border Classes="thumbnail-item thumbnail-drag-preview-item"
+                      Width="200"
+                      MaxWidth="200"
+                      MinHeight="120">
+                <StackPanel Spacing="8">
+                  <Border Classes="thumbnail-image-host"
+                          Width="180"
+                          MaxWidth="180"
+                          Height="160"
+                          HorizontalAlignment="Center">
+                    <Grid>
+                      <Image x:Name="ThumbnailDragGhostPreviewImage"
+                             Stretch="Uniform"
+                             MaxWidth="170"
+                             MaxHeight="150"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center" />
+                      <TextBlock x:Name="ThumbnailDragGhostLoadingText"
+                                 Text="Loading..."
+                                 Classes="muted"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center"
+                                 IsVisible="False" />
+                    </Grid>
+                  </Border>
+
+                  <TextBlock x:Name="ThumbnailDragGhostPageLabel"
+                             HorizontalAlignment="Center"
+                             FontWeight="SemiBold" />
+                </StackPanel>
+              </Border>
+            </Border>
+          </Canvas>
+        </Grid>
       </Grid>
     </Border>
 

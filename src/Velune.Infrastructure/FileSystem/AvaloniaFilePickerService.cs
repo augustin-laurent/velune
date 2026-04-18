@@ -62,4 +62,34 @@ public sealed class AvaloniaFilePickerService : IFilePickerService
 
         return files[0].TryGetLocalPath();
     }
+
+    public async Task<string?> PickSavePdfFileAsync(
+        string title,
+        string suggestedFileName,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+        ArgumentException.ThrowIfNullOrWhiteSpace(suggestedFileName);
+
+        var topLevel = _topLevelProvider.GetTopLevel()
+            ?? throw new InvalidOperationException("No active TopLevel is available.");
+
+        var file = await topLevel.StorageProvider.SaveFilePickerAsync(
+            new FilePickerSaveOptions
+            {
+                Title = title,
+                SuggestedFileName = suggestedFileName,
+                DefaultExtension = "pdf",
+                FileTypeChoices =
+                [
+                    new FilePickerFileType("PDF document")
+                    {
+                        Patterns = ["*.pdf"],
+                        MimeTypes = ["application/pdf"]
+                    }
+                ]
+            });
+
+        return file?.TryGetLocalPath();
+    }
 }

@@ -46,14 +46,7 @@ public sealed class AdaptersIntegrationTests
     private static async Task<HostResult> RunHostAsync(string fixtureName, int rotationDegrees = 0)
     {
         var repositoryRoot = GetRepositoryRoot();
-        var hostDllPath = Path.Combine(
-            repositoryRoot,
-            "tests",
-            "Velune.Tests.Render.Host",
-            "bin",
-            "Debug",
-            "net10.0",
-            "Velune.Tests.Render.Host.dll");
+        var hostDllPath = GetHostDllPath(repositoryRoot);
         var fixturePath = Path.Combine(AppContext.BaseDirectory, "Fixtures", fixtureName);
 
         Assert.True(File.Exists(hostDllPath), $"Host executable not found: {hostDllPath}");
@@ -93,6 +86,37 @@ public sealed class AdaptersIntegrationTests
     private static string GetRepositoryRoot()
     {
         return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../.."));
+    }
+
+    private static string GetHostDllPath(string repositoryRoot)
+    {
+        var currentConfiguration = new DirectoryInfo(AppContext.BaseDirectory)
+            .Parent?
+            .Parent?
+            .Name;
+        var hostBinDirectory = Path.Combine(repositoryRoot, "tests", "Velune.Tests.Render.Host", "bin");
+
+        if (!string.IsNullOrWhiteSpace(currentConfiguration))
+        {
+            var configurationPath = Path.Combine(
+                hostBinDirectory,
+                currentConfiguration,
+                "net10.0",
+                "Velune.Tests.Render.Host.dll");
+
+            if (File.Exists(configurationPath))
+            {
+                return configurationPath;
+            }
+        }
+
+        var fallbackPath = Directory
+            .EnumerateFiles(hostBinDirectory, "Velune.Tests.Render.Host.dll", SearchOption.AllDirectories)
+            .OrderByDescending(path => path.Contains($"{Path.DirectorySeparatorChar}Release{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
+            .ThenByDescending(path => path.Contains($"{Path.DirectorySeparatorChar}Debug{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
+            .FirstOrDefault();
+
+        return fallbackPath ?? Path.Combine(hostBinDirectory, "Velune.Tests.Render.Host.dll");
     }
 
     private sealed record HostResult(

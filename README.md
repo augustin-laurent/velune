@@ -46,8 +46,10 @@ Stratégie de comparaison :
 
 - rendu piloté par un host desktop dédié pour rester au plus proche du pipeline réel
 - comparaison PNG RGBA déterministe
-- tolérance par canal `<= 2`
-- pixels différents autorisés `<= 0.1%`
+- image tournée : comparaison stricte avec tolérance par canal `<= 2` et pixels différents `<= 0.1%`
+- PDF page : comparaison avec voisinage `1px`, tolérance par canal `<= 12` et pixels différents `<= 1.5%`
+- PDF miniature : comparaison avec voisinage `1px`, tolérance par canal `<= 14` et pixels différents `<= 3%`
+- les profils PDF absorbent les petites variations de rasterisation entre plateformes tout en restant assez stricts pour détecter un mauvais rendu
 
 Commande locale :
 
@@ -60,7 +62,8 @@ dotnet test tests/Velune.Tests.Render/Velune.Tests.Render.csproj
 Le workflow GitHub Actions est défini dans `.github/workflows/ci.yml`.
 
 - une `pull request` déclenche un restore + build sur `ubuntu`, `windows` et `macOS`
-- les tests `unit`, `integration` et `render` sont exécutés sur `ubuntu-latest`
+- les tests `unit` et `integration` sont exécutés sur `ubuntu-latest`
+- les snapshots de rendu sont exécutés sur `macos-latest` pour garder une baseline PDF déterministe
 - un échec de build ou de test remonte directement dans les checks GitHub de la PR
 
 ## Qualité

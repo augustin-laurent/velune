@@ -4,6 +4,7 @@ using Velune.Domain.Abstractions;
 using Velune.Infrastructure.Documents;
 using Velune.Infrastructure.FileSystem;
 using Velune.Infrastructure.Image;
+using Velune.Infrastructure.Preferences;
 using Velune.Infrastructure.Pdf;
 using Velune.Infrastructure.Rendering;
 
@@ -17,6 +18,7 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<TopLevelProvider>();
         services.AddSingleton<IFilePickerService, AvaloniaFilePickerService>();
+        services.AddSingleton<IUserPreferencesService, JsonUserPreferencesService>();
 
         services.AddSingleton<PdfiumInitializer>();
 

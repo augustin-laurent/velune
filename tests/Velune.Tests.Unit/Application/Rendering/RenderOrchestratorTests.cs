@@ -174,10 +174,7 @@ public sealed class RenderOrchestratorTests
     {
         return new RenderMemoryCache(
             NullLogger<RenderMemoryCache>.Instance,
-            Options.Create(new AppOptions
-            {
-                RenderCacheEntryLimit = 8
-            }));
+            new StubUserPreferencesService(8));
     }
 
     private static RenderedPage CreatePage(int pageIndex)
@@ -240,6 +237,25 @@ public sealed class RenderOrchestratorTests
                 [0, 0, 0, 255],
                 1,
                 1);
+        }
+    }
+
+    private sealed class StubUserPreferencesService : IUserPreferencesService
+    {
+        public StubUserPreferencesService(int memoryCacheEntryLimit)
+        {
+            Current = UserPreferences.CreateDefault(memoryCacheEntryLimit);
+        }
+
+        public UserPreferences Current { get; private set; }
+
+        public event EventHandler? PreferencesChanged;
+
+        public Task SaveAsync(UserPreferences preferences, CancellationToken cancellationToken = default)
+        {
+            Current = preferences;
+            PreferencesChanged?.Invoke(this, EventArgs.Empty);
+            return Task.CompletedTask;
         }
     }
 

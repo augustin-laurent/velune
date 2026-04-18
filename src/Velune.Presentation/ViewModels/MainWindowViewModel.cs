@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Material.Icons;
 using Velune.Application.Abstractions;
+using Velune.Application.Configuration;
 using Velune.Application.DTOs;
 using Velune.Application.Results;
 using Velune.Application.UseCases;
@@ -49,6 +50,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private const double InfoPanelExpandedWidth = 300;
     private const double ViewportResizeThreshold = 1.0;
     private const double ZoomComparisonTolerance = 0.001;
+    private const string ThemeSystemLabel = "System";
+    private const string ThemeLightLabel = "Light";
+    private const string ThemeDarkLabel = "Dark";
+    private const string DefaultZoomFitToPageLabel = "Fit to page";
+    private const string DefaultZoomFitToWidthLabel = "Fit to width";
+    private const string DefaultZoomActualSizeLabel = "100%";
 
     private readonly IFilePickerService _filePickerService;
     private readonly OpenDocumentUseCase _openDocumentUseCase;
@@ -64,14 +71,18 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private readonly IDocumentSessionStore _documentSessionStore;
     private readonly IRecentFilesService _recentFilesService;
     private readonly IPageViewportStore _pageViewportStore;
+    private readonly IUserPreferencesService _userPreferencesService;
 
     private readonly Queue<NotificationEntry> _notificationQueue = [];
     private readonly Dictionary<int, RenderJobHandle> _thumbnailRenderJobs = [];
+    private readonly IReadOnlyList<string> _themePreferenceOptions = [ThemeSystemLabel, ThemeLightLabel, ThemeDarkLabel];
+    private readonly IReadOnlyList<string> _defaultZoomPreferenceOptions = [DefaultZoomFitToPageLabel, DefaultZoomFitToWidthLabel, DefaultZoomActualSizeLabel];
     private bool _disposed;
     private double _documentViewportWidth;
     private double _documentViewportHeight;
     private bool _isImageAutoFitEnabled;
     private bool _isApplyingPdfStructureOperation;
+    private bool _isApplyingPreferencesState;
     private NotificationKind _currentNotificationKind = NotificationKind.Info;
     private bool _isCurrentNotificationDismissible;
     private int _thumbnailGenerationVersion;
@@ -93,7 +104,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         IRenderOrchestrator renderOrchestrator,
         IDocumentSessionStore documentSessionStore,
         IRecentFilesService recentFilesService,
-        IPageViewportStore pageViewportStore)
+        IPageViewportStore pageViewportStore,
+        IUserPreferencesService userPreferencesService)
     {
         ArgumentNullException.ThrowIfNull(filePickerService);
         ArgumentNullException.ThrowIfNull(openDocumentUseCase);
@@ -109,6 +121,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         ArgumentNullException.ThrowIfNull(documentSessionStore);
         ArgumentNullException.ThrowIfNull(recentFilesService);
         ArgumentNullException.ThrowIfNull(pageViewportStore);
+        ArgumentNullException.ThrowIfNull(userPreferencesService);
 
         _filePickerService = filePickerService;
         _openDocumentUseCase = openDocumentUseCase;
@@ -124,10 +137,13 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _documentSessionStore = documentSessionStore;
         _recentFilesService = recentFilesService;
         _pageViewportStore = pageViewportStore;
+        _userPreferencesService = userPreferencesService;
 
         RecentFiles = [];
         Thumbnails = [];
         DocumentInfoItems = [];
+        MemoryCacheEntryLimitOptions = new ObservableCollection<int> { 0, 32, 64, 128, 256 };
+        ApplyPreferencesToUi(_userPreferencesService.Current);
         RefreshRecentFiles();
     }
 
@@ -180,6 +196,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private bool _isInfoPanelVisible;
 
     [ObservableProperty]
+    private bool _isPreferencesPanelVisible;
+
+    [ObservableProperty]
     private string? _documentInfoWarning;
 
     [ObservableProperty]
@@ -209,6 +228,18 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _hasPendingPageReorder;
 
+    [ObservableProperty]
+    private string _selectedThemePreference = ThemeSystemLabel;
+
+    [ObservableProperty]
+    private string _selectedDefaultZoomPreference = DefaultZoomFitToPageLabel;
+
+    [ObservableProperty]
+    private bool _showThumbnailsPanelPreference = true;
+
+    [ObservableProperty]
+    private int _selectedMemoryCacheEntryLimit = 64;
+
     public ObservableCollection<RecentFileItem> RecentFiles
     {
         get;
@@ -221,6 +252,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         get;
     }
+    public ObservableCollection<int> MemoryCacheEntryLimitOptions
+    {
+        get;
+    }
+    public IReadOnlyList<string> ThemePreferenceOptions => _themePreferenceOptions;
+    public IReadOnlyList<string> DefaultZoomPreferenceOptions => _defaultZoomPreferenceOptions;
 
     public bool IsEmptyStateVisible => !HasOpenDocument;
     public bool HasUserMessage => !string.IsNullOrWhiteSpace(UserMessage);
@@ -244,15 +281,17 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public bool IsPdfDocument => HasOpenDocument && !IsCurrentImageDocument;
     public bool IsImageAutoFitActive => HasOpenDocument && IsCurrentImageDocument && _isImageAutoFitEnabled;
     public bool IsScrollableViewerVisible => !IsImageAutoFitActive;
-    public bool IsSidebarVisible => !HasOpenDocument || !IsCurrentImageDocument;
+    public bool IsSidebarVisible => HasOpenDocument && !IsCurrentImageDocument && ShowThumbnailsPanelPreference;
     public bool IsPageNavigationVisible => !HasOpenDocument || !IsCurrentImageDocument;
     public bool IsPdfStructureActionsVisible => IsPdfDocument;
     public bool IsInfoPanelOpen => HasOpenDocument && IsInfoPanelVisible;
+    public bool IsPreferencesPanelOpen => HasOpenDocument && IsPreferencesPanelVisible;
     public bool HasDocumentInfo => DocumentInfoItems.Count > 0;
     public bool HasDocumentInfoWarning => !string.IsNullOrWhiteSpace(DocumentInfoWarning);
     public GridLength SidebarColumnWidth => new(SidebarWidth);
     public double SidebarWidth => IsSidebarVisible ? SidebarExpandedWidth : 0;
     public double InfoPanelWidth => IsInfoPanelOpen ? InfoPanelExpandedWidth : 0;
+    public double PreferencesPanelWidth => IsPreferencesPanelOpen ? InfoPanelExpandedWidth : 0;
     public string PageIndicator => TotalPages > 0 ? $"{CurrentPage} / {TotalPages}" : "-";
     public bool IsPdfStructureOperationInProgress => _isApplyingPdfStructureOperation;
 
@@ -300,15 +339,16 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(CanGoToPage));
         OnPropertyChanged(nameof(IsPdfDocument));
         NotifyViewerModeChanged();
-        OnPropertyChanged(nameof(IsSidebarVisible));
+        NotifySidebarVisibilityChanged();
         OnPropertyChanged(nameof(IsPageNavigationVisible));
         OnPropertyChanged(nameof(IsPdfStructureActionsVisible));
         OnPropertyChanged(nameof(IsInfoPanelOpen));
-        OnPropertyChanged(nameof(SidebarColumnWidth));
-        OnPropertyChanged(nameof(SidebarWidth));
         OnPropertyChanged(nameof(InfoPanelWidth));
+        OnPropertyChanged(nameof(IsPreferencesPanelOpen));
+        OnPropertyChanged(nameof(PreferencesPanelWidth));
         CloseCommand.NotifyCanExecuteChanged();
         ToggleInfoPanelCommand.NotifyCanExecuteChanged();
+        TogglePreferencesPanelCommand.NotifyCanExecuteChanged();
         PreviousPageCommand.NotifyCanExecuteChanged();
         NextPageCommand.NotifyCanExecuteChanged();
         GoToPageCommand.NotifyCanExecuteChanged();
@@ -330,11 +370,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         OnPropertyChanged(nameof(IsPdfDocument));
         NotifyViewerModeChanged();
-        OnPropertyChanged(nameof(IsSidebarVisible));
+        NotifySidebarVisibilityChanged();
         OnPropertyChanged(nameof(IsPageNavigationVisible));
         OnPropertyChanged(nameof(IsPdfStructureActionsVisible));
-        OnPropertyChanged(nameof(SidebarColumnWidth));
-        OnPropertyChanged(nameof(SidebarWidth));
         PersistCurrentPageRotationCommand.NotifyCanExecuteChanged();
         ExtractCurrentPageCommand.NotifyCanExecuteChanged();
         DeleteCurrentPageCommand.NotifyCanExecuteChanged();
@@ -347,6 +385,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         OnPropertyChanged(nameof(IsInfoPanelOpen));
         OnPropertyChanged(nameof(InfoPanelWidth));
+    }
+
+    partial void OnIsPreferencesPanelVisibleChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsPreferencesPanelOpen));
+        OnPropertyChanged(nameof(PreferencesPanelWidth));
     }
 
     partial void OnDocumentInfoWarningChanged(string? value)
@@ -426,6 +470,48 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         SaveReorderedPdfCommand.NotifyCanExecuteChanged();
         MoveCurrentPageEarlierCommand.NotifyCanExecuteChanged();
         MoveCurrentPageLaterCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnSelectedThemePreferenceChanged(string value)
+    {
+        if (_isApplyingPreferencesState)
+        {
+            return;
+        }
+
+        _ = PersistPreferencesFromUiAsync(applyDefaultZoomToOpenDocument: false);
+    }
+
+    partial void OnSelectedDefaultZoomPreferenceChanged(string value)
+    {
+        if (_isApplyingPreferencesState)
+        {
+            return;
+        }
+
+        _ = PersistPreferencesFromUiAsync(applyDefaultZoomToOpenDocument: true);
+    }
+
+    partial void OnShowThumbnailsPanelPreferenceChanged(bool value)
+    {
+        NotifySidebarVisibilityChanged();
+
+        if (_isApplyingPreferencesState)
+        {
+            return;
+        }
+
+        _ = PersistPreferencesFromUiAsync(applyDefaultZoomToOpenDocument: false);
+    }
+
+    partial void OnSelectedMemoryCacheEntryLimitChanged(int value)
+    {
+        if (_isApplyingPreferencesState)
+        {
+            return;
+        }
+
+        _ = PersistPreferencesFromUiAsync(applyDefaultZoomToOpenDocument: false);
     }
 
     [RelayCommand]
@@ -791,10 +877,29 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(HasOpenDocument))]
     private void ToggleInfoPanel()
     {
+        if (!IsInfoPanelVisible)
+        {
+            IsPreferencesPanelVisible = false;
+        }
+
         IsInfoPanelVisible = !IsInfoPanelVisible;
         StatusText = IsInfoPanelVisible
             ? "File information shown"
             : "File information hidden";
+    }
+
+    [RelayCommand(CanExecute = nameof(HasOpenDocument))]
+    private void TogglePreferencesPanel()
+    {
+        if (!IsPreferencesPanelVisible)
+        {
+            IsInfoPanelVisible = false;
+        }
+
+        IsPreferencesPanelVisible = !IsPreferencesPanelVisible;
+        StatusText = IsPreferencesPanelVisible
+            ? "Preferences shown"
+            : "Preferences hidden";
     }
 
     [RelayCommand(CanExecute = nameof(CanDismissUserMessage))]
@@ -1003,27 +1108,82 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         StatusText = $"Opened {CurrentDocumentName}";
 
-        if (IsCurrentImageDocument)
-        {
-            if (!await TryApplyViewportFitAsync(ZoomMode.FitToPage, forceRender: true))
-            {
-                _isImageAutoFitEnabled = true;
-                NotifyViewerModeChanged();
-                TryUpdateZoom(
-                    _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex).ZoomFactor,
-                    ZoomMode.FitToPage);
-                await RenderCurrentPageAsync();
-            }
-        }
-        else
-        {
-            await RenderCurrentPageAsync();
-        }
+        await ApplyPreferredDefaultZoomAsync();
 
         if (!IsCurrentImageDocument)
         {
             _ = GenerateThumbnailsAsync();
         }
+    }
+
+    private async Task ApplyPreferredDefaultZoomAsync(bool preserveStatusText = false)
+    {
+        if (!HasOpenDocument)
+        {
+            return;
+        }
+
+        var defaultZoomPreference = ParseDefaultZoomPreference(SelectedDefaultZoomPreference);
+        switch (defaultZoomPreference)
+        {
+            case DefaultZoomPreference.FitToWidth:
+                await ApplyPreferredFitZoomAsync(ZoomMode.FitToWidth, preserveStatusText);
+                return;
+            case DefaultZoomPreference.ActualSize:
+                await ApplyExactZoomAsync(1.0, preserveStatusText);
+                return;
+            default:
+                await ApplyPreferredFitZoomAsync(ZoomMode.FitToPage, preserveStatusText);
+                return;
+        }
+    }
+
+    private async Task ApplyPreferredFitZoomAsync(ZoomMode zoomMode, bool preserveStatusText)
+    {
+        if (!IsCurrentImageDocument && CurrentRenderedBitmap is null)
+        {
+            await RenderCurrentPageAsync(preserveStatusText: true);
+        }
+
+        if (await TryApplyViewportFitAsync(zoomMode, preserveStatusText, forceRender: true))
+        {
+            return;
+        }
+
+        var pageState = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex);
+        if (IsCurrentImageDocument)
+        {
+            _isImageAutoFitEnabled = zoomMode is ZoomMode.FitToPage;
+            NotifyViewerModeChanged();
+        }
+
+        if (TryUpdateZoom(pageState.ZoomFactor, zoomMode) && CurrentRenderedBitmap is null)
+        {
+            await RenderCurrentPageAsync(preserveStatusText);
+        }
+    }
+
+    private async Task ApplyExactZoomAsync(double zoomFactor, bool preserveStatusText)
+    {
+        DisableImageAutoFit();
+
+        var pageState = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex);
+        var clampedZoom = Math.Clamp(zoomFactor, MinZoom, MaxZoom);
+        var zoomChanged = Math.Abs(pageState.ZoomFactor - clampedZoom) > ZoomComparisonTolerance;
+        var zoomModeChanged = CurrentZoomMode != ZoomMode.Custom;
+
+        if (zoomChanged || zoomModeChanged)
+        {
+            _pageViewportStore.SetPageState(pageState.WithZoom(clampedZoom));
+            if (!TryUpdateZoom(clampedZoom, ZoomMode.Custom))
+            {
+                return;
+            }
+
+            RefreshPageViewState();
+        }
+
+        await RenderCurrentPageAsync(preserveStatusText);
     }
 
     private async Task ChangeToPageAsync(int pageNumber)
@@ -1361,6 +1521,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         CurrentDocumentType = null;
         CurrentDocumentPath = null;
         IsInfoPanelVisible = false;
+        IsPreferencesPanelVisible = false;
         ClearDocumentInfo();
         CurrentPage = 1;
         TotalPages = 0;
@@ -1778,6 +1939,122 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             : $"{fileName}.pdf";
     }
 
+    private async Task PersistPreferencesFromUiAsync(bool applyDefaultZoomToOpenDocument)
+    {
+        if (_isApplyingPreferencesState)
+        {
+            return;
+        }
+
+        try
+        {
+            await _userPreferencesService.SaveAsync(BuildUserPreferencesFromUi());
+
+            if (applyDefaultZoomToOpenDocument && HasOpenDocument)
+            {
+                await ApplyPreferredDefaultZoomAsync(preserveStatusText: true);
+            }
+
+            StatusText = "Preferences updated";
+        }
+        catch
+        {
+            ApplyPreferencesToUi(_userPreferencesService.Current);
+            EnqueueError("Unable to save your preferences right now.", "Preferences not saved");
+            StatusText = "Preferences not saved";
+        }
+    }
+
+    private UserPreferences BuildUserPreferencesFromUi()
+    {
+        return new UserPreferences
+        {
+            Theme = ParseThemePreference(SelectedThemePreference),
+            DefaultZoom = ParseDefaultZoomPreference(SelectedDefaultZoomPreference),
+            ShowThumbnailsPanel = ShowThumbnailsPanelPreference,
+            MemoryCacheEntryLimit = SelectedMemoryCacheEntryLimit
+        };
+    }
+
+    private void ApplyPreferencesToUi(UserPreferences preferences)
+    {
+        ArgumentNullException.ThrowIfNull(preferences);
+
+        EnsureMemoryCacheOptionExists(preferences.MemoryCacheEntryLimit);
+
+        _isApplyingPreferencesState = true;
+        try
+        {
+            SelectedThemePreference = ToThemePreferenceLabel(preferences.Theme);
+            SelectedDefaultZoomPreference = ToDefaultZoomPreferenceLabel(preferences.DefaultZoom);
+            ShowThumbnailsPanelPreference = preferences.ShowThumbnailsPanel;
+            SelectedMemoryCacheEntryLimit = preferences.MemoryCacheEntryLimit;
+        }
+        finally
+        {
+            _isApplyingPreferencesState = false;
+        }
+
+        NotifySidebarVisibilityChanged();
+    }
+
+    private void EnsureMemoryCacheOptionExists(int entryLimit)
+    {
+        if (MemoryCacheEntryLimitOptions.Contains(entryLimit))
+        {
+            return;
+        }
+
+        var insertionIndex = 0;
+        while (insertionIndex < MemoryCacheEntryLimitOptions.Count &&
+               MemoryCacheEntryLimitOptions[insertionIndex] < entryLimit)
+        {
+            insertionIndex++;
+        }
+
+        MemoryCacheEntryLimitOptions.Insert(insertionIndex, entryLimit);
+    }
+
+    private static AppThemePreference ParseThemePreference(string? value)
+    {
+        return value switch
+        {
+            ThemeLightLabel => AppThemePreference.Light,
+            ThemeDarkLabel => AppThemePreference.Dark,
+            _ => AppThemePreference.System
+        };
+    }
+
+    private static string ToThemePreferenceLabel(AppThemePreference value)
+    {
+        return value switch
+        {
+            AppThemePreference.Light => ThemeLightLabel,
+            AppThemePreference.Dark => ThemeDarkLabel,
+            _ => ThemeSystemLabel
+        };
+    }
+
+    private static DefaultZoomPreference ParseDefaultZoomPreference(string? value)
+    {
+        return value switch
+        {
+            DefaultZoomFitToWidthLabel => DefaultZoomPreference.FitToWidth,
+            DefaultZoomActualSizeLabel => DefaultZoomPreference.ActualSize,
+            _ => DefaultZoomPreference.FitToPage
+        };
+    }
+
+    private static string ToDefaultZoomPreferenceLabel(DefaultZoomPreference value)
+    {
+        return value switch
+        {
+            DefaultZoomPreference.FitToWidth => DefaultZoomFitToWidthLabel,
+            DefaultZoomPreference.ActualSize => DefaultZoomActualSizeLabel,
+            _ => DefaultZoomFitToPageLabel
+        };
+    }
+
     private sealed record PendingPdfRotationGroup(
         Rotation Rotation,
         IReadOnlyList<int> Pages);
@@ -1918,6 +2195,13 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         OnPropertyChanged(nameof(HasRecentFiles));
         ClearRecentFilesCommand.NotifyCanExecuteChanged();
+    }
+
+    private void NotifySidebarVisibilityChanged()
+    {
+        OnPropertyChanged(nameof(IsSidebarVisible));
+        OnPropertyChanged(nameof(SidebarColumnWidth));
+        OnPropertyChanged(nameof(SidebarWidth));
     }
 
     private void RefreshDocumentInfo(DocumentMetadata metadata)

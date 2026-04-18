@@ -21,6 +21,7 @@
     <ItemGroup>
         <ProjectReference Include="..\..\src\Velune.Domain\Velune.Domain.csproj"/>
         <ProjectReference Include="..\..\src\Velune.Application\Velune.Application.csproj"/>
+        <ProjectReference Include="..\..\src\Velune.Infrastructure\Velune.Infrastructure.csproj"/>
         <ProjectReference Include="..\..\src\Velune.Presentation\Velune.Presentation.csproj"/>
     </ItemGroup>
 

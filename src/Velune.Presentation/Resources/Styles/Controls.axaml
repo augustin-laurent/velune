@@ -279,6 +279,18 @@
       <Setter Property="MaxWidth" Value="320" />
     </Style>
 
+    <Style Selector="ComboBox.preferences-input">
+      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="8,0" />
+    </Style>
+
+    <Style Selector="CheckBox">
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Foreground}" />
+    </Style>
+
     <Style Selector="TextBlock.metadata-label">
       <Setter Property="Foreground" Value="{DynamicResource Brush.ForegroundMuted}" />
       <Setter Property="FontSize" Value="11" />

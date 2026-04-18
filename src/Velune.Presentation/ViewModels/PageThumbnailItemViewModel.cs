@@ -7,15 +7,19 @@ public partial class PageThumbnailItemViewModel : ObservableObject, IDisposable
 {
     private bool _disposed;
 
-    public PageThumbnailItemViewModel(int pageNumber)
+    public PageThumbnailItemViewModel(int sourcePageNumber)
     {
-        PageNumber = pageNumber;
+        SourcePageNumber = sourcePageNumber;
+        DisplayPageNumber = sourcePageNumber;
     }
 
-    public int PageNumber
+    public int SourcePageNumber
     {
         get;
     }
+
+    [ObservableProperty]
+    private int _displayPageNumber;
 
     [ObservableProperty]
     private Bitmap? _thumbnail;
@@ -25,6 +29,9 @@ public partial class PageThumbnailItemViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private bool _isLoading = true;
+
+    [ObservableProperty]
+    private bool _isDragging;
 
     public void Dispose()
     {

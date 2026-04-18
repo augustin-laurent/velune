@@ -34,6 +34,11 @@ public static class ServiceCollectionExtensions
         services.AddTransient<GenerateThumbnailUseCase>();
         services.AddTransient<ChangeZoomUseCase>();
         services.AddTransient<RotateDocumentUseCase>();
+        services.AddTransient<RotatePdfPagesUseCase>();
+        services.AddTransient<DeletePdfPagesUseCase>();
+        services.AddTransient<ExtractPdfPagesUseCase>();
+        services.AddTransient<MergePdfDocumentsUseCase>();
+        services.AddTransient<ReorderPdfPagesUseCase>();
         services.AddTransient<ChangePageUseCase>();
 
         return services;

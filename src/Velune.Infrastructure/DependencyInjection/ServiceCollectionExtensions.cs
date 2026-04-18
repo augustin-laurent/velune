@@ -29,6 +29,7 @@ public static class ServiceCollectionExtensions
 
         services.AddTransient<PdfiumRenderService>();
         services.AddTransient<ImageRenderService>();
+        services.AddTransient<IPdfDocumentStructureService, QpdfDocumentStructureService>();
 
         services.AddTransient<CompositeRenderService>();
         services.AddTransient<IRenderService>(sp =>

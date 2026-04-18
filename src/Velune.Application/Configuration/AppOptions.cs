@@ -33,4 +33,9 @@ public sealed class AppOptions
     {
         get; set;
     } = 30;
+
+    public string QpdfExecutablePath
+    {
+        get; set;
+    } = "qpdf";
 }

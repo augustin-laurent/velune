@@ -12,6 +12,8 @@
   <Window.KeyBindings>
     <KeyBinding Gesture="Ctrl+O" Command="{Binding OpenCommand}" />
     <KeyBinding Gesture="Meta+O" Command="{Binding OpenCommand}" />
+    <KeyBinding Gesture="Ctrl+P" Command="{Binding PrintDocumentCommand}" />
+    <KeyBinding Gesture="Meta+P" Command="{Binding PrintDocumentCommand}" />
     <KeyBinding Gesture="Ctrl+Add" Command="{Binding ZoomInCommand}" />
     <KeyBinding Gesture="Ctrl+OemPlus" Command="{Binding ZoomInCommand}" />
     <KeyBinding Gesture="Meta+Add" Command="{Binding ZoomInCommand}" />
@@ -80,6 +82,16 @@
                   <TextBlock Text="Open"
                              Classes="toolbar-primary-label" />
                 </StackPanel>
+              </Button>
+
+              <Button Classes="toolbar-button"
+                      Command="{Binding PrintDocumentCommand}"
+                      ToolTip.Tip="Print the current document">
+                <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                            Kind="PrinterOutline"
+                                            Width="20"
+                                            Height="20"
+                                            Foreground="{DynamicResource Brush.Icon}" />
               </Button>
 
               <Button Classes="toolbar-button"
@@ -729,6 +741,102 @@
               <TextBlock Text="0 disables the in-memory render cache."
                          Classes="muted"
                          TextWrapping="Wrap" />
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+
+      <!-- Print panel -->
+      <Border Grid.Column="1"
+              Width="{Binding PrintPanelWidth}"
+              Margin="0,24,24,24"
+              Padding="18,16"
+              Classes="card info-panel"
+              Background="{DynamicResource Brush.Surface}"
+              IsVisible="{Binding IsPrintPanelOpen}">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="18">
+            <StackPanel Spacing="4">
+              <TextBlock Text="Print"
+                         Classes="title" />
+              <TextBlock Text="{Binding CurrentDocumentName}"
+                         FontWeight="SemiBold"
+                         TextWrapping="Wrap" />
+              <TextBlock Text="Choose a printer and the basic print options."
+                         Classes="muted"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+
+            <Border Classes="banner"
+                    Padding="10,8"
+                    IsVisible="{Binding HasPrintPanelNotice}">
+              <TextBlock Text="{Binding PrintPanelNotice}"
+                         Classes="muted"
+                         TextWrapping="Wrap" />
+            </Border>
+
+            <StackPanel Spacing="8">
+              <DockPanel LastChildFill="False">
+                <TextBlock Text="Printer"
+                           Classes="metadata-label"
+                           VerticalAlignment="Center" />
+                <Button Content="Refresh"
+                        DockPanel.Dock="Right"
+                        Command="{Binding RefreshPrintDestinationsCommand}" />
+              </DockPanel>
+
+              <ComboBox Classes="preferences-input"
+                        SelectedItem="{Binding SelectedPrintDestination}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding DisplayName}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+                <ComboBox.ItemsSource>
+                  <Binding Path="PrintDestinations" />
+                </ComboBox.ItemsSource>
+              </ComboBox>
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+              <TextBlock Text="Copies"
+                         Classes="metadata-label" />
+              <TextBox Classes="toolbar-input"
+                       Text="{Binding PrintCopiesInput}" />
+            </StackPanel>
+
+            <StackPanel Spacing="8"
+                        IsVisible="{Binding IsPrintPageRangeVisible}">
+              <TextBlock Text="Pages"
+                         Classes="metadata-label" />
+              <ComboBox Classes="preferences-input"
+                        ItemsSource="{Binding PrintPageRangeOptions}"
+                        SelectedItem="{Binding SelectedPrintPageRangeOption}" />
+              <TextBox Classes="toolbar-input"
+                       Watermark="1-3,5"
+                       Text="{Binding PrintCustomPageRange}"
+                       IsVisible="{Binding IsCustomPrintRangeVisible}" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+              <TextBlock Text="Orientation"
+                         Classes="metadata-label" />
+              <ComboBox Classes="preferences-input"
+                        ItemsSource="{Binding PrintOrientationOptions}"
+                        SelectedItem="{Binding SelectedPrintOrientationOption}" />
+            </StackPanel>
+
+            <CheckBox Content="Scale content to fit the page"
+                      IsChecked="{Binding PrintFitToPage}" />
+
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Spacing="8">
+              <Button Content="Cancel"
+                      Command="{Binding PrintDocumentCommand}" />
+              <Button Content="Print"
+                      Command="{Binding SubmitPrintJobCommand}" />
             </StackPanel>
           </StackPanel>
         </ScrollViewer>

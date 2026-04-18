@@ -19,6 +19,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<TopLevelProvider>();
         services.AddSingleton<IFilePickerService, AvaloniaFilePickerService>();
         services.AddSingleton<IUserPreferencesService, JsonUserPreferencesService>();
+        services.AddSingleton<IPrintService, SystemPrintService>();
 
         services.AddSingleton<PdfiumInitializer>();
 

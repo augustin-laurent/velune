@@ -56,10 +56,19 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private const string DefaultZoomFitToPageLabel = "Fit to page";
     private const string DefaultZoomFitToWidthLabel = "Fit to width";
     private const string DefaultZoomActualSizeLabel = "100%";
+    private const string PrintRangeAllPagesLabel = "All pages";
+    private const string PrintRangeCurrentPageLabel = "Current page";
+    private const string PrintRangeCustomLabel = "Custom range";
+    private const string PrintOrientationAutomaticLabel = "Automatic";
+    private const string PrintOrientationPortraitLabel = "Portrait";
+    private const string PrintOrientationLandscapeLabel = "Landscape";
 
     private readonly IFilePickerService _filePickerService;
+    private readonly IPrintService _printService;
     private readonly OpenDocumentUseCase _openDocumentUseCase;
     private readonly CloseDocumentUseCase _closeDocumentUseCase;
+    private readonly PrintDocumentUseCase _printDocumentUseCase;
+    private readonly ShowSystemPrintDialogUseCase _showSystemPrintDialogUseCase;
     private readonly ChangePageUseCase _changePageUseCase;
     private readonly ChangeZoomUseCase _changeZoomUseCase;
     private readonly RotateDocumentUseCase _rotateDocumentUseCase;
@@ -77,11 +86,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private readonly Dictionary<int, RenderJobHandle> _thumbnailRenderJobs = [];
     private readonly IReadOnlyList<string> _themePreferenceOptions = [ThemeSystemLabel, ThemeLightLabel, ThemeDarkLabel];
     private readonly IReadOnlyList<string> _defaultZoomPreferenceOptions = [DefaultZoomFitToPageLabel, DefaultZoomFitToWidthLabel, DefaultZoomActualSizeLabel];
+    private readonly IReadOnlyList<string> _printPageRangeOptions = [PrintRangeAllPagesLabel, PrintRangeCurrentPageLabel, PrintRangeCustomLabel];
+    private readonly IReadOnlyList<string> _printOrientationOptions = [PrintOrientationAutomaticLabel, PrintOrientationPortraitLabel, PrintOrientationLandscapeLabel];
     private bool _disposed;
     private double _documentViewportWidth;
     private double _documentViewportHeight;
     private bool _isImageAutoFitEnabled;
     private bool _isApplyingPdfStructureOperation;
+    private bool _isPrintingDocument;
+    private bool _isLoadingPrintDestinations;
     private bool _isApplyingPreferencesState;
     private NotificationKind _currentNotificationKind = NotificationKind.Info;
     private bool _isCurrentNotificationDismissible;
@@ -92,8 +105,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public MainWindowViewModel(
         IFilePickerService filePickerService,
+        IPrintService printService,
         OpenDocumentUseCase openDocumentUseCase,
         CloseDocumentUseCase closeDocumentUseCase,
+        PrintDocumentUseCase printDocumentUseCase,
+        ShowSystemPrintDialogUseCase showSystemPrintDialogUseCase,
         ChangePageUseCase changePageUseCase,
         ChangeZoomUseCase changeZoomUseCase,
         RotateDocumentUseCase rotateDocumentUseCase,
@@ -108,8 +124,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         IUserPreferencesService userPreferencesService)
     {
         ArgumentNullException.ThrowIfNull(filePickerService);
+        ArgumentNullException.ThrowIfNull(printService);
         ArgumentNullException.ThrowIfNull(openDocumentUseCase);
         ArgumentNullException.ThrowIfNull(closeDocumentUseCase);
+        ArgumentNullException.ThrowIfNull(printDocumentUseCase);
+        ArgumentNullException.ThrowIfNull(showSystemPrintDialogUseCase);
         ArgumentNullException.ThrowIfNull(changePageUseCase);
         ArgumentNullException.ThrowIfNull(changeZoomUseCase);
         ArgumentNullException.ThrowIfNull(rotateDocumentUseCase);
@@ -124,8 +143,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         ArgumentNullException.ThrowIfNull(userPreferencesService);
 
         _filePickerService = filePickerService;
+        _printService = printService;
         _openDocumentUseCase = openDocumentUseCase;
         _closeDocumentUseCase = closeDocumentUseCase;
+        _printDocumentUseCase = printDocumentUseCase;
+        _showSystemPrintDialogUseCase = showSystemPrintDialogUseCase;
         _changePageUseCase = changePageUseCase;
         _changeZoomUseCase = changeZoomUseCase;
         _rotateDocumentUseCase = rotateDocumentUseCase;
@@ -142,6 +164,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         RecentFiles = [];
         Thumbnails = [];
         DocumentInfoItems = [];
+        PrintDestinations = [];
         MemoryCacheEntryLimitOptions = new ObservableCollection<int> { 0, 32, 64, 128, 256 };
         ApplyPreferencesToUi(_userPreferencesService.Current);
         RefreshRecentFiles();
@@ -199,7 +222,13 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private bool _isPreferencesPanelVisible;
 
     [ObservableProperty]
+    private bool _isPrintPanelVisible;
+
+    [ObservableProperty]
     private string? _documentInfoWarning;
+
+    [ObservableProperty]
+    private string? _printPanelNotice;
 
     [ObservableProperty]
     private int _currentPage = 1;
@@ -240,6 +269,24 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private int _selectedMemoryCacheEntryLimit = 64;
 
+    [ObservableProperty]
+    private PrintDestinationInfo? _selectedPrintDestination;
+
+    [ObservableProperty]
+    private string _selectedPrintPageRangeOption = PrintRangeAllPagesLabel;
+
+    [ObservableProperty]
+    private string _printCustomPageRange = string.Empty;
+
+    [ObservableProperty]
+    private string _printCopiesInput = "1";
+
+    [ObservableProperty]
+    private string _selectedPrintOrientationOption = PrintOrientationAutomaticLabel;
+
+    [ObservableProperty]
+    private bool _printFitToPage = true;
+
     public ObservableCollection<RecentFileItem> RecentFiles
     {
         get;
@@ -252,12 +299,18 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         get;
     }
+    public ObservableCollection<PrintDestinationInfo> PrintDestinations
+    {
+        get;
+    }
     public ObservableCollection<int> MemoryCacheEntryLimitOptions
     {
         get;
     }
     public IReadOnlyList<string> ThemePreferenceOptions => _themePreferenceOptions;
     public IReadOnlyList<string> DefaultZoomPreferenceOptions => _defaultZoomPreferenceOptions;
+    public IReadOnlyList<string> PrintPageRangeOptions => _printPageRangeOptions;
+    public IReadOnlyList<string> PrintOrientationOptions => _printOrientationOptions;
 
     public bool IsEmptyStateVisible => !HasOpenDocument;
     public bool HasUserMessage => !string.IsNullOrWhiteSpace(UserMessage);
@@ -286,18 +339,24 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public bool IsPdfStructureActionsVisible => IsPdfDocument;
     public bool IsInfoPanelOpen => HasOpenDocument && IsInfoPanelVisible;
     public bool IsPreferencesPanelOpen => HasOpenDocument && IsPreferencesPanelVisible;
+    public bool IsPrintPanelOpen => HasOpenDocument && IsPrintPanelVisible;
     public bool HasDocumentInfo => DocumentInfoItems.Count > 0;
     public bool HasDocumentInfoWarning => !string.IsNullOrWhiteSpace(DocumentInfoWarning);
+    public bool HasPrintPanelNotice => !string.IsNullOrWhiteSpace(PrintPanelNotice);
+    public bool IsPrintPageRangeVisible => IsPdfDocument;
+    public bool IsCustomPrintRangeVisible => IsPrintPageRangeVisible && SelectedPrintPageRangeOption == PrintRangeCustomLabel;
     public GridLength SidebarColumnWidth => new(SidebarWidth);
     public double SidebarWidth => IsSidebarVisible ? SidebarExpandedWidth : 0;
     public double InfoPanelWidth => IsInfoPanelOpen ? InfoPanelExpandedWidth : 0;
     public double PreferencesPanelWidth => IsPreferencesPanelOpen ? InfoPanelExpandedWidth : 0;
+    public double PrintPanelWidth => IsPrintPanelOpen ? InfoPanelExpandedWidth : 0;
     public string PageIndicator => TotalPages > 0 ? $"{CurrentPage} / {TotalPages}" : "-";
     public bool IsPdfStructureOperationInProgress => _isApplyingPdfStructureOperation;
 
     public bool CanGoPreviousPage => HasOpenDocument && CurrentPage > 1;
     public bool CanGoNextPage => HasOpenDocument && TotalPages > 0 && CurrentPage < TotalPages;
     public bool CanGoToPage => HasOpenDocument && TotalPages > 0;
+    public bool CanSubmitPrintJob => HasOpenDocument && !_isPrintingDocument && !_isLoadingPrintDestinations;
     public bool CanUseFitCommands =>
         HasOpenDocument &&
         _documentViewportWidth > 0 &&
@@ -346,6 +405,13 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(InfoPanelWidth));
         OnPropertyChanged(nameof(IsPreferencesPanelOpen));
         OnPropertyChanged(nameof(PreferencesPanelWidth));
+        OnPropertyChanged(nameof(IsPrintPanelOpen));
+        OnPropertyChanged(nameof(PrintPanelWidth));
+        OnPropertyChanged(nameof(IsPrintPageRangeVisible));
+        OnPropertyChanged(nameof(IsCustomPrintRangeVisible));
+        PrintDocumentCommand.NotifyCanExecuteChanged();
+        SubmitPrintJobCommand.NotifyCanExecuteChanged();
+        RefreshPrintDestinationsCommand.NotifyCanExecuteChanged();
         CloseCommand.NotifyCanExecuteChanged();
         ToggleInfoPanelCommand.NotifyCanExecuteChanged();
         TogglePreferencesPanelCommand.NotifyCanExecuteChanged();
@@ -373,6 +439,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         NotifySidebarVisibilityChanged();
         OnPropertyChanged(nameof(IsPageNavigationVisible));
         OnPropertyChanged(nameof(IsPdfStructureActionsVisible));
+        OnPropertyChanged(nameof(IsPrintPageRangeVisible));
+        OnPropertyChanged(nameof(IsCustomPrintRangeVisible));
         PersistCurrentPageRotationCommand.NotifyCanExecuteChanged();
         ExtractCurrentPageCommand.NotifyCanExecuteChanged();
         DeleteCurrentPageCommand.NotifyCanExecuteChanged();
@@ -393,9 +461,20 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(PreferencesPanelWidth));
     }
 
+    partial void OnIsPrintPanelVisibleChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsPrintPanelOpen));
+        OnPropertyChanged(nameof(PrintPanelWidth));
+    }
+
     partial void OnDocumentInfoWarningChanged(string? value)
     {
         OnPropertyChanged(nameof(HasDocumentInfoWarning));
+    }
+
+    partial void OnPrintPanelNoticeChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasPrintPanelNotice));
     }
 
     partial void OnUserMessageChanged(string? value)
@@ -514,6 +593,21 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _ = PersistPreferencesFromUiAsync(applyDefaultZoomToOpenDocument: false);
     }
 
+    partial void OnSelectedPrintPageRangeOptionChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsCustomPrintRangeVisible));
+    }
+
+    partial void OnPrintCustomPageRangeChanged(string value)
+    {
+        SubmitPrintJobCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnPrintCopiesInputChanged(string value)
+    {
+        SubmitPrintJobCommand.NotifyCanExecuteChanged();
+    }
+
     [RelayCommand]
     private async Task OpenAsync()
     {
@@ -552,6 +646,137 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         ClearNotifications();
         StatusText = "Document closed";
+    }
+
+    [RelayCommand(CanExecute = nameof(HasOpenDocument))]
+    private async Task PrintDocumentAsync()
+    {
+        if (_printService.SupportsSystemPrintDialog)
+        {
+            await ShowSystemPrintDialogAsync();
+            return;
+        }
+
+        if (IsPrintPanelVisible)
+        {
+            IsPrintPanelVisible = false;
+            StatusText = "Print panel hidden";
+            return;
+        }
+
+        IsInfoPanelVisible = false;
+        IsPreferencesPanelVisible = false;
+        IsPrintPanelVisible = true;
+        StatusText = "Loading printers";
+
+        await LoadPrintDestinationsAsync();
+
+        StatusText = "Print panel shown";
+    }
+
+    private async Task ShowSystemPrintDialogAsync()
+    {
+        if (string.IsNullOrWhiteSpace(CurrentDocumentPath))
+        {
+            EnqueueWarning("No document to print", "Open a PDF or an image before printing.");
+            StatusText = "Print unavailable";
+            return;
+        }
+
+        IsInfoPanelVisible = false;
+        IsPreferencesPanelVisible = false;
+        IsPrintPanelVisible = false;
+        StatusText = "Opening system print dialog";
+
+        var result = await _showSystemPrintDialogUseCase.ExecuteAsync(CurrentDocumentPath);
+        if (result.IsSuccess)
+        {
+            StatusText = "System print dialog shown";
+            return;
+        }
+
+        if (string.Equals(result.Error?.Code, "print.cancelled", StringComparison.Ordinal))
+        {
+            StatusText = "Print cancelled";
+            return;
+        }
+
+        EnqueueError(result.Error?.Message ?? "The system print dialog could not be opened.", "Print failed");
+        StatusText = "Print failed";
+    }
+
+    [RelayCommand(CanExecute = nameof(HasOpenDocument))]
+    private async Task RefreshPrintDestinationsAsync()
+    {
+        if (!HasOpenDocument)
+        {
+            return;
+        }
+
+        await LoadPrintDestinationsAsync();
+        StatusText = "Printers refreshed";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanSubmitPrintJob))]
+    private async Task SubmitPrintJobAsync()
+    {
+        if (string.IsNullOrWhiteSpace(CurrentDocumentPath))
+        {
+            EnqueueWarning("No document to print", "Open a PDF or an image before printing.");
+            StatusText = "Print unavailable";
+            return;
+        }
+
+        if (!int.TryParse(PrintCopiesInput, NumberStyles.Integer, CultureInfo.InvariantCulture, out var copies) ||
+            copies <= 0)
+        {
+            EnqueueWarning("Invalid copy count", "Enter a valid number of copies.");
+            StatusText = "Invalid print settings";
+            return;
+        }
+
+        var pageRanges = BuildRequestedPrintPageRanges();
+        if (pageRanges is null && IsCustomPrintRangeVisible)
+        {
+            EnqueueWarning("Invalid page range", "Enter a page range like 1-3,5.");
+            StatusText = "Invalid print settings";
+            return;
+        }
+
+        try
+        {
+            _isPrintingDocument = true;
+            SubmitPrintJobCommand.NotifyCanExecuteChanged();
+            PrintDocumentCommand.NotifyCanExecuteChanged();
+
+            var result = await _printDocumentUseCase.ExecuteAsync(
+                new PrintDocumentRequest(
+                    CurrentDocumentPath,
+                    SelectedPrintDestination?.Name,
+                    copies,
+                    pageRanges,
+                    ParsePrintOrientationOption(SelectedPrintOrientationOption),
+                    PrintFitToPage));
+
+            if (result.IsFailure)
+            {
+                EnqueueError(result.Error?.Message ?? "The document could not be printed.", "Print failed");
+                PrintPanelNotice = result.Error?.Message ?? "The document could not be printed.";
+                StatusText = "Print failed";
+                return;
+            }
+
+            PrintPanelNotice = null;
+            IsPrintPanelVisible = false;
+            EnqueueInfo("Print started", "The document was sent to the system print service.");
+            StatusText = "Print started";
+        }
+        finally
+        {
+            _isPrintingDocument = false;
+            SubmitPrintJobCommand.NotifyCanExecuteChanged();
+            PrintDocumentCommand.NotifyCanExecuteChanged();
+        }
     }
 
     [RelayCommand(CanExecute = nameof(HasRecentFiles))]
@@ -880,6 +1105,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         if (!IsInfoPanelVisible)
         {
             IsPreferencesPanelVisible = false;
+            IsPrintPanelVisible = false;
         }
 
         IsInfoPanelVisible = !IsInfoPanelVisible;
@@ -894,6 +1120,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         if (!IsPreferencesPanelVisible)
         {
             IsInfoPanelVisible = false;
+            IsPrintPanelVisible = false;
         }
 
         IsPreferencesPanelVisible = !IsPreferencesPanelVisible;
@@ -1116,6 +1343,53 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
+    private async Task LoadPrintDestinationsAsync()
+    {
+        if (_isLoadingPrintDestinations)
+        {
+            return;
+        }
+
+        try
+        {
+            _isLoadingPrintDestinations = true;
+            SubmitPrintJobCommand.NotifyCanExecuteChanged();
+            RefreshPrintDestinationsCommand.NotifyCanExecuteChanged();
+
+            var result = await _printService.GetAvailablePrintersAsync();
+            if (result.IsFailure)
+            {
+                PrintDestinations.Clear();
+                SelectedPrintDestination = null;
+                PrintPanelNotice = result.Error?.Message ?? "Printers could not be loaded.";
+                return;
+            }
+
+            var currentSelection = SelectedPrintDestination?.Name;
+            PrintDestinations.Clear();
+
+            foreach (var printer in result.Value ?? [])
+            {
+                PrintDestinations.Add(printer);
+            }
+
+            SelectedPrintDestination = PrintDestinations.FirstOrDefault(
+                item => string.Equals(item.Name, currentSelection, StringComparison.Ordinal)) ??
+                PrintDestinations.FirstOrDefault(item => item.IsDefault) ??
+                PrintDestinations.FirstOrDefault();
+
+            PrintPanelNotice = PrintDestinations.Count == 0
+                ? "No printers were detected. The system default printer may still be unavailable."
+                : null;
+        }
+        finally
+        {
+            _isLoadingPrintDestinations = false;
+            SubmitPrintJobCommand.NotifyCanExecuteChanged();
+            RefreshPrintDestinationsCommand.NotifyCanExecuteChanged();
+        }
+    }
+
     private async Task ApplyPreferredDefaultZoomAsync(bool preserveStatusText = false)
     {
         if (!HasOpenDocument)
@@ -1184,6 +1458,53 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         await RenderCurrentPageAsync(preserveStatusText);
+    }
+
+    private string? BuildRequestedPrintPageRanges()
+    {
+        if (!IsPrintPageRangeVisible || SelectedPrintPageRangeOption == PrintRangeAllPagesLabel)
+        {
+            return null;
+        }
+
+        if (SelectedPrintPageRangeOption == PrintRangeCurrentPageLabel)
+        {
+            return CurrentPage.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (SelectedPrintPageRangeOption != PrintRangeCustomLabel)
+        {
+            return null;
+        }
+
+        var trimmed = PrintCustomPageRange.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            return null;
+        }
+
+        foreach (var character in trimmed)
+        {
+            if (!char.IsDigit(character) &&
+                character is not ',' &&
+                character is not '-' &&
+                !char.IsWhiteSpace(character))
+            {
+                return null;
+            }
+        }
+
+        return trimmed;
+    }
+
+    private static PrintOrientationOption ParsePrintOrientationOption(string? value)
+    {
+        return value switch
+        {
+            PrintOrientationPortraitLabel => PrintOrientationOption.Portrait,
+            PrintOrientationLandscapeLabel => PrintOrientationOption.Landscape,
+            _ => PrintOrientationOption.Automatic
+        };
     }
 
     private async Task ChangeToPageAsync(int pageNumber)
@@ -1514,6 +1835,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         _isImageAutoFitEnabled = false;
         _isApplyingPdfStructureOperation = false;
+        _isPrintingDocument = false;
         HasPendingPageReorder = false;
         HasOpenDocument = false;
         IsCurrentImageDocument = false;
@@ -1522,7 +1844,16 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         CurrentDocumentPath = null;
         IsInfoPanelVisible = false;
         IsPreferencesPanelVisible = false;
+        IsPrintPanelVisible = false;
         ClearDocumentInfo();
+        PrintPanelNotice = null;
+        PrintDestinations.Clear();
+        SelectedPrintDestination = null;
+        SelectedPrintPageRangeOption = PrintRangeAllPagesLabel;
+        PrintCustomPageRange = string.Empty;
+        PrintCopiesInput = "1";
+        SelectedPrintOrientationOption = PrintOrientationAutomaticLabel;
+        PrintFitToPage = true;
         CurrentPage = 1;
         TotalPages = 0;
         CurrentZoom = "100%";
@@ -1530,6 +1861,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         GoToPageInput = "1";
         IsRendering = false;
         IsGeneratingThumbnails = false;
+        PrintDocumentCommand.NotifyCanExecuteChanged();
 
         CurrentRenderedBitmap?.Dispose();
         CurrentRenderedBitmap = null;

@@ -36,7 +36,12 @@ public sealed class AvaloniaImageDocumentOpener
             filePath: fileInfo.FullName,
             documentType: DocumentType.Image,
             fileSizeInBytes: fileInfo.Length,
-            pageCount: 1);
+            pageCount: 1,
+            pixelWidth: bitmap.PixelSize.Width,
+            pixelHeight: bitmap.PixelSize.Height,
+            formatLabel: GetFormatLabel(extension),
+            createdAt: fileInfo.CreationTimeUtc,
+            modifiedAt: fileInfo.LastWriteTimeUtc);
 
         var resource = new ImageDocumentResource(fileBytes, bitmap);
 
@@ -46,5 +51,16 @@ public sealed class AvaloniaImageDocumentOpener
             viewport: ViewportState.Default,
             imageMetadata: imageMetadata,
             resource: resource);
+    }
+
+    private static string GetFormatLabel(string extension)
+    {
+        return extension switch
+        {
+            ".jpg" or ".jpeg" => "JPEG image",
+            ".png" => "PNG image",
+            ".webp" => "WebP image",
+            _ => "Image"
+        };
     }
 }

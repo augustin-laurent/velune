@@ -246,6 +246,21 @@
               </Button>
             </StackPanel>
           </Border>
+
+          <Border Classes="toolbar-divider" />
+
+          <Border Classes="toolbar-group"
+                  Margin="6,0,0,0">
+            <Button Classes="toolbar-button"
+                    Command="{Binding ToggleInfoPanelCommand}"
+                    ToolTip.Tip="Show file information">
+              <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                          Kind="InformationCircleOutline"
+                                          Width="20"
+                                          Height="20"
+                                          Foreground="{DynamicResource Brush.Icon}" />
+            </Button>
+          </Border>
         </WrapPanel>
       </Grid>
     </Border>
@@ -332,10 +347,12 @@
     <!-- Main content -->
     <Grid Grid.Row="1"
           Grid.Column="1"
+          ColumnDefinitions="*,Auto"
           Background="{DynamicResource Brush.Background}">
 
       <!-- Toast -->
       <Border Classes="banner"
+              Grid.ColumnSpan="2"
               HorizontalAlignment="Right"
               VerticalAlignment="Top"
               Margin="16"
@@ -386,6 +403,7 @@
 
       <!-- Empty state -->
       <StackPanel HorizontalAlignment="Center"
+                  Grid.ColumnSpan="2"
                   VerticalAlignment="Center"
                   Spacing="16"
                   MaxWidth="520"
@@ -463,6 +481,7 @@
 
       <!-- Viewer -->
       <Grid Margin="24"
+            Grid.Column="0"
             IsVisible="{Binding HasOpenDocument}">
         <Grid RowDefinitions="Auto,*">
           <StackPanel Grid.Row="0"
@@ -507,6 +526,56 @@
           </Grid>
         </Grid>
       </Grid>
+
+      <!-- Info panel -->
+      <Border Grid.Column="1"
+              Width="{Binding InfoPanelWidth}"
+              Margin="0,24,24,24"
+              Padding="18,16"
+              Classes="card info-panel"
+              Background="{DynamicResource Brush.Surface}"
+              IsVisible="{Binding IsInfoPanelOpen}">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="16">
+            <StackPanel Spacing="4">
+              <TextBlock Text="Informations"
+                         Classes="title" />
+              <TextBlock Text="{Binding CurrentDocumentName}"
+                         FontWeight="SemiBold"
+                         TextWrapping="Wrap" />
+              <TextBlock Text="{Binding CurrentDocumentType}"
+                         Classes="muted" />
+            </StackPanel>
+
+            <Border Classes="banner"
+                    Padding="10,8"
+                    IsVisible="{Binding HasDocumentInfoWarning}">
+              <TextBlock Text="{Binding DocumentInfoWarning}"
+                         Classes="muted"
+                         TextWrapping="Wrap" />
+            </Border>
+
+            <ItemsControl ItemsSource="{Binding DocumentInfoItems}"
+                          IsVisible="{Binding HasDocumentInfo}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Grid ColumnDefinitions="96,*"
+                        ColumnSpacing="12"
+                        Margin="0,0,0,10">
+                    <TextBlock Text="{Binding Label}"
+                               Classes="metadata-label"
+                               VerticalAlignment="Top" />
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding Value}"
+                               TextWrapping="Wrap" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
     </Grid>
 
     <!-- Status bar -->

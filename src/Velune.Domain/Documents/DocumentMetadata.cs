@@ -30,6 +30,38 @@ public sealed record DocumentMetadata
     {
         get; init;
     }
+    public string? FormatLabel
+    {
+        get; init;
+    }
+    public DateTimeOffset? CreatedAt
+    {
+        get; init;
+    }
+    public DateTimeOffset? ModifiedAt
+    {
+        get; init;
+    }
+    public string? DocumentTitle
+    {
+        get; init;
+    }
+    public string? Author
+    {
+        get; init;
+    }
+    public string? Creator
+    {
+        get; init;
+    }
+    public string? Producer
+    {
+        get; init;
+    }
+    public string? DetailsWarning
+    {
+        get; init;
+    }
 
     public DocumentMetadata(
         string fileName,
@@ -38,7 +70,15 @@ public sealed record DocumentMetadata
         long fileSizeInBytes,
         int? pageCount = null,
         int? pixelWidth = null,
-        int? pixelHeight = null)
+        int? pixelHeight = null,
+        string? formatLabel = null,
+        DateTimeOffset? createdAt = null,
+        DateTimeOffset? modifiedAt = null,
+        string? documentTitle = null,
+        string? author = null,
+        string? creator = null,
+        string? producer = null,
+        string? detailsWarning = null)
     {
         ArgumentNullException.ThrowIfNull(fileName);
         ArgumentNullException.ThrowIfNull(filePath);
@@ -70,5 +110,13 @@ public sealed record DocumentMetadata
         PageCount = pageCount;
         PixelWidth = pixelWidth;
         PixelHeight = pixelHeight;
+        FormatLabel = formatLabel;
+        CreatedAt = createdAt;
+        ModifiedAt = modifiedAt;
+        DocumentTitle = documentTitle;
+        Author = author;
+        Creator = creator;
+        Producer = producer;
+        DetailsWarning = detailsWarning;
     }
 }

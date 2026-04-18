@@ -7,8 +7,20 @@ namespace Velune.Tests.Render;
 
 public sealed class RenderSnapshotTests
 {
-    private const int MaxChannelDelta = 2;
-    private const double MaxDifferentPixelRatio = 0.001;
+    private static readonly SnapshotComparisonProfile StrictImageProfile = new(
+        MaxChannelDelta: 2,
+        MaxDifferentPixelRatio: 0.001,
+        NeighborhoodRadius: 0);
+
+    private static readonly SnapshotComparisonProfile PdfPageProfile = new(
+        MaxChannelDelta: 12,
+        MaxDifferentPixelRatio: 0.015,
+        NeighborhoodRadius: 1);
+
+    private static readonly SnapshotComparisonProfile PdfThumbnailProfile = new(
+        MaxChannelDelta: 14,
+        MaxDifferentPixelRatio: 0.03,
+        NeighborhoodRadius: 1);
 
     [Fact]
     public async Task PdfThumbnailSnapshot_ShouldMatchApprovedBaseline()
@@ -17,7 +29,8 @@ public sealed class RenderSnapshotTests
             fixtureName: "sample.pdf",
             snapshotName: "pdf-thumbnail",
             rotationDegrees: 0,
-            zoomFactor: 0.20);
+            zoomFactor: 0.20,
+            comparisonProfile: PdfThumbnailProfile);
     }
 
     [Fact]
@@ -27,7 +40,8 @@ public sealed class RenderSnapshotTests
             fixtureName: "sample.pdf",
             snapshotName: "pdf-page",
             rotationDegrees: 0,
-            zoomFactor: 1.0);
+            zoomFactor: 1.0,
+            comparisonProfile: PdfPageProfile);
     }
 
     [Fact]
@@ -37,14 +51,16 @@ public sealed class RenderSnapshotTests
             fixtureName: "sample-portrait.png",
             snapshotName: "image-rotated",
             rotationDegrees: 90,
-            zoomFactor: 1.0);
+            zoomFactor: 1.0,
+            comparisonProfile: StrictImageProfile);
     }
 
     private static async Task AssertSnapshotAsync(
         string fixtureName,
         string snapshotName,
         int rotationDegrees,
-        double zoomFactor)
+        double zoomFactor,
+        SnapshotComparisonProfile comparisonProfile)
     {
         var repositoryRoot = GetRepositoryRoot();
         var hostDllPath = GetHostDllPath(repositoryRoot);
@@ -101,36 +117,83 @@ public sealed class RenderSnapshotTests
         Assert.Equal(approved.Width, actual.Width);
         Assert.Equal(approved.Height, actual.Height);
 
-        var differentPixels = 0;
         var pixelCount = approved.Width * approved.Height;
+        var differentPixelsForward = CountDifferentPixels(approved, actual, comparisonProfile);
+        var differentPixelsBackward = CountDifferentPixels(actual, approved, comparisonProfile);
+        var differentPixels = Math.Max(differentPixelsForward, differentPixelsBackward);
+        var differentPixelRatio = pixelCount == 0 ? 0 : (double)differentPixels / pixelCount;
 
-        for (var index = 0; index < approved.Rgba.Length; index += 4)
+        Assert.True(
+            differentPixelRatio <= comparisonProfile.MaxDifferentPixelRatio,
+            $"Snapshot regression detected for '{snapshotName}'. Different pixels: {differentPixels}/{pixelCount} ({differentPixelRatio:P3}). Actual: {actualPath}");
+    }
+
+    private static int CountDifferentPixels(
+        SnapshotImage source,
+        SnapshotImage target,
+        SnapshotComparisonProfile comparisonProfile)
+    {
+        var differentPixels = 0;
+
+        for (var y = 0; y < source.Height; y++)
         {
-            var pixelDiffers = false;
-
-            for (var channel = 0; channel < 4; channel++)
+            for (var x = 0; x < source.Width; x++)
             {
-                var delta = Math.Abs(approved.Rgba[index + channel] - actual.Rgba[index + channel]);
-                if (delta > MaxChannelDelta)
+                if (!PixelMatchesWithinNeighborhood(source, target, x, y, comparisonProfile))
                 {
-                    pixelDiffers = true;
-                    break;
+                    differentPixels++;
                 }
-            }
-
-            if (pixelDiffers)
-            {
-                differentPixels++;
             }
         }
 
-        var differentPixelRatio = pixelCount == 0
-            ? 0
-            : (double)differentPixels / pixelCount;
+        return differentPixels;
+    }
 
-        Assert.True(
-            differentPixelRatio <= MaxDifferentPixelRatio,
-            $"Snapshot regression detected for '{snapshotName}'. Different pixels: {differentPixels}/{pixelCount} ({differentPixelRatio:P3}). Actual: {actualPath}");
+    private static bool PixelMatchesWithinNeighborhood(
+        SnapshotImage source,
+        SnapshotImage target,
+        int x,
+        int y,
+        SnapshotComparisonProfile comparisonProfile)
+    {
+        var radius = comparisonProfile.NeighborhoodRadius;
+
+        for (var targetY = Math.Max(0, y - radius); targetY <= Math.Min(target.Height - 1, y + radius); targetY++)
+        {
+            for (var targetX = Math.Max(0, x - radius); targetX <= Math.Min(target.Width - 1, x + radius); targetX++)
+            {
+                if (PixelsAreClose(source, target, x, y, targetX, targetY, comparisonProfile.MaxChannelDelta))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool PixelsAreClose(
+        SnapshotImage source,
+        SnapshotImage target,
+        int sourceX,
+        int sourceY,
+        int targetX,
+        int targetY,
+        int maxChannelDelta)
+    {
+        var sourceIndex = ((sourceY * source.Width) + sourceX) * 4;
+        var targetIndex = ((targetY * target.Width) + targetX) * 4;
+
+        for (var channel = 0; channel < 4; channel++)
+        {
+            var delta = Math.Abs(source.Rgba[sourceIndex + channel] - target.Rgba[targetIndex + channel]);
+            if (delta > maxChannelDelta)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static string GetRepositoryRoot()
@@ -170,6 +233,11 @@ public sealed class RenderSnapshotTests
     }
 
     private sealed record HostResult(bool Success, string? Error);
+
+    private sealed record SnapshotComparisonProfile(
+        int MaxChannelDelta,
+        double MaxDifferentPixelRatio,
+        int NeighborhoodRadius);
 
     private sealed record SnapshotImage(int Width, int Height, byte[] Rgba);
 

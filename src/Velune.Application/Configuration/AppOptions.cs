@@ -24,6 +24,11 @@ public sealed class AppOptions
         get; set;
     } = 64;
 
+    public string? UserPreferencesPath
+    {
+        get; set;
+    }
+
     public string? ThumbnailDiskCachePath
     {
         get; set;

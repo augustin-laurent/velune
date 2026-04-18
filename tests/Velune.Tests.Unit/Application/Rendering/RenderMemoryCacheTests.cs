@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
+using Velune.Application.Abstractions;
 using Velune.Application.Configuration;
 using Velune.Application.DTOs;
 using Velune.Application.Rendering;
@@ -14,7 +14,7 @@ public sealed class RenderMemoryCacheTests
     public void Store_ShouldRespectConfiguredLruLimit()
     {
         var logger = new ListLogger<RenderMemoryCache>();
-        var cache = CreateCache(logger, entryLimit: 2);
+        using var cache = CreateCache(logger, entryLimit: 2);
         var documentId = DocumentId.New();
 
         cache.Store(documentId, CreateRequest(pageIndex: 0), CreatePage(pageIndex: 0));
@@ -33,7 +33,7 @@ public sealed class RenderMemoryCacheTests
     public void TryGet_ShouldMiss_WhenZoomRotationOrResolutionDiffers()
     {
         var logger = new ListLogger<RenderMemoryCache>();
-        var cache = CreateCache(logger, entryLimit: 4);
+        using var cache = CreateCache(logger, entryLimit: 4);
         var documentId = DocumentId.New();
 
         cache.Store(
@@ -51,7 +51,7 @@ public sealed class RenderMemoryCacheTests
     public void TryGet_ShouldLogHitAndMiss()
     {
         var logger = new ListLogger<RenderMemoryCache>();
-        var cache = CreateCache(logger, entryLimit: 2);
+        using var cache = CreateCache(logger, entryLimit: 2);
         var documentId = DocumentId.New();
         var request = CreateRequest(pageIndex: 0);
 
@@ -64,14 +64,32 @@ public sealed class RenderMemoryCacheTests
         Assert.Contains(logger.Entries, entry => entry.LogLevel == LogLevel.Debug && entry.Message.Contains("hit", StringComparison.OrdinalIgnoreCase));
     }
 
+    [Fact]
+    public void PreferencesChange_ShouldTrimEntriesToUpdatedLimit()
+    {
+        var logger = new ListLogger<RenderMemoryCache>();
+        var preferencesService = new StubUserPreferencesService(entryLimit: 3);
+        using var cache = new RenderMemoryCache(logger, preferencesService);
+        var documentId = DocumentId.New();
+
+        cache.Store(documentId, CreateRequest(pageIndex: 0), CreatePage(pageIndex: 0));
+        cache.Store(documentId, CreateRequest(pageIndex: 1), CreatePage(pageIndex: 1));
+        cache.Store(documentId, CreateRequest(pageIndex: 2), CreatePage(pageIndex: 2));
+
+        Assert.True(cache.TryGet(documentId, CreateRequest(pageIndex: 2), out _));
+
+        preferencesService.UpdateEntryLimit(1);
+
+        Assert.False(cache.TryGet(documentId, CreateRequest(pageIndex: 0), out _));
+        Assert.False(cache.TryGet(documentId, CreateRequest(pageIndex: 1), out _));
+        Assert.True(cache.TryGet(documentId, CreateRequest(pageIndex: 2), out _));
+    }
+
     private static RenderMemoryCache CreateCache(ILogger<RenderMemoryCache> logger, int entryLimit)
     {
         return new RenderMemoryCache(
             logger,
-            Options.Create(new AppOptions
-            {
-                RenderCacheEntryLimit = entryLimit
-            }));
+            new StubUserPreferencesService(entryLimit));
     }
 
     private static RenderRequest CreateRequest(
@@ -127,6 +145,31 @@ public sealed class RenderMemoryCacheTests
 
         public void Dispose()
         {
+        }
+    }
+
+    private sealed class StubUserPreferencesService : IUserPreferencesService
+    {
+        public StubUserPreferencesService(int entryLimit)
+        {
+            Current = UserPreferences.CreateDefault(entryLimit);
+        }
+
+        public UserPreferences Current { get; private set; }
+
+        public event EventHandler? PreferencesChanged;
+
+        public Task SaveAsync(UserPreferences preferences, CancellationToken cancellationToken = default)
+        {
+            Current = preferences;
+            PreferencesChanged?.Invoke(this, EventArgs.Empty);
+            return Task.CompletedTask;
+        }
+
+        public void UpdateEntryLimit(int entryLimit)
+        {
+            Current = Current with { MemoryCacheEntryLimit = entryLimit };
+            PreferencesChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 }

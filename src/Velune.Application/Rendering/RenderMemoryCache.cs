@@ -1,30 +1,32 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Velune.Application.Abstractions;
-using Velune.Application.Configuration;
 using Velune.Application.DTOs;
 using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
 
 namespace Velune.Application.Rendering;
 
-public sealed partial class RenderMemoryCache : IRenderMemoryCache
+public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
 {
     private readonly object _gate = new();
     private readonly Dictionary<RenderCacheKey, LinkedListNode<RenderCacheEntry>> _entries = [];
     private readonly LinkedList<RenderCacheEntry> _lru = [];
     private readonly ILogger<RenderMemoryCache> _logger;
-    private readonly int _entryLimit;
+    private readonly IUserPreferencesService _userPreferencesService;
+    private volatile int _entryLimit;
+    private bool _disposed;
 
     public RenderMemoryCache(
         ILogger<RenderMemoryCache> logger,
-        IOptions<AppOptions> options)
+        IUserPreferencesService userPreferencesService)
     {
         ArgumentNullException.ThrowIfNull(logger);
-        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(userPreferencesService);
 
         _logger = logger;
-        _entryLimit = Math.Max(0, options.Value.RenderCacheEntryLimit);
+        _userPreferencesService = userPreferencesService;
+        _entryLimit = Math.Max(0, _userPreferencesService.Current.MemoryCacheEntryLimit);
+        _userPreferencesService.PreferencesChanged += OnPreferencesChanged;
     }
 
     public bool TryGet(
@@ -93,6 +95,48 @@ public sealed partial class RenderMemoryCache : IRenderMemoryCache
             _lru.AddFirst(node);
 
             while (_entries.Count > _entryLimit && _lru.Last is not null)
+            {
+                var leastRecentlyUsed = _lru.Last;
+                _lru.RemoveLast();
+
+                if (leastRecentlyUsed is not null)
+                {
+                    _entries.Remove(leastRecentlyUsed.Value.Key);
+                }
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _userPreferencesService.PreferencesChanged -= OnPreferencesChanged;
+        _disposed = true;
+    }
+
+    private void OnPreferencesChanged(object? sender, EventArgs e)
+    {
+        var updatedLimit = Math.Max(0, _userPreferencesService.Current.MemoryCacheEntryLimit);
+        _entryLimit = updatedLimit;
+        TrimToLimit(updatedLimit);
+    }
+
+    private void TrimToLimit(int entryLimit)
+    {
+        lock (_gate)
+        {
+            if (entryLimit == 0)
+            {
+                _entries.Clear();
+                _lru.Clear();
+                return;
+            }
+
+            while (_entries.Count > entryLimit && _lru.Last is not null)
             {
                 var leastRecentlyUsed = _lru.Last;
                 _lru.RemoveLast();

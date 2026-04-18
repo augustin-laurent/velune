@@ -123,7 +123,7 @@ public sealed class MainWindowViewModelTests
         using var viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService("/tmp/image.png"),
             documentOpener: new StubDocumentOpener(
-                new DocumentSession(
+                new StubImageDocumentSession(
                     DocumentId.New(),
                     new DocumentMetadata(
                         "image.png",
@@ -134,7 +134,8 @@ public sealed class MainWindowViewModelTests
                         pixelWidth: 1200,
                         pixelHeight: 800,
                         formatLabel: "PNG image"),
-                    ViewportState.Default)));
+                    ViewportState.Default,
+                    new ImageMetadata(1200, 800))));
 
         await viewModel.OpenCommand.ExecuteAsync(null);
 
@@ -144,6 +145,102 @@ public sealed class MainWindowViewModelTests
 
         Assert.True(viewModel.IsInfoPanelOpen);
         Assert.Equal("File information shown", viewModel.StatusText);
+    }
+
+    [Fact]
+    public async Task TogglePreferencesPanelCommand_ShouldTogglePanelWhenDocumentIsOpen()
+    {
+        using var viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService("/tmp/document.pdf"),
+            documentOpener: new StubDocumentOpener(
+                new DocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata("Document.pdf", "/tmp/document.pdf", DocumentType.Pdf, 1024, 1),
+                    ViewportState.Default)));
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+
+        Assert.False(viewModel.IsPreferencesPanelOpen);
+
+        viewModel.TogglePreferencesPanelCommand.Execute(null);
+
+        Assert.True(viewModel.IsPreferencesPanelOpen);
+        Assert.Equal("Preferences shown", viewModel.StatusText);
+    }
+
+    [Fact]
+    public async Task ShowThumbnailsPanelPreference_ShouldHideSidebarAndPersistPreference()
+    {
+        var preferencesService = new StubUserPreferencesService();
+        using var viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService("/tmp/document.pdf"),
+            documentOpener: new StubDocumentOpener(
+                new DocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata("Document.pdf", "/tmp/document.pdf", DocumentType.Pdf, 1024, 2),
+                    ViewportState.Default)),
+            userPreferencesService: preferencesService);
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+
+        Assert.True(viewModel.IsSidebarVisible);
+
+        viewModel.ShowThumbnailsPanelPreference = false;
+
+        Assert.False(viewModel.IsSidebarVisible);
+        Assert.False(preferencesService.Current.ShowThumbnailsPanel);
+    }
+
+    [Fact]
+    public async Task OpenCommand_ShouldApplyPreferredDefaultZoomForImageDocuments()
+    {
+        var preferencesService = new StubUserPreferencesService(
+            UserPreferences.CreateDefault(64) with
+            {
+                DefaultZoom = DefaultZoomPreference.FitToWidth
+            });
+
+        using var viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService("/tmp/image.png"),
+            documentOpener: new StubDocumentOpener(
+                new StubImageDocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata(
+                        "image.png",
+                        "/tmp/image.png",
+                        DocumentType.Image,
+                        2048,
+                        1,
+                        pixelWidth: 2400,
+                        pixelHeight: 1200,
+                        formatLabel: "PNG image"),
+                    ViewportState.Default,
+                    new ImageMetadata(2400, 1200))),
+            userPreferencesService: preferencesService);
+
+        await viewModel.UpdateDocumentViewportAsync(1200, 900);
+        await viewModel.OpenCommand.ExecuteAsync(null);
+
+        Assert.Equal("49%", viewModel.CurrentZoom);
+    }
+
+    [Fact]
+    public async Task ZoomInCommand_ShouldKeepZoomWhenNavigatingToNextPage()
+    {
+        using var viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService("/tmp/document.pdf"),
+            documentOpener: new StubDocumentOpener(
+                new DocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata("Document.pdf", "/tmp/document.pdf", DocumentType.Pdf, 1024, 3),
+                    ViewportState.Default)));
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        await viewModel.ZoomInCommand.ExecuteAsync(null);
+        await viewModel.NextPageCommand.ExecuteAsync(null);
+
+        Assert.Equal(2, viewModel.CurrentPage);
+        Assert.Equal("110%", viewModel.CurrentZoom);
     }
 
     [Fact]
@@ -272,7 +369,8 @@ public sealed class MainWindowViewModelTests
         IFilePickerService? filePickerService = null,
         IDocumentOpener? documentOpener = null,
         IRenderOrchestrator? renderOrchestrator = null,
-        IPdfDocumentStructureService? pdfDocumentStructureService = null)
+        IPdfDocumentStructureService? pdfDocumentStructureService = null,
+        IUserPreferencesService? userPreferencesService = null)
     {
         var sessionStore = new InMemoryDocumentSessionStore();
         var viewportStore = new InMemoryPageViewportStore();
@@ -293,7 +391,8 @@ public sealed class MainWindowViewModelTests
             orchestrator,
             sessionStore,
             recentFilesService ?? CreateRecentFilesService(),
-            viewportStore);
+            viewportStore,
+            userPreferencesService ?? new StubUserPreferencesService());
     }
 
     private static IRecentFilesService CreateRecentFilesService()
@@ -351,6 +450,21 @@ public sealed class MainWindowViewModelTests
         }
     }
 
+    private sealed record StubImageDocumentSession(
+        DocumentId Id,
+        DocumentMetadata Metadata,
+        ViewportState Viewport,
+        ImageMetadata ImageMetadata) : IImageDocumentSession
+    {
+        public IDocumentSession WithViewport(ViewportState viewport)
+        {
+            return this with
+            {
+                Viewport = viewport
+            };
+        }
+    }
+
     private sealed class StubRenderOrchestrator : IRenderOrchestrator
     {
         public RenderJobHandle Submit(RenderRequest request)
@@ -381,6 +495,25 @@ public sealed class MainWindowViewModelTests
 
         public void Dispose()
         {
+        }
+    }
+
+    private sealed class StubUserPreferencesService : IUserPreferencesService
+    {
+        public StubUserPreferencesService(UserPreferences? current = null)
+        {
+            Current = current ?? UserPreferences.CreateDefault(64);
+        }
+
+        public UserPreferences Current { get; private set; }
+
+        public event EventHandler? PreferencesChanged;
+
+        public Task SaveAsync(UserPreferences preferences, CancellationToken cancellationToken = default)
+        {
+            Current = preferences;
+            PreferencesChanged?.Invoke(this, EventArgs.Empty);
+            return Task.CompletedTask;
         }
     }
 

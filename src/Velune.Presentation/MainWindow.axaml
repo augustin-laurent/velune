@@ -255,15 +255,28 @@
 
           <Border Classes="toolbar-group"
                   Margin="6,0,0,0">
-            <Button Classes="toolbar-button"
-                    Command="{Binding ToggleInfoPanelCommand}"
-                    ToolTip.Tip="Show file information">
-              <materialIcons:MaterialIcon Classes="toolbar-icon"
-                                          Kind="InformationCircleOutline"
-                                          Width="20"
-                                          Height="20"
-                                          Foreground="{DynamicResource Brush.Icon}" />
-            </Button>
+            <StackPanel Orientation="Horizontal"
+                        Spacing="4">
+              <Button Classes="toolbar-button"
+                      Command="{Binding ToggleInfoPanelCommand}"
+                      ToolTip.Tip="Show file information">
+                <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                            Kind="InformationCircleOutline"
+                                            Width="20"
+                                            Height="20"
+                                            Foreground="{DynamicResource Brush.Icon}" />
+              </Button>
+
+              <Button Classes="toolbar-button"
+                      Command="{Binding TogglePreferencesPanelCommand}"
+                      ToolTip.Tip="Show preferences">
+                <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                            Kind="CogOutline"
+                                            Width="20"
+                                            Height="20"
+                                            Foreground="{DynamicResource Brush.Icon}" />
+              </Button>
+            </StackPanel>
           </Border>
         </WrapPanel>
       </Grid>
@@ -661,6 +674,62 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+
+      <!-- Preferences panel -->
+      <Border Grid.Column="1"
+              Width="{Binding PreferencesPanelWidth}"
+              Margin="0,24,24,24"
+              Padding="18,16"
+              Classes="card info-panel"
+              Background="{DynamicResource Brush.Surface}"
+              IsVisible="{Binding IsPreferencesPanelOpen}">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="18">
+            <StackPanel Spacing="4">
+              <TextBlock Text="Preferences"
+                         Classes="title" />
+              <TextBlock Text="Choose the default viewer behavior for the next documents you open."
+                         Classes="muted"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+              <TextBlock Text="Theme"
+                         Classes="metadata-label" />
+              <ComboBox Classes="preferences-input"
+                        ItemsSource="{Binding ThemePreferenceOptions}"
+                        SelectedItem="{Binding SelectedThemePreference}" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+              <TextBlock Text="Default zoom"
+                         Classes="metadata-label" />
+              <ComboBox Classes="preferences-input"
+                        ItemsSource="{Binding DefaultZoomPreferenceOptions}"
+                        SelectedItem="{Binding SelectedDefaultZoomPreference}" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+              <TextBlock Text="Sidebar"
+                         Classes="metadata-label" />
+              <CheckBox Content="Show page thumbnails for PDF documents"
+                        IsChecked="{Binding ShowThumbnailsPanelPreference}" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+              <TextBlock Text="Memory cache size"
+                         Classes="metadata-label" />
+              <ComboBox Classes="preferences-input"
+                        ItemsSource="{Binding MemoryCacheEntryLimitOptions}"
+                        SelectedItem="{Binding SelectedMemoryCacheEntryLimit}" />
+              <TextBlock Text="0 disables the in-memory render cache."
+                         Classes="muted"
+                         TextWrapping="Wrap" />
+            </StackPanel>
           </StackPanel>
         </ScrollViewer>
       </Border>

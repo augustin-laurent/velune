@@ -27,6 +27,13 @@ internal static partial class PdfiumNative
     [DllImport(LibraryName, EntryPoint = "FPDF_GetPageCount")]
     internal static extern int FPDF_GetPageCount(nint document);
 
+    [LibraryImport(LibraryName, EntryPoint = "FPDF_GetMetaText", StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial uint FPDF_GetMetaText(
+        nint document,
+        string tag,
+        byte[] buffer,
+        uint buflen);
+
     [DllImport(LibraryName, EntryPoint = "FPDF_LoadPage")]
     internal static extern nint FPDF_LoadPage(nint document, int pageIndex);
 

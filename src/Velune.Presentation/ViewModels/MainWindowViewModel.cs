@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -44,6 +45,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private const double ThumbnailZoomFactor = 0.20;
     private const double ViewerContentPadding = 12.0;
     private const double SidebarExpandedWidth = 240;
+    private const double InfoPanelExpandedWidth = 300;
     private const double ViewportResizeThreshold = 1.0;
     private const double ZoomComparisonTolerance = 0.001;
 
@@ -107,6 +109,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         RecentFiles = [];
         Thumbnails = [];
+        DocumentInfoItems = [];
         RefreshRecentFiles();
     }
 
@@ -156,6 +159,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private string? _currentDocumentPath;
 
     [ObservableProperty]
+    private bool _isInfoPanelVisible;
+
+    [ObservableProperty]
+    private string? _documentInfoWarning;
+
+    [ObservableProperty]
     private int _currentPage = 1;
 
     [ObservableProperty]
@@ -187,6 +196,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         get;
     }
+    public ObservableCollection<DocumentInfoItem> DocumentInfoItems
+    {
+        get;
+    }
 
     public bool IsEmptyStateVisible => !HasOpenDocument;
     public bool HasUserMessage => !string.IsNullOrWhiteSpace(UserMessage);
@@ -211,8 +224,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public bool IsScrollableViewerVisible => !IsImageAutoFitActive;
     public bool IsSidebarVisible => !HasOpenDocument || !IsCurrentImageDocument;
     public bool IsPageNavigationVisible => !HasOpenDocument || !IsCurrentImageDocument;
+    public bool IsInfoPanelOpen => HasOpenDocument && IsInfoPanelVisible;
+    public bool HasDocumentInfo => DocumentInfoItems.Count > 0;
+    public bool HasDocumentInfoWarning => !string.IsNullOrWhiteSpace(DocumentInfoWarning);
     public GridLength SidebarColumnWidth => new(SidebarWidth);
     public double SidebarWidth => IsSidebarVisible ? SidebarExpandedWidth : 0;
+    public double InfoPanelWidth => IsInfoPanelOpen ? InfoPanelExpandedWidth : 0;
     public string PageIndicator => TotalPages > 0 ? $"{CurrentPage} / {TotalPages}" : "-";
 
     public bool CanGoPreviousPage => HasOpenDocument && CurrentPage > 1;
@@ -235,9 +252,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         NotifyViewerModeChanged();
         OnPropertyChanged(nameof(IsSidebarVisible));
         OnPropertyChanged(nameof(IsPageNavigationVisible));
+        OnPropertyChanged(nameof(IsInfoPanelOpen));
         OnPropertyChanged(nameof(SidebarColumnWidth));
         OnPropertyChanged(nameof(SidebarWidth));
+        OnPropertyChanged(nameof(InfoPanelWidth));
         CloseCommand.NotifyCanExecuteChanged();
+        ToggleInfoPanelCommand.NotifyCanExecuteChanged();
         PreviousPageCommand.NotifyCanExecuteChanged();
         NextPageCommand.NotifyCanExecuteChanged();
         GoToPageCommand.NotifyCanExecuteChanged();
@@ -256,6 +276,17 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsPageNavigationVisible));
         OnPropertyChanged(nameof(SidebarColumnWidth));
         OnPropertyChanged(nameof(SidebarWidth));
+    }
+
+    partial void OnIsInfoPanelVisibleChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsInfoPanelOpen));
+        OnPropertyChanged(nameof(InfoPanelWidth));
+    }
+
+    partial void OnDocumentInfoWarningChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasDocumentInfoWarning));
     }
 
     partial void OnUserMessageChanged(string? value)
@@ -553,6 +584,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         StatusText = $"Rotation set to {CurrentRotation}";
     }
 
+    [RelayCommand(CanExecute = nameof(HasOpenDocument))]
+    private void ToggleInfoPanel()
+    {
+        IsInfoPanelVisible = !IsInfoPanelVisible;
+        StatusText = IsInfoPanelVisible
+            ? "File information shown"
+            : "File information hidden";
+    }
+
     [RelayCommand(CanExecute = nameof(CanDismissUserMessage))]
     private void DismissMessage()
     {
@@ -668,6 +708,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         AddCurrentDocumentToRecentFiles();
 
         ClearNotifications();
+        var detailsWarning = _documentSessionStore.Current?.Metadata.DetailsWarning;
+        if (!string.IsNullOrWhiteSpace(detailsWarning))
+        {
+            EnqueueInfo("Some file details are unavailable", detailsWarning);
+        }
+
         StatusText = $"Opened {CurrentDocumentName}";
 
         if (IsCurrentImageDocument)
@@ -995,6 +1041,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         CurrentDocumentPath = session.Metadata.FilePath;
         CurrentPage = session.Viewport.CurrentPage.Value + 1;
         TotalPages = session.Metadata.PageCount ?? 1;
+        RefreshDocumentInfo(session.Metadata);
 
         EmptyStateTitle = session.Metadata.FileName;
         EmptyStateDescription = $"Opened {session.Metadata.DocumentType} document.";
@@ -1016,6 +1063,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         CurrentDocumentName = null;
         CurrentDocumentType = null;
         CurrentDocumentPath = null;
+        IsInfoPanelVisible = false;
+        ClearDocumentInfo();
         CurrentPage = 1;
         TotalPages = 0;
         CurrentZoom = "100%";
@@ -1359,6 +1408,93 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         OnPropertyChanged(nameof(HasRecentFiles));
         ClearRecentFilesCommand.NotifyCanExecuteChanged();
+    }
+
+    private void RefreshDocumentInfo(DocumentMetadata metadata)
+    {
+        ArgumentNullException.ThrowIfNull(metadata);
+
+        DocumentInfoItems.Clear();
+
+        AddDocumentInfo("Kind", metadata.FormatLabel ?? GetDocumentKindLabel(metadata.DocumentType));
+        AddDocumentInfo("Size", FormatFileSize(metadata.FileSizeInBytes));
+
+        if (metadata.PageCount is > 0)
+        {
+            AddDocumentInfo("Pages", metadata.PageCount.Value.ToString(CultureInfo.InvariantCulture));
+        }
+
+        if (metadata.PixelWidth is > 0 && metadata.PixelHeight is > 0)
+        {
+            AddDocumentInfo("Dimensions", $"{metadata.PixelWidth} × {metadata.PixelHeight} px");
+        }
+
+        if (metadata.CreatedAt is not null)
+        {
+            AddDocumentInfo("Created", FormatDate(metadata.CreatedAt.Value));
+        }
+
+        if (metadata.ModifiedAt is not null)
+        {
+            AddDocumentInfo("Modified", FormatDate(metadata.ModifiedAt.Value));
+        }
+
+        AddDocumentInfo("Title", metadata.DocumentTitle);
+        AddDocumentInfo("Author", metadata.Author);
+        AddDocumentInfo("Creator", metadata.Creator);
+        AddDocumentInfo("Producer", metadata.Producer);
+        AddDocumentInfo("Location", Path.GetDirectoryName(metadata.FilePath));
+
+        DocumentInfoWarning = metadata.DetailsWarning;
+        OnPropertyChanged(nameof(HasDocumentInfo));
+    }
+
+    private void ClearDocumentInfo()
+    {
+        DocumentInfoItems.Clear();
+        DocumentInfoWarning = null;
+        OnPropertyChanged(nameof(HasDocumentInfo));
+    }
+
+    private void AddDocumentInfo(string label, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        DocumentInfoItems.Add(new DocumentInfoItem(label, value));
+    }
+
+    private static string GetDocumentKindLabel(DocumentType documentType)
+    {
+        return documentType switch
+        {
+            DocumentType.Pdf => "PDF document",
+            DocumentType.Image => "Image",
+            _ => "Document"
+        };
+    }
+
+    private static string FormatDate(DateTimeOffset value)
+    {
+        return value.ToLocalTime().ToString("f", CultureInfo.CurrentCulture);
+    }
+
+    private static string FormatFileSize(long fileSizeInBytes)
+    {
+        string[] units = ["bytes", "KB", "MB", "GB", "TB"];
+        var size = (double)fileSizeInBytes;
+        var unitIndex = 0;
+
+        while (size >= 1024 && unitIndex < units.Length - 1)
+        {
+            size /= 1024;
+            unitIndex++;
+        }
+
+        var format = unitIndex == 0 ? "0" : "0.#";
+        return $"{size.ToString(format, CultureInfo.InvariantCulture)} {units[unitIndex]}";
     }
 
     public void Dispose()

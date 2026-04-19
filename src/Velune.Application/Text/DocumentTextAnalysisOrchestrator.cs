@@ -156,21 +156,16 @@ public sealed class DocumentTextAnalysisOrchestrator : IDocumentTextAnalysisOrch
     {
         while (true)
         {
-            await _signal.WaitAsync(_shutdownCancellationTokenSource.Token);
-
-            QueuedTextJob? job = null;
-            lock (_gate)
+            try
             {
-                while (_queue.Count > 0)
-                {
-                    var jobId = _queue.Dequeue();
-                    if (_jobs.TryGetValue(jobId, out job))
-                    {
-                        job.IsRunning = true;
-                        break;
-                    }
-                }
+                await _signal.WaitAsync(_shutdownCancellationTokenSource.Token);
             }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+
+            var job = DequeueNextJob();
 
             if (job is null)
             {
@@ -190,6 +185,33 @@ public sealed class DocumentTextAnalysisOrchestrator : IDocumentTextAnalysisOrch
                 job.Dispose();
             }
         }
+    }
+
+    private QueuedTextJob? DequeueNextJob()
+    {
+        lock (_gate)
+        {
+            while (_queue.Count > 0)
+            {
+                var jobId = _queue.Dequeue();
+                if (!_jobs.TryGetValue(jobId, out var job))
+                {
+                    continue;
+                }
+
+                if (job.CompletionSource.Task.IsCompleted)
+                {
+                    _jobs.Remove(jobId);
+                    job.Dispose();
+                    continue;
+                }
+
+                job.IsRunning = true;
+                return job;
+            }
+        }
+
+        return null;
     }
 
     private async Task<DocumentTextAnalysisResult> ExecuteJobAsync(

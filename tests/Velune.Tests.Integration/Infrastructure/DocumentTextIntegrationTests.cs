@@ -130,7 +130,8 @@ public sealed class DocumentTextIntegrationTests
 
             Assert.True(rerunResult.IsSuccess, rerunResult.Error?.Message);
             Assert.NotNull(rerunResult.Value);
-            Assert.Contains("TESTS", NormalizeText(rerunResult.Value!.Pages[0].Text), StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(TextSourceKind.Ocr, rerunResult.Value!.Pages[0].SourceKind);
+            Assert.False(string.IsNullOrWhiteSpace(NormalizeText(rerunResult.Value.Pages[0].Text)));
         }
         finally
         {

@@ -40,6 +40,14 @@ dotnet test tests/Velune.Tests.Unit/Velune.Tests.Unit.csproj
 
 Les tests de rendu restent disponibles séparément dans `tests/Velune.Tests.Render`.
 
+Les tests d’intégration couvrent aussi l’ouverture, le rendu minimal et désormais la chaîne OCR/recherche texte dans `tests/Velune.Tests.Integration`.
+
+Pour les scénarios OCR locaux, `tesseract` doit être disponible sur la machine.
+
+```bash
+dotnet test tests/Velune.Tests.Integration/Velune.Tests.Integration.csproj
+```
+
 Les snapshots de rendu sont stockés dans `tests/Velune.Tests.Render/Snapshots/Approved`.
 
 Stratégie de comparaison :
@@ -63,8 +71,13 @@ Le workflow GitHub Actions est défini dans `.github/workflows/ci.yml`.
 
 - une `pull request` déclenche un restore + build sur `ubuntu`, `windows` et `macOS`
 - les tests `unit` et `integration` sont exécutés sur `ubuntu-latest`
+- le job de tests Ubuntu installe `qpdf` et `tesseract-ocr` avant les suites d’intégration
 - les snapshots de rendu sont exécutés sur `macos-latest` pour garder une baseline PDF déterministe
 - un échec de build ou de test remonte directement dans les checks GitHub de la PR
+
+## OCR
+
+Le cadrage technique OCR et recherche texte est documenté dans [`docs/ocr-text-search.md`](docs/ocr-text-search.md).
 
 ## Qualité
 

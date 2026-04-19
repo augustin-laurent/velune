@@ -27,6 +27,9 @@ public partial class MainWindow : Window
     private bool _isDraggingThumbnail;
     private bool _isReleasingThumbnailPointer;
     private bool _suppressNextThumbnailTap;
+    private Control? _documentTextSelectionLayer;
+    private Control? _documentTextSelectionCoordinateLayer;
+    private bool _isSelectingDocumentText;
 
     public MainWindow()
     {
@@ -114,6 +117,124 @@ public partial class MainWindow : Window
     {
         return modifiers.HasFlag(KeyModifiers.Control) ||
                modifiers.HasFlag(KeyModifiers.Meta);
+    }
+
+    private static bool HasCopyModifier(KeyModifiers modifiers)
+    {
+        return modifiers.HasFlag(KeyModifiers.Control) ||
+               modifiers.HasFlag(KeyModifiers.Meta);
+    }
+
+    private async void OnWindowKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel viewModel ||
+            !HasCopyModifier(e.KeyModifiers) ||
+            e.Key is not Key.C ||
+            !viewModel.HasSelectedDocumentText ||
+            string.IsNullOrWhiteSpace(viewModel.SelectedDocumentText))
+        {
+            return;
+        }
+
+        if (TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is TextBox)
+        {
+            return;
+        }
+
+        var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+        if (clipboard is null)
+        {
+            return;
+        }
+
+        await clipboard.SetTextAsync(viewModel.SelectedDocumentText);
+        viewModel.StatusText = "Selected text copied";
+        e.Handled = true;
+    }
+
+    private async void OnDocumentTextSelectionPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Control layer ||
+            DataContext is not MainWindowViewModel viewModel ||
+            e.GetCurrentPoint(layer).Properties.PointerUpdateKind is not PointerUpdateKind.LeftButtonPressed ||
+            !viewModel.HasOpenDocument ||
+            viewModel.IsRendering)
+        {
+            ResetDocumentTextSelectionInteraction();
+            return;
+        }
+
+        if (!await viewModel.EnsureDocumentTextReadyForSelectionAsync())
+        {
+            viewModel.ClearDocumentTextSelection();
+            return;
+        }
+
+        _documentTextSelectionLayer = layer;
+        var coordinateLayer = ResolveDocumentTextSelectionCoordinateLayer(layer);
+        _documentTextSelectionCoordinateLayer = coordinateLayer;
+        _isSelectingDocumentText = true;
+        var documentPosition = MapPointerPositionToDocument(
+            coordinateLayer,
+            viewModel,
+            GetDocumentSelectionVisualPosition(e, coordinateLayer));
+        if (!viewModel.BeginDocumentTextSelection(documentPosition.X, documentPosition.Y))
+        {
+            ResetDocumentTextSelectionInteraction();
+            return;
+        }
+
+        e.Pointer.Capture(layer);
+        e.Handled = true;
+    }
+
+    private void OnDocumentTextSelectionPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (!_isSelectingDocumentText ||
+            sender is not Control layer ||
+            !ReferenceEquals(layer, _documentTextSelectionLayer) ||
+            DataContext is not MainWindowViewModel viewModel ||
+            !e.GetCurrentPoint(layer).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        var coordinateLayer = _documentTextSelectionCoordinateLayer ?? ResolveDocumentTextSelectionCoordinateLayer(layer);
+        _documentTextSelectionCoordinateLayer = coordinateLayer;
+        var currentVisualPosition = GetDocumentSelectionVisualPosition(e, coordinateLayer);
+        var currentDocumentPosition = MapPointerPositionToDocument(coordinateLayer, viewModel, currentVisualPosition);
+        viewModel.UpdateDocumentTextSelection(currentDocumentPosition.X, currentDocumentPosition.Y);
+        e.Handled = true;
+    }
+
+    private void OnDocumentTextSelectionPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (!_isSelectingDocumentText ||
+            sender is not Control layer ||
+            !ReferenceEquals(layer, _documentTextSelectionLayer) ||
+            DataContext is not MainWindowViewModel viewModel)
+        {
+            ResetDocumentTextSelectionInteraction();
+            return;
+        }
+
+        var coordinateLayer = _documentTextSelectionCoordinateLayer ?? ResolveDocumentTextSelectionCoordinateLayer(layer);
+        _documentTextSelectionCoordinateLayer = coordinateLayer;
+        var currentDocumentPosition = MapPointerPositionToDocument(
+            coordinateLayer,
+            viewModel,
+            GetDocumentSelectionVisualPosition(e, coordinateLayer));
+        viewModel.UpdateDocumentTextSelection(currentDocumentPosition.X, currentDocumentPosition.Y);
+        viewModel.CompleteDocumentTextSelection();
+
+        e.Pointer.Capture(null);
+        ResetDocumentTextSelectionInteraction();
+        e.Handled = true;
+    }
+
+    private void OnDocumentTextSelectionPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        ResetDocumentTextSelectionInteraction();
     }
 
     private void OnThumbnailPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -574,4 +695,61 @@ public partial class MainWindow : Window
     }
 
     private readonly record struct ThumbnailDropPreview(int FinalIndex, double Top, double Left, double Width);
+
+    private Control ResolveDocumentTextSelectionCoordinateLayer(Control fallbackLayer)
+    {
+        if (ScrollableDocumentInteractionLayer.IsVisible)
+        {
+            return ScrollableDocumentInteractionLayer;
+        }
+
+        if (AutoFitDocumentInteractionLayer.IsVisible)
+        {
+            return AutoFitDocumentInteractionLayer;
+        }
+
+        return fallbackLayer;
+    }
+
+    private Point GetDocumentSelectionVisualPosition(PointerEventArgs e, Control coordinateLayer)
+    {
+        if (ReferenceEquals(coordinateLayer, ScrollableDocumentInteractionLayer) &&
+            DocumentScrollViewer is not null)
+        {
+            var viewportPosition = e.GetPosition(DocumentScrollViewer);
+
+            if (coordinateLayer.TranslatePoint(default, DocumentScrollViewer) is { } contentOriginInViewport)
+            {
+                return new Point(
+                    viewportPosition.X - contentOriginInViewport.X,
+                    viewportPosition.Y - contentOriginInViewport.Y);
+            }
+
+            return e.GetPosition(coordinateLayer);
+        }
+
+        return e.GetPosition(coordinateLayer);
+    }
+
+    private static Point MapPointerPositionToDocument(Control layer, MainWindowViewModel viewModel, Point visualPosition)
+    {
+        if (!viewModel.TryMapViewerPointToDocumentTextSpace(
+                visualPosition.X,
+                visualPosition.Y,
+                layer.Bounds.Width,
+                layer.Bounds.Height,
+                out var point))
+        {
+            return visualPosition;
+        }
+
+        return new Point(point.X, point.Y);
+    }
+
+    private void ResetDocumentTextSelectionInteraction()
+    {
+        _documentTextSelectionLayer = null;
+        _documentTextSelectionCoordinateLayer = null;
+        _isSelectingDocumentText = false;
+    }
 }

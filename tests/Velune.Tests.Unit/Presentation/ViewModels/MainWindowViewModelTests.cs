@@ -245,6 +245,90 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public async Task SearchTextCommand_ShouldPopulateResults_WhenSearchableTextIsAvailable()
+    {
+        using var textAnalysisOrchestrator = new StubDocumentTextAnalysisOrchestrator(request =>
+            CreateTextAnalysisResult(
+                request,
+                index: CreateDocumentTextIndex("Velune integration sample")));
+
+        using var viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService("/tmp/document.pdf"),
+            documentOpener: new StubDocumentOpener(
+                new DocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata("Document.pdf", "/tmp/document.pdf", DocumentType.Pdf, 1024, 1),
+                    ViewportState.Default)),
+            textAnalysisOrchestrator: textAnalysisOrchestrator);
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        await viewModel.ToggleSearchPanelCommand.ExecuteAsync(null);
+
+        viewModel.SearchQueryInput = "velune";
+        await viewModel.SearchTextCommand.ExecuteAsync(null);
+
+        Assert.True(viewModel.IsSearchPanelOpen);
+        Assert.Single(viewModel.SearchResults);
+        Assert.Equal("1 result", viewModel.SearchResultSummary);
+        Assert.True(viewModel.SearchResults[0].IsSelected);
+        Assert.Contains("Velune integration sample", viewModel.SearchResults[0].Excerpt, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(viewModel.SearchPanelNotice);
+        Assert.Equal("Search result on page 1", viewModel.StatusText);
+        Assert.Single(textAnalysisOrchestrator.Requests);
+        Assert.False(textAnalysisOrchestrator.Requests[0].ForceOcr);
+    }
+
+    [Fact]
+    public async Task ToggleSearchPanelCommand_ShouldRequestOcr_WhenSearchableTextIsMissing()
+    {
+        using var textAnalysisOrchestrator = new StubDocumentTextAnalysisOrchestrator(request =>
+            request.ForceOcr
+                ? CreateTextAnalysisResult(
+                    request,
+                    index: CreateDocumentTextIndex("Scanned invoice"))
+                : CreateTextAnalysisResult(
+                    request,
+                    requiresOcr: true));
+
+        using var viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService("/tmp/image.png"),
+            documentOpener: new StubDocumentOpener(
+                new StubImageDocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata(
+                        "image.png",
+                        "/tmp/image.png",
+                        DocumentType.Image,
+                        2048,
+                        1,
+                        pixelWidth: 1200,
+                        pixelHeight: 800,
+                        formatLabel: "PNG image"),
+                    ViewportState.Default,
+                    new ImageMetadata(1200, 800))),
+            textAnalysisOrchestrator: textAnalysisOrchestrator);
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        await viewModel.ToggleSearchPanelCommand.ExecuteAsync(null);
+
+        Assert.True(viewModel.IsSearchPanelOpen);
+        Assert.True(viewModel.CanRunDocumentOcr);
+        Assert.Contains("Recognize text", viewModel.SearchPanelNotice);
+        Assert.Equal("OCR required", viewModel.StatusText);
+
+        await viewModel.RunSearchOcrCommand.ExecuteAsync(null);
+
+        viewModel.SearchQueryInput = "invoice";
+        await viewModel.SearchTextCommand.ExecuteAsync(null);
+
+        Assert.False(viewModel.CanRunDocumentOcr);
+        Assert.Single(viewModel.SearchResults);
+        Assert.Equal("Search result on page 1", viewModel.StatusText);
+        Assert.Equal(2, textAnalysisOrchestrator.Requests.Count);
+        Assert.True(textAnalysisOrchestrator.Requests[1].ForceOcr);
+    }
+
+    [Fact]
     public async Task PrintDocumentCommand_ShouldUseSystemPrintDialog_WhenAvailable()
     {
         using var temporaryFile = new TemporaryFile(".pdf");
@@ -525,13 +609,17 @@ public sealed class MainWindowViewModelTests
         IRenderOrchestrator? renderOrchestrator = null,
         IPdfDocumentStructureService? pdfDocumentStructureService = null,
         IUserPreferencesService? userPreferencesService = null,
-        IPrintService? printService = null)
+        IPrintService? printService = null,
+        IDocumentTextAnalysisOrchestrator? textAnalysisOrchestrator = null,
+        IDocumentTextSelectionService? textSelectionService = null)
     {
         var sessionStore = new InMemoryDocumentSessionStore();
         var viewportStore = new InMemoryPageViewportStore();
         var orchestrator = renderOrchestrator ?? new StubRenderOrchestrator();
         var structureService = pdfDocumentStructureService ?? new StubPdfDocumentStructureService();
         var activePrintService = printService ?? new StubPrintService(ResultFactory.Success());
+        var activeTextAnalysisOrchestrator = textAnalysisOrchestrator ?? new StubDocumentTextAnalysisOrchestrator();
+        var activeTextSelectionService = textSelectionService ?? new StubDocumentTextSelectionService();
 
         return new MainWindowViewModel(
             filePickerService ?? new StubFilePickerService(),
@@ -540,6 +628,11 @@ public sealed class MainWindowViewModelTests
             new CloseDocumentUseCase(sessionStore, NoOpPerformanceMetrics.Instance),
             new PrintDocumentUseCase(activePrintService),
             new ShowSystemPrintDialogUseCase(activePrintService),
+            new LoadDocumentTextUseCase(activeTextAnalysisOrchestrator),
+            new RunDocumentOcrUseCase(activeTextAnalysisOrchestrator),
+            new CancelDocumentTextAnalysisUseCase(activeTextAnalysisOrchestrator),
+            new SearchDocumentTextUseCase(),
+            new ResolveDocumentTextSelectionUseCase(activeTextSelectionService),
             new ChangePageUseCase(sessionStore),
             new ChangeZoomUseCase(sessionStore),
             new RotateDocumentUseCase(sessionStore),
@@ -557,6 +650,46 @@ public sealed class MainWindowViewModelTests
     private static IRecentFilesService CreateRecentFilesService()
     {
         return new InMemoryRecentFilesService(Options.Create(new AppOptions()));
+    }
+
+    private static DocumentTextIndex CreateDocumentTextIndex(string text)
+    {
+        return new DocumentTextIndex(
+            "/tmp/document.pdf",
+            DocumentType.Pdf,
+            [
+                new PageTextContent(
+                    new PageIndex(0),
+                    TextSourceKind.EmbeddedPdfText,
+                    text,
+                    [new TextRun(
+                        text,
+                        0,
+                        text.Length,
+                        [new NormalizedTextRegion(0.1, 0.1, 0.4, 0.08)])],
+                    1000,
+                    1400)
+            ],
+            ["eng"]);
+    }
+
+    private static DocumentTextAnalysisResult CreateTextAnalysisResult(
+        DocumentTextAnalysisRequest request,
+        DocumentTextIndex? index = null,
+        AppError? error = null,
+        bool requiresOcr = false,
+        bool isCanceled = false)
+    {
+        return new DocumentTextAnalysisResult(
+            Guid.NewGuid(),
+            DocumentId.New(),
+            request.JobKey,
+            TimeSpan.Zero,
+            index,
+            error,
+            isCanceled,
+            IsObsolete: false,
+            requiresOcr);
     }
 
     private sealed class StubFilePickerService : IFilePickerService
@@ -626,6 +759,15 @@ public sealed class MainWindowViewModelTests
 
     private sealed class StubRenderOrchestrator : IRenderOrchestrator
     {
+        private readonly RenderedPage? _renderedPage;
+        private readonly bool _isCanceled;
+
+        public StubRenderOrchestrator(RenderedPage? renderedPage = null, bool isCanceled = true)
+        {
+            _renderedPage = renderedPage;
+            _isCanceled = isCanceled;
+        }
+
         public RenderJobHandle Submit(RenderRequest request)
         {
             ArgumentNullException.ThrowIfNull(request);
@@ -641,9 +783,9 @@ public sealed class MainWindowViewModelTests
                         request.JobKey,
                         request.PageIndex,
                         TimeSpan.Zero,
+                        _renderedPage is null ? null : _renderedPage with { PageIndex = request.PageIndex },
                         null,
-                        null,
-                        true,
+                        _isCanceled,
                         false)));
         }
 
@@ -654,6 +796,63 @@ public sealed class MainWindowViewModelTests
 
         public void Dispose()
         {
+        }
+    }
+
+    private sealed class StubDocumentTextAnalysisOrchestrator : IDocumentTextAnalysisOrchestrator
+    {
+        private readonly Func<DocumentTextAnalysisRequest, DocumentTextAnalysisResult> _resultFactory;
+
+        public StubDocumentTextAnalysisOrchestrator(
+            Func<DocumentTextAnalysisRequest, DocumentTextAnalysisResult>? resultFactory = null)
+        {
+            _resultFactory = resultFactory ?? (request => CreateTextAnalysisResult(
+                request,
+                index: CreateDocumentTextIndex("Velune default text")));
+        }
+
+        public List<DocumentTextAnalysisRequest> Requests { get; } = [];
+
+        public List<Guid> CancelledJobIds { get; } = [];
+
+        public DocumentTextJobHandle Submit(DocumentTextAnalysisRequest request)
+        {
+            ArgumentNullException.ThrowIfNull(request);
+
+            Requests.Add(request);
+
+            var jobId = Guid.NewGuid();
+            var result = _resultFactory(request) with
+            {
+                JobId = jobId
+            };
+
+            return new DocumentTextJobHandle(jobId, Task.FromResult(result));
+        }
+
+        public bool Cancel(Guid jobId)
+        {
+            CancelledJobIds.Add(jobId);
+            return true;
+        }
+
+        public void Dispose()
+        {
+        }
+    }
+
+    private sealed class StubDocumentTextSelectionService : IDocumentTextSelectionService
+    {
+        public Result<DocumentTextSelectionResult> Resolve(DocumentTextSelectionRequest request)
+        {
+            ArgumentNullException.ThrowIfNull(request);
+
+            return ResultFactory.Success(
+                new DocumentTextSelectionResult(
+                    request.PageIndex,
+                    null,
+                    [],
+                    TextSourceKind.Ocr));
         }
     }
 

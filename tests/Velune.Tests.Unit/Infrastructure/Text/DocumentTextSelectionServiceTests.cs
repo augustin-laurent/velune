@@ -95,10 +95,33 @@ public sealed class DocumentTextSelectionServiceTests
         Assert.NotNull(result.Value);
         Assert.Equal("alpha beta", result.Value!.SelectedText);
         Assert.Single(result.Value.Regions);
-        Assert.Equal(0.10, result.Value.Regions[0].X, 6);
-        Assert.Equal(0.10, result.Value.Regions[0].Y, 6);
-        Assert.Equal(0.22, result.Value.Regions[0].Width, 6);
-        Assert.Equal(0.05, result.Value.Regions[0].Height, 6);
+        Assert.InRange(result.Value.Regions[0].X, 0.091, 0.092);
+        Assert.InRange(result.Value.Regions[0].Y, 0.091, 0.092);
+        Assert.InRange(result.Value.Regions[0].Width, 0.236, 0.237);
+        Assert.InRange(result.Value.Regions[0].Height, 0.068, 0.069);
+    }
+
+    [Fact]
+    public void Select_ShouldReturnSingleRegionForSameLineBoxesWithDifferentHeights()
+    {
+        var service = new DocumentTextSelectionService();
+        var pageContent = CreateAccentLikeLinePageContent();
+        var request = new DocumentTextSelectionRequest(
+            new StubDocumentSession(
+                new DocumentMetadata("image.png", "/tmp/image.png", DocumentType.Image, 1024, 1),
+                ViewportState.Default),
+            new DocumentTextIndex("/tmp/image.png", DocumentType.Image, [pageContent], ["eng"]),
+            pageContent.PageIndex,
+            new DocumentTextSelectionPoint(120, 170),
+            new DocumentTextSelectionPoint(280, 170));
+
+        var result = service.Resolve(request);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value);
+        Assert.Equal("alpha beta", result.Value!.SelectedText);
+        Assert.Single(result.Value.Regions);
+        Assert.InRange(result.Value.Regions[0].Width, 0.26, 0.27);
     }
 
     private static PageTextContent CreateOcrPageContent()
@@ -146,6 +169,22 @@ public sealed class DocumentTextSelectionServiceTests
             [
                 new TextRun("alpha", 0, 5, [new NormalizedTextRegion(0.10, 0.10, 0.12, 0.05)]),
                 new TextRun("beta", 6, 4, [new NormalizedTextRegion(0.20, 0.10, 0.12, 0.05)])
+            ],
+            1000,
+            1400);
+    }
+
+    private static PageTextContent CreateAccentLikeLinePageContent()
+    {
+        const string text = "alpha beta";
+
+        return new PageTextContent(
+            new PageIndex(0),
+            TextSourceKind.Ocr,
+            text,
+            [
+                new TextRun("alpha", 0, 5, [new NormalizedTextRegion(0.10, 0.095, 0.12, 0.065)]),
+                new TextRun("beta", 6, 4, [new NormalizedTextRegion(0.23, 0.10, 0.11, 0.05)])
             ],
             1000,
             1400);

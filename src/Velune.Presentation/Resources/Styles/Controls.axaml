@@ -333,11 +333,9 @@
     </Style>
 
     <Style Selector="Border.text-selection-highlight">
-      <Setter Property="Background" Value="#6F76A8FF" />
-      <Setter Property="BorderBrush" Value="#C8DFFF" />
-      <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Background" Value="#4276A8FF" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="3" />
       <Setter Property="Opacity" Value="1" />
-      <Setter Property="BoxShadow" Value="0 0 0 1 #2C5A8FFF" />
     </Style>
 </Styles>

@@ -223,7 +223,7 @@ public sealed class DocumentTextSelectionService : IDocumentTextSelectionService
                 region.Y * sourceHeight,
                 (region.X + region.Width) * sourceWidth,
                 (region.Y + region.Height) * sourceHeight))
-            .OrderBy(box => box.Top)
+            .OrderBy(box => box.CenterY)
             .ThenBy(box => box.Left)
             .ToList();
 
@@ -238,17 +238,7 @@ public sealed class DocumentTextSelectionService : IDocumentTextSelectionService
         for (var index = 1; index < boxes.Count; index++)
         {
             var next = boxes[index];
-            var currentHeight = current.Bottom - current.Top;
-            var nextHeight = next.Bottom - next.Top;
-            var verticalCenterDistance = Math.Abs(
-                ((current.Top + current.Bottom) * 0.5) -
-                ((next.Top + next.Bottom) * 0.5));
-            var allowedVerticalDistance = Math.Max(currentHeight, nextHeight) * 0.6;
-            var horizontalGap = next.Left - current.Right;
-            var allowedHorizontalGap = Math.Max(currentHeight, nextHeight) * 0.75;
-
-            if (verticalCenterDistance <= allowedVerticalDistance &&
-                horizontalGap <= allowedHorizontalGap)
+            if (ShouldMergeIntoSameLine(current, next))
             {
                 current = new SourceBox(
                     Math.Min(current.Left, next.Left),
@@ -266,12 +256,44 @@ public sealed class DocumentTextSelectionService : IDocumentTextSelectionService
 
         return
         [
-            .. merged.Select(box => new NormalizedTextRegion(
-                box.Left / sourceWidth,
-                box.Top / sourceHeight,
-                (box.Right - box.Left) / sourceWidth,
-                (box.Bottom - box.Top) / sourceHeight))
+            .. merged.Select(box => ExpandSelectionBox(box, sourceWidth, sourceHeight))
         ];
+    }
+
+    private static bool ShouldMergeIntoSameLine(SourceBox current, SourceBox next)
+    {
+        var verticalOverlap = Math.Min(current.Bottom, next.Bottom) - Math.Max(current.Top, next.Top);
+        var minimumHeight = Math.Min(current.Height, next.Height);
+        var maximumHeight = Math.Max(current.Height, next.Height);
+        var centerDistance = Math.Abs(current.CenterY - next.CenterY);
+
+        if (verticalOverlap >= minimumHeight * 0.2)
+        {
+            return true;
+        }
+
+        return centerDistance <= maximumHeight * 0.85;
+    }
+
+    private static NormalizedTextRegion ExpandSelectionBox(
+        SourceBox box,
+        double sourceWidth,
+        double sourceHeight)
+    {
+        var boxHeight = Math.Max(0, box.Bottom - box.Top);
+        var horizontalPadding = Math.Max(1.5, boxHeight * 0.12);
+        var verticalPadding = Math.Max(1.5, boxHeight * 0.18);
+
+        var left = Math.Max(0, box.Left - horizontalPadding);
+        var top = Math.Max(0, box.Top - verticalPadding);
+        var right = Math.Min(sourceWidth, box.Right + horizontalPadding);
+        var bottom = Math.Min(sourceHeight, box.Bottom + verticalPadding);
+
+        return new NormalizedTextRegion(
+            left / sourceWidth,
+            top / sourceHeight,
+            Math.Max(0.0001, (right - left) / sourceWidth),
+            Math.Max(0.0001, (bottom - top) / sourceHeight));
     }
 
     private static string? NormalizeSelectedText(string? text)
@@ -411,5 +433,10 @@ public sealed class DocumentTextSelectionService : IDocumentTextSelectionService
         double Left,
         double Top,
         double Right,
-        double Bottom);
+        double Bottom)
+    {
+        public double Height => Bottom - Top;
+
+        public double CenterY => (Top + Bottom) * 0.5;
+    }
 }

@@ -1,16 +1,21 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Material.Icons;
 using Velune.Application.Abstractions;
+using Velune.Application.Configuration;
 using Velune.Application.DTOs;
+using Velune.Application.Results;
+using Velune.Application.Text;
 using Velune.Application.UseCases;
 using Velune.Domain.Abstractions;
 using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
 using Velune.Presentation.Imaging;
+using Velune.Presentation.Search;
 
 namespace Velune.Presentation.ViewModels;
 
@@ -44,69 +49,156 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private const double ThumbnailZoomFactor = 0.20;
     private const double ViewerContentPadding = 12.0;
     private const double SidebarExpandedWidth = 240;
+    private const double InfoPanelExpandedWidth = 300;
     private const double ViewportResizeThreshold = 1.0;
     private const double ZoomComparisonTolerance = 0.001;
+    private const string ThemeSystemLabel = "System";
+    private const string ThemeLightLabel = "Light";
+    private const string ThemeDarkLabel = "Dark";
+    private const string DefaultZoomFitToPageLabel = "Fit to page";
+    private const string DefaultZoomFitToWidthLabel = "Fit to width";
+    private const string DefaultZoomActualSizeLabel = "100%";
+    private const string PrintRangeAllPagesLabel = "All pages";
+    private const string PrintRangeCurrentPageLabel = "Current page";
+    private const string PrintRangeCustomLabel = "Custom range";
+    private const string PrintOrientationAutomaticLabel = "Automatic";
+    private const string PrintOrientationPortraitLabel = "Portrait";
+    private const string PrintOrientationLandscapeLabel = "Landscape";
 
     private readonly IFilePickerService _filePickerService;
+    private readonly IPrintService _printService;
     private readonly OpenDocumentUseCase _openDocumentUseCase;
     private readonly CloseDocumentUseCase _closeDocumentUseCase;
+    private readonly PrintDocumentUseCase _printDocumentUseCase;
+    private readonly ShowSystemPrintDialogUseCase _showSystemPrintDialogUseCase;
+    private readonly LoadDocumentTextUseCase _loadDocumentTextUseCase;
+    private readonly RunDocumentOcrUseCase _runDocumentOcrUseCase;
+    private readonly CancelDocumentTextAnalysisUseCase _cancelDocumentTextAnalysisUseCase;
+    private readonly SearchDocumentTextUseCase _searchDocumentTextUseCase;
+    private readonly ResolveDocumentTextSelectionUseCase _resolveDocumentTextSelectionUseCase;
     private readonly ChangePageUseCase _changePageUseCase;
     private readonly ChangeZoomUseCase _changeZoomUseCase;
     private readonly RotateDocumentUseCase _rotateDocumentUseCase;
+    private readonly RotatePdfPagesUseCase _rotatePdfPagesUseCase;
+    private readonly DeletePdfPagesUseCase _deletePdfPagesUseCase;
+    private readonly ExtractPdfPagesUseCase _extractPdfPagesUseCase;
+    private readonly ReorderPdfPagesUseCase _reorderPdfPagesUseCase;
     private readonly IRenderOrchestrator _renderOrchestrator;
     private readonly IDocumentSessionStore _documentSessionStore;
     private readonly IRecentFilesService _recentFilesService;
     private readonly IPageViewportStore _pageViewportStore;
+    private readonly IUserPreferencesService _userPreferencesService;
 
     private readonly Queue<NotificationEntry> _notificationQueue = [];
     private readonly Dictionary<int, RenderJobHandle> _thumbnailRenderJobs = [];
+    private readonly IReadOnlyList<string> _themePreferenceOptions = [ThemeSystemLabel, ThemeLightLabel, ThemeDarkLabel];
+    private readonly IReadOnlyList<string> _defaultZoomPreferenceOptions = [DefaultZoomFitToPageLabel, DefaultZoomFitToWidthLabel, DefaultZoomActualSizeLabel];
+    private readonly IReadOnlyList<string> _printPageRangeOptions = [PrintRangeAllPagesLabel, PrintRangeCurrentPageLabel, PrintRangeCustomLabel];
+    private readonly IReadOnlyList<string> _printOrientationOptions = [PrintOrientationAutomaticLabel, PrintOrientationPortraitLabel, PrintOrientationLandscapeLabel];
     private bool _disposed;
     private double _documentViewportWidth;
     private double _documentViewportHeight;
     private bool _isImageAutoFitEnabled;
+    private bool _isApplyingPdfStructureOperation;
+    private bool _isPrintingDocument;
+    private bool _isLoadingPrintDestinations;
+    private bool _isAnalyzingDocumentText;
+    private bool _isApplyingPreferencesState;
+    private bool _requiresSearchOcr;
     private NotificationKind _currentNotificationKind = NotificationKind.Info;
     private bool _isCurrentNotificationDismissible;
     private int _thumbnailGenerationVersion;
+    private int _selectedSearchResultIndex = -1;
     private Action? _notificationPrimaryAction;
     private Action? _notificationSecondaryAction;
+    private DocumentTextIndex? _currentDocumentTextIndex;
+    private DocumentTextSelectionResult? _currentDocumentTextSelection;
     private RenderJobHandle? _currentRenderJob;
+    private DocumentTextJobHandle? _currentDocumentTextJob;
+    private DocumentTextSelectionPoint? _documentTextSelectionAnchorPoint;
 
     public MainWindowViewModel(
         IFilePickerService filePickerService,
+        IPrintService printService,
         OpenDocumentUseCase openDocumentUseCase,
         CloseDocumentUseCase closeDocumentUseCase,
+        PrintDocumentUseCase printDocumentUseCase,
+        ShowSystemPrintDialogUseCase showSystemPrintDialogUseCase,
+        LoadDocumentTextUseCase loadDocumentTextUseCase,
+        RunDocumentOcrUseCase runDocumentOcrUseCase,
+        CancelDocumentTextAnalysisUseCase cancelDocumentTextAnalysisUseCase,
+        SearchDocumentTextUseCase searchDocumentTextUseCase,
+        ResolveDocumentTextSelectionUseCase resolveDocumentTextSelectionUseCase,
         ChangePageUseCase changePageUseCase,
         ChangeZoomUseCase changeZoomUseCase,
         RotateDocumentUseCase rotateDocumentUseCase,
+        RotatePdfPagesUseCase rotatePdfPagesUseCase,
+        DeletePdfPagesUseCase deletePdfPagesUseCase,
+        ExtractPdfPagesUseCase extractPdfPagesUseCase,
+        ReorderPdfPagesUseCase reorderPdfPagesUseCase,
         IRenderOrchestrator renderOrchestrator,
         IDocumentSessionStore documentSessionStore,
         IRecentFilesService recentFilesService,
-        IPageViewportStore pageViewportStore)
+        IPageViewportStore pageViewportStore,
+        IUserPreferencesService userPreferencesService)
     {
         ArgumentNullException.ThrowIfNull(filePickerService);
+        ArgumentNullException.ThrowIfNull(printService);
         ArgumentNullException.ThrowIfNull(openDocumentUseCase);
         ArgumentNullException.ThrowIfNull(closeDocumentUseCase);
+        ArgumentNullException.ThrowIfNull(printDocumentUseCase);
+        ArgumentNullException.ThrowIfNull(showSystemPrintDialogUseCase);
+        ArgumentNullException.ThrowIfNull(loadDocumentTextUseCase);
+        ArgumentNullException.ThrowIfNull(runDocumentOcrUseCase);
+        ArgumentNullException.ThrowIfNull(cancelDocumentTextAnalysisUseCase);
+        ArgumentNullException.ThrowIfNull(searchDocumentTextUseCase);
+        ArgumentNullException.ThrowIfNull(resolveDocumentTextSelectionUseCase);
         ArgumentNullException.ThrowIfNull(changePageUseCase);
         ArgumentNullException.ThrowIfNull(changeZoomUseCase);
         ArgumentNullException.ThrowIfNull(rotateDocumentUseCase);
+        ArgumentNullException.ThrowIfNull(rotatePdfPagesUseCase);
+        ArgumentNullException.ThrowIfNull(deletePdfPagesUseCase);
+        ArgumentNullException.ThrowIfNull(extractPdfPagesUseCase);
+        ArgumentNullException.ThrowIfNull(reorderPdfPagesUseCase);
         ArgumentNullException.ThrowIfNull(renderOrchestrator);
         ArgumentNullException.ThrowIfNull(documentSessionStore);
         ArgumentNullException.ThrowIfNull(recentFilesService);
         ArgumentNullException.ThrowIfNull(pageViewportStore);
+        ArgumentNullException.ThrowIfNull(userPreferencesService);
 
         _filePickerService = filePickerService;
+        _printService = printService;
         _openDocumentUseCase = openDocumentUseCase;
         _closeDocumentUseCase = closeDocumentUseCase;
+        _printDocumentUseCase = printDocumentUseCase;
+        _showSystemPrintDialogUseCase = showSystemPrintDialogUseCase;
+        _loadDocumentTextUseCase = loadDocumentTextUseCase;
+        _runDocumentOcrUseCase = runDocumentOcrUseCase;
+        _cancelDocumentTextAnalysisUseCase = cancelDocumentTextAnalysisUseCase;
+        _searchDocumentTextUseCase = searchDocumentTextUseCase;
+        _resolveDocumentTextSelectionUseCase = resolveDocumentTextSelectionUseCase;
         _changePageUseCase = changePageUseCase;
         _changeZoomUseCase = changeZoomUseCase;
         _rotateDocumentUseCase = rotateDocumentUseCase;
+        _rotatePdfPagesUseCase = rotatePdfPagesUseCase;
+        _deletePdfPagesUseCase = deletePdfPagesUseCase;
+        _extractPdfPagesUseCase = extractPdfPagesUseCase;
+        _reorderPdfPagesUseCase = reorderPdfPagesUseCase;
         _renderOrchestrator = renderOrchestrator;
         _documentSessionStore = documentSessionStore;
         _recentFilesService = recentFilesService;
         _pageViewportStore = pageViewportStore;
+        _userPreferencesService = userPreferencesService;
 
         RecentFiles = [];
         Thumbnails = [];
+        DocumentInfoItems = [];
+        PrintDestinations = [];
+        SearchResults = [];
+        SearchHighlights = [];
+        TextSelectionHighlights = [];
+        MemoryCacheEntryLimitOptions = new ObservableCollection<int> { 0, 32, 64, 128, 256 };
+        ApplyPreferencesToUi(_userPreferencesService.Current);
         RefreshRecentFiles();
     }
 
@@ -156,6 +248,27 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private string? _currentDocumentPath;
 
     [ObservableProperty]
+    private bool _isInfoPanelVisible;
+
+    [ObservableProperty]
+    private bool _isSearchPanelVisible;
+
+    [ObservableProperty]
+    private bool _isPreferencesPanelVisible;
+
+    [ObservableProperty]
+    private bool _isPrintPanelVisible;
+
+    [ObservableProperty]
+    private string? _documentInfoWarning;
+
+    [ObservableProperty]
+    private string? _searchPanelNotice;
+
+    [ObservableProperty]
+    private string? _printPanelNotice;
+
+    [ObservableProperty]
     private int _currentPage = 1;
 
     [ObservableProperty]
@@ -179,6 +292,45 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _goToPageInput = "1";
 
+    [ObservableProperty]
+    private string _searchQueryInput = string.Empty;
+
+    [ObservableProperty]
+    private string? _selectedDocumentText;
+
+    [ObservableProperty]
+    private bool _hasPendingPageReorder;
+
+    [ObservableProperty]
+    private string _selectedThemePreference = ThemeSystemLabel;
+
+    [ObservableProperty]
+    private string _selectedDefaultZoomPreference = DefaultZoomFitToPageLabel;
+
+    [ObservableProperty]
+    private bool _showThumbnailsPanelPreference = true;
+
+    [ObservableProperty]
+    private int _selectedMemoryCacheEntryLimit = 64;
+
+    [ObservableProperty]
+    private PrintDestinationInfo? _selectedPrintDestination;
+
+    [ObservableProperty]
+    private string _selectedPrintPageRangeOption = PrintRangeAllPagesLabel;
+
+    [ObservableProperty]
+    private string _printCustomPageRange = string.Empty;
+
+    [ObservableProperty]
+    private string _printCopiesInput = "1";
+
+    [ObservableProperty]
+    private string _selectedPrintOrientationOption = PrintOrientationAutomaticLabel;
+
+    [ObservableProperty]
+    private bool _printFitToPage = true;
+
     public ObservableCollection<RecentFileItem> RecentFiles
     {
         get;
@@ -187,6 +339,34 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         get;
     }
+    public ObservableCollection<DocumentInfoItem> DocumentInfoItems
+    {
+        get;
+    }
+    public ObservableCollection<PrintDestinationInfo> PrintDestinations
+    {
+        get;
+    }
+    public ObservableCollection<SearchResultItemViewModel> SearchResults
+    {
+        get;
+    }
+    public ObservableCollection<SearchHighlightItem> SearchHighlights
+    {
+        get;
+    }
+    public ObservableCollection<SearchHighlightItem> TextSelectionHighlights
+    {
+        get;
+    }
+    public ObservableCollection<int> MemoryCacheEntryLimitOptions
+    {
+        get;
+    }
+    public IReadOnlyList<string> ThemePreferenceOptions => _themePreferenceOptions;
+    public IReadOnlyList<string> DefaultZoomPreferenceOptions => _defaultZoomPreferenceOptions;
+    public IReadOnlyList<string> PrintPageRangeOptions => _printPageRangeOptions;
+    public IReadOnlyList<string> PrintOrientationOptions => _printOrientationOptions;
 
     public bool IsEmptyStateVisible => !HasOpenDocument;
     public bool HasUserMessage => !string.IsNullOrWhiteSpace(UserMessage);
@@ -206,18 +386,57 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public bool HasRenderedPage => CurrentRenderedBitmap is not null;
     public bool HasMultiplePages => TotalPages > 1;
     public bool HasThumbnails => Thumbnails.Count > 0;
+    public bool HasSearchResults => SearchResults.Count > 0;
+    public bool HasSearchHighlights => SearchHighlights.Count > 0;
+    public bool HasTextSelectionHighlights => TextSelectionHighlights.Count > 0;
+    public bool HasSelectedDocumentText => !string.IsNullOrWhiteSpace(SelectedDocumentText);
     public string HeaderTitle => CurrentDocumentName ?? ApplicationTitle;
+    public bool IsPdfDocument => HasOpenDocument && !IsCurrentImageDocument;
     public bool IsImageAutoFitActive => HasOpenDocument && IsCurrentImageDocument && _isImageAutoFitEnabled;
     public bool IsScrollableViewerVisible => !IsImageAutoFitActive;
-    public bool IsSidebarVisible => !HasOpenDocument || !IsCurrentImageDocument;
+    public bool IsSidebarVisible => HasOpenDocument && !IsCurrentImageDocument && ShowThumbnailsPanelPreference;
     public bool IsPageNavigationVisible => !HasOpenDocument || !IsCurrentImageDocument;
+    public bool IsPdfStructureActionsVisible => IsPdfDocument;
+    public bool IsInfoPanelOpen => HasOpenDocument && IsInfoPanelVisible;
+    public bool IsSearchPanelOpen => HasOpenDocument && IsSearchPanelVisible;
+    public bool IsPreferencesPanelOpen => HasOpenDocument && IsPreferencesPanelVisible;
+    public bool IsPrintPanelOpen => HasOpenDocument && IsPrintPanelVisible;
+    public bool HasDocumentInfo => DocumentInfoItems.Count > 0;
+    public bool HasDocumentInfoWarning => !string.IsNullOrWhiteSpace(DocumentInfoWarning);
+    public bool HasSearchPanelNotice => !string.IsNullOrWhiteSpace(SearchPanelNotice);
+    public bool HasPrintPanelNotice => !string.IsNullOrWhiteSpace(PrintPanelNotice);
+    public bool IsPrintPageRangeVisible => IsPdfDocument;
+    public bool IsCustomPrintRangeVisible => IsPrintPageRangeVisible && SelectedPrintPageRangeOption == PrintRangeCustomLabel;
     public GridLength SidebarColumnWidth => new(SidebarWidth);
     public double SidebarWidth => IsSidebarVisible ? SidebarExpandedWidth : 0;
+    public double InfoPanelWidth => IsInfoPanelOpen ? InfoPanelExpandedWidth : 0;
+    public double SearchPanelWidth => IsSearchPanelOpen ? InfoPanelExpandedWidth : 0;
+    public double PreferencesPanelWidth => IsPreferencesPanelOpen ? InfoPanelExpandedWidth : 0;
+    public double PrintPanelWidth => IsPrintPanelOpen ? InfoPanelExpandedWidth : 0;
     public string PageIndicator => TotalPages > 0 ? $"{CurrentPage} / {TotalPages}" : "-";
+    public string SearchResultSummary => SearchResults.Count switch
+    {
+        0 when _requiresSearchOcr => "OCR required",
+        0 when _isAnalyzingDocumentText => "Loading searchable text…",
+        0 => "No results",
+        1 => "1 result",
+        _ => $"{SearchResults.Count} results"
+    };
+    public string SearchSelectionIndicator => _selectedSearchResultIndex < 0 || SearchResults.Count == 0
+        ? "0 / 0"
+        : $"{_selectedSearchResultIndex + 1} / {SearchResults.Count}";
+    public bool CanSearchText => HasOpenDocument && !_isAnalyzingDocumentText && _currentDocumentTextIndex is not null && !string.IsNullOrWhiteSpace(SearchQueryInput);
+    public bool CanRunDocumentOcr => HasOpenDocument && !_isAnalyzingDocumentText && _requiresSearchOcr;
+    public bool CanCancelDocumentTextAnalysis => HasOpenDocument && _isAnalyzingDocumentText && _currentDocumentTextJob is not null;
+    public bool CanNavigateSearchResults => SearchResults.Count > 1;
+    public double DisplayedRenderedPageWidth => CurrentRenderedBitmap?.PixelSize.Width ?? 0;
+    public double DisplayedRenderedPageHeight => CurrentRenderedBitmap?.PixelSize.Height ?? 0;
+    public bool IsPdfStructureOperationInProgress => _isApplyingPdfStructureOperation;
 
     public bool CanGoPreviousPage => HasOpenDocument && CurrentPage > 1;
     public bool CanGoNextPage => HasOpenDocument && TotalPages > 0 && CurrentPage < TotalPages;
     public bool CanGoToPage => HasOpenDocument && TotalPages > 0;
+    public bool CanSubmitPrintJob => HasOpenDocument && !_isPrintingDocument && !_isLoadingPrintDestinations;
     public bool CanUseFitCommands =>
         HasOpenDocument &&
         _documentViewportWidth > 0 &&
@@ -227,17 +446,59 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         HasOpenDocument &&
         (IsCurrentImageDocument ||
          _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex).ZoomFactor > 1.0);
+    public bool CanPersistCurrentPageRotation =>
+        IsPdfDocument &&
+        !IsPdfStructureOperationInProgress &&
+        GetPendingPdfRotationGroups().Count > 0;
+    public bool CanExtractCurrentPage =>
+        IsPdfDocument &&
+        !IsPdfStructureOperationInProgress &&
+        TotalPages > 0;
+    public bool CanDeleteCurrentPage =>
+        IsPdfDocument &&
+        !IsPdfStructureOperationInProgress &&
+        TotalPages > 1;
+    public bool CanSaveReorderedPdf =>
+        IsPdfDocument &&
+        !IsPdfStructureOperationInProgress &&
+        HasPendingPageReorder;
+    public bool CanMoveCurrentPageEarlier =>
+        IsPdfDocument &&
+        !IsPdfStructureOperationInProgress &&
+        GetCurrentThumbnailIndex() > 0;
+    public bool CanMoveCurrentPageLater =>
+        IsPdfDocument &&
+        !IsPdfStructureOperationInProgress &&
+        GetCurrentThumbnailIndex() >= 0 &&
+        GetCurrentThumbnailIndex() < Thumbnails.Count - 1;
 
     partial void OnHasOpenDocumentChanged(bool value)
     {
         OnPropertyChanged(nameof(IsEmptyStateVisible));
         OnPropertyChanged(nameof(CanGoToPage));
+        OnPropertyChanged(nameof(IsPdfDocument));
         NotifyViewerModeChanged();
-        OnPropertyChanged(nameof(IsSidebarVisible));
+        NotifySidebarVisibilityChanged();
         OnPropertyChanged(nameof(IsPageNavigationVisible));
-        OnPropertyChanged(nameof(SidebarColumnWidth));
-        OnPropertyChanged(nameof(SidebarWidth));
+        OnPropertyChanged(nameof(IsPdfStructureActionsVisible));
+        OnPropertyChanged(nameof(IsInfoPanelOpen));
+        OnPropertyChanged(nameof(InfoPanelWidth));
+        OnPropertyChanged(nameof(IsSearchPanelOpen));
+        OnPropertyChanged(nameof(SearchPanelWidth));
+        OnPropertyChanged(nameof(IsPreferencesPanelOpen));
+        OnPropertyChanged(nameof(PreferencesPanelWidth));
+        OnPropertyChanged(nameof(IsPrintPanelOpen));
+        OnPropertyChanged(nameof(PrintPanelWidth));
+        OnPropertyChanged(nameof(IsPrintPageRangeVisible));
+        OnPropertyChanged(nameof(IsCustomPrintRangeVisible));
+        PrintDocumentCommand.NotifyCanExecuteChanged();
+        SubmitPrintJobCommand.NotifyCanExecuteChanged();
+        RefreshPrintDestinationsCommand.NotifyCanExecuteChanged();
         CloseCommand.NotifyCanExecuteChanged();
+        ToggleInfoPanelCommand.NotifyCanExecuteChanged();
+        ToggleSearchPanelCommand.NotifyCanExecuteChanged();
+        TogglePreferencesPanelCommand.NotifyCanExecuteChanged();
+        NotifySearchStateChanged();
         PreviousPageCommand.NotifyCanExecuteChanged();
         NextPageCommand.NotifyCanExecuteChanged();
         GoToPageCommand.NotifyCanExecuteChanged();
@@ -247,15 +508,77 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         FitToPageCommand.NotifyCanExecuteChanged();
         RotateLeftCommand.NotifyCanExecuteChanged();
         RotateRightCommand.NotifyCanExecuteChanged();
+        PersistCurrentPageRotationCommand.NotifyCanExecuteChanged();
+        ExtractCurrentPageCommand.NotifyCanExecuteChanged();
+        DeleteCurrentPageCommand.NotifyCanExecuteChanged();
+        SaveReorderedPdfCommand.NotifyCanExecuteChanged();
+        MoveCurrentPageEarlierCommand.NotifyCanExecuteChanged();
+        MoveCurrentPageLaterCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnIsCurrentImageDocumentChanged(bool value)
     {
+        OnPropertyChanged(nameof(IsPdfDocument));
         NotifyViewerModeChanged();
-        OnPropertyChanged(nameof(IsSidebarVisible));
+        NotifySidebarVisibilityChanged();
         OnPropertyChanged(nameof(IsPageNavigationVisible));
-        OnPropertyChanged(nameof(SidebarColumnWidth));
-        OnPropertyChanged(nameof(SidebarWidth));
+        OnPropertyChanged(nameof(IsPdfStructureActionsVisible));
+        OnPropertyChanged(nameof(IsPrintPageRangeVisible));
+        OnPropertyChanged(nameof(IsCustomPrintRangeVisible));
+        PersistCurrentPageRotationCommand.NotifyCanExecuteChanged();
+        ExtractCurrentPageCommand.NotifyCanExecuteChanged();
+        DeleteCurrentPageCommand.NotifyCanExecuteChanged();
+        SaveReorderedPdfCommand.NotifyCanExecuteChanged();
+        MoveCurrentPageEarlierCommand.NotifyCanExecuteChanged();
+        MoveCurrentPageLaterCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnIsInfoPanelVisibleChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsInfoPanelOpen));
+        OnPropertyChanged(nameof(InfoPanelWidth));
+    }
+
+    partial void OnIsSearchPanelVisibleChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsSearchPanelOpen));
+        OnPropertyChanged(nameof(SearchPanelWidth));
+
+        if (!value)
+        {
+            ClearSearchHighlights();
+        }
+        else
+        {
+            RefreshSearchHighlights();
+        }
+    }
+
+    partial void OnIsPreferencesPanelVisibleChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsPreferencesPanelOpen));
+        OnPropertyChanged(nameof(PreferencesPanelWidth));
+    }
+
+    partial void OnIsPrintPanelVisibleChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsPrintPanelOpen));
+        OnPropertyChanged(nameof(PrintPanelWidth));
+    }
+
+    partial void OnDocumentInfoWarningChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasDocumentInfoWarning));
+    }
+
+    partial void OnPrintPanelNoticeChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasPrintPanelNotice));
+    }
+
+    partial void OnSearchPanelNoticeChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasSearchPanelNotice));
     }
 
     partial void OnUserMessageChanged(string? value)
@@ -288,8 +611,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     partial void OnCurrentRenderedBitmapChanged(Bitmap? value)
     {
         OnPropertyChanged(nameof(HasRenderedPage));
+        OnPropertyChanged(nameof(DisplayedRenderedPageWidth));
+        OnPropertyChanged(nameof(DisplayedRenderedPageHeight));
         FitToWidthCommand.NotifyCanExecuteChanged();
         FitToPageCommand.NotifyCanExecuteChanged();
+        RefreshDocumentTextSelectionHighlights();
+        RefreshSearchHighlights();
     }
 
     partial void OnCurrentDocumentNameChanged(string? value)
@@ -304,6 +631,13 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         NextPageCommand.NotifyCanExecuteChanged();
         UpdateSelectedThumbnail();
         GoToPageInput = value.ToString();
+        ClearDocumentTextSelection();
+        PersistCurrentPageRotationCommand.NotifyCanExecuteChanged();
+        ExtractCurrentPageCommand.NotifyCanExecuteChanged();
+        DeleteCurrentPageCommand.NotifyCanExecuteChanged();
+        MoveCurrentPageEarlierCommand.NotifyCanExecuteChanged();
+        MoveCurrentPageLaterCommand.NotifyCanExecuteChanged();
+        RefreshSearchHighlights();
     }
 
     partial void OnTotalPagesChanged(int value)
@@ -314,6 +648,84 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         PreviousPageCommand.NotifyCanExecuteChanged();
         NextPageCommand.NotifyCanExecuteChanged();
         GoToPageCommand.NotifyCanExecuteChanged();
+        ExtractCurrentPageCommand.NotifyCanExecuteChanged();
+        DeleteCurrentPageCommand.NotifyCanExecuteChanged();
+        MoveCurrentPageEarlierCommand.NotifyCanExecuteChanged();
+        MoveCurrentPageLaterCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnHasPendingPageReorderChanged(bool value)
+    {
+        SaveReorderedPdfCommand.NotifyCanExecuteChanged();
+        MoveCurrentPageEarlierCommand.NotifyCanExecuteChanged();
+        MoveCurrentPageLaterCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnSelectedThemePreferenceChanged(string value)
+    {
+        if (_isApplyingPreferencesState)
+        {
+            return;
+        }
+
+        _ = PersistPreferencesFromUiAsync(applyDefaultZoomToOpenDocument: false);
+    }
+
+    partial void OnSelectedDefaultZoomPreferenceChanged(string value)
+    {
+        if (_isApplyingPreferencesState)
+        {
+            return;
+        }
+
+        _ = PersistPreferencesFromUiAsync(applyDefaultZoomToOpenDocument: true);
+    }
+
+    partial void OnShowThumbnailsPanelPreferenceChanged(bool value)
+    {
+        NotifySidebarVisibilityChanged();
+
+        if (_isApplyingPreferencesState)
+        {
+            return;
+        }
+
+        _ = PersistPreferencesFromUiAsync(applyDefaultZoomToOpenDocument: false);
+    }
+
+    partial void OnSelectedMemoryCacheEntryLimitChanged(int value)
+    {
+        if (_isApplyingPreferencesState)
+        {
+            return;
+        }
+
+        _ = PersistPreferencesFromUiAsync(applyDefaultZoomToOpenDocument: false);
+    }
+
+    partial void OnSelectedPrintPageRangeOptionChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsCustomPrintRangeVisible));
+    }
+
+    partial void OnPrintCustomPageRangeChanged(string value)
+    {
+        SubmitPrintJobCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnSearchQueryInputChanged(string value)
+    {
+        SearchTextCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnSelectedDocumentTextChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HasSelectedDocumentText));
+    }
+
+    partial void OnPrintCopiesInputChanged(string value)
+    {
+        SubmitPrintJobCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand]
@@ -345,6 +757,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private void Close()
     {
         CancelCurrentRender();
+        CancelCurrentTextAnalysis();
         CancelThumbnailGeneration();
 
         _closeDocumentUseCase.Execute();
@@ -354,6 +767,139 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         ClearNotifications();
         StatusText = "Document closed";
+    }
+
+    [RelayCommand(CanExecute = nameof(HasOpenDocument))]
+    private async Task PrintDocumentAsync()
+    {
+        if (_printService.SupportsSystemPrintDialog)
+        {
+            await ShowSystemPrintDialogAsync();
+            return;
+        }
+
+        if (IsPrintPanelVisible)
+        {
+            IsPrintPanelVisible = false;
+            StatusText = "Print panel hidden";
+            return;
+        }
+
+        IsInfoPanelVisible = false;
+        IsSearchPanelVisible = false;
+        IsPreferencesPanelVisible = false;
+        IsPrintPanelVisible = true;
+        StatusText = "Loading printers";
+
+        await LoadPrintDestinationsAsync();
+
+        StatusText = "Print panel shown";
+    }
+
+    private async Task ShowSystemPrintDialogAsync()
+    {
+        if (string.IsNullOrWhiteSpace(CurrentDocumentPath))
+        {
+            EnqueueWarning("No document to print", "Open a PDF or an image before printing.");
+            StatusText = "Print unavailable";
+            return;
+        }
+
+        IsInfoPanelVisible = false;
+        IsSearchPanelVisible = false;
+        IsPreferencesPanelVisible = false;
+        IsPrintPanelVisible = false;
+        StatusText = "Opening system print dialog";
+
+        var result = await _showSystemPrintDialogUseCase.ExecuteAsync(CurrentDocumentPath);
+        if (result.IsSuccess)
+        {
+            StatusText = "System print dialog shown";
+            return;
+        }
+
+        if (string.Equals(result.Error?.Code, "print.cancelled", StringComparison.Ordinal))
+        {
+            StatusText = "Print cancelled";
+            return;
+        }
+
+        EnqueueError(result.Error?.Message ?? "The system print dialog could not be opened.", "Print failed");
+        StatusText = "Print failed";
+    }
+
+    [RelayCommand(CanExecute = nameof(HasOpenDocument))]
+    private async Task RefreshPrintDestinationsAsync()
+    {
+        if (!HasOpenDocument)
+        {
+            return;
+        }
+
+        await LoadPrintDestinationsAsync();
+        StatusText = "Printers refreshed";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanSubmitPrintJob))]
+    private async Task SubmitPrintJobAsync()
+    {
+        if (string.IsNullOrWhiteSpace(CurrentDocumentPath))
+        {
+            EnqueueWarning("No document to print", "Open a PDF or an image before printing.");
+            StatusText = "Print unavailable";
+            return;
+        }
+
+        if (!int.TryParse(PrintCopiesInput, NumberStyles.Integer, CultureInfo.InvariantCulture, out var copies) ||
+            copies <= 0)
+        {
+            EnqueueWarning("Invalid copy count", "Enter a valid number of copies.");
+            StatusText = "Invalid print settings";
+            return;
+        }
+
+        var pageRanges = BuildRequestedPrintPageRanges();
+        if (pageRanges is null && IsCustomPrintRangeVisible)
+        {
+            EnqueueWarning("Invalid page range", "Enter a page range like 1-3,5.");
+            StatusText = "Invalid print settings";
+            return;
+        }
+
+        try
+        {
+            _isPrintingDocument = true;
+            SubmitPrintJobCommand.NotifyCanExecuteChanged();
+            PrintDocumentCommand.NotifyCanExecuteChanged();
+
+            var result = await _printDocumentUseCase.ExecuteAsync(
+                new PrintDocumentRequest(
+                    CurrentDocumentPath,
+                    SelectedPrintDestination?.Name,
+                    copies,
+                    pageRanges,
+                    ParsePrintOrientationOption(SelectedPrintOrientationOption),
+                    PrintFitToPage));
+
+            if (result.IsFailure)
+            {
+                EnqueueError(result.Error?.Message ?? "The document could not be printed.", "Print failed");
+                PrintPanelNotice = result.Error?.Message ?? "The document could not be printed.";
+                StatusText = "Print failed";
+                return;
+            }
+
+            PrintPanelNotice = null;
+            IsPrintPanelVisible = false;
+            EnqueueInfo("Print started", "The document was sent to the system print service.");
+            StatusText = "Print started";
+        }
+        finally
+        {
+            _isPrintingDocument = false;
+            SubmitPrintJobCommand.NotifyCanExecuteChanged();
+            PrintDocumentCommand.NotifyCanExecuteChanged();
+        }
     }
 
     [RelayCommand(CanExecute = nameof(HasRecentFiles))]
@@ -416,7 +962,39 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        await ChangeToPageAsync(thumbnail.PageNumber);
+        await ChangeToPageAsync(thumbnail.SourcePageNumber);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanMoveCurrentPageEarlier))]
+    private async Task MoveCurrentPageEarlierAsync()
+    {
+        var currentIndex = GetCurrentThumbnailIndex();
+        if (currentIndex <= 0)
+        {
+            return;
+        }
+
+        await HandleThumbnailReorderAsync(
+            CurrentPage,
+            Thumbnails[currentIndex - 1].SourcePageNumber);
+
+        StatusText = $"Moved page {CurrentPage} earlier";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanMoveCurrentPageLater))]
+    private async Task MoveCurrentPageLaterAsync()
+    {
+        var currentIndex = GetCurrentThumbnailIndex();
+        if (currentIndex < 0 || currentIndex >= Thumbnails.Count - 1)
+        {
+            return;
+        }
+
+        await HandleThumbnailReorderAsync(
+            CurrentPage,
+            Thumbnails[currentIndex + 1].SourcePageNumber);
+
+        StatusText = $"Moved page {CurrentPage} later";
     }
 
     [RelayCommand(CanExecute = nameof(HasOpenDocument))]
@@ -553,6 +1131,254 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         StatusText = $"Rotation set to {CurrentRotation}";
     }
 
+    [RelayCommand(CanExecute = nameof(CanPersistCurrentPageRotation))]
+    private async Task PersistCurrentPageRotationAsync()
+    {
+        var currentDocumentPath = CurrentDocumentPath;
+        var pendingRotations = GetPendingPdfRotationGroups();
+
+        if (string.IsNullOrWhiteSpace(currentDocumentPath) || pendingRotations.Count == 0)
+        {
+            return;
+        }
+
+        await ExecutePdfStructureOperationAsync(
+            title: "Save PDF with page rotations",
+            suggestedFileName: BuildSuggestedPdfFileName(),
+            executeOperation: outputPath => PersistPendingPdfRotationsAsync(
+                currentDocumentPath,
+                outputPath,
+                pendingRotations),
+            successStatus: pendingRotations.Count == 1
+                ? $"Saved rotated PDF copy for page {pendingRotations[0].Pages[0]}"
+                : "Saved rotated PDF copy",
+            failureTitle: "Unable to save rotated PDF");
+    }
+
+    [RelayCommand(CanExecute = nameof(CanExtractCurrentPage))]
+    private async Task ExtractCurrentPageAsync()
+    {
+        var currentDocumentPath = CurrentDocumentPath;
+        if (string.IsNullOrWhiteSpace(currentDocumentPath))
+        {
+            return;
+        }
+
+        await ExecutePdfStructureOperationAsync(
+            title: "Extract current page",
+            suggestedFileName: BuildSuggestedPdfFileName(),
+            executeOperation: outputPath => _extractPdfPagesUseCase.ExecuteAsync(
+                new ExtractPdfPagesRequest(
+                    currentDocumentPath,
+                    outputPath,
+                    [CurrentPage])),
+            successStatus: $"Extracted page {CurrentPage}",
+            failureTitle: "Unable to extract page");
+    }
+
+    [RelayCommand(CanExecute = nameof(CanDeleteCurrentPage))]
+    private async Task DeleteCurrentPageAsync()
+    {
+        var currentDocumentPath = CurrentDocumentPath;
+        if (string.IsNullOrWhiteSpace(currentDocumentPath))
+        {
+            return;
+        }
+
+        await ExecutePdfStructureOperationAsync(
+            title: "Save PDF without current page",
+            suggestedFileName: BuildSuggestedPdfFileName(),
+            executeOperation: outputPath => _deletePdfPagesUseCase.ExecuteAsync(
+                new DeletePdfPagesRequest(
+                    currentDocumentPath,
+                    outputPath,
+                    [CurrentPage])),
+            successStatus: $"Saved PDF without page {CurrentPage}",
+            failureTitle: "Unable to delete page");
+    }
+
+    [RelayCommand(CanExecute = nameof(CanSaveReorderedPdf))]
+    private async Task SaveReorderedPdfAsync()
+    {
+        var currentDocumentPath = CurrentDocumentPath;
+        if (string.IsNullOrWhiteSpace(currentDocumentPath))
+        {
+            return;
+        }
+
+        var orderedPages = Thumbnails
+            .Select(thumbnail => thumbnail.SourcePageNumber)
+            .ToArray();
+
+        await ExecutePdfStructureOperationAsync(
+            title: "Save reordered PDF",
+            suggestedFileName: BuildSuggestedPdfFileName(),
+            executeOperation: outputPath => _reorderPdfPagesUseCase.ExecuteAsync(
+                new ReorderPdfPagesRequest(
+                    currentDocumentPath,
+                    outputPath,
+                    orderedPages)),
+            successStatus: "Saved reordered PDF copy",
+            failureTitle: "Unable to save reordered PDF");
+    }
+
+    [RelayCommand(CanExecute = nameof(HasOpenDocument))]
+    private async Task ToggleSearchPanelAsync()
+    {
+        if (IsSearchPanelVisible)
+        {
+            IsSearchPanelVisible = false;
+            StatusText = "Search hidden";
+            return;
+        }
+
+        IsInfoPanelVisible = false;
+        IsPreferencesPanelVisible = false;
+        IsPrintPanelVisible = false;
+        IsSearchPanelVisible = true;
+        StatusText = "Loading searchable text";
+
+        await EnsureDocumentTextAvailableAsync(forceOcr: false);
+
+        if (IsSearchPanelVisible &&
+            !_requiresSearchOcr &&
+            !_isAnalyzingDocumentText &&
+            _currentDocumentTextIndex is not null)
+        {
+            StatusText = "Search shown";
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanSearchText))]
+    private async Task SearchTextAsync()
+    {
+        if (_currentDocumentTextIndex is null)
+        {
+            if (_requiresSearchOcr)
+            {
+                EnqueueInfo("Recognize text first", "Run OCR to search inside this document.");
+                SearchPanelNotice = "This document has no searchable text yet. Recognize text to enable search.";
+            }
+
+            return;
+        }
+
+        var result = _searchDocumentTextUseCase.Execute(
+            new SearchDocumentTextRequest(
+                _currentDocumentTextIndex,
+                new SearchQuery(SearchQueryInput)));
+
+        if (result.IsFailure)
+        {
+            EnqueueWarning("Search unavailable", result.Error?.Message ?? "Search text is invalid.");
+            return;
+        }
+
+        ApplySearchResults(result.Value ?? []);
+        if (SearchResults.Count == 0)
+        {
+            SearchPanelNotice = $"No result for “{SearchQueryInput.Trim()}”.";
+            ClearSearchHighlights();
+            StatusText = "No search results";
+            return;
+        }
+
+        SearchPanelNotice = null;
+        await SelectSearchResultAsync(SearchResults[0], updateStatus: true);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanRunDocumentOcr))]
+    private async Task RunSearchOcrAsync()
+    {
+        await EnsureDocumentTextAvailableAsync(forceOcr: true);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanCancelDocumentTextAnalysis))]
+    private void CancelDocumentTextAnalysis()
+    {
+        if (_currentDocumentTextJob is null)
+        {
+            return;
+        }
+
+        _cancelDocumentTextAnalysisUseCase.Execute(_currentDocumentTextJob.JobId);
+        SearchPanelNotice = "Text analysis cancelled.";
+        StatusText = "Text analysis cancelled";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanNavigateSearchResults))]
+    private async Task PreviousSearchResultAsync()
+    {
+        if (SearchResults.Count == 0)
+        {
+            return;
+        }
+
+        var targetIndex = _selectedSearchResultIndex <= 0
+            ? SearchResults.Count - 1
+            : _selectedSearchResultIndex - 1;
+
+        await SelectSearchResultAsync(SearchResults[targetIndex], updateStatus: true);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanNavigateSearchResults))]
+    private async Task NextSearchResultAsync()
+    {
+        if (SearchResults.Count == 0)
+        {
+            return;
+        }
+
+        var targetIndex = _selectedSearchResultIndex < 0 || _selectedSearchResultIndex >= SearchResults.Count - 1
+            ? 0
+            : _selectedSearchResultIndex + 1;
+
+        await SelectSearchResultAsync(SearchResults[targetIndex], updateStatus: true);
+    }
+
+    [RelayCommand(CanExecute = nameof(HasSearchResults))]
+    private async Task OpenSearchResultAsync(SearchResultItemViewModel? item)
+    {
+        if (item is null)
+        {
+            return;
+        }
+
+        await SelectSearchResultAsync(item, updateStatus: true);
+    }
+
+    [RelayCommand(CanExecute = nameof(HasOpenDocument))]
+    private void ToggleInfoPanel()
+    {
+        if (!IsInfoPanelVisible)
+        {
+            IsSearchPanelVisible = false;
+            IsPreferencesPanelVisible = false;
+            IsPrintPanelVisible = false;
+        }
+
+        IsInfoPanelVisible = !IsInfoPanelVisible;
+        StatusText = IsInfoPanelVisible
+            ? "File information shown"
+            : "File information hidden";
+    }
+
+    [RelayCommand(CanExecute = nameof(HasOpenDocument))]
+    private void TogglePreferencesPanel()
+    {
+        if (!IsPreferencesPanelVisible)
+        {
+            IsInfoPanelVisible = false;
+            IsSearchPanelVisible = false;
+            IsPrintPanelVisible = false;
+        }
+
+        IsPreferencesPanelVisible = !IsPreferencesPanelVisible;
+        StatusText = IsPreferencesPanelVisible
+            ? "Preferences shown"
+            : "Preferences hidden";
+    }
+
     [RelayCommand(CanExecute = nameof(CanDismissUserMessage))]
     private void DismissMessage()
     {
@@ -619,6 +1445,88 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         await ZoomOutAsync();
     }
 
+    public async Task HandleThumbnailActivatedAsync(int sourcePageNumber)
+    {
+        if (!HasOpenDocument || sourcePageNumber <= 0)
+        {
+            return;
+        }
+
+        await ChangeToPageAsync(sourcePageNumber);
+    }
+
+    public async Task HandleThumbnailReorderAsync(int sourcePageNumber, int targetPageNumber)
+    {
+        if (!IsPdfDocument ||
+            IsPdfStructureOperationInProgress ||
+            sourcePageNumber <= 0 ||
+            targetPageNumber <= 0 ||
+            sourcePageNumber == targetPageNumber)
+        {
+            return;
+        }
+
+        var sourceThumbnail = Thumbnails.FirstOrDefault(item => item.SourcePageNumber == sourcePageNumber);
+        var targetThumbnail = Thumbnails.FirstOrDefault(item => item.SourcePageNumber == targetPageNumber);
+
+        if (sourceThumbnail is null || targetThumbnail is null)
+        {
+            return;
+        }
+
+        var sourceIndex = Thumbnails.IndexOf(sourceThumbnail);
+        var targetIndex = Thumbnails.IndexOf(targetThumbnail);
+        if (sourceIndex < 0 || targetIndex < 0 || sourceIndex == targetIndex)
+        {
+            return;
+        }
+
+        MoveThumbnailToIndex(sourceIndex, targetIndex, announce: true);
+
+        await Task.CompletedTask;
+    }
+
+    public async Task HandleThumbnailReorderToIndexAsync(int sourcePageNumber, int targetIndex)
+    {
+        if (!IsPdfDocument ||
+            IsPdfStructureOperationInProgress ||
+            sourcePageNumber <= 0 ||
+            targetIndex < 0 ||
+            targetIndex >= Thumbnails.Count)
+        {
+            return;
+        }
+
+        var sourceThumbnail = Thumbnails.FirstOrDefault(item => item.SourcePageNumber == sourcePageNumber);
+        if (sourceThumbnail is null)
+        {
+            return;
+        }
+
+        var sourceIndex = Thumbnails.IndexOf(sourceThumbnail);
+        if (sourceIndex < 0 || sourceIndex == targetIndex)
+        {
+            return;
+        }
+
+        MoveThumbnailToIndex(sourceIndex, targetIndex, announce: false);
+        await Task.CompletedTask;
+    }
+
+    public void CompleteThumbnailReorderDrag()
+    {
+        if (!HasPendingPageReorder)
+        {
+            return;
+        }
+
+        EnqueueInfo(
+            "Page order updated",
+            "Drag other thumbnails if needed, then save a reordered PDF copy.",
+            replaceCurrent: true);
+        StatusText = "Page order updated";
+    }
+
     public async Task UpdateDocumentViewportAsync(double viewportWidth, double viewportHeight)
     {
         if (viewportWidth <= 0 || viewportHeight <= 0)
@@ -644,6 +1552,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private async Task OpenDocumentFromPathAsync(string filePath)
     {
+        CancelCurrentTextAnalysis();
+        ClearDocumentTextSelection();
+        _currentDocumentTextIndex = null;
+        _requiresSearchOcr = false;
+        SearchQueryInput = string.Empty;
+        SearchPanelNotice = null;
+        ClearSearchResults();
+        ClearSearchHighlights();
+
         var result = await _openDocumentUseCase.ExecuteAsync(new OpenDocumentRequest(filePath));
 
         if (result.IsFailure)
@@ -654,6 +1571,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         RefreshFromSession();
+        HasPendingPageReorder = false;
 
         _pageViewportStore.Initialize(TotalPages > 0 ? TotalPages : 1);
         _pageViewportStore.SetActivePage(new PageIndex(0));
@@ -668,29 +1586,649 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         AddCurrentDocumentToRecentFiles();
 
         ClearNotifications();
+        var detailsWarning = _documentSessionStore.Current?.Metadata.DetailsWarning;
+        if (!string.IsNullOrWhiteSpace(detailsWarning))
+        {
+            EnqueueInfo("Some file details are unavailable", detailsWarning);
+        }
+
         StatusText = $"Opened {CurrentDocumentName}";
 
-        if (IsCurrentImageDocument)
-        {
-            if (!await TryApplyViewportFitAsync(ZoomMode.FitToPage, forceRender: true))
-            {
-                _isImageAutoFitEnabled = true;
-                NotifyViewerModeChanged();
-                TryUpdateZoom(
-                    _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex).ZoomFactor,
-                    ZoomMode.FitToPage);
-                await RenderCurrentPageAsync();
-            }
-        }
-        else
-        {
-            await RenderCurrentPageAsync();
-        }
+        await ApplyPreferredDefaultZoomAsync();
 
         if (!IsCurrentImageDocument)
         {
             _ = GenerateThumbnailsAsync();
         }
+    }
+
+    private async Task LoadPrintDestinationsAsync()
+    {
+        if (_isLoadingPrintDestinations)
+        {
+            return;
+        }
+
+        try
+        {
+            _isLoadingPrintDestinations = true;
+            SubmitPrintJobCommand.NotifyCanExecuteChanged();
+            RefreshPrintDestinationsCommand.NotifyCanExecuteChanged();
+
+            var result = await _printService.GetAvailablePrintersAsync();
+            if (result.IsFailure)
+            {
+                PrintDestinations.Clear();
+                SelectedPrintDestination = null;
+                PrintPanelNotice = result.Error?.Message ?? "Printers could not be loaded.";
+                return;
+            }
+
+            var currentSelection = SelectedPrintDestination?.Name;
+            PrintDestinations.Clear();
+
+            foreach (var printer in result.Value ?? [])
+            {
+                PrintDestinations.Add(printer);
+            }
+
+            SelectedPrintDestination = PrintDestinations.FirstOrDefault(
+                item => string.Equals(item.Name, currentSelection, StringComparison.Ordinal)) ??
+                PrintDestinations.FirstOrDefault(item => item.IsDefault) ??
+                PrintDestinations.FirstOrDefault();
+
+            PrintPanelNotice = PrintDestinations.Count == 0
+                ? "No printers were detected. The system default printer may still be unavailable."
+                : null;
+        }
+        finally
+        {
+            _isLoadingPrintDestinations = false;
+            SubmitPrintJobCommand.NotifyCanExecuteChanged();
+            RefreshPrintDestinationsCommand.NotifyCanExecuteChanged();
+        }
+    }
+
+    private async Task EnsureDocumentTextAvailableAsync(bool forceOcr)
+    {
+        if (!HasOpenDocument)
+        {
+            return;
+        }
+
+        CancelCurrentTextAnalysis();
+
+        var handle = forceOcr
+            ? _runDocumentOcrUseCase.Execute()
+            : _loadDocumentTextUseCase.Execute();
+
+        _currentDocumentTextJob = handle;
+        _isAnalyzingDocumentText = true;
+        NotifySearchStateChanged();
+
+        SearchPanelNotice = forceOcr
+            ? "Recognizing text locally…"
+            : "Loading searchable text…";
+
+        try
+        {
+            var result = await handle.Completion;
+            if (_currentDocumentTextJob?.JobId != handle.JobId)
+            {
+                return;
+            }
+
+            if (result.IsCanceled)
+            {
+                SearchPanelNotice = "Text analysis cancelled.";
+                StatusText = "Text analysis cancelled";
+                return;
+            }
+
+            if (result.IsFailure)
+            {
+                _currentDocumentTextIndex = null;
+                _requiresSearchOcr = !forceOcr;
+                ClearSearchResults();
+                ClearSearchHighlights();
+                SearchPanelNotice = result.Error?.Message ?? "Searchable text could not be loaded.";
+                EnqueueError(SearchPanelNotice, "Text analysis failed");
+                StatusText = "Text analysis failed";
+                return;
+            }
+
+            if (result.RequiresOcr)
+            {
+                _currentDocumentTextIndex = null;
+                _requiresSearchOcr = true;
+                ClearSearchResults();
+                ClearSearchHighlights();
+                SearchPanelNotice = "This document has no searchable text yet. Recognize text to enable search.";
+                StatusText = "OCR required";
+                return;
+            }
+
+            _currentDocumentTextIndex = result.Index;
+            _requiresSearchOcr = false;
+            SearchPanelNotice = null;
+            NotifySearchStateChanged();
+
+            if (!string.IsNullOrWhiteSpace(SearchQueryInput))
+            {
+                await SearchTextAsync();
+            }
+            else
+            {
+                ClearSearchResults();
+                ClearSearchHighlights();
+                StatusText = forceOcr
+                    ? "Text recognized"
+                    : "Searchable text loaded";
+            }
+        }
+        finally
+        {
+            if (_currentDocumentTextJob?.JobId == handle.JobId)
+            {
+                _currentDocumentTextJob = null;
+                _isAnalyzingDocumentText = false;
+                NotifySearchStateChanged();
+            }
+        }
+    }
+
+    public async Task<bool> EnsureDocumentTextReadyForSelectionAsync()
+    {
+        if (!HasOpenDocument)
+        {
+            return false;
+        }
+
+        if (_currentDocumentTextIndex is not null)
+        {
+            return true;
+        }
+
+        if (_isAnalyzingDocumentText)
+        {
+            return false;
+        }
+
+        await EnsureDocumentTextAvailableAsync(forceOcr: false);
+
+        if (_currentDocumentTextIndex is not null)
+        {
+            return true;
+        }
+
+        if (_requiresSearchOcr)
+        {
+            StatusText = "Recognize text to select text";
+        }
+
+        return false;
+    }
+
+    private async Task SelectSearchResultAsync(SearchResultItemViewModel item, bool updateStatus)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
+        var targetPageNumber = item.PageNumber;
+        if (targetPageNumber != CurrentPage)
+        {
+            await ChangeToPageAsync(targetPageNumber);
+        }
+
+        for (var i = 0; i < SearchResults.Count; i++)
+        {
+            SearchResults[i].IsSelected = ReferenceEquals(SearchResults[i], item);
+            if (ReferenceEquals(SearchResults[i], item))
+            {
+                _selectedSearchResultIndex = i;
+            }
+        }
+
+        RefreshSearchHighlights();
+        OnPropertyChanged(nameof(SearchSelectionIndicator));
+
+        if (updateStatus)
+        {
+            StatusText = $"Search result on page {item.PageNumber}";
+        }
+    }
+
+    private void ApplySearchResults(IReadOnlyList<SearchHit> hits)
+    {
+        ClearSearchResults();
+
+        foreach (var hit in hits)
+        {
+            SearchResults.Add(new SearchResultItemViewModel(hit, hit.PageIndex.Value + 1));
+        }
+
+        _selectedSearchResultIndex = SearchResults.Count > 0 ? 0 : -1;
+        NotifySearchStateChanged();
+        OnPropertyChanged(nameof(SearchSelectionIndicator));
+    }
+
+    private void ClearSearchResults()
+    {
+        SearchResults.Clear();
+        _selectedSearchResultIndex = -1;
+        NotifySearchStateChanged();
+        OnPropertyChanged(nameof(SearchSelectionIndicator));
+    }
+
+    private void RefreshSearchHighlights()
+    {
+        ClearSearchHighlights();
+
+        if (!IsSearchPanelOpen ||
+            _selectedSearchResultIndex < 0 ||
+            _selectedSearchResultIndex >= SearchResults.Count ||
+            CurrentRenderedBitmap is null)
+        {
+            return;
+        }
+
+        var selected = SearchResults[_selectedSearchResultIndex];
+        if (selected.PageNumber != CurrentPage)
+        {
+            return;
+        }
+
+        var pageContent = _currentDocumentTextIndex?.Pages
+            .FirstOrDefault(page => page.PageIndex.Value == CurrentPage - 1);
+        if (pageContent is null || selected.Hit.Regions.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var region in selected.Hit.Regions)
+        {
+            if (!TryTransformRegionToRenderedPage(pageContent, region, out var left, out var top, out var width, out var height))
+            {
+                continue;
+            }
+
+            SearchHighlights.Add(new SearchHighlightItem(left, top, width, height, IsPrimary: true));
+        }
+
+        OnPropertyChanged(nameof(HasSearchHighlights));
+    }
+
+    private void ClearSearchHighlights()
+    {
+        SearchHighlights.Clear();
+        OnPropertyChanged(nameof(HasSearchHighlights));
+    }
+
+    public bool BeginDocumentTextSelection(double x, double y)
+    {
+        var anchorPoint = new DocumentTextSelectionPoint(x, y);
+        if (!TryResolveDocumentTextSelection(anchorPoint, anchorPoint, out var selection))
+        {
+            ClearDocumentTextSelection();
+            return false;
+        }
+
+        _documentTextSelectionAnchorPoint = anchorPoint;
+        ApplyDocumentTextSelection(selection);
+        return true;
+    }
+
+    public void UpdateDocumentTextSelection(double x, double y)
+    {
+        var anchorPoint = _documentTextSelectionAnchorPoint;
+        if (anchorPoint is null)
+        {
+            var began = BeginDocumentTextSelection(x, y);
+            if (!began)
+            {
+                ClearDocumentTextSelection();
+            }
+
+            return;
+        }
+
+        var activePoint = new DocumentTextSelectionPoint(x, y);
+        if (!TryResolveDocumentTextSelection(anchorPoint, activePoint, out var selection) &&
+            !TryResolveDocumentTextSelection(anchorPoint, anchorPoint, out selection))
+        {
+            ClearDocumentTextSelection();
+            return;
+        }
+
+        ApplyDocumentTextSelection(selection);
+    }
+
+    public void CompleteDocumentTextSelection()
+    {
+        if (HasSelectedDocumentText)
+        {
+            StatusText = "Text selected";
+        }
+    }
+
+    public void ClearDocumentTextSelection()
+    {
+        if (TextSelectionHighlights.Count == 0 &&
+            string.IsNullOrWhiteSpace(SelectedDocumentText) &&
+            _documentTextSelectionAnchorPoint is null &&
+            _currentDocumentTextSelection is null)
+        {
+            return;
+        }
+
+        _documentTextSelectionAnchorPoint = null;
+        _currentDocumentTextSelection = null;
+        TextSelectionHighlights.Clear();
+        SelectedDocumentText = null;
+        OnPropertyChanged(nameof(HasTextSelectionHighlights));
+    }
+
+    public bool TryMapViewerPointToDocumentTextSpace(
+        double visualX,
+        double visualY,
+        double layerWidth,
+        double layerHeight,
+        out DocumentTextSelectionPoint point)
+    {
+        point = new DocumentTextSelectionPoint(0, 0);
+
+        if (GetCurrentPageTextContent() is not { } pageContent)
+        {
+            return false;
+        }
+
+        var rotation = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex).Rotation;
+        return DocumentTextSelectionCoordinateMapper.TryMapVisualToDocument(
+            visualX,
+            visualY,
+            layerWidth,
+            layerHeight,
+            pageContent.SourceWidth,
+            pageContent.SourceHeight,
+            rotation,
+            out point);
+    }
+
+    private bool TryResolveDocumentTextSelection(
+        DocumentTextSelectionPoint anchorPoint,
+        DocumentTextSelectionPoint activePoint,
+        out DocumentTextSelectionResult selection)
+    {
+        if (_documentSessionStore.Current is not { } session ||
+            _currentDocumentTextIndex is null ||
+            GetCurrentPageTextContent() is not { } pageContent)
+        {
+            selection = new DocumentTextSelectionResult(
+                new PageIndex(Math.Max(0, CurrentPage - 1)),
+                null,
+                [],
+                TextSourceKind.Ocr);
+            return false;
+        }
+
+        var result = _resolveDocumentTextSelectionUseCase.Execute(
+            new DocumentTextSelectionRequest(
+                session,
+                _currentDocumentTextIndex,
+                pageContent.PageIndex,
+                anchorPoint,
+                activePoint));
+
+        if (result.IsFailure || result.Value is null || !result.Value.HasSelection)
+        {
+            selection = new DocumentTextSelectionResult(
+                pageContent.PageIndex,
+                null,
+                [],
+                pageContent.SourceKind);
+            return false;
+        }
+
+        selection = result.Value;
+        return true;
+    }
+
+    private void ApplyDocumentTextSelection(DocumentTextSelectionResult selection)
+    {
+        _currentDocumentTextSelection = selection;
+        SelectedDocumentText = selection.SelectedText;
+        RefreshDocumentTextSelectionHighlights();
+    }
+
+    private void RefreshDocumentTextSelectionHighlights()
+    {
+        TextSelectionHighlights.Clear();
+
+        if (_currentDocumentTextSelection is null ||
+            CurrentRenderedBitmap is null ||
+            GetCurrentPageTextContent() is not { } pageContent ||
+            _currentDocumentTextSelection.PageIndex != pageContent.PageIndex)
+        {
+            OnPropertyChanged(nameof(HasTextSelectionHighlights));
+            return;
+        }
+
+        foreach (var region in _currentDocumentTextSelection.Regions)
+        {
+            if (!TryTransformRegionToRenderedPage(pageContent, region, out var left, out var top, out var width, out var height))
+            {
+                continue;
+            }
+
+            TextSelectionHighlights.Add(new SearchHighlightItem(left, top, width, height, IsPrimary: false));
+        }
+
+        OnPropertyChanged(nameof(HasTextSelectionHighlights));
+    }
+
+    private bool TryTransformRegionToRenderedPage(
+        PageTextContent pageContent,
+        NormalizedTextRegion region,
+        out double left,
+        out double top,
+        out double width,
+        out double height)
+    {
+        left = 0;
+        top = 0;
+        width = 0;
+        height = 0;
+
+        if (CurrentRenderedBitmap is null)
+        {
+            return false;
+        }
+
+        var sourceWidth = pageContent.SourceWidth;
+        var sourceHeight = pageContent.SourceHeight;
+        var sourceLeft = region.X * sourceWidth;
+        var sourceTop = region.Y * sourceHeight;
+        var sourceRight = sourceLeft + (region.Width * sourceWidth);
+        var sourceBottom = sourceTop + (region.Height * sourceHeight);
+
+        var rotation = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex).Rotation;
+        var (rotatedLeft, rotatedTop, rotatedRight, rotatedBottom, rotatedWidth, rotatedHeight) =
+            rotation switch
+            {
+                Rotation.Deg90 => (
+                    sourceHeight - sourceBottom,
+                    sourceLeft,
+                    sourceHeight - sourceTop,
+                    sourceRight,
+                    sourceHeight,
+                    sourceWidth),
+                Rotation.Deg180 => (
+                    sourceWidth - sourceRight,
+                    sourceHeight - sourceBottom,
+                    sourceWidth - sourceLeft,
+                    sourceHeight - sourceTop,
+                    sourceWidth,
+                    sourceHeight),
+                Rotation.Deg270 => (
+                    sourceTop,
+                    sourceWidth - sourceRight,
+                    sourceBottom,
+                    sourceWidth - sourceLeft,
+                    sourceHeight,
+                    sourceWidth),
+                _ => (
+                    sourceLeft,
+                    sourceTop,
+                    sourceRight,
+                    sourceBottom,
+                    sourceWidth,
+                    sourceHeight)
+            };
+
+        left = rotatedLeft / rotatedWidth * CurrentRenderedBitmap.PixelSize.Width;
+        top = rotatedTop / rotatedHeight * CurrentRenderedBitmap.PixelSize.Height;
+        width = (rotatedRight - rotatedLeft) / rotatedWidth * CurrentRenderedBitmap.PixelSize.Width;
+        height = (rotatedBottom - rotatedTop) / rotatedHeight * CurrentRenderedBitmap.PixelSize.Height;
+
+        return width > 0 && height > 0;
+    }
+
+    private PageTextContent? GetCurrentPageTextContent()
+    {
+        return _currentDocumentTextIndex?.Pages
+            .FirstOrDefault(page => page.PageIndex.Value == CurrentPage - 1);
+    }
+
+    private void NotifySearchStateChanged()
+    {
+        OnPropertyChanged(nameof(HasSearchResults));
+        OnPropertyChanged(nameof(SearchResultSummary));
+        OnPropertyChanged(nameof(CanSearchText));
+        OnPropertyChanged(nameof(CanRunDocumentOcr));
+        OnPropertyChanged(nameof(CanCancelDocumentTextAnalysis));
+        OnPropertyChanged(nameof(CanNavigateSearchResults));
+        SearchTextCommand.NotifyCanExecuteChanged();
+        RunSearchOcrCommand.NotifyCanExecuteChanged();
+        CancelDocumentTextAnalysisCommand.NotifyCanExecuteChanged();
+        PreviousSearchResultCommand.NotifyCanExecuteChanged();
+        NextSearchResultCommand.NotifyCanExecuteChanged();
+        OpenSearchResultCommand.NotifyCanExecuteChanged();
+    }
+
+    private async Task ApplyPreferredDefaultZoomAsync(bool preserveStatusText = false)
+    {
+        if (!HasOpenDocument)
+        {
+            return;
+        }
+
+        var defaultZoomPreference = ParseDefaultZoomPreference(SelectedDefaultZoomPreference);
+        switch (defaultZoomPreference)
+        {
+            case DefaultZoomPreference.FitToWidth:
+                await ApplyPreferredFitZoomAsync(ZoomMode.FitToWidth, preserveStatusText);
+                return;
+            case DefaultZoomPreference.ActualSize:
+                await ApplyExactZoomAsync(1.0, preserveStatusText);
+                return;
+            default:
+                await ApplyPreferredFitZoomAsync(ZoomMode.FitToPage, preserveStatusText);
+                return;
+        }
+    }
+
+    private async Task ApplyPreferredFitZoomAsync(ZoomMode zoomMode, bool preserveStatusText)
+    {
+        if (!IsCurrentImageDocument && CurrentRenderedBitmap is null)
+        {
+            await RenderCurrentPageAsync(preserveStatusText: true);
+        }
+
+        if (await TryApplyViewportFitAsync(zoomMode, preserveStatusText, forceRender: true))
+        {
+            return;
+        }
+
+        var pageState = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex);
+        if (IsCurrentImageDocument)
+        {
+            _isImageAutoFitEnabled = zoomMode is ZoomMode.FitToPage;
+            NotifyViewerModeChanged();
+        }
+
+        if (TryUpdateZoom(pageState.ZoomFactor, zoomMode) && CurrentRenderedBitmap is null)
+        {
+            await RenderCurrentPageAsync(preserveStatusText);
+        }
+    }
+
+    private async Task ApplyExactZoomAsync(double zoomFactor, bool preserveStatusText)
+    {
+        DisableImageAutoFit();
+
+        var pageState = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex);
+        var clampedZoom = Math.Clamp(zoomFactor, MinZoom, MaxZoom);
+        var zoomChanged = Math.Abs(pageState.ZoomFactor - clampedZoom) > ZoomComparisonTolerance;
+        var zoomModeChanged = CurrentZoomMode != ZoomMode.Custom;
+
+        if (zoomChanged || zoomModeChanged)
+        {
+            _pageViewportStore.SetPageState(pageState.WithZoom(clampedZoom));
+            if (!TryUpdateZoom(clampedZoom, ZoomMode.Custom))
+            {
+                return;
+            }
+
+            RefreshPageViewState();
+        }
+
+        await RenderCurrentPageAsync(preserveStatusText);
+    }
+
+    private string? BuildRequestedPrintPageRanges()
+    {
+        if (!IsPrintPageRangeVisible || SelectedPrintPageRangeOption == PrintRangeAllPagesLabel)
+        {
+            return null;
+        }
+
+        if (SelectedPrintPageRangeOption == PrintRangeCurrentPageLabel)
+        {
+            return CurrentPage.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (SelectedPrintPageRangeOption != PrintRangeCustomLabel)
+        {
+            return null;
+        }
+
+        var trimmed = PrintCustomPageRange.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            return null;
+        }
+
+        foreach (var character in trimmed)
+        {
+            if (!char.IsDigit(character) &&
+                character is not ',' &&
+                character is not '-' &&
+                !char.IsWhiteSpace(character))
+            {
+                return null;
+            }
+        }
+
+        return trimmed;
+    }
+
+    private static PrintOrientationOption ParsePrintOrientationOption(string? value)
+    {
+        return value switch
+        {
+            PrintOrientationPortraitLabel => PrintOrientationOption.Portrait,
+            PrintOrientationLandscapeLabel => PrintOrientationOption.Landscape,
+            _ => PrintOrientationOption.Automatic
+        };
     }
 
     private async Task ChangeToPageAsync(int pageNumber)
@@ -830,7 +2368,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 }
 
                 var thumbnailItem = Thumbnails[i];
-                var thumbnailPageIndex = new PageIndex(i);
+                var thumbnailPageIndex = new PageIndex(thumbnailItem.SourcePageNumber - 1);
                 var thumbnailPageState = _pageViewportStore.GetPageState(thumbnailPageIndex);
 
                 try
@@ -884,9 +2422,13 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var thumbnailIndex = CurrentPage - 1;
-        var thumbnailItem = Thumbnails[thumbnailIndex];
-        var pageIndex = new PageIndex(thumbnailIndex);
+        var thumbnailItem = Thumbnails.FirstOrDefault(item => item.SourcePageNumber == CurrentPage);
+        if (thumbnailItem is null)
+        {
+            return;
+        }
+
+        var pageIndex = new PageIndex(thumbnailItem.SourcePageNumber - 1);
         var pageState = _pageViewportStore.GetPageState(pageIndex);
 
         try
@@ -932,6 +2474,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             });
         }
 
+        RefreshThumbnailDisplayNumbers();
+        NotifyThumbnailOrderCommandsChanged();
         OnPropertyChanged(nameof(HasThumbnails));
     }
 
@@ -939,7 +2483,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         foreach (var item in Thumbnails)
         {
-            item.IsSelected = item.PageNumber == CurrentPage;
+            item.IsSelected = item.SourcePageNumber == CurrentPage;
         }
     }
 
@@ -951,6 +2495,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         Thumbnails.Clear();
+        NotifyThumbnailOrderCommandsChanged();
         OnPropertyChanged(nameof(HasThumbnails));
     }
 
@@ -964,6 +2509,19 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _renderOrchestrator.Cancel(_currentRenderJob.JobId);
         _currentRenderJob = null;
         IsRendering = false;
+    }
+
+    private void CancelCurrentTextAnalysis()
+    {
+        if (_currentDocumentTextJob is null)
+        {
+            return;
+        }
+
+        _cancelDocumentTextAnalysisUseCase.Execute(_currentDocumentTextJob.JobId);
+        _currentDocumentTextJob = null;
+        _isAnalyzingDocumentText = false;
+        NotifySearchStateChanged();
     }
 
     private void CancelThumbnailGeneration()
@@ -995,6 +2553,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         CurrentDocumentPath = session.Metadata.FilePath;
         CurrentPage = session.Viewport.CurrentPage.Value + 1;
         TotalPages = session.Metadata.PageCount ?? 1;
+        RefreshDocumentInfo(session.Metadata);
 
         EmptyStateTitle = session.Metadata.FileName;
         EmptyStateDescription = $"Opened {session.Metadata.DocumentType} document.";
@@ -1006,23 +2565,51 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         CurrentZoom = $"{pageState.ZoomFactor * 100:0}%";
         CurrentRotation = $"{(int)pageState.Rotation}°";
         CurrentPage = pageState.PageIndex.Value + 1;
+        PersistCurrentPageRotationCommand.NotifyCanExecuteChanged();
     }
 
     private void ResetDocumentState()
     {
         _isImageAutoFitEnabled = false;
+        _isApplyingPdfStructureOperation = false;
+        _isPrintingDocument = false;
+        _isAnalyzingDocumentText = false;
+        _requiresSearchOcr = false;
+        HasPendingPageReorder = false;
         HasOpenDocument = false;
         IsCurrentImageDocument = false;
         CurrentDocumentName = null;
         CurrentDocumentType = null;
         CurrentDocumentPath = null;
+        IsInfoPanelVisible = false;
+        IsSearchPanelVisible = false;
+        IsPreferencesPanelVisible = false;
+        IsPrintPanelVisible = false;
+        _currentDocumentTextSelection = null;
+        _documentTextSelectionAnchorPoint = null;
+        _currentDocumentTextIndex = null;
+        ClearDocumentInfo();
+        SearchPanelNotice = null;
+        PrintPanelNotice = null;
+        PrintDestinations.Clear();
+        SelectedPrintDestination = null;
+        SelectedPrintPageRangeOption = PrintRangeAllPagesLabel;
+        PrintCustomPageRange = string.Empty;
+        PrintCopiesInput = "1";
+        SelectedPrintOrientationOption = PrintOrientationAutomaticLabel;
+        PrintFitToPage = true;
         CurrentPage = 1;
         TotalPages = 0;
         CurrentZoom = "100%";
         CurrentRotation = "0°";
         GoToPageInput = "1";
+        SearchQueryInput = string.Empty;
         IsRendering = false;
         IsGeneratingThumbnails = false;
+        PrintDocumentCommand.NotifyCanExecuteChanged();
+        ClearSearchResults();
+        ClearSearchHighlights();
+        NotifySearchStateChanged();
 
         CurrentRenderedBitmap?.Dispose();
         CurrentRenderedBitmap = null;
@@ -1223,6 +2810,335 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private static string CreateThumbnailJobKey(PageIndex pageIndex) =>
         $"{ThumbnailRenderJobPrefix}{pageIndex.Value}";
 
+    private List<PendingPdfRotationGroup> GetPendingPdfRotationGroups()
+    {
+        var groups = Enumerable.Range(1, TotalPages)
+            .Select(pageNumber => new
+            {
+                PageNumber = pageNumber,
+                Rotation = _pageViewportStore.GetPageState(new PageIndex(pageNumber - 1)).Rotation
+            })
+            .Where(item => item.Rotation != Rotation.Deg0)
+            .GroupBy(item => item.Rotation)
+            .OrderBy(group => group.Key)
+            .Select(group => new PendingPdfRotationGroup(
+                group.Key,
+                group.Select(item => item.PageNumber).OrderBy(pageNumber => pageNumber).ToArray()))
+            .ToList();
+
+        return groups;
+    }
+
+    private void MoveThumbnailToIndex(int sourceIndex, int targetIndex, bool announce)
+    {
+        if (sourceIndex < 0 ||
+            sourceIndex >= Thumbnails.Count ||
+            targetIndex < 0 ||
+            targetIndex >= Thumbnails.Count ||
+            sourceIndex == targetIndex)
+        {
+            return;
+        }
+
+        Thumbnails.Move(sourceIndex, targetIndex);
+        RefreshThumbnailDisplayNumbers();
+        HasPendingPageReorder = true;
+        NotifyThumbnailOrderCommandsChanged();
+
+        if (!announce)
+        {
+            return;
+        }
+
+        EnqueueInfo(
+            "Page order updated",
+            "Drag other thumbnails if needed, then save a reordered PDF copy.",
+            replaceCurrent: true);
+        StatusText = "Page order updated";
+    }
+
+    private void RefreshThumbnailDisplayNumbers()
+    {
+        for (var i = 0; i < Thumbnails.Count; i++)
+        {
+            Thumbnails[i].DisplayPageNumber = i + 1;
+        }
+    }
+
+    private int GetCurrentThumbnailIndex()
+    {
+        for (var i = 0; i < Thumbnails.Count; i++)
+        {
+            if (Thumbnails[i].SourcePageNumber == CurrentPage)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private void NotifyThumbnailOrderCommandsChanged()
+    {
+        MoveCurrentPageEarlierCommand.NotifyCanExecuteChanged();
+        MoveCurrentPageLaterCommand.NotifyCanExecuteChanged();
+    }
+
+    private async Task ExecutePdfStructureOperationAsync(
+        string title,
+        string suggestedFileName,
+        Func<string, Task<Result<string>>> executeOperation,
+        string successStatus,
+        string failureTitle)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+        ArgumentException.ThrowIfNullOrWhiteSpace(suggestedFileName);
+        ArgumentNullException.ThrowIfNull(executeOperation);
+        ArgumentException.ThrowIfNullOrWhiteSpace(successStatus);
+        ArgumentException.ThrowIfNullOrWhiteSpace(failureTitle);
+
+        var outputPath = await _filePickerService.PickSavePdfFileAsync(title, suggestedFileName);
+        if (string.IsNullOrWhiteSpace(outputPath))
+        {
+            StatusText = "Save cancelled";
+            return;
+        }
+
+        try
+        {
+            SetPdfStructureOperationState(true);
+
+            var result = await executeOperation(outputPath);
+            if (result.IsFailure)
+            {
+                EnqueueError(result.Error?.Message ?? "The PDF update failed.", failureTitle);
+                StatusText = failureTitle;
+                return;
+            }
+
+            await OpenDocumentFromPathAsync(result.Value ?? outputPath);
+            StatusText = successStatus;
+        }
+        finally
+        {
+            SetPdfStructureOperationState(false);
+        }
+    }
+
+    private async Task<Result<string>> PersistPendingPdfRotationsAsync(
+        string sourcePath,
+        string outputPath,
+        IReadOnlyList<PendingPdfRotationGroup> pendingRotations)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
+        ArgumentNullException.ThrowIfNull(pendingRotations);
+
+        if (pendingRotations.Count == 0)
+        {
+            return ResultFactory.Success(outputPath);
+        }
+
+        var intermediateDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "velune-pdf-rotations",
+            Guid.NewGuid().ToString("N"));
+
+        Directory.CreateDirectory(intermediateDirectory);
+
+        var currentInputPath = sourcePath;
+
+        try
+        {
+            for (var i = 0; i < pendingRotations.Count; i++)
+            {
+                var group = pendingRotations[i];
+                var isLastGroup = i == pendingRotations.Count - 1;
+                var currentOutputPath = isLastGroup
+                    ? outputPath
+                    : Path.Combine(intermediateDirectory, $"rotation-step-{i + 1}.pdf");
+
+                var result = await _rotatePdfPagesUseCase.ExecuteAsync(
+                    new RotatePdfPagesRequest(
+                        currentInputPath,
+                        currentOutputPath,
+                        group.Pages,
+                        group.Rotation));
+
+                if (result.IsFailure)
+                {
+                    return result;
+                }
+
+                currentInputPath = result.Value ?? currentOutputPath;
+            }
+
+            return ResultFactory.Success(outputPath);
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(intermediateDirectory))
+                {
+                    Directory.Delete(intermediateDirectory, recursive: true);
+                }
+            }
+            catch
+            {
+                // Best-effort cleanup for temporary rotation files.
+            }
+        }
+    }
+
+    private void SetPdfStructureOperationState(bool isBusy)
+    {
+        if (_isApplyingPdfStructureOperation == isBusy)
+        {
+            return;
+        }
+
+        _isApplyingPdfStructureOperation = isBusy;
+        OnPropertyChanged(nameof(IsPdfStructureOperationInProgress));
+        PersistCurrentPageRotationCommand.NotifyCanExecuteChanged();
+        ExtractCurrentPageCommand.NotifyCanExecuteChanged();
+        DeleteCurrentPageCommand.NotifyCanExecuteChanged();
+        SaveReorderedPdfCommand.NotifyCanExecuteChanged();
+    }
+
+    private string BuildSuggestedPdfFileName()
+    {
+        var fileName = Path.GetFileName(CurrentDocumentName);
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            return "document.pdf";
+        }
+
+        return Path.HasExtension(fileName)
+            ? fileName
+            : $"{fileName}.pdf";
+    }
+
+    private async Task PersistPreferencesFromUiAsync(bool applyDefaultZoomToOpenDocument)
+    {
+        if (_isApplyingPreferencesState)
+        {
+            return;
+        }
+
+        try
+        {
+            await _userPreferencesService.SaveAsync(BuildUserPreferencesFromUi());
+
+            if (applyDefaultZoomToOpenDocument && HasOpenDocument)
+            {
+                await ApplyPreferredDefaultZoomAsync(preserveStatusText: true);
+            }
+
+            StatusText = "Preferences updated";
+        }
+        catch
+        {
+            ApplyPreferencesToUi(_userPreferencesService.Current);
+            EnqueueError("Unable to save your preferences right now.", "Preferences not saved");
+            StatusText = "Preferences not saved";
+        }
+    }
+
+    private UserPreferences BuildUserPreferencesFromUi()
+    {
+        return new UserPreferences
+        {
+            Theme = ParseThemePreference(SelectedThemePreference),
+            DefaultZoom = ParseDefaultZoomPreference(SelectedDefaultZoomPreference),
+            ShowThumbnailsPanel = ShowThumbnailsPanelPreference,
+            MemoryCacheEntryLimit = SelectedMemoryCacheEntryLimit
+        };
+    }
+
+    private void ApplyPreferencesToUi(UserPreferences preferences)
+    {
+        ArgumentNullException.ThrowIfNull(preferences);
+
+        EnsureMemoryCacheOptionExists(preferences.MemoryCacheEntryLimit);
+
+        _isApplyingPreferencesState = true;
+        try
+        {
+            SelectedThemePreference = ToThemePreferenceLabel(preferences.Theme);
+            SelectedDefaultZoomPreference = ToDefaultZoomPreferenceLabel(preferences.DefaultZoom);
+            ShowThumbnailsPanelPreference = preferences.ShowThumbnailsPanel;
+            SelectedMemoryCacheEntryLimit = preferences.MemoryCacheEntryLimit;
+        }
+        finally
+        {
+            _isApplyingPreferencesState = false;
+        }
+
+        NotifySidebarVisibilityChanged();
+    }
+
+    private void EnsureMemoryCacheOptionExists(int entryLimit)
+    {
+        if (MemoryCacheEntryLimitOptions.Contains(entryLimit))
+        {
+            return;
+        }
+
+        var insertionIndex = 0;
+        while (insertionIndex < MemoryCacheEntryLimitOptions.Count &&
+               MemoryCacheEntryLimitOptions[insertionIndex] < entryLimit)
+        {
+            insertionIndex++;
+        }
+
+        MemoryCacheEntryLimitOptions.Insert(insertionIndex, entryLimit);
+    }
+
+    private static AppThemePreference ParseThemePreference(string? value)
+    {
+        return value switch
+        {
+            ThemeLightLabel => AppThemePreference.Light,
+            ThemeDarkLabel => AppThemePreference.Dark,
+            _ => AppThemePreference.System
+        };
+    }
+
+    private static string ToThemePreferenceLabel(AppThemePreference value)
+    {
+        return value switch
+        {
+            AppThemePreference.Light => ThemeLightLabel,
+            AppThemePreference.Dark => ThemeDarkLabel,
+            _ => ThemeSystemLabel
+        };
+    }
+
+    private static DefaultZoomPreference ParseDefaultZoomPreference(string? value)
+    {
+        return value switch
+        {
+            DefaultZoomFitToWidthLabel => DefaultZoomPreference.FitToWidth,
+            DefaultZoomActualSizeLabel => DefaultZoomPreference.ActualSize,
+            _ => DefaultZoomPreference.FitToPage
+        };
+    }
+
+    private static string ToDefaultZoomPreferenceLabel(DefaultZoomPreference value)
+    {
+        return value switch
+        {
+            DefaultZoomPreference.FitToWidth => DefaultZoomFitToWidthLabel,
+            DefaultZoomPreference.ActualSize => DefaultZoomActualSizeLabel,
+            _ => DefaultZoomFitToPageLabel
+        };
+    }
+
+    private sealed record PendingPdfRotationGroup(
+        Rotation Rotation,
+        IReadOnlyList<int> Pages);
+
     private void ConfirmClearRecentFiles()
     {
         _recentFilesService.Clear();
@@ -1361,6 +3277,100 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         ClearRecentFilesCommand.NotifyCanExecuteChanged();
     }
 
+    private void NotifySidebarVisibilityChanged()
+    {
+        OnPropertyChanged(nameof(IsSidebarVisible));
+        OnPropertyChanged(nameof(SidebarColumnWidth));
+        OnPropertyChanged(nameof(SidebarWidth));
+    }
+
+    private void RefreshDocumentInfo(DocumentMetadata metadata)
+    {
+        ArgumentNullException.ThrowIfNull(metadata);
+
+        DocumentInfoItems.Clear();
+
+        AddDocumentInfo("Kind", metadata.FormatLabel ?? GetDocumentKindLabel(metadata.DocumentType));
+        AddDocumentInfo("Size", FormatFileSize(metadata.FileSizeInBytes));
+
+        if (metadata.PageCount is > 0)
+        {
+            AddDocumentInfo("Pages", metadata.PageCount.Value.ToString(CultureInfo.InvariantCulture));
+        }
+
+        if (metadata.PixelWidth is > 0 && metadata.PixelHeight is > 0)
+        {
+            AddDocumentInfo("Dimensions", $"{metadata.PixelWidth} × {metadata.PixelHeight} px");
+        }
+
+        if (metadata.CreatedAt is not null)
+        {
+            AddDocumentInfo("Created", FormatDate(metadata.CreatedAt.Value));
+        }
+
+        if (metadata.ModifiedAt is not null)
+        {
+            AddDocumentInfo("Modified", FormatDate(metadata.ModifiedAt.Value));
+        }
+
+        AddDocumentInfo("Title", metadata.DocumentTitle);
+        AddDocumentInfo("Author", metadata.Author);
+        AddDocumentInfo("Creator", metadata.Creator);
+        AddDocumentInfo("Producer", metadata.Producer);
+        AddDocumentInfo("Location", Path.GetDirectoryName(metadata.FilePath));
+
+        DocumentInfoWarning = metadata.DetailsWarning;
+        OnPropertyChanged(nameof(HasDocumentInfo));
+    }
+
+    private void ClearDocumentInfo()
+    {
+        DocumentInfoItems.Clear();
+        DocumentInfoWarning = null;
+        OnPropertyChanged(nameof(HasDocumentInfo));
+    }
+
+    private void AddDocumentInfo(string label, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        DocumentInfoItems.Add(new DocumentInfoItem(label, value));
+    }
+
+    private static string GetDocumentKindLabel(DocumentType documentType)
+    {
+        return documentType switch
+        {
+            DocumentType.Pdf => "PDF document",
+            DocumentType.Image => "Image",
+            _ => "Document"
+        };
+    }
+
+    private static string FormatDate(DateTimeOffset value)
+    {
+        return value.ToLocalTime().ToString("f", CultureInfo.CurrentCulture);
+    }
+
+    private static string FormatFileSize(long fileSizeInBytes)
+    {
+        string[] units = ["bytes", "KB", "MB", "GB", "TB"];
+        var size = (double)fileSizeInBytes;
+        var unitIndex = 0;
+
+        while (size >= 1024 && unitIndex < units.Length - 1)
+        {
+            size /= 1024;
+            unitIndex++;
+        }
+
+        var format = unitIndex == 0 ? "0" : "0.#";
+        return $"{size.ToString(format, CultureInfo.InvariantCulture)} {units[unitIndex]}";
+    }
+
     public void Dispose()
     {
         Dispose(true);
@@ -1377,6 +3387,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         if (disposing)
         {
             CancelCurrentRender();
+            CancelCurrentTextAnalysis();
             CancelThumbnailGeneration();
 
             CurrentRenderedBitmap?.Dispose();

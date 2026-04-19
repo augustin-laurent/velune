@@ -1,3 +1,4 @@
+using System.Text;
 using Velune.Domain.Abstractions;
 using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
@@ -35,13 +36,22 @@ public sealed class PdfiumDocumentOpener
 
         var pageCount = PdfiumNative.FPDF_GetPageCount(handle);
         var fileInfo = new FileInfo(filePath);
+        var pdfMetadata = TryReadPdfMetadata(handle);
 
         var metadata = new DocumentMetadata(
             fileName: fileInfo.Name,
             filePath: fileInfo.FullName,
             documentType: DocumentType.Pdf,
             fileSizeInBytes: fileInfo.Length,
-            pageCount: pageCount);
+            pageCount: pageCount,
+            formatLabel: "PDF document",
+            createdAt: fileInfo.CreationTimeUtc,
+            modifiedAt: fileInfo.LastWriteTimeUtc,
+            documentTitle: pdfMetadata.Title,
+            author: pdfMetadata.Author,
+            creator: pdfMetadata.Creator,
+            producer: pdfMetadata.Producer,
+            detailsWarning: pdfMetadata.WarningMessage);
 
         var resource = new PdfiumDocumentResource(handle, pageCount);
 
@@ -51,4 +61,58 @@ public sealed class PdfiumDocumentOpener
             viewport: ViewportState.Default,
             resource: resource);
     }
+
+    private static PdfDetails TryReadPdfMetadata(nint handle)
+    {
+        try
+        {
+            return new PdfDetails(
+                ReadMetaText(handle, "Title"),
+                ReadMetaText(handle, "Author"),
+                ReadMetaText(handle, "Creator"),
+                ReadMetaText(handle, "Producer"),
+                null);
+        }
+        catch
+        {
+            return new PdfDetails(
+                null,
+                null,
+                null,
+                null,
+                "Some document details are unavailable.");
+        }
+    }
+
+    private static string? ReadMetaText(nint handle, string tag)
+    {
+        byte[] buffer = new byte[512];
+        var length = PdfiumNative.FPDF_GetMetaText(handle, tag, buffer, (uint)buffer.Length);
+
+        if (length <= 2)
+        {
+            return null;
+        }
+
+        if (length > buffer.Length)
+        {
+            buffer = new byte[length];
+            length = PdfiumNative.FPDF_GetMetaText(handle, tag, buffer, (uint)buffer.Length);
+
+            if (length <= 2)
+            {
+                return null;
+            }
+        }
+
+        var value = Encoding.Unicode.GetString(buffer, 0, (int)length - 2).Trim();
+        return string.IsNullOrWhiteSpace(value) ? null : value;
+    }
+
+    private sealed record PdfDetails(
+        string? Title,
+        string? Author,
+        string? Creator,
+        string? Producer,
+        string? WarningMessage);
 }

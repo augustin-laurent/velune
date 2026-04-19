@@ -7,11 +7,16 @@
     Height="860"
     MinWidth="1000"
     MinHeight="700"
+    KeyDown="OnWindowKeyDown"
     Title="{Binding Title}">
 
   <Window.KeyBindings>
     <KeyBinding Gesture="Ctrl+O" Command="{Binding OpenCommand}" />
     <KeyBinding Gesture="Meta+O" Command="{Binding OpenCommand}" />
+    <KeyBinding Gesture="Ctrl+P" Command="{Binding PrintDocumentCommand}" />
+    <KeyBinding Gesture="Meta+P" Command="{Binding PrintDocumentCommand}" />
+    <KeyBinding Gesture="Ctrl+F" Command="{Binding ToggleSearchPanelCommand}" />
+    <KeyBinding Gesture="Meta+F" Command="{Binding ToggleSearchPanelCommand}" />
     <KeyBinding Gesture="Ctrl+Add" Command="{Binding ZoomInCommand}" />
     <KeyBinding Gesture="Ctrl+OemPlus" Command="{Binding ZoomInCommand}" />
     <KeyBinding Gesture="Meta+Add" Command="{Binding ZoomInCommand}" />
@@ -20,6 +25,10 @@
     <KeyBinding Gesture="Ctrl+OemMinus" Command="{Binding ZoomOutCommand}" />
     <KeyBinding Gesture="Meta+Subtract" Command="{Binding ZoomOutCommand}" />
     <KeyBinding Gesture="Meta+OemMinus" Command="{Binding ZoomOutCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+Up" Command="{Binding MoveCurrentPageEarlierCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+Down" Command="{Binding MoveCurrentPageLaterCommand}" />
+    <KeyBinding Gesture="Meta+Shift+Up" Command="{Binding MoveCurrentPageEarlierCommand}" />
+    <KeyBinding Gesture="Meta+Shift+Down" Command="{Binding MoveCurrentPageLaterCommand}" />
     <KeyBinding Gesture="Right" Command="{Binding NextPageCommand}" />
     <KeyBinding Gesture="Left" Command="{Binding PreviousPageCommand}" />
     <KeyBinding Gesture="PageDown" Command="{Binding NextPageCommand}" />
@@ -76,6 +85,16 @@
                   <TextBlock Text="Open"
                              Classes="toolbar-primary-label" />
                 </StackPanel>
+              </Button>
+
+              <Button Classes="toolbar-button"
+                      Command="{Binding PrintDocumentCommand}"
+                      ToolTip.Tip="Print the current document">
+                <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                            Kind="PrinterOutline"
+                                            Width="20"
+                                            Height="20"
+                                            Foreground="{DynamicResource Brush.Icon}" />
               </Button>
 
               <Button Classes="toolbar-button"
@@ -246,6 +265,44 @@
               </Button>
             </StackPanel>
           </Border>
+
+          <Border Classes="toolbar-divider" />
+
+          <Border Classes="toolbar-group"
+                  Margin="6,0,0,0">
+            <StackPanel Orientation="Horizontal"
+                        Spacing="4">
+              <Button Classes="toolbar-button"
+                      Command="{Binding ToggleSearchPanelCommand}"
+                      ToolTip.Tip="Search text">
+                <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                            Kind="Magnify"
+                                            Width="20"
+                                            Height="20"
+                                            Foreground="{DynamicResource Brush.Icon}" />
+              </Button>
+
+              <Button Classes="toolbar-button"
+                      Command="{Binding ToggleInfoPanelCommand}"
+                      ToolTip.Tip="Show file information">
+                <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                            Kind="InformationCircleOutline"
+                                            Width="20"
+                                            Height="20"
+                                            Foreground="{DynamicResource Brush.Icon}" />
+              </Button>
+
+              <Button Classes="toolbar-button"
+                      Command="{Binding TogglePreferencesPanelCommand}"
+                      ToolTip.Tip="Show preferences">
+                <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                            Kind="CogOutline"
+                                            Width="20"
+                                            Height="20"
+                                            Foreground="{DynamicResource Brush.Icon}" />
+              </Button>
+            </StackPanel>
+          </Border>
         </WrapPanel>
       </Grid>
     </Border>
@@ -260,82 +317,168 @@
             Background="{DynamicResource Brush.Surface}"
             IsVisible="{Binding IsSidebarVisible}">
       <Grid RowDefinitions="Auto,*">
-        <DockPanel Grid.Row="0"
-                   LastChildFill="False"
-                   Margin="0,0,0,10">
-          <TextBlock Text="Pages"
-                     Classes="title"
-                     VerticalAlignment="Center" />
+        <StackPanel Grid.Row="0"
+                    Spacing="10"
+                    Margin="0,0,0,10">
+          <DockPanel LastChildFill="False">
+            <TextBlock Text="Pages"
+                       Classes="title"
+                       VerticalAlignment="Center" />
 
-          <TextBlock Text="Loading..."
+            <TextBlock Text="Loading..."
+                       Classes="muted"
+                       DockPanel.Dock="Right"
+                       IsVisible="{Binding IsGeneratingThumbnails}" />
+          </DockPanel>
+
+          <WrapPanel ItemSpacing="8"
+                     LineSpacing="8"
+                     IsVisible="{Binding IsPdfStructureActionsVisible}">
+            <Button Classes="sidebar-action-button"
+                    Command="{Binding PersistCurrentPageRotationCommand}">
+              Apply Rotations
+            </Button>
+
+            <Button Classes="sidebar-action-button"
+                    Command="{Binding ExtractCurrentPageCommand}">
+              Extract Page
+            </Button>
+
+            <Button Classes="sidebar-action-button"
+                    Command="{Binding DeleteCurrentPageCommand}">
+              Delete Page
+            </Button>
+
+            <Button Classes="sidebar-action-button"
+                    Command="{Binding SaveReorderedPdfCommand}"
+                    IsVisible="{Binding HasPendingPageReorder}">
+              Save Order
+            </Button>
+          </WrapPanel>
+
+          <TextBlock Text="Drag thumbnails to prepare a new page order, then save a reordered copy."
                      Classes="muted"
-                     DockPanel.Dock="Right"
-                     IsVisible="{Binding IsGeneratingThumbnails}" />
-        </DockPanel>
+                     TextWrapping="Wrap"
+                     IsVisible="{Binding IsPdfStructureActionsVisible}" />
+        </StackPanel>
 
-        <ScrollViewer Grid.Row="1"
-                      Width="216"
-                      MaxWidth="216"
-                      HorizontalScrollBarVisibility="Disabled"
-                      VerticalScrollBarVisibility="Auto">
-          <ItemsControl ItemsSource="{Binding Thumbnails}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <Button Classes="thumbnail-button"
-                        Command="{Binding $parent[Window].DataContext.SelectThumbnailCommand}"
-                        CommandParameter="{Binding}"
-                        HorizontalContentAlignment="Stretch">
-                  <Border Classes="thumbnail-item"
-                          Width="200"
-                          MaxWidth="200"
-                          MinHeight="120">
-                    <StackPanel Spacing="8">
-                      <Border Classes="thumbnail-image-host"
-                              Width="180"
-                              MaxWidth="180"
-                              Height="160"
-                              HorizontalAlignment="Center">
-                        <Grid>
-                          <Image Source="{Binding Thumbnail}"
-                                 Stretch="Uniform"
-                                 MaxWidth="170"
-                                 MaxHeight="150"
-                                 HorizontalAlignment="Center"
-                                 VerticalAlignment="Center" />
-                          <TextBlock Text="Loading..."
-                                     Classes="muted"
-                                     HorizontalAlignment="Center"
-                                     VerticalAlignment="Center"
-                                     IsVisible="{Binding IsLoading}" />
-                        </Grid>
-                      </Border>
+        <Grid x:Name="ThumbnailDragSurface"
+              Grid.Row="1"
+              Width="216"
+              MaxWidth="216"
+              ClipToBounds="False">
+          <ScrollViewer x:Name="ThumbnailScrollViewer"
+                        HorizontalScrollBarVisibility="Disabled"
+                        VerticalScrollBarVisibility="Auto">
+            <ItemsControl x:Name="ThumbnailItemsControl"
+                          ItemsSource="{Binding Thumbnails}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Classes="thumbnail-hitbox"
+                          PointerPressed="OnThumbnailPointerPressed"
+                          PointerMoved="OnThumbnailPointerMoved"
+                          PointerReleased="OnThumbnailPointerReleased"
+                          PointerCaptureLost="OnThumbnailPointerCaptureLost"
+                          Tapped="OnThumbnailTapped">
+                    <Border Classes="thumbnail-item"
+                            Classes.selected="{Binding IsSelected}"
+                            Classes.dragging="{Binding IsDragging}"
+                            Width="200"
+                            MaxWidth="200"
+                            MinHeight="120">
+                      <StackPanel Spacing="8">
+                        <Border Classes="thumbnail-image-host"
+                                Width="180"
+                                MaxWidth="180"
+                                Height="160"
+                                HorizontalAlignment="Center">
+                          <Grid>
+                            <Image Source="{Binding Thumbnail}"
+                                   Stretch="Uniform"
+                                   MaxWidth="170"
+                                   MaxHeight="150"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                            <TextBlock Text="Loading..."
+                                       Classes="muted"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       IsVisible="{Binding IsLoading}" />
+                          </Grid>
+                        </Border>
 
-                      <StackPanel Orientation="Horizontal"
-                                  HorizontalAlignment="Center"
-                                  Spacing="6">
-                        <TextBlock Text="{Binding PageNumber, StringFormat=Page {0}}"
-                                   FontWeight="SemiBold" />
-                        <TextBlock Text="●"
-                                   Foreground="{DynamicResource Brush.Accent}"
-                                   IsVisible="{Binding IsSelected}" />
+                        <StackPanel Orientation="Horizontal"
+                                    HorizontalAlignment="Center"
+                                    Spacing="6">
+                          <TextBlock Text="{Binding DisplayPageNumber, StringFormat=Page {0}}"
+                                     FontWeight="SemiBold" />
+                          <TextBlock Text="●"
+                                     Foreground="{DynamicResource Brush.Accent}"
+                                     IsVisible="{Binding IsSelected}" />
+                        </StackPanel>
                       </StackPanel>
-                    </StackPanel>
+                    </Border>
                   </Border>
-                </Button>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-        </ScrollViewer>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+
+          <Canvas x:Name="ThumbnailDragOverlay"
+                  IsHitTestVisible="False"
+                  ClipToBounds="False">
+            <Border x:Name="ThumbnailDropIndicator"
+                    Classes="thumbnail-drop-indicator"
+                    IsVisible="False" />
+            <Border x:Name="ThumbnailDragGhostHost"
+                    Classes="thumbnail-drag-ghost"
+                    IsVisible="False">
+              <Border Classes="thumbnail-item thumbnail-drag-preview-item"
+                      Width="200"
+                      MaxWidth="200"
+                      MinHeight="120">
+                <StackPanel Spacing="8">
+                  <Border Classes="thumbnail-image-host"
+                          Width="180"
+                          MaxWidth="180"
+                          Height="160"
+                          HorizontalAlignment="Center">
+                    <Grid>
+                      <Image x:Name="ThumbnailDragGhostPreviewImage"
+                             Stretch="Uniform"
+                             MaxWidth="170"
+                             MaxHeight="150"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center" />
+                      <TextBlock x:Name="ThumbnailDragGhostLoadingText"
+                                 Text="Loading..."
+                                 Classes="muted"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center"
+                                 IsVisible="False" />
+                    </Grid>
+                  </Border>
+
+                  <TextBlock x:Name="ThumbnailDragGhostPageLabel"
+                             HorizontalAlignment="Center"
+                             FontWeight="SemiBold" />
+                </StackPanel>
+              </Border>
+            </Border>
+          </Canvas>
+        </Grid>
       </Grid>
     </Border>
 
     <!-- Main content -->
     <Grid Grid.Row="1"
           Grid.Column="1"
+          ColumnDefinitions="*,Auto"
           Background="{DynamicResource Brush.Background}">
 
       <!-- Toast -->
       <Border Classes="banner"
+              Grid.ColumnSpan="2"
               HorizontalAlignment="Right"
               VerticalAlignment="Top"
               Margin="16"
@@ -386,6 +529,7 @@
 
       <!-- Empty state -->
       <StackPanel HorizontalAlignment="Center"
+                  Grid.ColumnSpan="2"
                   VerticalAlignment="Center"
                   Spacing="16"
                   MaxWidth="520"
@@ -463,6 +607,7 @@
 
       <!-- Viewer -->
       <Grid Margin="24"
+            Grid.Column="0"
             IsVisible="{Binding HasOpenDocument}">
         <Grid RowDefinitions="Auto,*">
           <StackPanel Grid.Row="0"
@@ -479,10 +624,72 @@
                 Margin="12"
                 SizeChanged="OnDocumentViewerSizeChanged">
             <Grid IsVisible="{Binding IsImageAutoFitActive}">
-              <Image Source="{Binding CurrentRenderedBitmap}"
-                     Stretch="Uniform"
-                     HorizontalAlignment="Center"
-                     VerticalAlignment="Center" />
+              <Viewbox Stretch="Uniform"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center">
+                <Grid x:Name="AutoFitDocumentInteractionLayer"
+                      Width="{Binding DisplayedRenderedPageWidth}"
+                      Height="{Binding DisplayedRenderedPageHeight}">
+                  <Image Source="{Binding CurrentRenderedBitmap}"
+                         Stretch="None"
+                         Width="{Binding DisplayedRenderedPageWidth}"
+                         Height="{Binding DisplayedRenderedPageHeight}"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center" />
+
+                  <ItemsControl ItemsSource="{Binding SearchHighlights}"
+                                IsVisible="{Binding HasSearchHighlights}"
+                                IsHitTestVisible="False">
+                    <ItemsControl.Styles>
+                      <Style Selector="ContentPresenter">
+                        <Setter Property="Canvas.Left" Value="{Binding Left}" />
+                        <Setter Property="Canvas.Top" Value="{Binding Top}" />
+                      </Style>
+                    </ItemsControl.Styles>
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <Canvas />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Border Classes="search-highlight"
+                                Width="{Binding Width}"
+                                Height="{Binding Height}" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+
+                  <ItemsControl ItemsSource="{Binding TextSelectionHighlights}"
+                                IsVisible="{Binding HasTextSelectionHighlights}"
+                                IsHitTestVisible="False">
+                    <ItemsControl.Styles>
+                      <Style Selector="ContentPresenter">
+                        <Setter Property="Canvas.Left" Value="{Binding Left}" />
+                        <Setter Property="Canvas.Top" Value="{Binding Top}" />
+                      </Style>
+                    </ItemsControl.Styles>
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <Canvas />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Border Classes="text-selection-highlight"
+                                Width="{Binding Width}"
+                                Height="{Binding Height}" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+
+                  <Border Background="Transparent"
+                          PointerPressed="OnDocumentTextSelectionPointerPressed"
+                          PointerMoved="OnDocumentTextSelectionPointerMoved"
+                          PointerReleased="OnDocumentTextSelectionPointerReleased"
+                          PointerCaptureLost="OnDocumentTextSelectionPointerCaptureLost" />
+                </Grid>
+              </Viewbox>
             </Grid>
 
             <ScrollViewer x:Name="DocumentScrollViewer"
@@ -490,10 +697,70 @@
                           PointerWheelChanged="OnDocumentPointerWheelChanged"
                           HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Auto">
-              <Image Source="{Binding CurrentRenderedBitmap}"
-                     Stretch="None"
-                     HorizontalAlignment="Center"
-                     VerticalAlignment="Top" />
+              <Grid x:Name="ScrollableDocumentInteractionLayer"
+                    Width="{Binding DisplayedRenderedPageWidth}"
+                    Height="{Binding DisplayedRenderedPageHeight}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Top">
+                <Image Source="{Binding CurrentRenderedBitmap}"
+                       Stretch="None"
+                       Width="{Binding DisplayedRenderedPageWidth}"
+                       Height="{Binding DisplayedRenderedPageHeight}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Top" />
+
+                <ItemsControl ItemsSource="{Binding SearchHighlights}"
+                              IsVisible="{Binding HasSearchHighlights}"
+                              IsHitTestVisible="False">
+                  <ItemsControl.Styles>
+                    <Style Selector="ContentPresenter">
+                      <Setter Property="Canvas.Left" Value="{Binding Left}" />
+                      <Setter Property="Canvas.Top" Value="{Binding Top}" />
+                    </Style>
+                  </ItemsControl.Styles>
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <Canvas />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border Classes="search-highlight"
+                              Width="{Binding Width}"
+                              Height="{Binding Height}" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <ItemsControl ItemsSource="{Binding TextSelectionHighlights}"
+                              IsVisible="{Binding HasTextSelectionHighlights}"
+                              IsHitTestVisible="False">
+                  <ItemsControl.Styles>
+                    <Style Selector="ContentPresenter">
+                      <Setter Property="Canvas.Left" Value="{Binding Left}" />
+                      <Setter Property="Canvas.Top" Value="{Binding Top}" />
+                    </Style>
+                  </ItemsControl.Styles>
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <Canvas />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border Classes="text-selection-highlight"
+                              Width="{Binding Width}"
+                              Height="{Binding Height}" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Border Background="Transparent"
+                        PointerPressed="OnDocumentTextSelectionPointerPressed"
+                        PointerMoved="OnDocumentTextSelectionPointerMoved"
+                        PointerReleased="OnDocumentTextSelectionPointerReleased"
+                        PointerCaptureLost="OnDocumentTextSelectionPointerCaptureLost" />
+              </Grid>
             </ScrollViewer>
 
             <Border Classes="banner"
@@ -507,6 +774,328 @@
           </Grid>
         </Grid>
       </Grid>
+
+      <!-- Info panel -->
+      <Border Grid.Column="1"
+              Width="{Binding InfoPanelWidth}"
+              Margin="0,24,24,24"
+              Padding="18,16"
+              Classes="card info-panel"
+              Background="{DynamicResource Brush.Surface}"
+              IsVisible="{Binding IsInfoPanelOpen}">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="16">
+            <StackPanel Spacing="4">
+              <TextBlock Text="Informations"
+                         Classes="title" />
+              <TextBlock Text="{Binding CurrentDocumentName}"
+                         FontWeight="SemiBold"
+                         TextWrapping="Wrap" />
+              <TextBlock Text="{Binding CurrentDocumentType}"
+                         Classes="muted" />
+            </StackPanel>
+
+            <Border Classes="banner"
+                    Padding="10,8"
+                    IsVisible="{Binding HasDocumentInfoWarning}">
+              <TextBlock Text="{Binding DocumentInfoWarning}"
+                         Classes="muted"
+                         TextWrapping="Wrap" />
+            </Border>
+
+            <ItemsControl ItemsSource="{Binding DocumentInfoItems}"
+                          IsVisible="{Binding HasDocumentInfo}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Grid ColumnDefinitions="96,*"
+                        ColumnSpacing="12"
+                        Margin="0,0,0,10">
+                    <TextBlock Text="{Binding Label}"
+                               Classes="metadata-label"
+                               VerticalAlignment="Top" />
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding Value}"
+                               TextWrapping="Wrap" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+
+      <!-- Search panel -->
+      <Border Grid.Column="1"
+              Width="{Binding SearchPanelWidth}"
+              Margin="0,24,24,24"
+              Padding="18,16"
+              Classes="card info-panel"
+              Background="{DynamicResource Brush.Surface}"
+              IsVisible="{Binding IsSearchPanelOpen}">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="18">
+            <StackPanel Spacing="4">
+              <TextBlock Text="Search"
+                         Classes="title" />
+              <TextBlock Text="{Binding CurrentDocumentName}"
+                         FontWeight="SemiBold"
+                         TextWrapping="Wrap" />
+              <TextBlock Text="Search inside the current document or recognize text locally when needed."
+                         Classes="muted"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+
+            <Border Classes="banner"
+                    Padding="10,8"
+                    IsVisible="{Binding HasSearchPanelNotice}">
+              <TextBlock Text="{Binding SearchPanelNotice}"
+                         Classes="muted"
+                         TextWrapping="Wrap" />
+            </Border>
+
+            <StackPanel Spacing="8">
+              <TextBlock Text="Query"
+                         Classes="metadata-label" />
+              <Grid ColumnDefinitions="*,Auto"
+                    ColumnSpacing="8">
+                <TextBox Classes="toolbar-input"
+                         Grid.Column="0"
+                         Watermark="Find text in this document"
+                         Text="{Binding SearchQueryInput}" />
+
+                <Button Grid.Column="1"
+                        Content="Search"
+                        Command="{Binding SearchTextCommand}" />
+              </Grid>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal"
+                        Spacing="8">
+              <Button Content="Recognize text"
+                      Command="{Binding RunSearchOcrCommand}"
+                      IsVisible="{Binding CanRunDocumentOcr}" />
+              <Button Content="Cancel analysis"
+                      Command="{Binding CancelDocumentTextAnalysisCommand}"
+                      IsVisible="{Binding CanCancelDocumentTextAnalysis}" />
+            </StackPanel>
+
+            <Border Classes="toolbar-group"
+                    IsVisible="{Binding HasSearchResults}">
+              <DockPanel LastChildFill="False"
+                         Margin="0">
+                <StackPanel DockPanel.Dock="Left"
+                            Margin="4"
+                            Spacing="0">
+                  <TextBlock Text="{Binding SearchResultSummary}"
+                             Classes="toolbar-metric-value" />
+                  <TextBlock Text="{Binding SearchSelectionIndicator}"
+                             Classes="toolbar-metric-label" />
+                </StackPanel>
+
+                <StackPanel DockPanel.Dock="Right"
+                            Orientation="Horizontal"
+                            Spacing="4">
+                  <Button Classes="toolbar-button"
+                          Command="{Binding PreviousSearchResultCommand}"
+                          ToolTip.Tip="Previous result">
+                    <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                                Kind="ChevronUp"
+                                                Width="20"
+                                                Height="20"
+                                                Foreground="{DynamicResource Brush.Icon}" />
+                  </Button>
+
+                  <Button Classes="toolbar-button"
+                          Command="{Binding NextSearchResultCommand}"
+                          ToolTip.Tip="Next result">
+                    <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                                Kind="ChevronDown"
+                                                Width="20"
+                                                Height="20"
+                                                Foreground="{DynamicResource Brush.Icon}" />
+                  </Button>
+                </StackPanel>
+              </DockPanel>
+            </Border>
+
+            <ItemsControl ItemsSource="{Binding SearchResults}"
+                          IsVisible="{Binding HasSearchResults}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Button Classes="search-result-button"
+                          Command="{Binding $parent[Window].DataContext.OpenSearchResultCommand}"
+                          CommandParameter="{Binding}"
+                          HorizontalContentAlignment="Stretch">
+                    <Border Classes="search-result-item"
+                            Classes.selected="{Binding IsSelected}">
+                      <StackPanel Spacing="6">
+                        <TextBlock Text="{Binding PageNumber, StringFormat=Page {0}}"
+                                   Classes="metadata-label" />
+                        <TextBlock Text="{Binding Excerpt}"
+                                   TextWrapping="Wrap" />
+                      </StackPanel>
+                    </Border>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+
+      <!-- Preferences panel -->
+      <Border Grid.Column="1"
+              Width="{Binding PreferencesPanelWidth}"
+              Margin="0,24,24,24"
+              Padding="18,16"
+              Classes="card info-panel"
+              Background="{DynamicResource Brush.Surface}"
+              IsVisible="{Binding IsPreferencesPanelOpen}">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="18">
+            <StackPanel Spacing="4">
+              <TextBlock Text="Preferences"
+                         Classes="title" />
+              <TextBlock Text="Choose the default viewer behavior for the next documents you open."
+                         Classes="muted"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+              <TextBlock Text="Theme"
+                         Classes="metadata-label" />
+              <ComboBox Classes="preferences-input"
+                        ItemsSource="{Binding ThemePreferenceOptions}"
+                        SelectedItem="{Binding SelectedThemePreference}" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+              <TextBlock Text="Default zoom"
+                         Classes="metadata-label" />
+              <ComboBox Classes="preferences-input"
+                        ItemsSource="{Binding DefaultZoomPreferenceOptions}"
+                        SelectedItem="{Binding SelectedDefaultZoomPreference}" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+              <TextBlock Text="Sidebar"
+                         Classes="metadata-label" />
+              <CheckBox Content="Show page thumbnails for PDF documents"
+                        IsChecked="{Binding ShowThumbnailsPanelPreference}" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+              <TextBlock Text="Memory cache size"
+                         Classes="metadata-label" />
+              <ComboBox Classes="preferences-input"
+                        ItemsSource="{Binding MemoryCacheEntryLimitOptions}"
+                        SelectedItem="{Binding SelectedMemoryCacheEntryLimit}" />
+              <TextBlock Text="0 disables the in-memory render cache."
+                         Classes="muted"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+
+      <!-- Print panel -->
+      <Border Grid.Column="1"
+              Width="{Binding PrintPanelWidth}"
+              Margin="0,24,24,24"
+              Padding="18,16"
+              Classes="card info-panel"
+              Background="{DynamicResource Brush.Surface}"
+              IsVisible="{Binding IsPrintPanelOpen}">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="18">
+            <StackPanel Spacing="4">
+              <TextBlock Text="Print"
+                         Classes="title" />
+              <TextBlock Text="{Binding CurrentDocumentName}"
+                         FontWeight="SemiBold"
+                         TextWrapping="Wrap" />
+              <TextBlock Text="Choose a printer and the basic print options."
+                         Classes="muted"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+
+            <Border Classes="banner"
+                    Padding="10,8"
+                    IsVisible="{Binding HasPrintPanelNotice}">
+              <TextBlock Text="{Binding PrintPanelNotice}"
+                         Classes="muted"
+                         TextWrapping="Wrap" />
+            </Border>
+
+            <StackPanel Spacing="8">
+              <DockPanel LastChildFill="False">
+                <TextBlock Text="Printer"
+                           Classes="metadata-label"
+                           VerticalAlignment="Center" />
+                <Button Content="Refresh"
+                        DockPanel.Dock="Right"
+                        Command="{Binding RefreshPrintDestinationsCommand}" />
+              </DockPanel>
+
+              <ComboBox Classes="preferences-input"
+                        SelectedItem="{Binding SelectedPrintDestination}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding DisplayName}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+                <ComboBox.ItemsSource>
+                  <Binding Path="PrintDestinations" />
+                </ComboBox.ItemsSource>
+              </ComboBox>
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+              <TextBlock Text="Copies"
+                         Classes="metadata-label" />
+              <TextBox Classes="toolbar-input"
+                       Text="{Binding PrintCopiesInput}" />
+            </StackPanel>
+
+            <StackPanel Spacing="8"
+                        IsVisible="{Binding IsPrintPageRangeVisible}">
+              <TextBlock Text="Pages"
+                         Classes="metadata-label" />
+              <ComboBox Classes="preferences-input"
+                        ItemsSource="{Binding PrintPageRangeOptions}"
+                        SelectedItem="{Binding SelectedPrintPageRangeOption}" />
+              <TextBox Classes="toolbar-input"
+                       Watermark="1-3,5"
+                       Text="{Binding PrintCustomPageRange}"
+                       IsVisible="{Binding IsCustomPrintRangeVisible}" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+              <TextBlock Text="Orientation"
+                         Classes="metadata-label" />
+              <ComboBox Classes="preferences-input"
+                        ItemsSource="{Binding PrintOrientationOptions}"
+                        SelectedItem="{Binding SelectedPrintOrientationOption}" />
+            </StackPanel>
+
+            <CheckBox Content="Scale content to fit the page"
+                      IsChecked="{Binding PrintFitToPage}" />
+
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Spacing="8">
+              <Button Content="Cancel"
+                      Command="{Binding PrintDocumentCommand}" />
+              <Button Content="Print"
+                      Command="{Binding SubmitPrintJobCommand}" />
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
     </Grid>
 
     <!-- Status bar -->

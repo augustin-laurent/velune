@@ -4,8 +4,10 @@ using Velune.Domain.Abstractions;
 using Velune.Infrastructure.Documents;
 using Velune.Infrastructure.FileSystem;
 using Velune.Infrastructure.Image;
+using Velune.Infrastructure.Preferences;
 using Velune.Infrastructure.Pdf;
 using Velune.Infrastructure.Rendering;
+using Velune.Infrastructure.Text;
 
 namespace Velune.Infrastructure.DependencyInjection;
 
@@ -17,6 +19,11 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<TopLevelProvider>();
         services.AddSingleton<IFilePickerService, AvaloniaFilePickerService>();
+        services.AddSingleton<IUserPreferencesService, JsonUserPreferencesService>();
+        services.AddSingleton<IPrintService, SystemPrintService>();
+        services.AddSingleton<IOcrEngine, TesseractOcrEngine>();
+        services.AddTransient<IDocumentTextService, DocumentTextService>();
+        services.AddTransient<IDocumentTextSelectionService, DocumentTextSelectionService>();
 
         services.AddSingleton<PdfiumInitializer>();
 
@@ -29,6 +36,7 @@ public static class ServiceCollectionExtensions
 
         services.AddTransient<PdfiumRenderService>();
         services.AddTransient<ImageRenderService>();
+        services.AddTransient<IPdfDocumentStructureService, QpdfDocumentStructureService>();
 
         services.AddTransient<CompositeRenderService>();
         services.AddTransient<IRenderService>(sp =>

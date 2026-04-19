@@ -296,4 +296,48 @@
       <Setter Property="FontSize" Value="11" />
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
+
+    <Style Selector="Button.search-result-button">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+
+    <Style Selector="Button.search-result-button:pointerover /template/ ContentPresenter">
+      <Setter Property="Opacity" Value="0.96" />
+    </Style>
+
+    <Style Selector="Border.search-result-item">
+      <Setter Property="Padding" Value="12" />
+      <Setter Property="Margin" Value="0,0,0,10" />
+      <Setter Property="Background" Value="{DynamicResource Brush.SurfaceMuted}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="10" />
+    </Style>
+
+    <Style Selector="Border.search-result-item.selected">
+      <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
+      <Setter Property="BorderThickness" Value="2" />
+    </Style>
+
+    <Style Selector="Border.search-highlight">
+      <Setter Property="Background" Value="#45FFCE54" />
+      <Setter Property="BorderBrush" Value="#B5FFCE54" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="BoxShadow" Value="0 0 0 1 #1EFFFFFF" />
+      <Setter Property="Opacity" Value="1" />
+    </Style>
+
+    <Style Selector="Border.text-selection-highlight">
+      <Setter Property="Background" Value="#6F76A8FF" />
+      <Setter Property="BorderBrush" Value="#C8DFFF" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Opacity" Value="1" />
+      <Setter Property="BoxShadow" Value="0 0 0 1 #2C5A8FFF" />
+    </Style>
 </Styles>

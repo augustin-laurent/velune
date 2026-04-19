@@ -39,6 +39,26 @@ public sealed class AppOptions
         get; set;
     } = 30;
 
+    public string? OcrCachePath
+    {
+        get; set;
+    }
+
+    public string TesseractExecutablePath
+    {
+        get; set;
+    } = "tesseract";
+
+    public string? TesseractDataPath
+    {
+        get; set;
+    }
+
+    public string[] DefaultOcrLanguages
+    {
+        get; set;
+    } = [];
+
     public string QpdfExecutablePath
     {
         get; set;

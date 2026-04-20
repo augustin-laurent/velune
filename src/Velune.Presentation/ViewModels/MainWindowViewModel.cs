@@ -391,12 +391,17 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public bool HasTextSelectionHighlights => TextSelectionHighlights.Count > 0;
     public bool HasSelectedDocumentText => !string.IsNullOrWhiteSpace(SelectedDocumentText);
     public string HeaderTitle => CurrentDocumentName ?? ApplicationTitle;
+    public string HeaderSubtitle => HasOpenDocument
+        ? (CurrentDocumentType ?? "Document")
+        : "PDF and image viewer";
+    public bool ShouldEmphasizeOpenAction => !HasOpenDocument;
     public bool IsPdfDocument => HasOpenDocument && !IsCurrentImageDocument;
     public bool IsImageAutoFitActive => HasOpenDocument && IsCurrentImageDocument && _isImageAutoFitEnabled;
     public bool IsScrollableViewerVisible => !IsImageAutoFitActive;
     public bool IsSidebarVisible => HasOpenDocument && !IsCurrentImageDocument && ShowThumbnailsPanelPreference;
     public bool IsPageNavigationVisible => !HasOpenDocument || !IsCurrentImageDocument;
     public bool IsPdfStructureActionsVisible => IsPdfDocument;
+    public bool IsSidebarActionStripVisible => IsPdfDocument && (CanPersistCurrentPageRotation || HasPendingPageReorder);
     public bool IsInfoPanelOpen => HasOpenDocument && IsInfoPanelVisible;
     public bool IsSearchPanelOpen => HasOpenDocument && IsSearchPanelVisible;
     public bool IsPreferencesPanelOpen => HasOpenDocument && IsPreferencesPanelVisible;
@@ -475,12 +480,16 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     partial void OnHasOpenDocumentChanged(bool value)
     {
         OnPropertyChanged(nameof(IsEmptyStateVisible));
+        OnPropertyChanged(nameof(HeaderSubtitle));
+        OnPropertyChanged(nameof(ShouldEmphasizeOpenAction));
         OnPropertyChanged(nameof(CanGoToPage));
         OnPropertyChanged(nameof(IsPdfDocument));
         NotifyViewerModeChanged();
         NotifySidebarVisibilityChanged();
         OnPropertyChanged(nameof(IsPageNavigationVisible));
         OnPropertyChanged(nameof(IsPdfStructureActionsVisible));
+        OnPropertyChanged(nameof(CanPersistCurrentPageRotation));
+        OnPropertyChanged(nameof(IsSidebarActionStripVisible));
         OnPropertyChanged(nameof(IsInfoPanelOpen));
         OnPropertyChanged(nameof(InfoPanelWidth));
         OnPropertyChanged(nameof(IsSearchPanelOpen));
@@ -523,6 +532,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         NotifySidebarVisibilityChanged();
         OnPropertyChanged(nameof(IsPageNavigationVisible));
         OnPropertyChanged(nameof(IsPdfStructureActionsVisible));
+        OnPropertyChanged(nameof(CanPersistCurrentPageRotation));
+        OnPropertyChanged(nameof(IsSidebarActionStripVisible));
         OnPropertyChanged(nameof(IsPrintPageRangeVisible));
         OnPropertyChanged(nameof(IsCustomPrintRangeVisible));
         PersistCurrentPageRotationCommand.NotifyCanExecuteChanged();
@@ -624,9 +635,16 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(HeaderTitle));
     }
 
+    partial void OnCurrentDocumentTypeChanged(string? value)
+    {
+        OnPropertyChanged(nameof(HeaderSubtitle));
+    }
+
     partial void OnCurrentPageChanged(int value)
     {
         OnPropertyChanged(nameof(PageIndicator));
+        OnPropertyChanged(nameof(CanPersistCurrentPageRotation));
+        OnPropertyChanged(nameof(IsSidebarActionStripVisible));
         PreviousPageCommand.NotifyCanExecuteChanged();
         NextPageCommand.NotifyCanExecuteChanged();
         UpdateSelectedThumbnail();
@@ -656,6 +674,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     partial void OnHasPendingPageReorderChanged(bool value)
     {
+        OnPropertyChanged(nameof(IsSidebarActionStripVisible));
         SaveReorderedPdfCommand.NotifyCanExecuteChanged();
         MoveCurrentPageEarlierCommand.NotifyCanExecuteChanged();
         MoveCurrentPageLaterCommand.NotifyCanExecuteChanged();
@@ -1158,43 +1177,39 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(CanExtractCurrentPage))]
     private async Task ExtractCurrentPageAsync()
     {
-        var currentDocumentPath = CurrentDocumentPath;
-        if (string.IsNullOrWhiteSpace(currentDocumentPath))
+        await ExtractPageAsync(CurrentPage, CurrentPage.ToString(CultureInfo.InvariantCulture));
+    }
+
+    [RelayCommand(CanExecute = nameof(CanExtractCurrentPage))]
+    private async Task ExtractThumbnailPageAsync(PageThumbnailItemViewModel? thumbnail)
+    {
+        if (thumbnail is null)
         {
             return;
         }
 
-        await ExecutePdfStructureOperationAsync(
-            title: "Extract current page",
-            suggestedFileName: BuildSuggestedPdfFileName(),
-            executeOperation: outputPath => _extractPdfPagesUseCase.ExecuteAsync(
-                new ExtractPdfPagesRequest(
-                    currentDocumentPath,
-                    outputPath,
-                    [CurrentPage])),
-            successStatus: $"Extracted page {CurrentPage}",
-            failureTitle: "Unable to extract page");
+        await ExtractPageAsync(
+            thumbnail.SourcePageNumber,
+            thumbnail.DisplayPageNumber.ToString(CultureInfo.InvariantCulture));
     }
 
     [RelayCommand(CanExecute = nameof(CanDeleteCurrentPage))]
     private async Task DeleteCurrentPageAsync()
     {
-        var currentDocumentPath = CurrentDocumentPath;
-        if (string.IsNullOrWhiteSpace(currentDocumentPath))
+        await DeletePageAsync(CurrentPage, CurrentPage.ToString(CultureInfo.InvariantCulture));
+    }
+
+    [RelayCommand(CanExecute = nameof(CanDeleteCurrentPage))]
+    private async Task DeleteThumbnailPageAsync(PageThumbnailItemViewModel? thumbnail)
+    {
+        if (thumbnail is null)
         {
             return;
         }
 
-        await ExecutePdfStructureOperationAsync(
-            title: "Save PDF without current page",
-            suggestedFileName: BuildSuggestedPdfFileName(),
-            executeOperation: outputPath => _deletePdfPagesUseCase.ExecuteAsync(
-                new DeletePdfPagesRequest(
-                    currentDocumentPath,
-                    outputPath,
-                    [CurrentPage])),
-            successStatus: $"Saved PDF without page {CurrentPage}",
-            failureTitle: "Unable to delete page");
+        await DeletePageAsync(
+            thumbnail.SourcePageNumber,
+            thumbnail.DisplayPageNumber.ToString(CultureInfo.InvariantCulture));
     }
 
     [RelayCommand(CanExecute = nameof(CanSaveReorderedPdf))]
@@ -2549,7 +2564,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         IsCurrentImageDocument = session.Metadata.DocumentType is DocumentType.Image;
         HasOpenDocument = true;
         CurrentDocumentName = session.Metadata.FileName;
-        CurrentDocumentType = session.Metadata.DocumentType.ToString();
+        CurrentDocumentType = session.Metadata.FormatLabel ?? GetDocumentKindLabel(session.Metadata.DocumentType);
         CurrentDocumentPath = session.Metadata.FilePath;
         CurrentPage = session.Viewport.CurrentPage.Value + 1;
         TotalPages = session.Metadata.PageCount ?? 1;
@@ -2565,6 +2580,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         CurrentZoom = $"{pageState.ZoomFactor * 100:0}%";
         CurrentRotation = $"{(int)pageState.Rotation}°";
         CurrentPage = pageState.PageIndex.Value + 1;
+        OnPropertyChanged(nameof(CanPersistCurrentPageRotation));
+        OnPropertyChanged(nameof(IsSidebarActionStripVisible));
         PersistCurrentPageRotationCommand.NotifyCanExecuteChanged();
     }
 
@@ -3000,10 +3017,52 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         _isApplyingPdfStructureOperation = isBusy;
         OnPropertyChanged(nameof(IsPdfStructureOperationInProgress));
+        OnPropertyChanged(nameof(CanPersistCurrentPageRotation));
+        OnPropertyChanged(nameof(IsSidebarActionStripVisible));
         PersistCurrentPageRotationCommand.NotifyCanExecuteChanged();
         ExtractCurrentPageCommand.NotifyCanExecuteChanged();
         DeleteCurrentPageCommand.NotifyCanExecuteChanged();
         SaveReorderedPdfCommand.NotifyCanExecuteChanged();
+    }
+
+    private async Task ExtractPageAsync(int sourcePageNumber, string pageLabel)
+    {
+        var currentDocumentPath = CurrentDocumentPath;
+        if (string.IsNullOrWhiteSpace(currentDocumentPath))
+        {
+            return;
+        }
+
+        await ExecutePdfStructureOperationAsync(
+            title: "Extract page",
+            suggestedFileName: BuildSuggestedPdfFileName(),
+            executeOperation: outputPath => _extractPdfPagesUseCase.ExecuteAsync(
+                new ExtractPdfPagesRequest(
+                    currentDocumentPath,
+                    outputPath,
+                    [sourcePageNumber])),
+            successStatus: $"Extracted page {pageLabel}",
+            failureTitle: "Unable to extract page");
+    }
+
+    private async Task DeletePageAsync(int sourcePageNumber, string pageLabel)
+    {
+        var currentDocumentPath = CurrentDocumentPath;
+        if (string.IsNullOrWhiteSpace(currentDocumentPath))
+        {
+            return;
+        }
+
+        await ExecutePdfStructureOperationAsync(
+            title: "Save PDF without page",
+            suggestedFileName: BuildSuggestedPdfFileName(),
+            executeOperation: outputPath => _deletePdfPagesUseCase.ExecuteAsync(
+                new DeletePdfPagesRequest(
+                    currentDocumentPath,
+                    outputPath,
+                    [sourcePageNumber])),
+            successStatus: $"Saved PDF without page {pageLabel}",
+            failureTitle: "Unable to delete page");
     }
 
     private string BuildSuggestedPdfFileName()

@@ -152,6 +152,19 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
+    private async void OnGoToPageInputKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key is not Key.Enter ||
+            DataContext is not MainWindowViewModel viewModel ||
+            !viewModel.GoToPageCommand.CanExecute(null))
+        {
+            return;
+        }
+
+        await viewModel.GoToPageCommand.ExecuteAsync(null);
+        e.Handled = true;
+    }
+
     private async void OnDocumentTextSelectionPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (sender is not Control layer ||

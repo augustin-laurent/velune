@@ -1,4 +1,5 @@
 using Avalonia.Media.Imaging;
+using Velune.Application.Documents;
 using Velune.Domain.Abstractions;
 using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
@@ -16,9 +17,9 @@ public sealed class AvaloniaImageDocumentOpener
             throw new FileNotFoundException("The image file does not exist.", filePath);
         }
 
-        var extension = Path.GetExtension(filePath).ToLowerInvariant();
+        var extension = Path.GetExtension(filePath);
 
-        if (extension is not (".jpg" or ".jpeg" or ".png" or ".webp"))
+        if (!SupportedDocumentFormats.IsImage(extension))
         {
             throw new NotSupportedException($"Unsupported image file type: {extension}");
         }
@@ -39,7 +40,7 @@ public sealed class AvaloniaImageDocumentOpener
             pageCount: 1,
             pixelWidth: bitmap.PixelSize.Width,
             pixelHeight: bitmap.PixelSize.Height,
-            formatLabel: GetFormatLabel(extension),
+            formatLabel: SupportedDocumentFormats.GetImageFormatLabel(extension),
             createdAt: fileInfo.CreationTimeUtc,
             modifiedAt: fileInfo.LastWriteTimeUtc);
 
@@ -51,16 +52,5 @@ public sealed class AvaloniaImageDocumentOpener
             viewport: ViewportState.Default,
             imageMetadata: imageMetadata,
             resource: resource);
-    }
-
-    private static string GetFormatLabel(string extension)
-    {
-        return extension switch
-        {
-            ".jpg" or ".jpeg" => "JPEG image",
-            ".png" => "PNG image",
-            ".webp" => "WebP image",
-            _ => "Image"
-        };
     }
 }

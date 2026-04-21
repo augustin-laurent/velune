@@ -183,7 +183,7 @@ public sealed class DocumentTextIntegrationTests
         return new DocumentTextService(
             new DocumentTextDiskCache(NullLogger<DocumentTextDiskCache>.Instance, options),
             new TesseractOcrEngine(options),
-            new CompositeRenderService(
+            new DispatchingRenderService(
                 new PdfiumRenderService(initializer),
                 new ImageRenderService()),
             options);

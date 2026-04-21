@@ -102,7 +102,7 @@ public sealed class RenderOrchestratorTests
         using var orchestrator = new RenderOrchestrator(NoOpPerformanceMetrics.Instance, CreateCache(), diskCache, store, renderService);
 
         var handle = orchestrator.Submit(
-            new RenderRequest("thumbnail:0", new PageIndex(0), 0.20, Rotation.Deg0, 170, 150));
+            new RenderRequest("thumbnail:0", new PageIndex(0), 0.20, Rotation.Deg0, 170, 150, RenderPriority.Thumbnail));
 
         var result = await handle.Completion.WaitAsync(TimeSpan.FromSeconds(1));
 
@@ -148,7 +148,7 @@ public sealed class RenderOrchestratorTests
         using var orchestrator = new RenderOrchestrator(metrics, CreateCache(), new NullThumbnailDiskCache(), store, renderService);
 
         var handle = orchestrator.Submit(
-            new RenderRequest("thumbnail:0", new PageIndex(0), 0.20, Rotation.Deg0, 170, 150));
+            new RenderRequest("thumbnail:0", new PageIndex(0), 0.20, Rotation.Deg0, 170, 150, RenderPriority.Thumbnail));
         var result = await handle.Completion;
 
         Assert.True(result.IsSuccess);
@@ -157,6 +157,31 @@ public sealed class RenderOrchestratorTests
             entry => entry.LogLevel == Microsoft.Extensions.Logging.LogLevel.Information &&
                      entry.Message.Contains("ThumbnailRender", StringComparison.Ordinal) &&
                      entry.Message.Contains("ManagedMemoryMb", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Submit_ShouldCancelThumbnailWorkWhenViewerRequestArrives()
+    {
+        var store = CreateStoreWithSession();
+        var renderService = new ControlledRenderService();
+        renderService.EnqueueGate();
+        using var orchestrator = new RenderOrchestrator(NoOpPerformanceMetrics.Instance, CreateCache(), new NullThumbnailDiskCache(), store, renderService);
+
+        var thumbnail = orchestrator.Submit(
+            new RenderRequest("thumbnail:0", new PageIndex(0), 0.20, Rotation.Deg0, 170, 150, RenderPriority.Thumbnail));
+
+        Assert.True(SpinWait.SpinUntil(() => renderService.InvocationCount == 1, TimeSpan.FromSeconds(1)));
+
+        var viewer = orchestrator.Submit(
+            new RenderRequest("viewer", new PageIndex(0), 1.0, Rotation.Deg0, Priority: RenderPriority.Viewer));
+
+        var thumbnailResult = await thumbnail.Completion;
+        var viewerResult = await viewer.Completion.WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.True(thumbnailResult.IsCanceled);
+        Assert.True(thumbnailResult.IsObsolete);
+        Assert.True(viewerResult.IsSuccess);
+        Assert.Equal(2, renderService.InvocationCount);
     }
 
     private static InMemoryDocumentSessionStore CreateStoreWithSession()

@@ -5,6 +5,7 @@ namespace Velune.Infrastructure.Image;
 internal sealed class ImageDocumentResource : IDisposable
 {
     private bool _disposed;
+    private Bitmap? _bitmap;
 
     public ImageDocumentResource(byte[] fileBytes, Bitmap bitmap)
     {
@@ -12,7 +13,7 @@ internal sealed class ImageDocumentResource : IDisposable
         ArgumentNullException.ThrowIfNull(bitmap);
 
         FileBytes = fileBytes;
-        Bitmap = bitmap;
+        _bitmap = bitmap;
     }
 
     public byte[] FileBytes
@@ -22,7 +23,11 @@ internal sealed class ImageDocumentResource : IDisposable
 
     public Bitmap Bitmap
     {
-        get; private set;
+        get
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _bitmap ?? throw new ObjectDisposedException(nameof(ImageDocumentResource));
+        }
     }
 
     public void Dispose()
@@ -40,7 +45,8 @@ internal sealed class ImageDocumentResource : IDisposable
 
         if (disposing)
         {
-            Bitmap.Dispose();
+            _bitmap?.Dispose();
+            _bitmap = null;
         }
 
         _disposed = true;

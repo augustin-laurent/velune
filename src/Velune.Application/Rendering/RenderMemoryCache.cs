@@ -8,12 +8,15 @@ namespace Velune.Application.Rendering;
 
 public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
 {
+    private const int MaxCachedPageBytes = 64 * 1024 * 1024;
+    private const long MaxTotalCacheBytes = 256L * 1024 * 1024;
     private readonly object _gate = new();
     private readonly Dictionary<RenderCacheKey, LinkedListNode<RenderCacheEntry>> _entries = [];
     private readonly LinkedList<RenderCacheEntry> _lru = [];
     private readonly ILogger<RenderMemoryCache> _logger;
     private readonly IUserPreferencesService _userPreferencesService;
     private volatile int _entryLimit;
+    private long _totalCachedBytes;
     private bool _disposed;
 
     public RenderMemoryCache(
@@ -76,15 +79,23 @@ public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
             return;
         }
 
+        if (renderedPage.ByteCount > MaxCachedPageBytes)
+        {
+            return;
+        }
+
         var key = RenderCacheKey.Create(documentId, request);
 
         lock (_gate)
         {
             if (_entries.TryGetValue(key, out var existingNode))
             {
+                _totalCachedBytes -= existingNode.Value.RenderedPage.ByteCount;
                 existingNode.Value = new RenderCacheEntry(key, renderedPage);
                 _lru.Remove(existingNode);
                 _lru.AddFirst(existingNode);
+                _totalCachedBytes += renderedPage.ByteCount;
+                TrimToBudget();
                 return;
             }
 
@@ -93,17 +104,8 @@ public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
 
             _entries[key] = node;
             _lru.AddFirst(node);
-
-            while (_entries.Count > _entryLimit && _lru.Last is not null)
-            {
-                var leastRecentlyUsed = _lru.Last;
-                _lru.RemoveLast();
-
-                if (leastRecentlyUsed is not null)
-                {
-                    _entries.Remove(leastRecentlyUsed.Value.Key);
-                }
-            }
+            _totalCachedBytes += renderedPage.ByteCount;
+            TrimToBudget();
         }
     }
 
@@ -133,19 +135,31 @@ public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
             {
                 _entries.Clear();
                 _lru.Clear();
+                _totalCachedBytes = 0;
                 return;
             }
 
-            while (_entries.Count > entryLimit && _lru.Last is not null)
-            {
-                var leastRecentlyUsed = _lru.Last;
-                _lru.RemoveLast();
+            TrimToBudget(entryLimit);
+        }
+    }
 
-                if (leastRecentlyUsed is not null)
-                {
-                    _entries.Remove(leastRecentlyUsed.Value.Key);
-                }
+    private void TrimToBudget(int? entryLimitOverride = null)
+    {
+        var entryLimit = entryLimitOverride ?? _entryLimit;
+
+        while ((_entries.Count > entryLimit || _totalCachedBytes > MaxTotalCacheBytes) &&
+               _lru.Last is not null)
+        {
+            var leastRecentlyUsed = _lru.Last;
+            _lru.RemoveLast();
+
+            if (leastRecentlyUsed is null)
+            {
+                continue;
             }
+
+            _entries.Remove(leastRecentlyUsed.Value.Key);
+            _totalCachedBytes -= leastRecentlyUsed.Value.RenderedPage.ByteCount;
         }
     }
 
@@ -182,7 +196,7 @@ public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
     private sealed record RenderCacheKey(
         DocumentId DocumentId,
         PageIndex PageIndex,
-        double ZoomFactor,
+        int ZoomFactorTimes10000,
         Rotation Rotation,
         int RequestedWidth,
         int RequestedHeight)
@@ -196,7 +210,7 @@ public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
             return new RenderCacheKey(
                 documentId,
                 request.PageIndex,
-                Math.Round(request.ZoomFactor, 4, MidpointRounding.AwayFromZero),
+                (int)Math.Round(request.ZoomFactor * 10000, 0, MidpointRounding.AwayFromZero),
                 request.Rotation,
                 request.RequestedWidth ?? 0,
                 request.RequestedHeight ?? 0);

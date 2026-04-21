@@ -536,7 +536,7 @@ public sealed class DocumentTextService : IDocumentTextService
             string outputPath,
             int width,
             int height,
-            byte[] bgra,
+            ReadOnlyMemory<byte> bgra,
             CancellationToken cancellationToken)
         {
             var rgba = ConvertBgraToRgba(bgra);
@@ -548,15 +548,16 @@ public sealed class DocumentTextService : IDocumentTextService
             await WriteChunkAsync(stream, "IEND", [], cancellationToken);
         }
 
-        private static byte[] ConvertBgraToRgba(byte[] bgra)
+        private static byte[] ConvertBgraToRgba(ReadOnlyMemory<byte> bgra)
         {
-            var rgba = new byte[bgra.Length];
-            for (var index = 0; index < bgra.Length; index += 4)
+            var bgraSpan = bgra.Span;
+            var rgba = new byte[bgraSpan.Length];
+            for (var index = 0; index < bgraSpan.Length; index += 4)
             {
-                rgba[index] = bgra[index + 2];
-                rgba[index + 1] = bgra[index + 1];
-                rgba[index + 2] = bgra[index];
-                rgba[index + 3] = bgra[index + 3];
+                rgba[index] = bgraSpan[index + 2];
+                rgba[index + 1] = bgraSpan[index + 1];
+                rgba[index + 2] = bgraSpan[index];
+                rgba[index + 3] = bgraSpan[index + 3];
             }
 
             return rgba;

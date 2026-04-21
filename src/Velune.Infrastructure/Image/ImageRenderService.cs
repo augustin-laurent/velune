@@ -35,8 +35,7 @@ public sealed class ImageRenderService : IRenderService
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            using var stream = new MemoryStream(imageSession.Resource.FileBytes);
-            using var source = new Bitmap(stream);
+            var source = imageSession.Resource.Bitmap;
 
             var sourceWidth = source.PixelSize.Width;
             var sourceHeight = source.PixelSize.Height;
@@ -45,24 +44,6 @@ public sealed class ImageRenderService : IRenderService
             var scaledHeight = Math.Max(1, (int)Math.Floor(sourceHeight * zoomFactor));
 
             var shouldScale = scaledWidth != sourceWidth || scaledHeight != sourceHeight;
-
-            if (!shouldScale &&
-                TryDecodeOriginalPng(imageSession.Resource.FileBytes, out var originalPixels, out var originalWidth, out var originalHeight))
-            {
-                var rotatedOriginalPixels = RotateBgra(
-                    originalPixels,
-                    originalWidth,
-                    originalHeight,
-                    rotation,
-                    out var originalFinalWidth,
-                    out var originalFinalHeight);
-
-                return new RenderedPage(
-                    pageIndex,
-                    rotatedOriginalPixels,
-                    originalFinalWidth,
-                    originalFinalHeight);
-            }
 
             var workingBitmap = shouldScale
                 ? source.CreateScaledBitmap(
@@ -100,11 +81,6 @@ public sealed class ImageRenderService : IRenderService
 
     private static byte[] CopyBitmapPixels(Bitmap bitmap)
     {
-        return CopyBitmapPixels(bitmap, allowFallback: true);
-    }
-
-    private static byte[] CopyBitmapPixels(Bitmap bitmap, bool allowFallback)
-    {
         var width = bitmap.PixelSize.Width;
         var height = bitmap.PixelSize.Height;
         var stride = width * 4;
@@ -115,213 +91,19 @@ public sealed class ImageRenderService : IRenderService
 
         try
         {
-            try
-            {
-                bitmap.CopyPixels(
-                    new PixelRect(0, 0, width, height),
-                    unmanagedBuffer,
-                    bufferSize,
-                    stride);
+            bitmap.CopyPixels(
+                new PixelRect(0, 0, width, height),
+                unmanagedBuffer,
+                bufferSize,
+                stride);
 
-                Marshal.Copy(unmanagedBuffer, result, 0, bufferSize);
-                return result;
-            }
-            catch (NotSupportedException) when (allowFallback)
-            {
-                using var stream = new MemoryStream();
-                bitmap.Save(stream);
-                return DecodeSavedBitmapToBgra(stream.ToArray(), width, height);
-            }
+            Marshal.Copy(unmanagedBuffer, result, 0, bufferSize);
+            return result;
         }
         finally
         {
             Marshal.FreeHGlobal(unmanagedBuffer);
         }
-    }
-
-    private static byte[] DecodeSavedBitmapToBgra(byte[] pngBytes, int width, int height)
-    {
-        var offset = 8;
-        using var idat = new MemoryStream();
-
-        while (offset < pngBytes.Length)
-        {
-            var chunkLength = ReadInt32BigEndian(pngBytes, offset);
-            offset += 4;
-
-            var chunkType = System.Text.Encoding.ASCII.GetString(pngBytes, offset, 4);
-            offset += 4;
-
-            if (chunkType == "IDAT")
-            {
-                idat.Write(pngBytes, offset, chunkLength);
-            }
-
-            offset += chunkLength + 4;
-
-            if (chunkType == "IEND")
-            {
-                break;
-            }
-        }
-
-        using var compressedStream = new MemoryStream(idat.ToArray());
-        using var zlib = new System.IO.Compression.ZLibStream(
-            compressedStream,
-            System.IO.Compression.CompressionMode.Decompress);
-        using var raw = new MemoryStream();
-        zlib.CopyTo(raw);
-
-        var rgba = Unfilter(raw.ToArray(), width, height);
-        return ConvertRgbaToBgra(rgba);
-    }
-
-    private static bool TryDecodeOriginalPng(
-        byte[] fileBytes,
-        out byte[] bgra,
-        out int width,
-        out int height)
-    {
-        bgra = [];
-        width = 0;
-        height = 0;
-
-        if (fileBytes.Length < 8 ||
-            fileBytes[0] != 137 ||
-            fileBytes[1] != 80 ||
-            fileBytes[2] != 78 ||
-            fileBytes[3] != 71)
-        {
-            return false;
-        }
-
-        var offset = 8;
-        using var idat = new MemoryStream();
-
-        while (offset < fileBytes.Length)
-        {
-            var chunkLength = ReadInt32BigEndian(fileBytes, offset);
-            offset += 4;
-
-            var chunkType = System.Text.Encoding.ASCII.GetString(fileBytes, offset, 4);
-            offset += 4;
-
-            if (chunkType == "IHDR")
-            {
-                width = ReadInt32BigEndian(fileBytes, offset);
-                height = ReadInt32BigEndian(fileBytes, offset + 4);
-            }
-            else if (chunkType == "IDAT")
-            {
-                idat.Write(fileBytes, offset, chunkLength);
-            }
-
-            offset += chunkLength + 4;
-
-            if (chunkType == "IEND")
-            {
-                break;
-            }
-        }
-
-        if (width <= 0 || height <= 0)
-        {
-            return false;
-        }
-
-        using var compressedStream = new MemoryStream(idat.ToArray());
-        using var zlib = new System.IO.Compression.ZLibStream(
-            compressedStream,
-            System.IO.Compression.CompressionMode.Decompress);
-        using var raw = new MemoryStream();
-        zlib.CopyTo(raw);
-
-        var rgba = Unfilter(raw.ToArray(), width, height);
-        bgra = ConvertRgbaToBgra(rgba);
-        return true;
-    }
-
-    private static byte[] Unfilter(byte[] data, int width, int height)
-    {
-        var bytesPerPixel = 4;
-        var stride = width * bytesPerPixel;
-        var result = new byte[height * stride];
-        var sourceOffset = 0;
-
-        for (var row = 0; row < height; row++)
-        {
-            var filter = data[sourceOffset++];
-            var rowStart = row * stride;
-
-            for (var column = 0; column < stride; column++)
-            {
-                var raw = data[sourceOffset++];
-                var left = column >= bytesPerPixel
-                    ? result[rowStart + column - bytesPerPixel]
-                    : 0;
-                var up = row > 0
-                    ? result[rowStart + column - stride]
-                    : 0;
-                var upLeft = row > 0 && column >= bytesPerPixel
-                    ? result[rowStart + column - stride - bytesPerPixel]
-                    : 0;
-
-                result[rowStart + column] = filter switch
-                {
-                    0 => raw,
-                    1 => unchecked((byte)(raw + left)),
-                    2 => unchecked((byte)(raw + up)),
-                    3 => unchecked((byte)(raw + ((left + up) / 2))),
-                    4 => unchecked((byte)(raw + PaethPredictor(left, up, upLeft))),
-                    _ => throw new InvalidOperationException($"Unsupported PNG filter type: {filter}.")
-                };
-            }
-        }
-
-        return result;
-    }
-
-    private static byte[] ConvertRgbaToBgra(byte[] rgba)
-    {
-        var bgra = new byte[rgba.Length];
-
-        for (var index = 0; index < rgba.Length; index += 4)
-        {
-            bgra[index] = rgba[index + 2];
-            bgra[index + 1] = rgba[index + 1];
-            bgra[index + 2] = rgba[index];
-            bgra[index + 3] = rgba[index + 3];
-        }
-
-        return bgra;
-    }
-
-    private static int ReadInt32BigEndian(byte[] data, int offset)
-    {
-        return (data[offset] << 24) |
-               (data[offset + 1] << 16) |
-               (data[offset + 2] << 8) |
-               data[offset + 3];
-    }
-
-    private static int PaethPredictor(int left, int up, int upLeft)
-    {
-        var initial = left + up - upLeft;
-        var distanceLeft = Math.Abs(initial - left);
-        var distanceUp = Math.Abs(initial - up);
-        var distanceUpLeft = Math.Abs(initial - upLeft);
-
-        if (distanceLeft <= distanceUp && distanceLeft <= distanceUpLeft)
-        {
-            return left;
-        }
-
-        if (distanceUp <= distanceUpLeft)
-        {
-            return up;
-        }
-
-        return upLeft;
     }
 
     private static byte[] RotateBgra(

@@ -3,7 +3,17 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Name="Velune"
     RequestedThemeVariant="Default">
+
+  <NativeMenu.Menu>
+    <NativeMenu>
+      <NativeMenuItem Header="About Velune" Click="OnAboutMenuClicked" />
+      <NativeMenuItem Header="Preferences"
+                      Click="OnPreferencesMenuClicked"
+                      Gesture="Meta+OemComma" />
+    </NativeMenu>
+  </NativeMenu.Menu>
 
   <Application.Styles>
     <FluentTheme />

@@ -40,6 +40,14 @@
     <Setter Property="CornerRadius" Value="12" />
   </Style>
 
+  <Style Selector="Border.empty-state-brand-shell">
+    <Setter Property="Background" Value="{DynamicResource Brush.BrandPanel}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="40" />
+    <Setter Property="BoxShadow" Value="0 22 48 0 #18000000, 0 8 20 0 #14000000" />
+  </Style>
+
   <Style Selector="TextBlock.title">
     <Setter Property="FontSize" Value="{DynamicResource FontSize.Title}" />
     <Setter Property="FontWeight" Value="SemiBold" />
@@ -175,6 +183,38 @@
       <Setter Property="Padding" Value="4" />
     </Style>
 
+    <Style Selector="Border.header-search-group">
+      <Setter Property="Background" Value="{DynamicResource Brush.SurfaceMuted}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="MinHeight" Value="46" />
+    </Style>
+
+    <Style Selector="TextBox.header-title-input">
+      <Setter Property="MinHeight" Value="34" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSize.Title}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="TextBox.header-title-input:pointerover">
+      <Setter Property="Opacity" Value="0.94" />
+    </Style>
+
+    <Style Selector="TextBox.header-title-input:focus">
+      <Setter Property="Padding" Value="10,0" />
+      <Setter Property="Background" Value="{DynamicResource Brush.SurfaceMuted}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="10" />
+    </Style>
+
     <Style Selector="Button.header-action-button">
       <Setter Property="Padding" Value="10,0" />
       <Setter Property="MinHeight" Value="38" />
@@ -200,10 +240,52 @@
       <Setter Property="Opacity" Value="0.36" />
     </Style>
 
+    <Style Selector="Button.sidebar-toggle-button">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinHeight" Value="42" />
+      <Setter Property="MinWidth" Value="42" />
+      <Setter Property="Background" Value="{DynamicResource Brush.SurfaceMuted}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="12" />
+    </Style>
+
+    <Style Selector="Button.sidebar-toggle-button:pointerover">
+      <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderStrong}" />
+    </Style>
+
+    <Style Selector="Button.sidebar-toggle-button:pressed">
+      <Setter Property="Background" Value="{DynamicResource Brush.SurfaceStrong}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderStrong}" />
+    </Style>
+
     <Style Selector="TextBlock.header-action-label">
       <Setter Property="FontSize" Value="13" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="TextBox.header-search-input">
+      <Setter Property="MinHeight" Value="34" />
+      <Setter Property="Padding" Value="2,0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="Button.header-search-button">
+      <Setter Property="Padding" Value="10,0" />
+      <Setter Property="MinHeight" Value="34" />
+      <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="9" />
+    </Style>
+
+    <Style Selector="Button.header-search-button:pointerover">
+      <Setter Property="Background" Value="{DynamicResource Brush.SurfaceStrong}" />
     </Style>
 
     <Style Selector="TextBlock.header-chip-label">
@@ -438,6 +520,7 @@
       <Setter Property="Padding" Value="0" />
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
     </Style>
 
@@ -448,6 +531,7 @@
     <Style Selector="Border.search-result-item">
       <Setter Property="Padding" Value="12" />
       <Setter Property="Margin" Value="0,0,0,10" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
       <Setter Property="Background" Value="{DynamicResource Brush.SurfaceMuted}" />
       <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
       <Setter Property="BorderThickness" Value="1" />

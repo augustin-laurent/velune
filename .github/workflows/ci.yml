@@ -35,6 +35,14 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', 'Velune.slnx') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
       - name: Restore
         run: dotnet restore Velune.slnx
 
@@ -55,6 +63,14 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', 'Velune.slnx') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
       - name: Restore
         run: dotnet restore Velune.slnx
 
@@ -62,10 +78,17 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y qpdf tesseract-ocr
 
       - name: Unit tests
-        run: dotnet test tests/Velune.Tests.Unit/Velune.Tests.Unit.csproj --configuration Release --no-restore
+        run: dotnet test tests/Velune.Tests.Unit/Velune.Tests.Unit.csproj --configuration Release --no-restore --logger "trx;LogFileName=unit-tests.trx" --results-directory artifacts/test-results/unit
 
       - name: Integration tests
-        run: dotnet test tests/Velune.Tests.Integration/Velune.Tests.Integration.csproj --configuration Release --no-restore
+        run: dotnet test tests/Velune.Tests.Integration/Velune.Tests.Integration.csproj --configuration Release --no-restore --logger "trx;LogFileName=integration-tests.trx" --results-directory artifacts/test-results/integration
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: artifacts/test-results
 
   render-snapshots:
     name: Render snapshots (macos-latest)
@@ -81,8 +104,23 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', 'Velune.slnx') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
       - name: Restore
         run: dotnet restore Velune.slnx
 
       - name: Render tests
-        run: dotnet test tests/Velune.Tests.Render/Velune.Tests.Render.csproj --configuration Release --no-restore
+        run: dotnet test tests/Velune.Tests.Render/Velune.Tests.Render.csproj --configuration Release --no-restore --logger "trx;LogFileName=render-tests.trx" --results-directory artifacts/test-results/render
+
+      - name: Upload render test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: render-test-results
+          path: artifacts/test-results/render

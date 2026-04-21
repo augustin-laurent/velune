@@ -1,15 +1,16 @@
+using Velune.Application.Documents;
 using Velune.Domain.Abstractions;
 using Velune.Infrastructure.Image;
 using Velune.Infrastructure.Pdf;
 
 namespace Velune.Infrastructure.Documents;
 
-public sealed class CompositeDocumentOpener : IDocumentOpener
+public sealed class DispatchingDocumentOpener : IDocumentOpener
 {
     private readonly PdfiumDocumentOpener _pdfiumDocumentOpener;
     private readonly AvaloniaImageDocumentOpener _imageDocumentOpener;
 
-    public CompositeDocumentOpener(
+    public DispatchingDocumentOpener(
         PdfiumDocumentOpener pdfiumDocumentOpener,
         AvaloniaImageDocumentOpener imageDocumentOpener)
     {
@@ -26,12 +27,12 @@ public sealed class CompositeDocumentOpener : IDocumentOpener
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
 
-        var extension = Path.GetExtension(filePath).ToLowerInvariant();
+        var extension = Path.GetExtension(filePath);
 
         IDocumentSession session = extension switch
         {
-            ".pdf" => _pdfiumDocumentOpener.Open(filePath),
-            ".jpg" or ".jpeg" or ".png" or ".webp" => _imageDocumentOpener.Open(filePath),
+            var value when SupportedDocumentFormats.IsPdf(value) => _pdfiumDocumentOpener.Open(filePath),
+            var value when SupportedDocumentFormats.IsImage(value) => _imageDocumentOpener.Open(filePath),
             _ => throw new NotSupportedException($"Unsupported document file type: {extension}")
         };
 

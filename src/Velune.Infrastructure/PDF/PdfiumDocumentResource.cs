@@ -3,6 +3,7 @@ namespace Velune.Infrastructure.Pdf;
 internal sealed class PdfiumDocumentResource : IDisposable
 {
     private int _disposed;
+    private nint _handle;
 
     public PdfiumDocumentResource(nint handle, int pageCount)
     {
@@ -13,13 +14,17 @@ internal sealed class PdfiumDocumentResource : IDisposable
 
         ArgumentOutOfRangeException.ThrowIfNegative(pageCount);
 
-        Handle = handle;
+        _handle = handle;
         PageCount = pageCount;
     }
 
     public nint Handle
     {
-        get; private set;
+        get
+        {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 1, this);
+            return _handle;
+        }
     }
 
     public int PageCount
@@ -34,10 +39,10 @@ internal sealed class PdfiumDocumentResource : IDisposable
             return;
         }
 
-        if (Handle != nint.Zero)
+        var handle = Interlocked.Exchange(ref _handle, nint.Zero);
+        if (handle != nint.Zero)
         {
-            PdfiumNative.FPDF_CloseDocument(Handle);
-            Handle = nint.Zero;
+            PdfiumNative.FPDF_CloseDocument(handle);
         }
 
         GC.SuppressFinalize(this);

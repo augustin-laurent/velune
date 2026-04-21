@@ -14,6 +14,7 @@ using Velune.Application.UseCases;
 using Velune.Domain.Abstractions;
 using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
+using Velune.Presentation.FileSystem;
 using Velune.Presentation.Imaging;
 using Velune.Presentation.Search;
 
@@ -52,6 +53,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private const double InfoPanelExpandedWidth = 300;
     private const double ViewportResizeThreshold = 1.0;
     private const double ZoomComparisonTolerance = 0.001;
+    private const double InlineHeaderSearchMinWidth = 1480;
+    private const double HeaderTitleCompactThreshold = 1420;
+    private const double HeaderTitleTightThreshold = 1220;
     private const string ThemeSystemLabel = "System";
     private const string ThemeLightLabel = "Light";
     private const string ThemeDarkLabel = "Dark";
@@ -109,6 +113,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private bool _isCurrentNotificationDismissible;
     private int _thumbnailGenerationVersion;
     private int _selectedSearchResultIndex = -1;
+    private double _windowWidth = 1280;
     private Action? _notificationPrimaryAction;
     private Action? _notificationSecondaryAction;
     private DocumentTextIndex? _currentDocumentTextIndex;
@@ -246,6 +251,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private string? _currentDocumentPath;
+
+    [ObservableProperty]
+    private string _editableDocumentName = string.Empty;
+
+    [ObservableProperty]
+    private bool _isEditingDocumentName;
 
     [ObservableProperty]
     private bool _isInfoPanelVisible;
@@ -390,7 +401,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public bool HasSearchHighlights => SearchHighlights.Count > 0;
     public bool HasTextSelectionHighlights => TextSelectionHighlights.Count > 0;
     public bool HasSelectedDocumentText => !string.IsNullOrWhiteSpace(SelectedDocumentText);
-    public string HeaderTitle => CurrentDocumentName ?? ApplicationTitle;
+    public string HeaderTitle => HasOpenDocument
+        ? (string.IsNullOrWhiteSpace(EditableDocumentName)
+            ? (CurrentDocumentName ?? ApplicationTitle)
+            : EditableDocumentName)
+        : ApplicationTitle;
     public string HeaderSubtitle => HasOpenDocument
         ? (CurrentDocumentType ?? "Document")
         : "PDF and image viewer";
@@ -398,13 +413,27 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public bool IsPdfDocument => HasOpenDocument && !IsCurrentImageDocument;
     public bool IsImageAutoFitActive => HasOpenDocument && IsCurrentImageDocument && _isImageAutoFitEnabled;
     public bool IsScrollableViewerVisible => !IsImageAutoFitActive;
+    public bool ShowWindowMenuBar => !OperatingSystem.IsMacOS();
+    public double HeaderTitleMaxWidth => WindowWidth >= InlineHeaderSearchMinWidth
+        ? 320
+        : WindowWidth >= HeaderTitleCompactThreshold
+            ? 240
+            : WindowWidth >= HeaderTitleTightThreshold
+                ? 190
+                : 150;
     public bool IsSidebarVisible => HasOpenDocument && !IsCurrentImageDocument && ShowThumbnailsPanelPreference;
+    public bool CanToggleSidebar => HasOpenDocument && !IsCurrentImageDocument;
+    public string SidebarToggleLabel => IsSidebarVisible ? "Hide pages" : "Show pages";
+    public bool ShowEditableHeaderTitle => HasOpenDocument && !IsEditingDocumentName;
+    public bool ShowHeaderTitleEditor => HasOpenDocument && IsEditingDocumentName;
+    public bool UseInlineHeaderSearch => HasOpenDocument && WindowWidth >= InlineHeaderSearchMinWidth;
+    public bool UseCollapsedHeaderSearchButton => HasOpenDocument && !UseInlineHeaderSearch;
     public bool IsPageNavigationVisible => !HasOpenDocument || !IsCurrentImageDocument;
     public bool IsPdfStructureActionsVisible => IsPdfDocument;
     public bool IsSidebarActionStripVisible => IsPdfDocument && (CanPersistCurrentPageRotation || HasPendingPageReorder);
     public bool IsInfoPanelOpen => HasOpenDocument && IsInfoPanelVisible;
     public bool IsSearchPanelOpen => HasOpenDocument && IsSearchPanelVisible;
-    public bool IsPreferencesPanelOpen => HasOpenDocument && IsPreferencesPanelVisible;
+    public bool IsPreferencesPanelOpen => IsPreferencesPanelVisible;
     public bool IsPrintPanelOpen => HasOpenDocument && IsPrintPanelVisible;
     public bool HasDocumentInfo => DocumentInfoItems.Count > 0;
     public bool HasDocumentInfoWarning => !string.IsNullOrWhiteSpace(DocumentInfoWarning);
@@ -418,6 +447,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public double SearchPanelWidth => IsSearchPanelOpen ? InfoPanelExpandedWidth : 0;
     public double PreferencesPanelWidth => IsPreferencesPanelOpen ? InfoPanelExpandedWidth : 0;
     public double PrintPanelWidth => IsPrintPanelOpen ? InfoPanelExpandedWidth : 0;
+    public double WindowWidth => _windowWidth;
     public string PageIndicator => TotalPages > 0 ? $"{CurrentPage} / {TotalPages}" : "-";
     public string SearchResultSummary => SearchResults.Count switch
     {
@@ -450,11 +480,16 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public bool ShouldUseTrackpadForPan =>
         HasOpenDocument &&
         (IsCurrentImageDocument ||
-         _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex).ZoomFactor > 1.0);
+         GetCurrentZoomFactor() > 1.0);
     public bool CanPersistCurrentPageRotation =>
         IsPdfDocument &&
         !IsPdfStructureOperationInProgress &&
         GetPendingPdfRotationGroups().Count > 0;
+    public bool CanSaveDocument =>
+        IsPdfDocument &&
+        !IsPdfStructureOperationInProgress &&
+        !string.IsNullOrWhiteSpace(CurrentDocumentPath) &&
+        (CanPersistCurrentPageRotation || HasPendingPageReorder || HasPendingRequestedSaveNameChange());
     public bool CanExtractCurrentPage =>
         IsPdfDocument &&
         !IsPdfStructureOperationInProgress &&
@@ -486,9 +521,16 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsPdfDocument));
         NotifyViewerModeChanged();
         NotifySidebarVisibilityChanged();
+        OnPropertyChanged(nameof(CanToggleSidebar));
+        OnPropertyChanged(nameof(SidebarToggleLabel));
+        OnPropertyChanged(nameof(ShowEditableHeaderTitle));
+        OnPropertyChanged(nameof(ShowHeaderTitleEditor));
+        OnPropertyChanged(nameof(UseInlineHeaderSearch));
+        OnPropertyChanged(nameof(UseCollapsedHeaderSearchButton));
         OnPropertyChanged(nameof(IsPageNavigationVisible));
         OnPropertyChanged(nameof(IsPdfStructureActionsVisible));
         OnPropertyChanged(nameof(CanPersistCurrentPageRotation));
+        OnPropertyChanged(nameof(CanSaveDocument));
         OnPropertyChanged(nameof(IsSidebarActionStripVisible));
         OnPropertyChanged(nameof(IsInfoPanelOpen));
         OnPropertyChanged(nameof(InfoPanelWidth));
@@ -506,7 +548,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         CloseCommand.NotifyCanExecuteChanged();
         ToggleInfoPanelCommand.NotifyCanExecuteChanged();
         ToggleSearchPanelCommand.NotifyCanExecuteChanged();
+        OpenSearchCommand.NotifyCanExecuteChanged();
         TogglePreferencesPanelCommand.NotifyCanExecuteChanged();
+        ToggleSidebarCommand.NotifyCanExecuteChanged();
         NotifySearchStateChanged();
         PreviousPageCommand.NotifyCanExecuteChanged();
         NextPageCommand.NotifyCanExecuteChanged();
@@ -517,6 +561,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         FitToPageCommand.NotifyCanExecuteChanged();
         RotateLeftCommand.NotifyCanExecuteChanged();
         RotateRightCommand.NotifyCanExecuteChanged();
+        SaveDocumentCommand.NotifyCanExecuteChanged();
+        BeginDocumentNameEditCommand.NotifyCanExecuteChanged();
+        CommitDocumentNameEditCommand.NotifyCanExecuteChanged();
+        CancelDocumentNameEditCommand.NotifyCanExecuteChanged();
         PersistCurrentPageRotationCommand.NotifyCanExecuteChanged();
         ExtractCurrentPageCommand.NotifyCanExecuteChanged();
         DeleteCurrentPageCommand.NotifyCanExecuteChanged();
@@ -530,18 +578,31 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsPdfDocument));
         NotifyViewerModeChanged();
         NotifySidebarVisibilityChanged();
+        OnPropertyChanged(nameof(CanToggleSidebar));
+        OnPropertyChanged(nameof(SidebarToggleLabel));
+        OnPropertyChanged(nameof(UseInlineHeaderSearch));
+        OnPropertyChanged(nameof(UseCollapsedHeaderSearchButton));
         OnPropertyChanged(nameof(IsPageNavigationVisible));
         OnPropertyChanged(nameof(IsPdfStructureActionsVisible));
         OnPropertyChanged(nameof(CanPersistCurrentPageRotation));
+        OnPropertyChanged(nameof(CanSaveDocument));
         OnPropertyChanged(nameof(IsSidebarActionStripVisible));
         OnPropertyChanged(nameof(IsPrintPageRangeVisible));
         OnPropertyChanged(nameof(IsCustomPrintRangeVisible));
+        SaveDocumentCommand.NotifyCanExecuteChanged();
         PersistCurrentPageRotationCommand.NotifyCanExecuteChanged();
         ExtractCurrentPageCommand.NotifyCanExecuteChanged();
         DeleteCurrentPageCommand.NotifyCanExecuteChanged();
         SaveReorderedPdfCommand.NotifyCanExecuteChanged();
+        ToggleSidebarCommand.NotifyCanExecuteChanged();
         MoveCurrentPageEarlierCommand.NotifyCanExecuteChanged();
         MoveCurrentPageLaterCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnCurrentDocumentPathChanged(string? value)
+    {
+        OnPropertyChanged(nameof(CanSaveDocument));
+        SaveDocumentCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnIsInfoPanelVisibleChanged(bool value)
@@ -635,6 +696,19 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(HeaderTitle));
     }
 
+    partial void OnEditableDocumentNameChanged(string value)
+    {
+        OnPropertyChanged(nameof(HeaderTitle));
+        OnPropertyChanged(nameof(CanSaveDocument));
+        SaveDocumentCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnIsEditingDocumentNameChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowEditableHeaderTitle));
+        OnPropertyChanged(nameof(ShowHeaderTitleEditor));
+    }
+
     partial void OnCurrentDocumentTypeChanged(string? value)
     {
         OnPropertyChanged(nameof(HeaderSubtitle));
@@ -674,7 +748,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     partial void OnHasPendingPageReorderChanged(bool value)
     {
+        OnPropertyChanged(nameof(CanSaveDocument));
         OnPropertyChanged(nameof(IsSidebarActionStripVisible));
+        SaveDocumentCommand.NotifyCanExecuteChanged();
         SaveReorderedPdfCommand.NotifyCanExecuteChanged();
         MoveCurrentPageEarlierCommand.NotifyCanExecuteChanged();
         MoveCurrentPageLaterCommand.NotifyCanExecuteChanged();
@@ -703,6 +779,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     partial void OnShowThumbnailsPanelPreferenceChanged(bool value)
     {
         NotifySidebarVisibilityChanged();
+        OnPropertyChanged(nameof(SidebarToggleLabel));
 
         if (_isApplyingPreferencesState)
         {
@@ -773,18 +850,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand(CanExecute = nameof(HasOpenDocument))]
-    private void Close()
+    private async Task CloseAsync()
     {
-        CancelCurrentRender();
-        CancelCurrentTextAnalysis();
-        CancelThumbnailGeneration();
-
-        _closeDocumentUseCase.Execute();
-        _pageViewportStore.Clear();
-        ClearThumbnails();
-        ResetDocumentState();
-
-        ClearNotifications();
+        await CloseCurrentDocumentStateAsync(clearNotifications: true);
         StatusText = "Document closed";
     }
 
@@ -1021,10 +1089,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         DisableImageAutoFit();
 
-        var pageState = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex);
-        var nextZoom = Math.Min(MaxZoom, pageState.ZoomFactor + ZoomStep);
+        var nextZoom = Math.Min(MaxZoom, GetCurrentZoomFactor() + ZoomStep);
 
-        _pageViewportStore.SetPageState(pageState.WithZoom(nextZoom));
         if (!TryUpdateZoom(nextZoom, ZoomMode.Custom))
         {
             return;
@@ -1041,10 +1107,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         DisableImageAutoFit();
 
-        var pageState = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex);
-        var nextZoom = Math.Max(MinZoom, pageState.ZoomFactor - ZoomStep);
+        var nextZoom = Math.Max(MinZoom, GetCurrentZoomFactor() - ZoomStep);
 
-        _pageViewportStore.SetPageState(pageState.WithZoom(nextZoom));
         if (!TryUpdateZoom(nextZoom, ZoomMode.Custom))
         {
             return;
@@ -1081,65 +1145,43 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(HasOpenDocument))]
     private async Task RotateLeftAsync()
     {
-        var pageState = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex);
-
-        var nextRotation = pageState.Rotation switch
+        await RotateActivePageAsync(rotation => rotation switch
         {
             Rotation.Deg0 => Rotation.Deg270,
             Rotation.Deg90 => Rotation.Deg0,
             Rotation.Deg180 => Rotation.Deg90,
             Rotation.Deg270 => Rotation.Deg180,
             _ => Rotation.Deg0
-        };
-
-        _pageViewportStore.SetPageState(pageState.WithRotation(nextRotation));
-        if (!TryUpdateRotation(nextRotation))
-        {
-            return;
-        }
-
-        RefreshPageViewState();
-
-        if (CurrentZoomMode is ZoomMode.FitToPage or ZoomMode.FitToWidth)
-        {
-            await RenderCurrentPageAsync(preserveStatusText: true);
-        }
-
-        if (!await TryApplyViewportFitAsync(CurrentZoomMode, forceRender: true))
-        {
-            await RenderCurrentPageAsync();
-        }
-
-        await RefreshThumbnailForActivePageAsync();
-        StatusText = $"Rotation set to {CurrentRotation}";
+        });
     }
 
     [RelayCommand(CanExecute = nameof(HasOpenDocument))]
     private async Task RotateRightAsync()
     {
-        var pageState = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex);
-
-        var nextRotation = pageState.Rotation switch
+        await RotateActivePageAsync(rotation => rotation switch
         {
             Rotation.Deg0 => Rotation.Deg90,
             Rotation.Deg90 => Rotation.Deg180,
             Rotation.Deg180 => Rotation.Deg270,
             Rotation.Deg270 => Rotation.Deg0,
             _ => Rotation.Deg0
-        };
+        });
+    }
 
-        _pageViewportStore.SetPageState(pageState.WithRotation(nextRotation));
+    private async Task RotateActivePageAsync(Func<Rotation, Rotation> rotationTransform)
+    {
+        ArgumentNullException.ThrowIfNull(rotationTransform);
+
+        var activePageIndex = _pageViewportStore.ActivePageIndex;
+        var nextRotation = rotationTransform(_pageViewportStore.GetRotation(activePageIndex));
+
+        _pageViewportStore.SetRotation(activePageIndex, nextRotation);
         if (!TryUpdateRotation(nextRotation))
         {
             return;
         }
 
         RefreshPageViewState();
-
-        if (CurrentZoomMode is ZoomMode.FitToPage or ZoomMode.FitToWidth)
-        {
-            await RenderCurrentPageAsync(preserveStatusText: true);
-        }
 
         if (!await TryApplyViewportFitAsync(CurrentZoomMode, forceRender: true))
         {
@@ -1172,6 +1214,51 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 ? $"Saved rotated PDF copy for page {pendingRotations[0].Pages[0]}"
                 : "Saved rotated PDF copy",
             failureTitle: "Unable to save rotated PDF");
+    }
+
+    [RelayCommand(CanExecute = nameof(CanSaveDocument))]
+    private async Task SaveDocumentAsync()
+    {
+        var currentDocumentPath = CurrentDocumentPath;
+        if (string.IsNullOrWhiteSpace(currentDocumentPath))
+        {
+            return;
+        }
+
+        var pendingRotations = GetPendingPdfRotationGroups();
+        var orderedPages = Thumbnails
+            .Select(thumbnail => thumbnail.SourcePageNumber)
+            .ToArray();
+        var hasPendingSaveNameChange = HasPendingRequestedSaveNameChange();
+
+        if (pendingRotations.Count == 0 &&
+            !HasPendingPageReorder &&
+            !hasPendingSaveNameChange)
+        {
+            StatusText = "Nothing to save";
+            return;
+        }
+
+        if (pendingRotations.Count == 0 && !HasPendingPageReorder)
+        {
+            await ExecutePdfStructureSaveInPlaceAsync(
+                currentDocumentPath,
+                _ => Task.FromResult(ResultFactory.Success(currentDocumentPath)),
+                successStatus: "Document saved",
+                failureTitle: "Unable to save document");
+            return;
+        }
+
+        await ExecutePdfStructureSaveInPlaceAsync(
+            currentDocumentPath,
+            outputPath => SavePdfDocumentChangesAsync(
+                currentDocumentPath,
+                outputPath,
+                pendingRotations,
+                orderedPages,
+                HasPendingPageReorder),
+            successStatus: "Document saved",
+            failureTitle: "Unable to save document");
     }
 
     [RelayCommand(CanExecute = nameof(CanExtractCurrentPage))]
@@ -1235,6 +1322,90 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                     orderedPages)),
             successStatus: "Saved reordered PDF copy",
             failureTitle: "Unable to save reordered PDF");
+    }
+
+    [RelayCommand(CanExecute = nameof(HasOpenDocument))]
+    private void BeginDocumentNameEdit()
+    {
+        EditableDocumentName = ResolveRequestedDocumentFileName();
+        IsEditingDocumentName = true;
+        StatusText = "Editing save name";
+    }
+
+    [RelayCommand(CanExecute = nameof(HasOpenDocument))]
+    private void CommitDocumentNameEdit()
+    {
+        if (!HasOpenDocument)
+        {
+            return;
+        }
+
+        var proposedName = EditableDocumentName.Trim();
+        if (string.IsNullOrWhiteSpace(proposedName))
+        {
+            EditableDocumentName = CurrentDocumentName ?? string.Empty;
+            IsEditingDocumentName = false;
+            StatusText = "Save name unchanged";
+            return;
+        }
+
+        if (!TryNormalizeRequestedDocumentFileName(proposedName, out var normalizedFileName, out var validationError))
+        {
+            EnqueueWarning("Invalid file name", validationError ?? "Enter a valid file name.");
+            StatusText = "Invalid file name";
+            return;
+        }
+
+        EditableDocumentName = normalizedFileName;
+        IsEditingDocumentName = false;
+        StatusText = "Save name updated";
+    }
+
+    [RelayCommand(CanExecute = nameof(HasOpenDocument))]
+    private void CancelDocumentNameEdit()
+    {
+        EditableDocumentName = CurrentDocumentName ?? string.Empty;
+        IsEditingDocumentName = false;
+        StatusText = "Save name unchanged";
+    }
+
+    [RelayCommand(CanExecute = nameof(HasOpenDocument))]
+    private async Task OpenSearchAsync()
+    {
+        IsInfoPanelVisible = false;
+        IsPreferencesPanelVisible = false;
+        IsPrintPanelVisible = false;
+        IsSearchPanelVisible = true;
+
+        if (string.IsNullOrWhiteSpace(SearchQueryInput))
+        {
+            StatusText = "Search shown";
+            return;
+        }
+
+        if (_currentDocumentTextIndex is not null && !_isAnalyzingDocumentText)
+        {
+            await SearchTextAsync();
+            return;
+        }
+
+        await EnsureDocumentTextAvailableAsync(forceOcr: false);
+
+        if (!_isAnalyzingDocumentText &&
+            _currentDocumentTextIndex is not null &&
+            string.IsNullOrWhiteSpace(SearchQueryInput))
+        {
+            StatusText = "Search shown";
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanToggleSidebar))]
+    private void ToggleSidebar()
+    {
+        ShowThumbnailsPanelPreference = !ShowThumbnailsPanelPreference;
+        StatusText = ShowThumbnailsPanelPreference
+            ? "Pages panel shown"
+            : "Pages panel hidden";
     }
 
     [RelayCommand(CanExecute = nameof(HasOpenDocument))]
@@ -1378,7 +1549,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             : "File information hidden";
     }
 
-    [RelayCommand(CanExecute = nameof(HasOpenDocument))]
+    [RelayCommand]
     private void TogglePreferencesPanel()
     {
         if (!IsPreferencesPanelVisible)
@@ -1415,13 +1586,6 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         var action = _notificationSecondaryAction;
         AdvanceNotificationQueue();
         action?.Invoke();
-    }
-
-    [RelayCommand]
-    private void SimulateError()
-    {
-        EnqueueError("Unable to load the requested document.");
-        StatusText = "An error was simulated";
     }
 
     public async Task NavigateToPreviousPageFromTrackpadAsync()
@@ -1537,7 +1701,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         EnqueueInfo(
             "Page order updated",
-            "Drag other thumbnails if needed, then save a reordered PDF copy.",
+            "Drag other thumbnails if needed, then save the document.",
             replaceCurrent: true);
         StatusText = "Page order updated";
     }
@@ -1563,6 +1727,20 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         await TryApplyViewportFitAsync(CurrentZoomMode, preserveStatusText: true);
+    }
+
+    public void UpdateWindowWidth(double width)
+    {
+        if (width <= 0 || Math.Abs(_windowWidth - width) < 1)
+        {
+            return;
+        }
+
+        _windowWidth = width;
+        OnPropertyChanged(nameof(WindowWidth));
+        OnPropertyChanged(nameof(HeaderTitleMaxWidth));
+        OnPropertyChanged(nameof(UseInlineHeaderSearch));
+        OnPropertyChanged(nameof(UseCollapsedHeaderSearchButton));
     }
 
     private async Task OpenDocumentFromPathAsync(string filePath)
@@ -1956,7 +2134,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return false;
         }
 
-        var rotation = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex).Rotation;
+        var rotation = GetCurrentRotation();
         return DocumentTextSelectionCoordinateMapper.TryMapVisualToDocument(
             visualX,
             visualY,
@@ -2065,7 +2243,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         var sourceRight = sourceLeft + (region.Width * sourceWidth);
         var sourceBottom = sourceTop + (region.Height * sourceHeight);
 
-        var rotation = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex).Rotation;
+        var rotation = GetCurrentRotation();
         var (rotatedLeft, rotatedTop, rotatedRight, rotatedBottom, rotatedWidth, rotatedHeight) =
             rotation switch
             {
@@ -2163,14 +2341,13 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var pageState = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex);
         if (IsCurrentImageDocument)
         {
             _isImageAutoFitEnabled = zoomMode is ZoomMode.FitToPage;
             NotifyViewerModeChanged();
         }
 
-        if (TryUpdateZoom(pageState.ZoomFactor, zoomMode) && CurrentRenderedBitmap is null)
+        if (TryUpdateZoom(GetCurrentZoomFactor(), zoomMode) && CurrentRenderedBitmap is null)
         {
             await RenderCurrentPageAsync(preserveStatusText);
         }
@@ -2180,14 +2357,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         DisableImageAutoFit();
 
-        var pageState = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex);
         var clampedZoom = Math.Clamp(zoomFactor, MinZoom, MaxZoom);
-        var zoomChanged = Math.Abs(pageState.ZoomFactor - clampedZoom) > ZoomComparisonTolerance;
+        var zoomChanged = Math.Abs(GetCurrentZoomFactor() - clampedZoom) > ZoomComparisonTolerance;
         var zoomModeChanged = CurrentZoomMode != ZoomMode.Custom;
 
         if (zoomChanged || zoomModeChanged)
         {
-            _pageViewportStore.SetPageState(pageState.WithZoom(clampedZoom));
             if (!TryUpdateZoom(clampedZoom, ZoomMode.Custom))
             {
                 return;
@@ -2266,8 +2441,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         _pageViewportStore.SetActivePage(new PageIndex(pageNumber - 1));
-        var activePageState = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex);
-        if (!TrySyncSessionToActivePageState(activePageState))
+        if (!TrySyncSessionToActivePageState(_pageViewportStore.ActivePageIndex))
         {
             return;
         }
@@ -2300,11 +2474,13 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var pageState = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex);
         RefreshPageViewState();
 
         var renderJob = _renderOrchestrator.Submit(
-            CreateViewerRenderRequest(pageState));
+            CreateViewerRenderRequest(
+                _pageViewportStore.ActivePageIndex,
+                GetCurrentZoomFactor(),
+                GetCurrentRotation()));
         _currentRenderJob = renderJob;
 
         var previousStatusText = StatusText;
@@ -2384,12 +2560,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
                 var thumbnailItem = Thumbnails[i];
                 var thumbnailPageIndex = new PageIndex(thumbnailItem.SourcePageNumber - 1);
-                var thumbnailPageState = _pageViewportStore.GetPageState(thumbnailPageIndex);
 
                 try
                 {
                     var renderJob = _renderOrchestrator.Submit(
-                        CreateThumbnailRenderRequest(thumbnailPageIndex, thumbnailPageState.Rotation));
+                        CreateThumbnailRenderRequest(thumbnailPageIndex, _pageViewportStore.GetRotation(thumbnailPageIndex)));
 
                     _thumbnailRenderJobs[thumbnailPageIndex.Value] = renderJob;
 
@@ -2444,14 +2619,13 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         var pageIndex = new PageIndex(thumbnailItem.SourcePageNumber - 1);
-        var pageState = _pageViewportStore.GetPageState(pageIndex);
 
         try
         {
             thumbnailItem.IsLoading = true;
 
             var renderJob = _renderOrchestrator.Submit(
-                CreateThumbnailRenderRequest(pageIndex, pageState.Rotation));
+                CreateThumbnailRenderRequest(pageIndex, _pageViewportStore.GetRotation(pageIndex)));
             _thumbnailRenderJobs[pageIndex.Value] = renderJob;
 
             var result = await renderJob.Completion;
@@ -2566,6 +2740,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         CurrentDocumentName = session.Metadata.FileName;
         CurrentDocumentType = session.Metadata.FormatLabel ?? GetDocumentKindLabel(session.Metadata.DocumentType);
         CurrentDocumentPath = session.Metadata.FilePath;
+        EditableDocumentName = session.Metadata.FileName;
+        IsEditingDocumentName = false;
         CurrentPage = session.Viewport.CurrentPage.Value + 1;
         TotalPages = session.Metadata.PageCount ?? 1;
         RefreshDocumentInfo(session.Metadata);
@@ -2576,12 +2752,13 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private void RefreshPageViewState()
     {
-        var pageState = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex);
-        CurrentZoom = $"{pageState.ZoomFactor * 100:0}%";
-        CurrentRotation = $"{(int)pageState.Rotation}°";
-        CurrentPage = pageState.PageIndex.Value + 1;
+        CurrentZoom = $"{GetCurrentZoomFactor() * 100:0}%";
+        CurrentRotation = $"{(int)GetCurrentRotation()}°";
+        CurrentPage = _pageViewportStore.ActivePageIndex.Value + 1;
         OnPropertyChanged(nameof(CanPersistCurrentPageRotation));
+        OnPropertyChanged(nameof(CanSaveDocument));
         OnPropertyChanged(nameof(IsSidebarActionStripVisible));
+        SaveDocumentCommand.NotifyCanExecuteChanged();
         PersistCurrentPageRotationCommand.NotifyCanExecuteChanged();
     }
 
@@ -2598,6 +2775,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         CurrentDocumentName = null;
         CurrentDocumentType = null;
         CurrentDocumentPath = null;
+        EditableDocumentName = string.Empty;
+        IsEditingDocumentName = false;
         IsInfoPanelVisible = false;
         IsSearchPanelVisible = false;
         IsPreferencesPanelVisible = false;
@@ -2659,10 +2838,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return false;
         }
 
-        var pageState = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex);
         fitZoom = Math.Clamp(fitZoom, MinZoom, MaxZoom);
 
-        var zoomChanged = Math.Abs(pageState.ZoomFactor - fitZoom) > ZoomComparisonTolerance;
+        var zoomChanged = Math.Abs(GetCurrentZoomFactor() - fitZoom) > ZoomComparisonTolerance;
         var zoomModeChanged = CurrentZoomMode != zoomMode;
         var shouldEnableImageAutoFit = IsCurrentImageDocument && zoomMode is ZoomMode.FitToPage;
 
@@ -2682,7 +2860,6 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (zoomChanged || zoomModeChanged)
         {
-            _pageViewportStore.SetPageState(pageState.WithZoom(fitZoom));
             if (!TryUpdateZoom(fitZoom, zoomMode))
             {
                 return false;
@@ -2699,7 +2876,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         var availableWidth = Math.Max(1, _documentViewportWidth - (ViewerContentPadding * 2));
         var availableHeight = Math.Max(1, _documentViewportHeight - (ViewerContentPadding * 2));
-        var pageState = _pageViewportStore.GetPageState(_pageViewportStore.ActivePageIndex);
+        var rotation = GetCurrentRotation();
+        var currentZoomFactor = GetCurrentZoomFactor();
 
         if (_documentSessionStore.Current is IImageDocumentSession imageSession)
         {
@@ -2707,11 +2885,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             {
                 ZoomMode.FitToWidth => ImageViewportCalculator.CalculateFitWidthZoom(
                     imageSession.ImageMetadata,
-                    pageState.Rotation,
+                    rotation,
                     availableWidth),
                 ZoomMode.FitToPage => ImageViewportCalculator.CalculateFitZoom(
                     imageSession.ImageMetadata,
-                    pageState.Rotation,
+                    rotation,
                     availableWidth,
                     availableHeight),
                 _ => 0
@@ -2730,12 +2908,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             ZoomMode.FitToWidth => RenderedPageViewportCalculator.CalculateFitToWidthZoom(
                 CurrentRenderedBitmap.PixelSize.Width,
-                pageState.ZoomFactor,
+                currentZoomFactor,
                 availableWidth),
             ZoomMode.FitToPage => RenderedPageViewportCalculator.CalculateFitToPageZoom(
                 CurrentRenderedBitmap.PixelSize.Width,
                 CurrentRenderedBitmap.PixelSize.Height,
-                pageState.ZoomFactor,
+                currentZoomFactor,
                 availableWidth,
                 availableHeight),
             _ => 0
@@ -2776,22 +2954,24 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         return true;
     }
 
-    private bool TrySyncSessionToActivePageState(PageViewportState pageState)
+    private bool TrySyncSessionToActivePageState(PageIndex pageIndex)
     {
-        ArgumentNullException.ThrowIfNull(pageState);
-
-        if (!TryUpdateRotation(pageState.Rotation))
+        if (!TryUpdateRotation(_pageViewportStore.GetRotation(pageIndex)))
         {
             return false;
         }
 
         var zoomMode = CurrentZoomMode;
-        var targetZoom = zoomMode is ZoomMode.Custom
-            ? pageState.ZoomFactor
-            : (_documentSessionStore.CurrentViewport?.ZoomFactor ?? pageState.ZoomFactor);
+        var targetZoom = _documentSessionStore.CurrentViewport?.ZoomFactor ?? 1.0;
 
         return TryUpdateZoom(targetZoom, zoomMode);
     }
+
+    private double GetCurrentZoomFactor() =>
+        _documentSessionStore.CurrentViewport?.ZoomFactor ?? 1.0;
+
+    private Rotation GetCurrentRotation() =>
+        _pageViewportStore.GetRotation(_pageViewportStore.ActivePageIndex);
 
     private ZoomMode CurrentZoomMode =>
         _documentSessionStore.CurrentViewport?.ZoomMode ?? ZoomMode.Custom;
@@ -2802,15 +2982,17 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsScrollableViewerVisible));
     }
 
-    private static RenderRequest CreateViewerRenderRequest(PageViewportState pageState)
+    private static RenderRequest CreateViewerRenderRequest(
+        PageIndex pageIndex,
+        double zoomFactor,
+        Rotation rotation)
     {
-        ArgumentNullException.ThrowIfNull(pageState);
-
         return new RenderRequest(
             ViewerRenderJobKey,
-            pageState.PageIndex,
-            pageState.ZoomFactor,
-            pageState.Rotation);
+            pageIndex,
+            zoomFactor,
+            rotation,
+            Priority: RenderPriority.Viewer);
     }
 
     private static RenderRequest CreateThumbnailRenderRequest(PageIndex pageIndex, Rotation rotation)
@@ -2821,7 +3003,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             ThumbnailZoomFactor,
             rotation,
             ThumbnailRequestedWidth,
-            ThumbnailRequestedHeight);
+            ThumbnailRequestedHeight,
+            RenderPriority.Thumbnail);
     }
 
     private static string CreateThumbnailJobKey(PageIndex pageIndex) =>
@@ -2833,7 +3016,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             .Select(pageNumber => new
             {
                 PageNumber = pageNumber,
-                Rotation = _pageViewportStore.GetPageState(new PageIndex(pageNumber - 1)).Rotation
+                Rotation = _pageViewportStore.GetRotation(new PageIndex(pageNumber - 1))
             })
             .Where(item => item.Rotation != Rotation.Deg0)
             .GroupBy(item => item.Rotation)
@@ -2869,7 +3052,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         EnqueueInfo(
             "Page order updated",
-            "Drag other thumbnails if needed, then save a reordered PDF copy.",
+            "Drag other thumbnails if needed, then save the document.",
             replaceCurrent: true);
         StatusText = "Page order updated";
     }
@@ -3018,11 +3201,174 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _isApplyingPdfStructureOperation = isBusy;
         OnPropertyChanged(nameof(IsPdfStructureOperationInProgress));
         OnPropertyChanged(nameof(CanPersistCurrentPageRotation));
+        OnPropertyChanged(nameof(CanSaveDocument));
         OnPropertyChanged(nameof(IsSidebarActionStripVisible));
+        SaveDocumentCommand.NotifyCanExecuteChanged();
         PersistCurrentPageRotationCommand.NotifyCanExecuteChanged();
         ExtractCurrentPageCommand.NotifyCanExecuteChanged();
         DeleteCurrentPageCommand.NotifyCanExecuteChanged();
         SaveReorderedPdfCommand.NotifyCanExecuteChanged();
+    }
+
+    private async Task ExecutePdfStructureSaveInPlaceAsync(
+        string currentDocumentPath,
+        Func<string, Task<Result<string>>> executeOperation,
+        string successStatus,
+        string failureTitle)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(currentDocumentPath);
+        ArgumentNullException.ThrowIfNull(executeOperation);
+        ArgumentException.ThrowIfNullOrWhiteSpace(successStatus);
+        ArgumentException.ThrowIfNullOrWhiteSpace(failureTitle);
+
+        if (!TryResolveRequestedSavePath(
+                currentDocumentPath,
+                out var targetDocumentPath,
+                out var targetFileName,
+                out var validationError))
+        {
+            EnqueueWarning("Invalid save name", validationError ?? "Enter a valid file name before saving.");
+            StatusText = "Invalid save name";
+            return;
+        }
+
+        var temporaryDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "velune-pdf-save",
+            Guid.NewGuid().ToString("N"));
+        var temporaryOutputPath = Path.Combine(temporaryDirectory, targetFileName);
+
+        Directory.CreateDirectory(temporaryDirectory);
+
+        try
+        {
+            SetPdfStructureOperationState(true);
+
+            var result = await executeOperation(temporaryOutputPath);
+            if (result.IsFailure)
+            {
+                EnqueueError(result.Error?.Message ?? "The PDF update failed.", failureTitle);
+                StatusText = failureTitle;
+                return;
+            }
+
+            await CloseCurrentDocumentStateAsync(clearNotifications: false);
+
+            try
+            {
+                File.Copy(
+                    result.Value ?? temporaryOutputPath,
+                    targetDocumentPath,
+                    overwrite: PathsEqual(currentDocumentPath, targetDocumentPath));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                EnqueueError(ex.Message, failureTitle);
+                StatusText = failureTitle;
+                return;
+            }
+
+            await OpenDocumentFromPathAsync(targetDocumentPath);
+            StatusText = successStatus;
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(temporaryDirectory))
+                {
+                    Directory.Delete(temporaryDirectory, recursive: true);
+                }
+            }
+            catch
+            {
+                // Best-effort cleanup for temporary save files.
+            }
+
+            SetPdfStructureOperationState(false);
+        }
+    }
+
+    private async Task<Result<string>> SavePdfDocumentChangesAsync(
+        string sourcePath,
+        string outputPath,
+        IReadOnlyList<PendingPdfRotationGroup> pendingRotations,
+        IReadOnlyList<int> orderedPages,
+        bool hasPendingReorder)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
+        ArgumentNullException.ThrowIfNull(pendingRotations);
+        ArgumentNullException.ThrowIfNull(orderedPages);
+
+        var intermediateDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "velune-pdf-save-steps",
+            Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(intermediateDirectory);
+
+        var currentInputPath = sourcePath;
+
+        try
+        {
+            if (pendingRotations.Count > 0)
+            {
+                for (var i = 0; i < pendingRotations.Count; i++)
+                {
+                    var group = pendingRotations[i];
+                    var requiresAdditionalStep = hasPendingReorder || i < pendingRotations.Count - 1;
+                    var currentOutputPath = requiresAdditionalStep
+                        ? Path.Combine(intermediateDirectory, $"rotation-step-{i + 1}.pdf")
+                        : outputPath;
+
+                    var rotationResult = await _rotatePdfPagesUseCase.ExecuteAsync(
+                        new RotatePdfPagesRequest(
+                            currentInputPath,
+                            currentOutputPath,
+                            group.Pages,
+                            group.Rotation));
+
+                    if (rotationResult.IsFailure)
+                    {
+                        return rotationResult;
+                    }
+
+                    currentInputPath = rotationResult.Value ?? currentOutputPath;
+                }
+            }
+
+            if (hasPendingReorder)
+            {
+                var reorderResult = await _reorderPdfPagesUseCase.ExecuteAsync(
+                    new ReorderPdfPagesRequest(
+                        currentInputPath,
+                        outputPath,
+                        orderedPages.ToArray()));
+
+                if (reorderResult.IsFailure)
+                {
+                    return reorderResult;
+                }
+
+                return ResultFactory.Success(outputPath);
+            }
+
+            return ResultFactory.Success(currentInputPath);
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(intermediateDirectory))
+                {
+                    Directory.Delete(intermediateDirectory, recursive: true);
+                }
+            }
+            catch
+            {
+                // Best-effort cleanup for temporary PDF structure files.
+            }
+        }
     }
 
     private async Task ExtractPageAsync(int sourcePageNumber, string pageLabel)
@@ -3067,15 +3413,153 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private string BuildSuggestedPdfFileName()
     {
-        var fileName = Path.GetFileName(CurrentDocumentName);
-        if (string.IsNullOrWhiteSpace(fileName))
+        var resolvedFileName = ResolveRequestedDocumentFileName();
+        return string.IsNullOrWhiteSpace(resolvedFileName)
+            ? "document.pdf"
+            : resolvedFileName;
+    }
+
+    private string ResolveRequestedDocumentFileName()
+    {
+        var candidate = string.IsNullOrWhiteSpace(EditableDocumentName)
+            ? Path.GetFileName(CurrentDocumentName)
+            : EditableDocumentName.Trim();
+
+        if (string.IsNullOrWhiteSpace(candidate))
         {
-            return "document.pdf";
+            candidate = "document";
         }
 
-        return Path.HasExtension(fileName)
-            ? fileName
-            : $"{fileName}.pdf";
+        if (!Path.HasExtension(candidate))
+        {
+            candidate = AppendCurrentDocumentExtension(candidate);
+        }
+
+        return candidate;
+    }
+
+    private bool TryNormalizeRequestedDocumentFileName(
+        string candidate,
+        out string normalizedFileName,
+        out string? validationError)
+    {
+        normalizedFileName = string.Empty;
+        validationError = null;
+
+        if (string.IsNullOrWhiteSpace(candidate))
+        {
+            validationError = "The file name cannot be empty.";
+            return false;
+        }
+
+        candidate = candidate.Trim();
+
+        if (candidate.Contains(Path.DirectorySeparatorChar) ||
+            candidate.Contains(Path.AltDirectorySeparatorChar))
+        {
+            validationError = "Only the file name can be edited here.";
+            return false;
+        }
+
+        if (candidate.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            validationError = "The file name contains unsupported characters.";
+            return false;
+        }
+
+        normalizedFileName = Path.HasExtension(candidate)
+            ? candidate
+            : AppendCurrentDocumentExtension(candidate);
+
+        return true;
+    }
+
+    private bool HasPendingRequestedSaveNameChange()
+    {
+        var currentDocumentPath = CurrentDocumentPath;
+        if (!IsPdfDocument ||
+            string.IsNullOrWhiteSpace(currentDocumentPath) ||
+            !TryResolveRequestedSavePath(
+                currentDocumentPath,
+                out var targetDocumentPath,
+                out _,
+                out _))
+        {
+            return false;
+        }
+
+        return !PathsEqual(currentDocumentPath, targetDocumentPath);
+    }
+
+    private bool TryResolveRequestedSavePath(
+        string currentDocumentPath,
+        out string targetDocumentPath,
+        out string targetFileName,
+        out string? validationError)
+    {
+        targetDocumentPath = string.Empty;
+        targetFileName = string.Empty;
+
+        if (!TryNormalizeRequestedDocumentFileName(
+                ResolveRequestedDocumentFileName(),
+                out targetFileName,
+                out validationError))
+        {
+            return false;
+        }
+
+        var currentDirectory = Path.GetDirectoryName(currentDocumentPath);
+        if (string.IsNullOrWhiteSpace(currentDirectory))
+        {
+            validationError = "The current document directory is unavailable.";
+            return false;
+        }
+
+        targetDocumentPath = Path.Combine(currentDirectory, targetFileName);
+        if (!PathsEqual(currentDocumentPath, targetDocumentPath) && File.Exists(targetDocumentPath))
+        {
+            validationError = $"A file named “{targetFileName}” already exists in this folder.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private string AppendCurrentDocumentExtension(string fileName)
+    {
+        var extension = Path.GetExtension(CurrentDocumentPath);
+        return string.IsNullOrWhiteSpace(extension)
+            ? $"{fileName}.pdf"
+            : $"{fileName}{extension}";
+    }
+
+    private static bool PathsEqual(string leftPath, string rightPath)
+    {
+        var comparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+
+        return string.Equals(
+            Path.GetFullPath(leftPath),
+            Path.GetFullPath(rightPath),
+            comparison);
+    }
+
+    private async Task CloseCurrentDocumentStateAsync(bool clearNotifications)
+    {
+        CancelCurrentRender();
+        CancelCurrentTextAnalysis();
+        CancelThumbnailGeneration();
+
+        await _closeDocumentUseCase.ExecuteAsync();
+        _pageViewportStore.Clear();
+        ClearThumbnails();
+        ResetDocumentState();
+
+        if (clearNotifications)
+        {
+            ClearNotifications();
+        }
     }
 
     private async Task PersistPreferencesFromUiAsync(bool applyDefaultZoomToOpenDocument)
@@ -3341,6 +3825,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsSidebarVisible));
         OnPropertyChanged(nameof(SidebarColumnWidth));
         OnPropertyChanged(nameof(SidebarWidth));
+        OnPropertyChanged(nameof(SidebarToggleLabel));
     }
 
     private void RefreshDocumentInfo(DocumentMetadata metadata)

@@ -95,6 +95,13 @@ public sealed class PdfiumRenderService : IRenderService
                     throw new InvalidOperationException("Unable to access PDFium bitmap buffer.");
                 }
 
+                var minimumStride = targetWidth * 4;
+                if (stride < minimumStride)
+                {
+                    throw new InvalidOperationException(
+                        $"Invalid PDFium bitmap stride. Expected at least {minimumStride} bytes but received {stride}.");
+                }
+
                 var pixelData = new byte[targetWidth * targetHeight * 4];
 
                 for (var y = 0; y < targetHeight; y++)

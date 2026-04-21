@@ -1,16 +1,16 @@
 <ResourceDictionary
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <Color x:Key="Color.Background">#FF111418</Color>
-  <Color x:Key="Color.Surface">#FF1A1F24</Color>
-  <Color x:Key="Color.SurfaceMuted">#FF20262C</Color>
-  <Color x:Key="Color.SurfaceStrong">#FF2A323A</Color>
-  <Color x:Key="Color.Border">#33FFFFFF</Color>
-  <Color x:Key="Color.BorderStrong">#55FFFFFF</Color>
-  <Color x:Key="Color.Foreground">#FFF3F4F6</Color>
-  <Color x:Key="Color.ForegroundMuted">#FFB0B8C1</Color>
-  <Color x:Key="Color.Icon">#FFFFFFFF</Color>
-  <Color x:Key="Color.Accent">#FF60A5FA</Color>
+  <Color x:Key="Color.Background">#FF171824</Color>
+  <Color x:Key="Color.Surface">#FF202334</Color>
+  <Color x:Key="Color.SurfaceMuted">#FF292D42</Color>
+  <Color x:Key="Color.SurfaceStrong">#FF333853</Color>
+  <Color x:Key="Color.Border">#3EB7AACF</Color>
+  <Color x:Key="Color.BorderStrong">#5CD7CBEE</Color>
+  <Color x:Key="Color.Foreground">#FFF8F2EF</Color>
+  <Color x:Key="Color.ForegroundMuted">#FFD4CCE0</Color>
+  <Color x:Key="Color.Icon">#FFF6EEF7</Color>
+  <Color x:Key="Color.Accent">#FFA6C4F2</Color>
 
   <SolidColorBrush x:Key="Brush.Background" Color="{StaticResource Color.Background}" />
   <SolidColorBrush x:Key="Brush.Surface" Color="{StaticResource Color.Surface}" />
@@ -22,4 +22,15 @@
   <SolidColorBrush x:Key="Brush.ForegroundMuted" Color="{StaticResource Color.ForegroundMuted}" />
   <SolidColorBrush x:Key="Brush.Icon" Color="{StaticResource Color.Icon}" />
   <SolidColorBrush x:Key="Brush.Accent" Color="{StaticResource Color.Accent}" />
+  <LinearGradientBrush x:Key="Brush.BrandPanel" StartPoint="0,0" EndPoint="1,1">
+    <GradientStop Color="#FF2B3046" Offset="0" />
+    <GradientStop Color="#FF283854" Offset="0.55" />
+    <GradientStop Color="#FF3A2E46" Offset="1" />
+  </LinearGradientBrush>
+  <RadialGradientBrush x:Key="Brush.BrandHalo" Center="50%,50%" RadiusX="70%" RadiusY="70%">
+    <GradientStop Color="#1278A9E8" Offset="0" />
+    <GradientStop Color="#0CC6A5D9" Offset="0.46" />
+    <GradientStop Color="#06F2B6D2" Offset="0.68" />
+    <GradientStop Color="#00FFFFFF" Offset="1" />
+  </RadialGradientBrush>
 </ResourceDictionary>

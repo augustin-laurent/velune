@@ -8,12 +8,16 @@
     Height="860"
     MinWidth="1000"
     MinHeight="700"
+    Icon="avares://Velune.Presentation/Assets/Brand/velune-app-icon.png"
     KeyDown="OnWindowKeyDown"
+    SizeChanged="OnWindowSizeChanged"
     Title="{Binding Title}">
 
   <Window.KeyBindings>
     <KeyBinding Gesture="Ctrl+O" Command="{Binding OpenCommand}" />
     <KeyBinding Gesture="Meta+O" Command="{Binding OpenCommand}" />
+    <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveDocumentCommand}" />
+    <KeyBinding Gesture="Meta+S" Command="{Binding SaveDocumentCommand}" />
     <KeyBinding Gesture="Ctrl+P" Command="{Binding PrintDocumentCommand}" />
     <KeyBinding Gesture="Meta+P" Command="{Binding PrintDocumentCommand}" />
     <KeyBinding Gesture="Ctrl+F" Command="{Binding ToggleSearchPanelCommand}" />
@@ -36,97 +40,264 @@
     <KeyBinding Gesture="PageUp" Command="{Binding PreviousPageCommand}" />
   </Window.KeyBindings>
 
-  <Grid RowDefinitions="Auto,*,Auto">
+  <NativeMenu.Menu>
+    <NativeMenu>
+      <NativeMenuItem Header="File">
+        <NativeMenu>
+          <NativeMenuItem Header="Open..."
+                          Command="{Binding OpenCommand}"
+                          Gesture="Meta+O" />
+          <NativeMenuItem Header="Save"
+                          Command="{Binding SaveDocumentCommand}"
+                          Gesture="Meta+S" />
+          <NativeMenuItemSeparator />
+          <NativeMenuItem Header="Print..."
+                          Command="{Binding PrintDocumentCommand}"
+                          Gesture="Meta+P" />
+          <NativeMenuItemSeparator />
+          <NativeMenuItem Header="Close"
+                          Command="{Binding CloseCommand}" />
+        </NativeMenu>
+      </NativeMenuItem>
+
+      <NativeMenuItem Header="Page">
+        <NativeMenu>
+          <NativeMenuItem Header="Previous Page"
+                          Command="{Binding PreviousPageCommand}" />
+          <NativeMenuItem Header="Next Page"
+                          Command="{Binding NextPageCommand}" />
+          <NativeMenuItemSeparator />
+          <NativeMenuItem Header="Rotate Left"
+                          Command="{Binding RotateLeftCommand}" />
+          <NativeMenuItem Header="Rotate Right"
+                          Command="{Binding RotateRightCommand}" />
+          <NativeMenuItemSeparator />
+          <NativeMenuItem Header="Move Page Earlier"
+                          Command="{Binding MoveCurrentPageEarlierCommand}" />
+          <NativeMenuItem Header="Move Page Later"
+                          Command="{Binding MoveCurrentPageLaterCommand}" />
+          <NativeMenuItemSeparator />
+          <NativeMenuItem Header="Extract Current Page"
+                          Command="{Binding ExtractCurrentPageCommand}" />
+          <NativeMenuItem Header="Delete Current Page"
+                          Command="{Binding DeleteCurrentPageCommand}" />
+        </NativeMenu>
+      </NativeMenuItem>
+
+      <NativeMenuItem Header="View">
+        <NativeMenu>
+          <NativeMenuItem Header="Show Pages Sidebar"
+                          Command="{Binding ToggleSidebarCommand}" />
+          <NativeMenuItemSeparator />
+          <NativeMenuItem Header="Search"
+                          Command="{Binding ToggleSearchPanelCommand}"
+                          Gesture="Meta+F" />
+          <NativeMenuItem Header="Information"
+                          Command="{Binding ToggleInfoPanelCommand}" />
+          <NativeMenuItem Header="Preferences"
+                          Command="{Binding TogglePreferencesPanelCommand}"
+                          Gesture="Meta+OemComma" />
+          <NativeMenuItemSeparator />
+          <NativeMenuItem Header="Zoom In"
+                          Command="{Binding ZoomInCommand}" />
+          <NativeMenuItem Header="Zoom Out"
+                          Command="{Binding ZoomOutCommand}" />
+          <NativeMenuItemSeparator />
+          <NativeMenuItem Header="Fit to Width"
+                          Command="{Binding FitToWidthCommand}" />
+          <NativeMenuItem Header="Fit to Page"
+                          Command="{Binding FitToPageCommand}" />
+        </NativeMenu>
+      </NativeMenuItem>
+    </NativeMenu>
+  </NativeMenu.Menu>
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto">
     <Grid.ColumnDefinitions>
       <ColumnDefinition Width="{Binding SidebarColumnWidth}" />
       <ColumnDefinition Width="*" />
     </Grid.ColumnDefinitions>
 
+    <Menu Grid.Row="0"
+          Grid.Column="0"
+          Grid.ColumnSpan="2"
+          IsVisible="{Binding ShowWindowMenuBar}">
+      <MenuItem Header="_Velune">
+        <MenuItem Header="_About Velune..."
+                  Click="OnAboutMenuClicked" />
+        <MenuItem Header="_Preferences"
+                  Command="{Binding TogglePreferencesPanelCommand}" />
+      </MenuItem>
+
+      <MenuItem Header="_File">
+        <MenuItem Header="_Open..."
+                  Command="{Binding OpenCommand}" />
+        <MenuItem Header="_Save"
+                  Command="{Binding SaveDocumentCommand}" />
+        <Separator />
+        <MenuItem Header="_Print..."
+                  Command="{Binding PrintDocumentCommand}" />
+        <Separator />
+        <MenuItem Header="_Close"
+                  Command="{Binding CloseCommand}" />
+      </MenuItem>
+
+      <MenuItem Header="_Page">
+        <MenuItem Header="_Previous Page"
+                  Command="{Binding PreviousPageCommand}" />
+        <MenuItem Header="_Next Page"
+                  Command="{Binding NextPageCommand}" />
+        <Separator />
+        <MenuItem Header="Rotate _Left"
+                  Command="{Binding RotateLeftCommand}" />
+        <MenuItem Header="Rotate _Right"
+                  Command="{Binding RotateRightCommand}" />
+        <Separator />
+        <MenuItem Header="Move Page _Earlier"
+                  Command="{Binding MoveCurrentPageEarlierCommand}" />
+        <MenuItem Header="Move Page _Later"
+                  Command="{Binding MoveCurrentPageLaterCommand}" />
+        <Separator />
+        <MenuItem Header="_Extract Current Page"
+                  Command="{Binding ExtractCurrentPageCommand}" />
+        <MenuItem Header="_Delete Current Page"
+                  Command="{Binding DeleteCurrentPageCommand}" />
+      </MenuItem>
+
+      <MenuItem Header="_View">
+        <MenuItem Header="Show _Pages Sidebar"
+                  Command="{Binding ToggleSidebarCommand}" />
+        <Separator />
+        <MenuItem Header="_Search"
+                  Command="{Binding ToggleSearchPanelCommand}" />
+        <MenuItem Header="_Information"
+                  Command="{Binding ToggleInfoPanelCommand}" />
+        <MenuItem Header="_Preferences"
+                  Command="{Binding TogglePreferencesPanelCommand}" />
+        <Separator />
+        <MenuItem Header="Zoom _In"
+                  Command="{Binding ZoomInCommand}" />
+        <MenuItem Header="Zoom _Out"
+                  Command="{Binding ZoomOutCommand}" />
+        <Separator />
+        <MenuItem Header="Fit to _Width"
+                  Command="{Binding FitToWidthCommand}" />
+        <MenuItem Header="Fit to _Page"
+                  Command="{Binding FitToPageCommand}" />
+      </MenuItem>
+    </Menu>
+
     <!-- Header -->
-    <Border Grid.Row="0"
+    <Border x:Name="HeaderHostBorder"
+            Grid.Row="1"
             Grid.Column="0"
             Grid.ColumnSpan="2"
             Padding="18,14"
             BorderBrush="{DynamicResource Brush.Border}"
             BorderThickness="0,0,0,1"
             Background="{DynamicResource Brush.Surface}">
-      <Grid ColumnDefinitions="*,Auto,*"
+      <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto"
             ColumnSpacing="20">
-        <StackPanel Grid.Column="0"
-                    Orientation="Horizontal"
-                    VerticalAlignment="Center"
-                    Spacing="16">
-          <StackPanel MaxWidth="360"
-                      Spacing="2">
+        <Grid Grid.Column="0"
+              MaxWidth="{Binding HeaderTitleMaxWidth}"
+              Width="{Binding HeaderTitleMaxWidth}">
+          <StackPanel Spacing="2"
+                      IsVisible="{Binding ShouldEmphasizeOpenAction}">
             <TextBlock Text="{Binding HeaderTitle}"
                        Classes="title"
-                       TextTrimming="CharacterEllipsis"
-                       ToolTip.Tip="{Binding CurrentDocumentPath}" />
+                       TextTrimming="CharacterEllipsis" />
+            <TextBlock Text="{Binding HeaderSubtitle}"
+                       Classes="muted"
+                       TextTrimming="CharacterEllipsis" />
+          </StackPanel>
+
+          <StackPanel Spacing="2"
+                      IsVisible="{Binding HasOpenDocument}">
+            <TextBox x:Name="DocumentNameEditorTextBox"
+                     Classes="header-title-input"
+                     Text="{Binding EditableDocumentName}"
+                     Watermark="Document name"
+                     ToolTip.Tip="Click to edit the save name"
+                     KeyDown="OnDocumentNameInputKeyDown"
+                     GotFocus="OnDocumentNameInputGotFocus"
+                     LostFocus="OnDocumentNameInputLostFocus" />
             <TextBlock Text="{Binding HeaderSubtitle}"
                        Classes="muted"
                        TextTrimming="CharacterEllipsis"
                        ToolTip.Tip="{Binding CurrentDocumentPath}" />
           </StackPanel>
+        </Grid>
 
-          <Border Classes="header-chip-group">
-            <StackPanel Orientation="Horizontal"
-                        Spacing="4">
-              <Button Classes="toolbar-primary-button"
-                      Command="{Binding OpenCommand}"
-                      IsVisible="{Binding ShouldEmphasizeOpenAction}"
-                      ToolTip.Tip="Open a document">
-                <StackPanel Orientation="Horizontal"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            Spacing="8">
-                  <materialIcons:MaterialIcon Classes="toolbar-primary-icon"
-                                              Kind="FolderOpenOutline"
-                                              Width="20"
-                                              Height="20" />
-                  <TextBlock Text="Open"
-                             Classes="toolbar-primary-label" />
-                </StackPanel>
-              </Button>
+        <Button Grid.Column="1"
+                Classes="header-action-button sidebar-toggle-button"
+                Command="{Binding ToggleSidebarCommand}"
+                IsVisible="{Binding CanToggleSidebar}"
+                ToolTip.Tip="{Binding SidebarToggleLabel}">
+          <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                      Kind="Menu"
+                                      Width="18"
+                                      Height="18" />
+        </Button>
 
-              <Button Classes="header-action-button"
-                      Command="{Binding OpenCommand}"
-                      IsVisible="{Binding HasOpenDocument}"
-                      ToolTip.Tip="Open another document">
-                <StackPanel Orientation="Horizontal"
-                            Spacing="8">
-                  <materialIcons:MaterialIcon Classes="toolbar-icon"
-                                              Kind="FolderOpenOutline"
-                                              Width="18"
-                                              Height="18" />
-                  <TextBlock Text="Open"
-                             Classes="header-action-label" />
-                </StackPanel>
-              </Button>
+        <Border Grid.Column="2"
+                Classes="header-chip-group">
+          <StackPanel Orientation="Horizontal"
+                      Spacing="4">
+            <Button Classes="toolbar-primary-button"
+                    Command="{Binding OpenCommand}"
+                    IsVisible="{Binding ShouldEmphasizeOpenAction}"
+                    ToolTip.Tip="Open a document">
+              <StackPanel Orientation="Horizontal"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"
+                          Spacing="8">
+                <materialIcons:MaterialIcon Classes="toolbar-primary-icon"
+                                            Kind="FolderOpenOutline"
+                                            Width="20"
+                                            Height="20" />
+                <TextBlock Text="Open"
+                           Classes="toolbar-primary-label" />
+              </StackPanel>
+            </Button>
 
-              <Button Classes="header-action-button"
-                      Command="{Binding PrintDocumentCommand}"
-                      IsVisible="{Binding HasOpenDocument}"
-                      ToolTip.Tip="Print the current document">
+            <Button Classes="header-action-button"
+                    Command="{Binding OpenCommand}"
+                    IsVisible="{Binding HasOpenDocument}"
+                    ToolTip.Tip="Open another document">
+              <StackPanel Orientation="Horizontal"
+                          Spacing="8">
                 <materialIcons:MaterialIcon Classes="toolbar-icon"
-                                            Kind="PrinterOutline"
+                                            Kind="FolderOpenOutline"
                                             Width="18"
                                             Height="18" />
-              </Button>
+                <TextBlock Text="Open"
+                           Classes="header-action-label" />
+              </StackPanel>
+            </Button>
 
-              <Button Classes="header-action-button"
-                      Command="{Binding CloseCommand}"
-                      IsVisible="{Binding HasOpenDocument}"
-                      ToolTip.Tip="Close the current document">
-                <materialIcons:MaterialIcon Classes="toolbar-icon"
-                                            Kind="Close"
-                                            Width="18"
-                                            Height="18" />
-              </Button>
-            </StackPanel>
-          </Border>
-        </StackPanel>
+            <Button Classes="header-action-button"
+                    Command="{Binding PrintDocumentCommand}"
+                    IsVisible="{Binding HasOpenDocument}"
+                    ToolTip.Tip="Print the current document">
+              <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                          Kind="PrinterOutline"
+                                          Width="18"
+                                          Height="18" />
+            </Button>
 
-        <StackPanel Grid.Column="1"
+            <Button Classes="header-action-button"
+                    Command="{Binding CloseCommand}"
+                    IsVisible="{Binding HasOpenDocument}"
+                    ToolTip.Tip="Close the current document">
+              <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                          Kind="Close"
+                                          Width="18"
+                                          Height="18" />
+            </Button>
+          </StackPanel>
+        </Border>
+
+        <StackPanel Grid.Column="3"
                     Orientation="Horizontal"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
@@ -221,11 +392,39 @@
           </Border>
         </StackPanel>
 
-        <StackPanel Grid.Column="2"
+        <StackPanel Grid.Column="4"
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Center"
                     Spacing="8">
+          <Border Classes="header-search-group"
+                  IsVisible="{Binding UseInlineHeaderSearch}">
+            <Grid ColumnDefinitions="Auto,*,Auto"
+                  ColumnSpacing="8">
+              <materialIcons:MaterialIcon Grid.Column="0"
+                                          Classes="toolbar-icon"
+                                          Kind="Magnify"
+                                          Width="18"
+                                          Height="18"
+                                          VerticalAlignment="Center" />
+
+              <TextBox Grid.Column="1"
+                       Classes="header-search-input"
+                       Width="168"
+                       Watermark="Search in document"
+                       Text="{Binding SearchQueryInput}"
+                       KeyDown="OnSearchInputKeyDown" />
+
+              <Button Grid.Column="2"
+                      Classes="header-search-button"
+                      Command="{Binding OpenSearchCommand}"
+                      ToolTip.Tip="Search in document">
+                <TextBlock Text="Search"
+                           Classes="header-action-label" />
+              </Button>
+            </Grid>
+          </Border>
+
           <Border Classes="header-chip-group"
                   IsVisible="{Binding HasOpenDocument}">
             <StackPanel Orientation="Horizontal"
@@ -259,7 +458,8 @@
                         Spacing="4">
               <Button Classes="header-action-button"
                       Command="{Binding ToggleSearchPanelCommand}"
-                      ToolTip.Tip="Search text">
+                      IsVisible="{Binding UseCollapsedHeaderSearchButton}"
+                      ToolTip.Tip="Open search">
                 <materialIcons:MaterialIcon Classes="toolbar-icon"
                                             Kind="Magnify"
                                             Width="18"
@@ -290,7 +490,7 @@
     </Border>
 
     <!-- Sidebar -->
-    <Border Grid.Row="1"
+    <Border Grid.Row="2"
             Grid.Column="0"
             Width="{Binding SidebarWidth}"
             Padding="14"
@@ -302,44 +502,18 @@
         <StackPanel Grid.Row="0"
                     Spacing="12"
                     Margin="0,0,0,12">
-          <Grid ColumnDefinitions="*,Auto,Auto"
+          <Grid ColumnDefinitions="*,Auto"
                 ColumnSpacing="8">
             <TextBlock Text="{Binding SidebarTitle}"
                        Classes="title"
                        VerticalAlignment="Center" />
 
-            <Button Grid.Column="1"
-                    Classes="sidebar-info-button"
-                    IsVisible="{Binding IsPdfStructureActionsVisible}"
-                    ToolTip.Tip="Drag thumbnails to prepare a new page order. Right-click a thumbnail to extract or delete that page.">
-              <materialIcons:MaterialIcon Classes="toolbar-icon"
-                                          Kind="InformationCircleOutline"
-                                          Width="16"
-                                          Height="16" />
-            </Button>
-
-            <TextBlock Grid.Column="2"
+            <TextBlock Grid.Column="1"
                        Text="Loading..."
                        Classes="muted"
                        VerticalAlignment="Center"
                        IsVisible="{Binding IsGeneratingThumbnails}" />
           </Grid>
-
-          <WrapPanel ItemSpacing="6"
-                     LineSpacing="6"
-                     IsVisible="{Binding IsSidebarActionStripVisible}">
-            <Button Classes="sidebar-context-button"
-                    Command="{Binding PersistCurrentPageRotationCommand}"
-                    IsVisible="{Binding CanPersistCurrentPageRotation}">
-              Save rotations
-            </Button>
-
-            <Button Classes="sidebar-context-button"
-                    Command="{Binding SaveReorderedPdfCommand}"
-                    IsVisible="{Binding HasPendingPageReorder}">
-              Save order
-            </Button>
-          </WrapPanel>
         </StackPanel>
 
         <Grid x:Name="ThumbnailDragSurface"
@@ -460,7 +634,7 @@
     </Border>
 
     <!-- Main content -->
-    <Grid Grid.Row="1"
+    <Grid Grid.Row="2"
           Grid.Column="1"
           ColumnDefinitions="*,Auto"
           Background="{DynamicResource Brush.Background}">
@@ -520,16 +694,30 @@
       <StackPanel HorizontalAlignment="Center"
                   Grid.ColumnSpan="2"
                   VerticalAlignment="Center"
-                  Spacing="16"
-                  MaxWidth="520"
+                  Spacing="18"
+                  MaxWidth="560"
                   IsVisible="{Binding IsEmptyStateVisible}">
-        <Border Classes="card"
-                Padding="20"
-                HorizontalAlignment="Center">
-          <TextBlock Text="📄"
-                     FontSize="40"
-                     HorizontalAlignment="Center" />
-        </Border>
+        <Grid Width="286"
+              Height="286"
+              HorizontalAlignment="Center">
+          <Ellipse Width="286"
+                   Height="286"
+                   Fill="{DynamicResource Brush.BrandHalo}" />
+
+          <Border Classes="empty-state-brand-shell"
+                  Width="248"
+                  Height="248"
+                  Padding="18"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center">
+            <Image Source="avares://Velune.Presentation/Assets/Brand/velune-logo.png"
+                   Stretch="Uniform"
+                   Width="212"
+                   Height="212"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center" />
+          </Border>
+        </Grid>
 
         <TextBlock Text="{Binding EmptyStateTitle}"
                    Classes="hero"
@@ -548,9 +736,6 @@
           <Button Content="Open a file"
                   Width="140"
                   Command="{Binding OpenCommand}" />
-          <Button Content="Simulate error"
-                  Width="140"
-                  Command="{Binding SimulateErrorCommand}" />
         </StackPanel>
 
         <Border Classes="card"
@@ -898,6 +1083,12 @@
 
             <ItemsControl ItemsSource="{Binding SearchResults}"
                           IsVisible="{Binding HasSearchResults}">
+              <ItemsControl.Styles>
+                <Style Selector="ContentPresenter">
+                  <Setter Property="HorizontalAlignment" Value="Stretch" />
+                </Style>
+              </ItemsControl.Styles>
+
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
                   <Button Classes="search-result-button"
@@ -1075,7 +1266,7 @@
     </Grid>
 
     <!-- Status bar -->
-    <Border Grid.Row="2"
+    <Border Grid.Row="3"
             Grid.Column="0"
             Grid.ColumnSpan="2"
             Padding="12,8"

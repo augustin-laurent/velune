@@ -65,17 +65,19 @@ internal static class Program
     {
         try
         {
-            var initializer = new PdfiumInitializer();
+            using var initializer = new PdfiumInitializer();
             var sessionStore = new InMemoryDocumentSessionStore();
+            using var renderOrchestrator = new NoOpRenderOrchestrator();
             var openDocumentUseCase = new OpenDocumentUseCase(
-                new CompositeDocumentOpener(
+                new DispatchingDocumentOpener(
                     new PdfiumDocumentOpener(initializer),
                     new AvaloniaImageDocumentOpener()),
                 sessionStore,
-                NoOpPerformanceMetrics.Instance);
+                NoOpPerformanceMetrics.Instance,
+                renderOrchestrator);
             var renderUseCase = new RenderVisiblePageUseCase(
                 sessionStore,
-                new CompositeRenderService(
+                new DispatchingRenderService(
                     new PdfiumRenderService(initializer),
                     new ImageRenderService()));
 
@@ -119,7 +121,7 @@ internal static class Program
                 sessionStore.Current.Metadata.PageCount,
                 renderResult.Value.Width,
                 renderResult.Value.Height,
-                renderResult.Value.PixelData.Length,
+                renderResult.Value.ByteCount,
                 null));
 
             if (sessionStore.Current is IDisposable disposable)
@@ -217,16 +219,17 @@ internal static class Program
             WriteChunk(stream, "IEND", []);
         }
 
-        private static byte[] ConvertBgraToRgba(byte[] bgra)
+        private static byte[] ConvertBgraToRgba(ReadOnlyMemory<byte> bgra)
         {
-            var rgba = new byte[bgra.Length];
+            var source = bgra.Span;
+            var rgba = new byte[source.Length];
 
-            for (var index = 0; index < bgra.Length; index += 4)
+            for (var index = 0; index < source.Length; index += 4)
             {
-                rgba[index] = bgra[index + 2];
-                rgba[index + 1] = bgra[index + 1];
-                rgba[index + 2] = bgra[index];
-                rgba[index + 3] = bgra[index + 3];
+                rgba[index] = source[index + 2];
+                rgba[index + 1] = source[index + 1];
+                rgba[index + 2] = source[index];
+                rgba[index + 3] = source[index + 3];
             }
 
             return rgba;
@@ -319,6 +322,28 @@ internal static class Program
             }
 
             return crc;
+        }
+    }
+
+    private sealed class NoOpRenderOrchestrator : IRenderOrchestrator
+    {
+        public RenderJobHandle Submit(RenderRequest request)
+        {
+            throw new NotSupportedException("The render host does not submit background orchestrator jobs.");
+        }
+
+        public bool Cancel(Guid jobId)
+        {
+            return false;
+        }
+
+        public Task CancelDocumentJobsAsync(DocumentId documentId, CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
+
+        public void Dispose()
+        {
         }
     }
 }

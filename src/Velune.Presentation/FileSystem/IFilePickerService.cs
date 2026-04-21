@@ -1,4 +1,4 @@
-namespace Velune.Application.Abstractions;
+namespace Velune.Presentation.FileSystem;
 
 public interface IFilePickerService
 {

@@ -1,10 +1,11 @@
+using Velune.Application.Abstractions;
 using Velune.Domain.Abstractions;
 using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
 
 namespace Velune.Infrastructure.Image;
 
-public sealed record ImageDocumentSession : IImageDocumentSession
+public sealed record ImageDocumentSession : IImageDocumentSession, IReleasableDocumentSession
 {
     internal ImageDocumentSession(
         DocumentId id,
@@ -60,5 +61,10 @@ public sealed record ImageDocumentSession : IImageDocumentSession
             viewport,
             ImageMetadata,
             Resource);
+    }
+
+    public void ReleaseResources()
+    {
+        Resource.Dispose();
     }
 }

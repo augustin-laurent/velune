@@ -127,8 +127,8 @@ public sealed partial class ThumbnailDiskCache : IThumbnailDiskCache
                 writer.Write(CacheFileVersion);
                 writer.Write(renderedPage.Width);
                 writer.Write(renderedPage.Height);
-                writer.Write(renderedPage.PixelData.Length);
-                writer.Write(renderedPage.PixelData);
+                writer.Write(renderedPage.ByteCount);
+                writer.Write(renderedPage.PixelData.Span);
             }
 
             File.Move(tempPath, location.CacheFilePath, overwrite: true);
@@ -365,7 +365,7 @@ public sealed partial class ThumbnailDiskCache : IThumbnailDiskCache
         {
             File.Delete(filePath);
         }
-        catch
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
         }
     }

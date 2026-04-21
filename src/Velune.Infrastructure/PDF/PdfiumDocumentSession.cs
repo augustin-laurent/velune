@@ -1,10 +1,11 @@
+using Velune.Application.Abstractions;
 using Velune.Domain.Abstractions;
 using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
 
 namespace Velune.Infrastructure.Pdf;
 
-public sealed record PdfiumDocumentSession : IDocumentSession
+public sealed record PdfiumDocumentSession : IReleasableDocumentSession
 {
     internal PdfiumDocumentSession(
         DocumentId id,
@@ -51,5 +52,10 @@ public sealed record PdfiumDocumentSession : IDocumentSession
             Metadata,
             viewport,
             Resource);
+    }
+
+    public void ReleaseResources()
+    {
+        Resource.Dispose();
     }
 }

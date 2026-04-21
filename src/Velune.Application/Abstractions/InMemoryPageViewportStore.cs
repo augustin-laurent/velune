@@ -6,7 +6,6 @@ namespace Velune.Application.Abstractions;
 public sealed class InMemoryPageViewportStore : IPageViewportStore
 {
     private readonly Dictionary<int, Rotation> _rotations = [];
-    private double _globalZoomFactor = 1.0;
 
     public PageIndex ActivePageIndex { get; private set; } = new(0);
 
@@ -15,7 +14,6 @@ public sealed class InMemoryPageViewportStore : IPageViewportStore
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pageCount);
 
         _rotations.Clear();
-        _globalZoomFactor = 1.0;
 
         for (var i = 0; i < pageCount; i++)
         {
@@ -25,15 +23,15 @@ public sealed class InMemoryPageViewportStore : IPageViewportStore
         ActivePageIndex = new PageIndex(0);
     }
 
-    public PageViewportState GetPageState(PageIndex pageIndex)
+    public Rotation GetRotation(PageIndex pageIndex)
     {
         if (_rotations.TryGetValue(pageIndex.Value, out var rotation))
         {
-            return new PageViewportState(pageIndex, _globalZoomFactor, rotation);
+            return rotation;
         }
 
         _rotations[pageIndex.Value] = Rotation.Deg0;
-        return new PageViewportState(pageIndex, _globalZoomFactor, Rotation.Deg0);
+        return Rotation.Deg0;
     }
 
     public void SetActivePage(PageIndex pageIndex)
@@ -41,17 +39,14 @@ public sealed class InMemoryPageViewportStore : IPageViewportStore
         ActivePageIndex = pageIndex;
     }
 
-    public void SetPageState(PageViewportState state)
+    public void SetRotation(PageIndex pageIndex, Rotation rotation)
     {
-        ArgumentNullException.ThrowIfNull(state);
-        _globalZoomFactor = state.ZoomFactor;
-        _rotations[state.PageIndex.Value] = state.Rotation;
+        _rotations[pageIndex.Value] = rotation;
     }
 
     public void Clear()
     {
         _rotations.Clear();
-        _globalZoomFactor = 1.0;
         ActivePageIndex = new PageIndex(0);
     }
 }

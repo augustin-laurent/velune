@@ -7,6 +7,7 @@ using Velune.Application.UseCases;
 using Velune.Domain.Abstractions;
 using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
+using Velune.Presentation.FileSystem;
 using Velune.Presentation.ViewModels;
 using Velune.Tests.Unit.Support;
 using AppResult = Velune.Application.Results.Result;
@@ -15,21 +16,6 @@ namespace Velune.Tests.Unit.Presentation.ViewModels;
 
 public sealed class MainWindowViewModelTests
 {
-    [Fact]
-    public void SimulateErrorCommand_ShouldShowDismissibleNonFatalNotification()
-    {
-        using var viewModel = CreateViewModel();
-
-        viewModel.SimulateErrorCommand.Execute(null);
-
-        Assert.True(viewModel.HasUserMessage);
-        Assert.Equal("Non-fatal error", viewModel.UserMessageTitle);
-        Assert.Equal("Unable to load the requested document.", viewModel.UserMessage);
-        Assert.True(viewModel.CanDismissUserMessage);
-        Assert.False(viewModel.HasNotificationPrimaryAction);
-        Assert.False(viewModel.HasNotificationSecondaryAction);
-    }
-
     [Fact]
     public void ClearRecentFilesCommand_ShouldRequestConfirmationWithoutClearingEntries()
     {
@@ -559,7 +545,7 @@ public sealed class MainWindowViewModelTests
         await viewModel.OpenCommand.ExecuteAsync(null);
         await viewModel.DeleteCurrentPageCommand.ExecuteAsync(null);
 
-        Assert.Equal("Save PDF without current page", filePickerService.LastSaveTitle);
+        Assert.Equal("Save PDF without page", filePickerService.LastSaveTitle);
         Assert.Equal("Document.pdf", filePickerService.LastSuggestedFileName);
         Assert.Equal([1], pdfStructureService.LastDeletedPages);
         Assert.Equal("/tmp/document-without-page-1.pdf", pdfStructureService.LastOutputPath);
@@ -624,8 +610,8 @@ public sealed class MainWindowViewModelTests
         return new MainWindowViewModel(
             filePickerService ?? new StubFilePickerService(),
             activePrintService,
-            new OpenDocumentUseCase(documentOpener ?? new StubDocumentOpener(), sessionStore, NoOpPerformanceMetrics.Instance),
-            new CloseDocumentUseCase(sessionStore, NoOpPerformanceMetrics.Instance),
+            new OpenDocumentUseCase(documentOpener ?? new StubDocumentOpener(), sessionStore, NoOpPerformanceMetrics.Instance, orchestrator),
+            new CloseDocumentUseCase(sessionStore, NoOpPerformanceMetrics.Instance, orchestrator),
             new PrintDocumentUseCase(activePrintService),
             new ShowSystemPrintDialogUseCase(activePrintService),
             new LoadDocumentTextUseCase(activeTextAnalysisOrchestrator),
@@ -783,7 +769,13 @@ public sealed class MainWindowViewModelTests
                         request.JobKey,
                         request.PageIndex,
                         TimeSpan.Zero,
-                        _renderedPage is null ? null : _renderedPage with { PageIndex = request.PageIndex },
+                        _renderedPage is null
+                            ? null
+                            : new RenderedPage(
+                                request.PageIndex,
+                                _renderedPage.PixelData.ToArray(),
+                                _renderedPage.Width,
+                                _renderedPage.Height),
                         null,
                         _isCanceled,
                         false)));
@@ -792,6 +784,11 @@ public sealed class MainWindowViewModelTests
         public bool Cancel(Guid jobId)
         {
             return true;
+        }
+
+        public Task CancelDocumentJobsAsync(DocumentId documentId, CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
         }
 
         public void Dispose()

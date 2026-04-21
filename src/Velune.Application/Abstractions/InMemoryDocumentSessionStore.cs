@@ -5,9 +5,18 @@ namespace Velune.Application.Abstractions;
 
 public sealed class InMemoryDocumentSessionStore : IDocumentSessionStore
 {
+    private readonly object _gate = new();
+    private IDocumentSession? _current;
+
     public IDocumentSession? Current
     {
-        get; private set;
+        get
+        {
+            lock (_gate)
+            {
+                return _current;
+            }
+        }
     }
 
     public bool HasCurrent => Current is not null;
@@ -19,7 +28,11 @@ public sealed class InMemoryDocumentSessionStore : IDocumentSessionStore
     public void SetCurrent(IDocumentSession session)
     {
         ArgumentNullException.ThrowIfNull(session);
-        Current = session;
+
+        lock (_gate)
+        {
+            _current = session;
+        }
     }
 
     public void UpdateViewport(ViewportState viewport)
@@ -31,11 +44,22 @@ public sealed class InMemoryDocumentSessionStore : IDocumentSessionStore
             throw new InvalidOperationException("No active document session.");
         }
 
-        Current = Current.WithViewport(viewport);
+        lock (_gate)
+        {
+            if (_current is null)
+            {
+                throw new InvalidOperationException("No active document session.");
+            }
+
+            _current = _current.WithViewport(viewport);
+        }
     }
 
     public void Clear()
     {
-        Current = null;
+        lock (_gate)
+        {
+            _current = null;
+        }
     }
 }

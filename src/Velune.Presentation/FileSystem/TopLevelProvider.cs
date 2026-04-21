@@ -1,7 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 
-namespace Velune.Infrastructure.FileSystem;
+namespace Velune.Presentation.FileSystem;
 
 public sealed class TopLevelProvider
 {

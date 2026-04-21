@@ -18,8 +18,21 @@ internal static class Program
         _appHost = CreateHost(args).Build();
         _appHost.Services.GetRequiredService<StartupLogger>().LogStartup();
 
-        BuildAvaloniaApp()
-            .StartWithClassicDesktopLifetime(args);
+        try
+        {
+            BuildAvaloniaApp()
+                .StartWithClassicDesktopLifetime(args);
+        }
+        finally
+        {
+            if (global::Avalonia.Application.Current is App app)
+            {
+                app.DisposeResources();
+            }
+
+            _appHost.Dispose();
+            _appHost = null;
+        }
     }
 
     private static HostApplicationBuilder CreateHost(string[] args)

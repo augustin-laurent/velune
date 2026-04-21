@@ -85,6 +85,37 @@ public sealed class RenderMemoryCacheTests
         Assert.True(cache.TryGet(documentId, CreateRequest(pageIndex: 2), out _));
     }
 
+    [Fact]
+    public void TryGet_ShouldUseNormalizedZoomKey()
+    {
+        var logger = new ListLogger<RenderMemoryCache>();
+        using var cache = CreateCache(logger, entryLimit: 4);
+        var documentId = DocumentId.New();
+
+        cache.Store(
+            documentId,
+            CreateRequest(pageIndex: 0, zoomFactor: 1.00004),
+            CreatePage(pageIndex: 0));
+
+        var reused = cache.TryGet(documentId, CreateRequest(pageIndex: 0, zoomFactor: 1.000049), out _);
+
+        Assert.True(reused);
+    }
+
+    [Fact]
+    public void Store_ShouldSkipPagesThatExceedPerEntryBudget()
+    {
+        var logger = new ListLogger<RenderMemoryCache>();
+        using var cache = CreateCache(logger, entryLimit: 4);
+        var documentId = DocumentId.New();
+        var request = CreateRequest(pageIndex: 0);
+        var oversizedPage = CreatePage(pageIndex: 0, width: 4097, height: 4096);
+
+        cache.Store(documentId, request, oversizedPage);
+
+        Assert.False(cache.TryGet(documentId, request, out _));
+    }
+
     private static RenderMemoryCache CreateCache(ILogger<RenderMemoryCache> logger, int entryLimit)
     {
         return new RenderMemoryCache(
@@ -108,13 +139,15 @@ public sealed class RenderMemoryCacheTests
             requestedHeight);
     }
 
-    private static RenderedPage CreatePage(int pageIndex)
+    private static RenderedPage CreatePage(int pageIndex, int width = 1, int height = 1)
     {
+        var pixelData = new byte[width * height * 4];
+
         return new RenderedPage(
             new PageIndex(pageIndex),
-            [0, 0, 0, 255],
-            1,
-            1);
+            pixelData,
+            width,
+            height);
     }
 
     private sealed class ListLogger<T> : ILogger<T>

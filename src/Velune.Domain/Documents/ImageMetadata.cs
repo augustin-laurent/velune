@@ -1,9 +1,23 @@
 namespace Velune.Domain.Documents;
 
-public sealed record ImageMetadata(
-    int Width,
-    int Height)
+public sealed record ImageMetadata
 {
-    public int Width { get; } = Width;
-    public int Height { get; } = Height;
+    public ImageMetadata(int width, int height)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
+
+        Width = width;
+        Height = height;
+    }
+
+    public int Width
+    {
+        get;
+    }
+
+    public int Height
+    {
+        get;
+    }
 }

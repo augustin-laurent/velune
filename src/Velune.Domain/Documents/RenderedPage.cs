@@ -1,25 +1,29 @@
+using System.Runtime.InteropServices;
 using Velune.Domain.ValueObjects;
 
 namespace Velune.Domain.Documents;
 
-public sealed record RenderedPage
+public sealed class RenderedPage
 {
+    private readonly byte[] _pixelData;
+
     public PageIndex PageIndex
     {
-        get; init;
+        get;
     }
-    public byte[] PixelData
+    public ReadOnlyMemory<byte> PixelData
     {
-        get; init;
+        get;
     }
     public int Width
     {
-        get; init;
+        get;
     }
     public int Height
     {
-        get; init;
+        get;
     }
+    public int ByteCount => _pixelData.Length;
 
     public RenderedPage(
         PageIndex pageIndex,
@@ -40,8 +44,19 @@ public sealed record RenderedPage
         }
 
         PageIndex = pageIndex;
-        PixelData = pixelData;
+        _pixelData = [.. pixelData];
+        PixelData = _pixelData;
         Width = width;
         Height = height;
+    }
+
+    public void CopyPixelDataTo(nint destination)
+    {
+        if (destination == nint.Zero)
+        {
+            throw new ArgumentException("Destination address cannot be zero.", nameof(destination));
+        }
+
+        Marshal.Copy(_pixelData, 0, destination, _pixelData.Length);
     }
 }

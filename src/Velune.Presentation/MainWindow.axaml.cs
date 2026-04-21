@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Microsoft.Extensions.DependencyInjection;
@@ -43,6 +44,7 @@ public partial class MainWindow : Window
     {
         ArgumentNullException.ThrowIfNull(viewModel);
         DataContext = viewModel;
+        viewModel.UpdateWindowWidth(Width);
     }
 
     private async void OnDocumentPointerWheelChanged(object? sender, PointerWheelEventArgs e)
@@ -72,7 +74,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (viewModel.ShouldUseTrackpadForPan)
+        if (viewModel.ShouldUseTrackpadForPan && CanPanDocumentViewer(e.Delta.Y))
         {
             _trackpadNavigationAccumulator = 0;
             return;
@@ -119,6 +121,28 @@ public partial class MainWindow : Window
                modifiers.HasFlag(KeyModifiers.Meta);
     }
 
+    private bool CanPanDocumentViewer(double deltaY)
+    {
+        if (Math.Abs(deltaY) <= double.Epsilon)
+        {
+            return false;
+        }
+
+        var extentHeight = DocumentScrollViewer.Extent.Height;
+        var viewportHeight = DocumentScrollViewer.Viewport.Height;
+        if (extentHeight <= viewportHeight + double.Epsilon)
+        {
+            return false;
+        }
+
+        var offsetY = DocumentScrollViewer.Offset.Y;
+        var maxOffsetY = Math.Max(0, extentHeight - viewportHeight);
+
+        return deltaY > 0
+            ? offsetY > double.Epsilon
+            : offsetY < maxOffsetY - double.Epsilon;
+    }
+
     private static bool HasCopyModifier(KeyModifiers modifiers)
     {
         return modifiers.HasFlag(KeyModifiers.Control) ||
@@ -149,6 +173,96 @@ public partial class MainWindow : Window
 
         await clipboard.SetTextAsync(viewModel.SelectedDocumentText);
         viewModel.StatusText = "Selected text copied";
+        e.Handled = true;
+    }
+
+    private async void OnGoToPageInputKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key is not Key.Enter ||
+            DataContext is not MainWindowViewModel viewModel ||
+            !viewModel.GoToPageCommand.CanExecute(null))
+        {
+            return;
+        }
+
+        await viewModel.GoToPageCommand.ExecuteAsync(null);
+        e.Handled = true;
+    }
+
+    private void OnWindowSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel viewModel)
+        {
+            return;
+        }
+
+        viewModel.UpdateWindowWidth(e.NewSize.Width);
+    }
+
+    private void OnDocumentNameInputGotFocus(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel viewModel ||
+            viewModel.IsEditingDocumentName ||
+            !viewModel.BeginDocumentNameEditCommand.CanExecute(null))
+        {
+            return;
+        }
+
+        viewModel.BeginDocumentNameEditCommand.Execute(null);
+    }
+
+    private void OnDocumentNameInputLostFocus(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel viewModel ||
+            !viewModel.IsEditingDocumentName ||
+            !viewModel.CommitDocumentNameEditCommand.CanExecute(null))
+        {
+            return;
+        }
+
+        viewModel.CommitDocumentNameEditCommand.Execute(null);
+    }
+
+    private void OnDocumentNameInputKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel viewModel)
+        {
+            return;
+        }
+
+        if (e.Key is Key.Enter &&
+            viewModel.CommitDocumentNameEditCommand.CanExecute(null))
+        {
+            viewModel.CommitDocumentNameEditCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key is Key.Escape &&
+            viewModel.CancelDocumentNameEditCommand.CanExecute(null))
+        {
+            viewModel.CancelDocumentNameEditCommand.Execute(null);
+            e.Handled = true;
+        }
+    }
+
+    private async void OnSearchInputKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key is not Key.Enter ||
+            DataContext is not MainWindowViewModel viewModel ||
+            !viewModel.OpenSearchCommand.CanExecute(null))
+        {
+            return;
+        }
+
+        await viewModel.OpenSearchCommand.ExecuteAsync(null);
+        e.Handled = true;
+    }
+
+    private async void OnAboutMenuClicked(object? sender, RoutedEventArgs e)
+    {
+        var aboutWindow = AboutWindowFactory.Create();
+        await aboutWindow.ShowDialog(this);
         e.Handled = true;
     }
 

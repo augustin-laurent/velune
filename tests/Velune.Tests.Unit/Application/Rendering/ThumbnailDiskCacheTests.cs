@@ -29,7 +29,7 @@ public sealed class ThumbnailDiskCacheTests
         Assert.NotNull(cachedPage);
         Assert.Equal(renderedPage.Width, cachedPage.Width);
         Assert.Equal(renderedPage.Height, cachedPage.Height);
-        Assert.Equal(renderedPage.PixelData, cachedPage.PixelData);
+        Assert.True(renderedPage.PixelData.Span.SequenceEqual(cachedPage.PixelData.Span));
     }
 
     [Fact]
@@ -97,7 +97,8 @@ public sealed class ThumbnailDiskCacheTests
             0.20,
             Rotation.Deg0,
             170,
-            150);
+            150,
+            RenderPriority.Thumbnail);
     }
 
     private static DocumentSession CreateSession(string documentPath)

@@ -8,4 +8,5 @@ public sealed record RenderRequest(
     double ZoomFactor,
     Rotation Rotation,
     int? RequestedWidth = null,
-    int? RequestedHeight = null);
+    int? RequestedHeight = null,
+    RenderPriority Priority = RenderPriority.Viewer);

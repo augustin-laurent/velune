@@ -12,11 +12,11 @@ public interface IPageViewportStore
 
     void Initialize(int pageCount);
 
-    PageViewportState GetPageState(PageIndex pageIndex);
+    Rotation GetRotation(PageIndex pageIndex);
 
     void SetActivePage(PageIndex pageIndex);
 
-    void SetPageState(PageViewportState state);
+    void SetRotation(PageIndex pageIndex, Rotation rotation);
 
     void Clear();
 }

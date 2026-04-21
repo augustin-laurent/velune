@@ -1,7 +1,7 @@
 using Avalonia.Platform.Storage;
-using Velune.Application.Abstractions;
+using Velune.Application.Documents;
 
-namespace Velune.Infrastructure.FileSystem;
+namespace Velune.Presentation.FileSystem;
 
 public sealed class AvaloniaFilePickerService : IFilePickerService
 {
@@ -25,32 +25,9 @@ public sealed class AvaloniaFilePickerService : IFilePickerService
                 AllowMultiple = false,
                 FileTypeFilter =
                 [
-                    new FilePickerFileType("Supported documents")
-                    {
-                        Patterns = ["*.pdf", "*.png", "*.jpg", "*.jpeg", "*.webp"],
-                        MimeTypes =
-                        [
-                            "application/pdf",
-                            "image/png",
-                            "image/jpeg",
-                            "image/webp"
-                        ]
-                    },
-                    new FilePickerFileType("PDF documents")
-                    {
-                        Patterns = ["*.pdf"],
-                        MimeTypes = ["application/pdf"]
-                    },
-                    new FilePickerFileType("Images")
-                    {
-                        Patterns = ["*.png", "*.jpg", "*.jpeg", "*.webp"],
-                        MimeTypes =
-                        [
-                            "image/png",
-                            "image/jpeg",
-                            "image/webp"
-                        ]
-                    },
+                    CreateSupportedDocumentsFileType(),
+                    CreatePdfFileType(),
+                    CreateImagesFileType(),
                     FilePickerFileTypes.All
                 ]
             });
@@ -80,16 +57,47 @@ public sealed class AvaloniaFilePickerService : IFilePickerService
                 Title = title,
                 SuggestedFileName = suggestedFileName,
                 DefaultExtension = "pdf",
-                FileTypeChoices =
-                [
-                    new FilePickerFileType("PDF document")
-                    {
-                        Patterns = ["*.pdf"],
-                        MimeTypes = ["application/pdf"]
-                    }
-                ]
+                FileTypeChoices = [CreatePdfFileType("PDF document")]
             });
 
         return file?.TryGetLocalPath();
+    }
+
+    private static FilePickerFileType CreateSupportedDocumentsFileType()
+    {
+        return new FilePickerFileType("Supported documents")
+        {
+            Patterns = SupportedDocumentFormats.AllExtensions.Select(extension => $"*{extension}").ToArray(),
+            MimeTypes =
+            [
+                "application/pdf",
+                "image/png",
+                "image/jpeg",
+                "image/webp"
+            ]
+        };
+    }
+
+    private static FilePickerFileType CreatePdfFileType(string label = "PDF documents")
+    {
+        return new FilePickerFileType(label)
+        {
+            Patterns = SupportedDocumentFormats.PdfFileExtensions.Select(extension => $"*{extension}").ToArray(),
+            MimeTypes = ["application/pdf"]
+        };
+    }
+
+    private static FilePickerFileType CreateImagesFileType()
+    {
+        return new FilePickerFileType("Images")
+        {
+            Patterns = SupportedDocumentFormats.ImageFileExtensions.Select(extension => $"*{extension}").ToArray(),
+            MimeTypes =
+            [
+                "image/png",
+                "image/jpeg",
+                "image/webp"
+            ]
+        };
     }
 }

@@ -6,7 +6,6 @@ using Velune.Infrastructure.FileSystem;
 using Velune.Infrastructure.Image;
 using Velune.Infrastructure.Preferences;
 using Velune.Infrastructure.Pdf;
-using Velune.Infrastructure.Rendering;
 using Velune.Infrastructure.Text;
 
 namespace Velune.Infrastructure.DependencyInjection;
@@ -17,8 +16,6 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.AddSingleton<TopLevelProvider>();
-        services.AddSingleton<IFilePickerService, AvaloniaFilePickerService>();
         services.AddSingleton<IUserPreferencesService, JsonUserPreferencesService>();
         services.AddSingleton<IPrintService, SystemPrintService>();
         services.AddSingleton<IOcrEngine, TesseractOcrEngine>();
@@ -30,19 +27,17 @@ public static class ServiceCollectionExtensions
         services.AddTransient<PdfiumDocumentOpener>();
         services.AddTransient<AvaloniaImageDocumentOpener>();
 
-        services.AddTransient<CompositeDocumentOpener>();
+        services.AddTransient<DispatchingDocumentOpener>();
         services.AddTransient<IDocumentOpener>(sp =>
-            sp.GetRequiredService<CompositeDocumentOpener>());
+            sp.GetRequiredService<DispatchingDocumentOpener>());
 
         services.AddTransient<PdfiumRenderService>();
         services.AddTransient<ImageRenderService>();
         services.AddTransient<IPdfDocumentStructureService, QpdfDocumentStructureService>();
 
-        services.AddTransient<CompositeRenderService>();
+        services.AddTransient<DispatchingRenderService>();
         services.AddTransient<IRenderService>(sp =>
-            sp.GetRequiredService<CompositeRenderService>());
-
-        services.AddTransient<IThumbnailService, UnsupportedThumbnailService>();
+            sp.GetRequiredService<DispatchingRenderService>());
 
         return services;
     }

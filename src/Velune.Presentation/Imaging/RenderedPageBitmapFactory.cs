@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
@@ -20,11 +19,7 @@ public static class RenderedPageBitmapFactory
 
         using var framebuffer = bitmap.Lock();
 
-        Marshal.Copy(
-            renderedPage.PixelData,
-            0,
-            framebuffer.Address,
-            renderedPage.PixelData.Length);
+        renderedPage.CopyPixelDataTo(framebuffer.Address);
 
         return bitmap;
     }

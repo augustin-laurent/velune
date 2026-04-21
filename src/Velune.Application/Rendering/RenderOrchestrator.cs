@@ -12,7 +12,8 @@ namespace Velune.Application.Rendering;
 public sealed class RenderOrchestrator : IRenderOrchestrator
 {
     private readonly object _gate = new();
-    private readonly Queue<Guid> _queue = [];
+    private readonly Queue<Guid> _viewerQueue = [];
+    private readonly Queue<Guid> _thumbnailQueue = [];
     private readonly Dictionary<Guid, QueuedRenderJob> _jobs = [];
     private readonly IPerformanceMetrics _performanceMetrics;
     private readonly IRenderMemoryCache _renderMemoryCache;
@@ -98,6 +99,7 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
         }
 
         List<QueuedRenderJob> obsoleteJobs = [];
+        List<QueuedRenderJob> supersededThumbnailJobs = [];
 
         lock (_gate)
         {
@@ -106,15 +108,35 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
                 obsoleteJobs.Add(existingJob);
             }
 
+            if (request.Priority == RenderPriority.Viewer)
+            {
+                foreach (var existingThumbnailJob in _jobs.Values.Where(existingJob =>
+                             existingJob.Session.Id == session.Id &&
+                             existingJob.Request.Priority == RenderPriority.Thumbnail))
+                {
+                    supersededThumbnailJobs.Add(existingThumbnailJob);
+                }
+            }
+
             foreach (var obsoleteJob in obsoleteJobs.Where(obsoleteJob => !obsoleteJob.IsRunning))
             {
                 _jobs.Remove(obsoleteJob.Id);
+            }
+
+            foreach (var supersededThumbnailJob in supersededThumbnailJobs.Where(job => !job.IsRunning))
+            {
+                _jobs.Remove(supersededThumbnailJob.Id);
             }
         }
 
         foreach (var obsoleteJob in obsoleteJobs)
         {
             CancelJob(obsoleteJob, isObsolete: true);
+        }
+
+        foreach (var supersededThumbnailJob in supersededThumbnailJobs)
+        {
+            CancelJob(supersededThumbnailJob, isObsolete: true);
         }
 
         if (_renderMemoryCache.TryGet(session.Id, request, out var cachedPage) &&
@@ -149,7 +171,14 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
         lock (_gate)
         {
             _jobs[job.Id] = job;
-            _queue.Enqueue(job.Id);
+            if (job.Request.Priority == RenderPriority.Thumbnail)
+            {
+                _thumbnailQueue.Enqueue(job.Id);
+            }
+            else
+            {
+                _viewerQueue.Enqueue(job.Id);
+            }
         }
 
         _signal.Release();
@@ -176,6 +205,37 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
         }
 
         return CancelJob(job, isObsolete: false);
+    }
+
+    public async Task CancelDocumentJobsAsync(
+        DocumentId documentId,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+
+        List<QueuedRenderJob> jobsToCancel;
+
+        lock (_gate)
+        {
+            jobsToCancel = [.. _jobs.Values.Where(job => job.Session.Id == documentId)];
+
+            foreach (var job in jobsToCancel.Where(job => !job.IsRunning))
+            {
+                _jobs.Remove(job.Id);
+            }
+        }
+
+        if (jobsToCancel.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var job in jobsToCancel)
+        {
+            CancelJob(job, isObsolete: false);
+        }
+
+        await Task.WhenAll(jobsToCancel.Select(job => job.CompletionSource.Task)).WaitAsync(cancellationToken);
     }
 
     public void Dispose()
@@ -282,9 +342,12 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
     {
         lock (_gate)
         {
-            while (_queue.Count > 0)
+            while (_viewerQueue.Count > 0 || _thumbnailQueue.Count > 0)
             {
-                var jobId = _queue.Dequeue();
+                var activeQueue = _viewerQueue.Count > 0
+                    ? _viewerQueue
+                    : _thumbnailQueue;
+                var jobId = activeQueue.Dequeue();
                 if (!_jobs.TryGetValue(jobId, out var job))
                 {
                     continue;
@@ -444,7 +507,8 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
     private static bool IsThumbnailRequest(RenderRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        return request.RequestedWidth.HasValue && request.RequestedHeight.HasValue;
+        return request.Priority == RenderPriority.Thumbnail ||
+               (request.RequestedWidth.HasValue && request.RequestedHeight.HasValue);
     }
 
     private void RecordPerformanceMetric(

@@ -34,7 +34,6 @@ public static class ServiceCollectionExtensions
         services.AddTransient<OpenDocumentUseCase>();
         services.AddTransient<CloseDocumentUseCase>();
         services.AddTransient<RenderVisiblePageUseCase>();
-        services.AddTransient<GenerateThumbnailUseCase>();
         services.AddTransient<LoadDocumentTextUseCase>();
         services.AddTransient<RunDocumentOcrUseCase>();
         services.AddTransient<CancelDocumentTextAnalysisUseCase>();

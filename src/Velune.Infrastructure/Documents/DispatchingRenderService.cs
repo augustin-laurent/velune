@@ -6,12 +6,12 @@ using Velune.Infrastructure.Pdf;
 
 namespace Velune.Infrastructure.Documents;
 
-public sealed class CompositeRenderService : IRenderService
+public sealed class DispatchingRenderService : IRenderService
 {
     private readonly PdfiumRenderService _pdfiumRenderService;
     private readonly ImageRenderService _imageRenderService;
 
-    public CompositeRenderService(
+    public DispatchingRenderService(
         PdfiumRenderService pdfiumRenderService,
         ImageRenderService imageRenderService)
     {

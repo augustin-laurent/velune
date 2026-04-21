@@ -9,23 +9,23 @@ internal static partial class PdfiumNative
     internal const int FPDFBitmap_BGRA = 4;
     internal const int FPDF_ANNOT = 0x01;
 
-    [DllImport(LibraryName, EntryPoint = "FPDF_InitLibrary")]
-    internal static extern void FPDF_InitLibrary();
+    [LibraryImport(LibraryName, EntryPoint = "FPDF_InitLibrary")]
+    internal static partial void FPDF_InitLibrary();
 
-    [DllImport(LibraryName, EntryPoint = "FPDF_DestroyLibrary")]
-    internal static extern void FPDF_DestroyLibrary();
+    [LibraryImport(LibraryName, EntryPoint = "FPDF_DestroyLibrary")]
+    internal static partial void FPDF_DestroyLibrary();
 
     [LibraryImport(LibraryName, EntryPoint = "FPDF_LoadDocument", StringMarshalling = StringMarshalling.Utf8)]
     internal static partial nint FPDF_LoadDocument(string filePath, string? password);
 
-    [DllImport(LibraryName, EntryPoint = "FPDF_CloseDocument")]
-    internal static extern void FPDF_CloseDocument(nint document);
+    [LibraryImport(LibraryName, EntryPoint = "FPDF_CloseDocument")]
+    internal static partial void FPDF_CloseDocument(nint document);
 
-    [DllImport(LibraryName, EntryPoint = "FPDF_GetLastError")]
-    internal static extern uint FPDF_GetLastError();
+    [LibraryImport(LibraryName, EntryPoint = "FPDF_GetLastError")]
+    internal static partial uint FPDF_GetLastError();
 
-    [DllImport(LibraryName, EntryPoint = "FPDF_GetPageCount")]
-    internal static extern int FPDF_GetPageCount(nint document);
+    [LibraryImport(LibraryName, EntryPoint = "FPDF_GetPageCount")]
+    internal static partial int FPDF_GetPageCount(nint document);
 
     [LibraryImport(LibraryName, EntryPoint = "FPDF_GetMetaText", StringMarshalling = StringMarshalling.Utf8)]
     internal static partial uint FPDF_GetMetaText(
@@ -34,40 +34,40 @@ internal static partial class PdfiumNative
         byte[] buffer,
         uint buflen);
 
-    [DllImport(LibraryName, EntryPoint = "FPDF_LoadPage")]
-    internal static extern nint FPDF_LoadPage(nint document, int pageIndex);
+    [LibraryImport(LibraryName, EntryPoint = "FPDF_LoadPage")]
+    internal static partial nint FPDF_LoadPage(nint document, int pageIndex);
 
-    [DllImport(LibraryName, EntryPoint = "FPDF_ClosePage")]
-    internal static extern void FPDF_ClosePage(nint page);
+    [LibraryImport(LibraryName, EntryPoint = "FPDF_ClosePage")]
+    internal static partial void FPDF_ClosePage(nint page);
 
-    [DllImport(LibraryName, EntryPoint = "FPDF_GetPageWidthF")]
-    internal static extern float FPDF_GetPageWidthF(nint page);
+    [LibraryImport(LibraryName, EntryPoint = "FPDF_GetPageWidthF")]
+    internal static partial float FPDF_GetPageWidthF(nint page);
 
-    [DllImport(LibraryName, EntryPoint = "FPDF_GetPageHeightF")]
-    internal static extern float FPDF_GetPageHeightF(nint page);
+    [LibraryImport(LibraryName, EntryPoint = "FPDF_GetPageHeightF")]
+    internal static partial float FPDF_GetPageHeightF(nint page);
 
-    [DllImport(LibraryName, EntryPoint = "FPDFText_LoadPage")]
-    internal static extern nint FPDFText_LoadPage(nint page);
+    [LibraryImport(LibraryName, EntryPoint = "FPDFText_LoadPage")]
+    internal static partial nint FPDFText_LoadPage(nint page);
 
-    [DllImport(LibraryName, EntryPoint = "FPDFText_ClosePage")]
-    internal static extern void FPDFText_ClosePage(nint textPage);
+    [LibraryImport(LibraryName, EntryPoint = "FPDFText_ClosePage")]
+    internal static partial void FPDFText_ClosePage(nint textPage);
 
-    [DllImport(LibraryName, EntryPoint = "FPDFText_CountChars")]
-    internal static extern int FPDFText_CountChars(nint textPage);
+    [LibraryImport(LibraryName, EntryPoint = "FPDFText_CountChars")]
+    internal static partial int FPDFText_CountChars(nint textPage);
 
-    [DllImport(LibraryName, EntryPoint = "FPDFText_GetUnicode")]
-    internal static extern uint FPDFText_GetUnicode(nint textPage, int index);
+    [LibraryImport(LibraryName, EntryPoint = "FPDFText_GetUnicode")]
+    internal static partial uint FPDFText_GetUnicode(nint textPage, int index);
 
-    [DllImport(LibraryName, EntryPoint = "FPDFText_GetText")]
-    internal static extern int FPDFText_GetText(
+    [LibraryImport(LibraryName, EntryPoint = "FPDFText_GetText")]
+    internal static partial int FPDFText_GetText(
         nint textPage,
         int startIndex,
         int count,
         [Out] ushort[] result);
 
-    [DllImport(LibraryName, EntryPoint = "FPDFText_GetCharBox")]
+    [LibraryImport(LibraryName, EntryPoint = "FPDFText_GetCharBox")]
     [return: MarshalAs(UnmanagedType.Bool)]
-    internal static extern bool FPDFText_GetCharBox(
+    internal static partial bool FPDFText_GetCharBox(
         nint textPage,
         int index,
         out double left,
@@ -75,23 +75,23 @@ internal static partial class PdfiumNative
         out double bottom,
         out double top);
 
-    [DllImport(LibraryName, EntryPoint = "FPDFText_GetCharIndexAtPos")]
-    internal static extern int FPDFText_GetCharIndexAtPos(
+    [LibraryImport(LibraryName, EntryPoint = "FPDFText_GetCharIndexAtPos")]
+    internal static partial int FPDFText_GetCharIndexAtPos(
         nint textPage,
         double x,
         double y,
         double xTolerance,
         double yTolerance);
 
-    [DllImport(LibraryName, EntryPoint = "FPDFText_CountRects")]
-    internal static extern int FPDFText_CountRects(
+    [LibraryImport(LibraryName, EntryPoint = "FPDFText_CountRects")]
+    internal static partial int FPDFText_CountRects(
         nint textPage,
         int startIndex,
         int count);
 
-    [DllImport(LibraryName, EntryPoint = "FPDFText_GetRect")]
+    [LibraryImport(LibraryName, EntryPoint = "FPDFText_GetRect")]
     [return: MarshalAs(UnmanagedType.Bool)]
-    internal static extern bool FPDFText_GetRect(
+    internal static partial bool FPDFText_GetRect(
         nint textPage,
         int rectIndex,
         out double left,
@@ -99,28 +99,28 @@ internal static partial class PdfiumNative
         out double right,
         out double bottom);
 
-    [DllImport(LibraryName, EntryPoint = "FPDFPage_HasTransparency")]
-    internal static extern int FPDFPage_HasTransparency(nint page);
+    [LibraryImport(LibraryName, EntryPoint = "FPDFPage_HasTransparency")]
+    internal static partial int FPDFPage_HasTransparency(nint page);
 
-    [DllImport(LibraryName, EntryPoint = "FPDFBitmap_CreateEx")]
-    internal static extern nint FPDFBitmap_CreateEx(
+    [LibraryImport(LibraryName, EntryPoint = "FPDFBitmap_CreateEx")]
+    internal static partial nint FPDFBitmap_CreateEx(
         int width,
         int height,
         int format,
         nint firstScan,
         int stride);
 
-    [DllImport(LibraryName, EntryPoint = "FPDFBitmap_Destroy")]
-    internal static extern void FPDFBitmap_Destroy(nint bitmap);
+    [LibraryImport(LibraryName, EntryPoint = "FPDFBitmap_Destroy")]
+    internal static partial void FPDFBitmap_Destroy(nint bitmap);
 
-    [DllImport(LibraryName, EntryPoint = "FPDFBitmap_GetBuffer")]
-    internal static extern nint FPDFBitmap_GetBuffer(nint bitmap);
+    [LibraryImport(LibraryName, EntryPoint = "FPDFBitmap_GetBuffer")]
+    internal static partial nint FPDFBitmap_GetBuffer(nint bitmap);
 
-    [DllImport(LibraryName, EntryPoint = "FPDFBitmap_GetStride")]
-    internal static extern int FPDFBitmap_GetStride(nint bitmap);
+    [LibraryImport(LibraryName, EntryPoint = "FPDFBitmap_GetStride")]
+    internal static partial int FPDFBitmap_GetStride(nint bitmap);
 
-    [DllImport(LibraryName, EntryPoint = "FPDFBitmap_FillRect")]
-    internal static extern void FPDFBitmap_FillRect(
+    [LibraryImport(LibraryName, EntryPoint = "FPDFBitmap_FillRect")]
+    internal static partial void FPDFBitmap_FillRect(
         nint bitmap,
         int left,
         int top,
@@ -128,8 +128,8 @@ internal static partial class PdfiumNative
         int height,
         uint color);
 
-    [DllImport(LibraryName, EntryPoint = "FPDF_RenderPageBitmap")]
-    internal static extern void FPDF_RenderPageBitmap(
+    [LibraryImport(LibraryName, EntryPoint = "FPDF_RenderPageBitmap")]
+    internal static partial void FPDF_RenderPageBitmap(
         nint bitmap,
         nint page,
         int startX,

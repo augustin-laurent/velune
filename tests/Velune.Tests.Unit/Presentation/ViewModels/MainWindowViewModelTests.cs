@@ -5,6 +5,7 @@ using Velune.Application.DTOs;
 using Velune.Application.Results;
 using Velune.Application.UseCases;
 using Velune.Domain.Abstractions;
+using Velune.Domain.Annotations;
 using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
 using Velune.Presentation.FileSystem;
@@ -265,7 +266,7 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
-    public async Task ToggleSearchPanelCommand_ShouldRequestOcr_WhenSearchableTextIsMissing()
+    public async Task ImageDocuments_ShouldDisableSearchUi()
     {
         using var textAnalysisOrchestrator = new StubDocumentTextAnalysisOrchestrator(request =>
             request.ForceOcr
@@ -295,23 +296,201 @@ public sealed class MainWindowViewModelTests
             textAnalysisOrchestrator: textAnalysisOrchestrator);
 
         await viewModel.OpenCommand.ExecuteAsync(null);
+        Assert.False(viewModel.IsSearchAvailableForCurrentDocument);
+        Assert.False(viewModel.ToggleSearchPanelCommand.CanExecute(null));
+        Assert.False(viewModel.OpenSearchCommand.CanExecute(null));
+        Assert.False(viewModel.UseInlineHeaderSearch);
+        Assert.False(viewModel.UseCollapsedHeaderSearchButton);
+        Assert.False(viewModel.IsSearchPanelOpen);
+        Assert.Empty(textAnalysisOrchestrator.Requests);
+    }
+
+    [Fact]
+    public async Task ImageDocuments_ShouldHideSidebarControls()
+    {
+        using var viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService("/tmp/image.png"),
+            documentOpener: new StubDocumentOpener(
+                new StubImageDocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata(
+                        "image.png",
+                        "/tmp/image.png",
+                        DocumentType.Image,
+                        2048,
+                        1,
+                        pixelWidth: 1200,
+                        pixelHeight: 800,
+                        formatLabel: "PNG image"),
+                    ViewportState.Default,
+                    new ImageMetadata(1200, 800))));
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+
+        Assert.False(viewModel.SidebarHostVisible);
+        Assert.False(viewModel.IsSidebarVisible);
+        Assert.False(viewModel.CanToggleSidebar);
+        Assert.False(viewModel.ToggleSidebarCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task Annotations_ShouldEnableSaveForImageDocuments()
+    {
+        using var viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService("/tmp/image.png"),
+            documentOpener: new StubDocumentOpener(
+                new StubImageDocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata(
+                        "image.png",
+                        "/tmp/image.png",
+                        DocumentType.Image,
+                        2048,
+                        1,
+                        pixelWidth: 1200,
+                        pixelHeight: 800,
+                        formatLabel: "PNG image"),
+                    ViewportState.Default,
+                    new ImageMetadata(1200, 800))));
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        viewModel.ToggleAnnotationsPanelCommand.Execute(null);
+        viewModel.SelectAnnotationToolCommand.Execute("Rectangle");
+
+        var began = viewModel.BeginAnnotationInteraction(20, 30, 200, 200);
+        Assert.True(began);
+
+        viewModel.UpdateAnnotationInteraction(120, 140, 200, 200);
+        viewModel.CompleteAnnotationInteraction(120, 140, 200, 200);
+
+        Assert.True(viewModel.HasPendingAnnotationChanges);
+        Assert.True(viewModel.CanSaveDocument);
+        Assert.True(viewModel.HasCurrentPageAnnotations);
+    }
+
+    [Fact]
+    public async Task Annotations_ShouldSupportUndoAndRedo()
+    {
+        using var viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService("/tmp/document.pdf"),
+            documentOpener: new StubDocumentOpener(
+                new DocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata("Document.pdf", "/tmp/document.pdf", DocumentType.Pdf, 1024, 1),
+                    ViewportState.Default)));
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        viewModel.ToggleAnnotationsPanelCommand.Execute(null);
+        viewModel.SelectAnnotationToolCommand.Execute("Rectangle");
+
+        Assert.True(viewModel.BeginAnnotationInteraction(20, 30, 200, 200));
+
+        viewModel.UpdateAnnotationInteraction(120, 140, 200, 200);
+        viewModel.CompleteAnnotationInteraction(120, 140, 200, 200);
+
+        Assert.Single(viewModel.CurrentPageAnnotations);
+        Assert.True(viewModel.CanUndoAnnotations);
+
+        viewModel.UndoAnnotationsCommand.Execute(null);
+
+        Assert.Empty(viewModel.CurrentPageAnnotations);
+        Assert.True(viewModel.CanRedoAnnotations);
+
+        viewModel.RedoAnnotationsCommand.Execute(null);
+
+        Assert.Single(viewModel.CurrentPageAnnotations);
+        Assert.Equal(DocumentAnnotationKind.Rectangle, viewModel.CurrentPageAnnotations[0].Kind);
+    }
+
+    [Fact]
+    public async Task DrawnSignature_ShouldBecomeAvailableAndPlaceable()
+    {
+        using var viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService("/tmp/document.pdf"),
+            documentOpener: new StubDocumentOpener(
+                new DocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata("Document.pdf", "/tmp/document.pdf", DocumentType.Pdf, 1024, 1),
+                    ViewportState.Default)));
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        viewModel.ToggleAnnotationsPanelCommand.Execute(null);
+
+        viewModel.BeginSignatureCapture(20, 20, 200, 100);
+        viewModel.UpdateSignatureCapture(140, 58, 200, 100);
+        viewModel.CompleteSignatureCapture();
+        viewModel.SaveDrawnSignatureAssetCommand.Execute(null);
+
+        Assert.True(viewModel.HasSignatureAssets);
+        Assert.True(viewModel.CanUseSignaturePlacement);
+        Assert.NotNull(viewModel.SelectedSignatureAssetId);
+
+        viewModel.SelectAnnotationToolCommand.Execute("Signature");
+
+        Assert.True(viewModel.BeginAnnotationInteraction(50, 50, 200, 200));
+
+        viewModel.UpdateAnnotationInteraction(150, 110, 200, 200);
+        viewModel.CompleteAnnotationInteraction(150, 110, 200, 200);
+
+        Assert.Contains(
+            viewModel.CurrentPageAnnotations,
+            annotation => annotation.Kind == DocumentAnnotationKind.Signature &&
+                          annotation.AssetId == viewModel.SelectedSignatureAssetId);
+    }
+
+    [Fact]
+    public async Task DeleteSelectedSignatureAsset_ShouldRemoveItFromLibrary()
+    {
+        using var viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService("/tmp/document.pdf"),
+            documentOpener: new StubDocumentOpener(
+                new DocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata("Document.pdf", "/tmp/document.pdf", DocumentType.Pdf, 1024, 1),
+                    ViewportState.Default)));
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        viewModel.ToggleAnnotationsPanelCommand.Execute(null);
+
+        viewModel.BeginSignatureCapture(20, 20, 200, 100);
+        viewModel.UpdateSignatureCapture(140, 58, 200, 100);
+        viewModel.CompleteSignatureCapture();
+        viewModel.SaveDrawnSignatureAssetCommand.Execute(null);
+
+        Assert.True(viewModel.HasSignatureAssets);
+
+        viewModel.DeleteSelectedSignatureAssetCommand.Execute(viewModel.SelectedSignatureAssetId);
+
+        Assert.False(viewModel.HasSignatureAssets);
+        Assert.Null(viewModel.SelectedSignatureAssetId);
+    }
+
+    [Fact]
+    public async Task ToggleAnnotationsPanel_ShouldCloseSearchPanel()
+    {
+        using var textAnalysisOrchestrator = new StubDocumentTextAnalysisOrchestrator(request =>
+            CreateTextAnalysisResult(
+                request,
+                index: CreateDocumentTextIndex("Velune integration sample")));
+
+        using var viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService("/tmp/document.pdf"),
+            documentOpener: new StubDocumentOpener(
+                new DocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata("Document.pdf", "/tmp/document.pdf", DocumentType.Pdf, 1024, 1),
+                    ViewportState.Default)),
+            textAnalysisOrchestrator: textAnalysisOrchestrator);
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
         await viewModel.ToggleSearchPanelCommand.ExecuteAsync(null);
 
         Assert.True(viewModel.IsSearchPanelOpen);
-        Assert.True(viewModel.CanRunDocumentOcr);
-        Assert.Contains("Recognize text", viewModel.SearchPanelNotice);
-        Assert.Equal("OCR required", viewModel.StatusText);
 
-        await viewModel.RunSearchOcrCommand.ExecuteAsync(null);
+        viewModel.ToggleAnnotationsPanelCommand.Execute(null);
 
-        viewModel.SearchQueryInput = "invoice";
-        await viewModel.SearchTextCommand.ExecuteAsync(null);
-
-        Assert.False(viewModel.CanRunDocumentOcr);
-        Assert.Single(viewModel.SearchResults);
-        Assert.Equal("Search result on page 1", viewModel.StatusText);
-        Assert.Equal(2, textAnalysisOrchestrator.Requests.Count);
-        Assert.True(textAnalysisOrchestrator.Requests[1].ForceOcr);
+        Assert.True(viewModel.IsAnnotationsPanelOpen);
+        Assert.False(viewModel.IsSearchPanelOpen);
     }
 
     [Fact]
@@ -626,6 +805,9 @@ public sealed class MainWindowViewModelTests
             new DeletePdfPagesUseCase(structureService),
             new ExtractPdfPagesUseCase(structureService),
             new ReorderPdfPagesUseCase(structureService),
+            new StubPdfMarkupService(),
+            new StubImageMarkupService(),
+            new StubSignatureAssetStore(),
             orchestrator,
             sessionStore,
             recentFilesService ?? CreateRecentFilesService(),
@@ -793,6 +975,70 @@ public sealed class MainWindowViewModelTests
 
         public void Dispose()
         {
+        }
+    }
+
+    private sealed class StubPdfMarkupService : IPdfMarkupService
+    {
+        public Task<Result<string>> ApplyAnnotationsAsync(
+            ApplyPdfAnnotationsRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(ResultFactory.Success(request.OutputPath));
+        }
+    }
+
+    private sealed class StubImageMarkupService : IImageMarkupService
+    {
+        public Task<Result<string>> FlattenAnnotationsAsync(
+            ApplyImageAnnotationsRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(ResultFactory.Success(request.OutputPath));
+        }
+    }
+
+    private sealed class StubSignatureAssetStore : ISignatureAssetStore
+    {
+        private readonly List<SignatureAsset> _assets = [];
+
+        public IReadOnlyList<SignatureAsset> GetAll()
+        {
+            return _assets.ToArray();
+        }
+
+        public Result<SignatureAsset> Import(string sourceImagePath)
+        {
+            var asset = new SignatureAsset(
+                Guid.NewGuid().ToString("N"),
+                Path.GetFileNameWithoutExtension(sourceImagePath),
+                sourceImagePath,
+                120,
+                60,
+                DateTimeOffset.UtcNow);
+            _assets.Add(asset);
+            return ResultFactory.Success(asset);
+        }
+
+        public AppResult Delete(string assetId)
+        {
+            var removed = _assets.RemoveAll(asset => string.Equals(asset.Id, assetId, StringComparison.Ordinal));
+            return removed > 0
+                ? ResultFactory.Success()
+                : ResultFactory.Failure(AppError.NotFound("signature.asset.not_found", "The test signature was not found."));
+        }
+
+        public Result<SignatureAsset> SaveInkSignature(string displayName, IReadOnlyList<NormalizedPoint> points)
+        {
+            var asset = new SignatureAsset(
+                Guid.NewGuid().ToString("N"),
+                displayName,
+                "/tmp/signature.png",
+                120,
+                60,
+                DateTimeOffset.UtcNow);
+            _assets.Add(asset);
+            return ResultFactory.Success(asset);
         }
     }
 

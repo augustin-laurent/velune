@@ -8,6 +8,7 @@ using Velune.Infrastructure.Pdf;
 
 namespace Velune.Tests.Integration.Infrastructure;
 
+[Collection("IntegrationSerial")]
 public sealed class PdfDocumentStructureIntegrationTests
 {
     [RequiresQpdfFact]
@@ -145,7 +146,7 @@ public sealed class PdfDocumentStructureIntegrationTests
                     {
                         QpdfExecutablePath = QpdfTestSupport.GetExecutablePath()
                     }),
-                    new PdfiumInitializer()));
+                    IntegrationPdfium.Initializer));
         }
 
         public RotatePdfPagesUseCase CreateRotateUseCase() => new(_service);

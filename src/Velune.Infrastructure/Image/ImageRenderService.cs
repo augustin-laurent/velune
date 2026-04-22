@@ -1,6 +1,5 @@
 using System.Runtime.InteropServices;
-using Avalonia;
-using Avalonia.Media.Imaging;
+using SkiaSharp;
 using Velune.Domain.Abstractions;
 using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
@@ -35,75 +34,72 @@ public sealed class ImageRenderService : IRenderService
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var source = imageSession.Resource.Bitmap;
+            using var sourceBitmap = SKBitmap.Decode(imageSession.Resource.FileBytes);
+            if (sourceBitmap is null)
+            {
+                throw new InvalidOperationException("Unable to decode the image file.");
+            }
 
-            var sourceWidth = source.PixelSize.Width;
-            var sourceHeight = source.PixelSize.Height;
+            var sourceWidth = sourceBitmap.Width;
+            var sourceHeight = sourceBitmap.Height;
 
             var scaledWidth = Math.Max(1, (int)Math.Floor(sourceWidth * zoomFactor));
             var scaledHeight = Math.Max(1, (int)Math.Floor(sourceHeight * zoomFactor));
 
-            var shouldScale = scaledWidth != sourceWidth || scaledHeight != sourceHeight;
+            var resizedPixels = RenderBitmapPixels(sourceBitmap, scaledWidth, scaledHeight);
 
-            var workingBitmap = shouldScale
-                ? source.CreateScaledBitmap(
-                    new PixelSize(scaledWidth, scaledHeight),
-                    BitmapInterpolationMode.HighQuality)
-                : source;
+            var rotatedPixels = RotateBgra(
+                resizedPixels,
+                scaledWidth,
+                scaledHeight,
+                rotation,
+                out var finalWidth,
+                out var finalHeight);
 
-            try
-            {
-                var resizedPixels = CopyBitmapPixels(workingBitmap);
-
-                var rotatedPixels = RotateBgra(
-                    resizedPixels,
-                    workingBitmap.PixelSize.Width,
-                    workingBitmap.PixelSize.Height,
-                    rotation,
-                    out var finalWidth,
-                    out var finalHeight);
-
-                return new RenderedPage(
-                    pageIndex,
-                    rotatedPixels,
-                    finalWidth,
-                    finalHeight);
-            }
-            finally
-            {
-                if (!ReferenceEquals(workingBitmap, source))
-                {
-                    workingBitmap.Dispose();
-                }
-            }
+            return new RenderedPage(
+                pageIndex,
+                rotatedPixels,
+                finalWidth,
+                finalHeight);
         }, cancellationToken);
     }
 
-    private static byte[] CopyBitmapPixels(Bitmap bitmap)
+    private static byte[] RenderBitmapPixels(SKBitmap sourceBitmap, int width, int height)
     {
-        var width = bitmap.PixelSize.Width;
-        var height = bitmap.PixelSize.Height;
+        using var scaledBitmap = new SKBitmap(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Unpremul));
+        if (!sourceBitmap.ScalePixels(scaledBitmap, SKFilterQuality.High))
+        {
+            throw new InvalidOperationException("Unable to scale the image.");
+        }
+
+        return CopySkiaPixels(scaledBitmap);
+    }
+
+    private static byte[] CopySkiaPixels(SKBitmap bitmap)
+    {
+        var width = bitmap.Width;
+        var height = bitmap.Height;
         var stride = width * 4;
         var bufferSize = stride * height;
-
         var result = new byte[bufferSize];
-        var unmanagedBuffer = Marshal.AllocHGlobal(bufferSize);
+        var sourceStride = bitmap.RowBytes;
 
-        try
+        if (sourceStride == stride)
         {
-            bitmap.CopyPixels(
-                new PixelRect(0, 0, width, height),
-                unmanagedBuffer,
-                bufferSize,
-                stride);
-
-            Marshal.Copy(unmanagedBuffer, result, 0, bufferSize);
+            Marshal.Copy(bitmap.GetPixels(), result, 0, bufferSize);
             return result;
         }
-        finally
+
+        for (var row = 0; row < height; row++)
         {
-            Marshal.FreeHGlobal(unmanagedBuffer);
+            Marshal.Copy(
+                nint.Add(bitmap.GetPixels(), row * sourceStride),
+                result,
+                row * stride,
+                stride);
         }
+
+        return result;
     }
 
     private static byte[] RotateBgra(

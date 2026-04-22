@@ -4,6 +4,7 @@ using Velune.Domain.Documents;
 
 namespace Velune.Tests.Integration.Infrastructure;
 
+[Collection("IntegrationSerial")]
 public sealed class AdaptersIntegrationTests
 {
     [Fact]

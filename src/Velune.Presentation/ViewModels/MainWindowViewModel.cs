@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using Avalonia.Controls;
+using Avalonia.Layout;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -52,6 +53,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private const double SidebarExpandedWidth = 240;
     private const double InfoPanelExpandedWidth = 300;
     private const double ViewportResizeThreshold = 1.0;
+    private static readonly TimeSpan ViewportFitDebounceDelay = TimeSpan.FromMilliseconds(110);
     private const double ZoomComparisonTolerance = 0.001;
     private const double InlineHeaderSearchMinWidth = 1480;
     private const double HeaderTitleCompactThreshold = 1420;
@@ -87,6 +89,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private readonly DeletePdfPagesUseCase _deletePdfPagesUseCase;
     private readonly ExtractPdfPagesUseCase _extractPdfPagesUseCase;
     private readonly ReorderPdfPagesUseCase _reorderPdfPagesUseCase;
+    private readonly IPdfMarkupService _pdfMarkupService;
+    private readonly IImageMarkupService _imageMarkupService;
+    private readonly ISignatureAssetStore _signatureAssetStore;
     private readonly IRenderOrchestrator _renderOrchestrator;
     private readonly IDocumentSessionStore _documentSessionStore;
     private readonly IRecentFilesService _recentFilesService;
@@ -121,6 +126,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private RenderJobHandle? _currentRenderJob;
     private DocumentTextJobHandle? _currentDocumentTextJob;
     private DocumentTextSelectionPoint? _documentTextSelectionAnchorPoint;
+    private CancellationTokenSource? _pendingViewportFitUpdateCancellation;
 
     public MainWindowViewModel(
         IFilePickerService filePickerService,
@@ -141,6 +147,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         DeletePdfPagesUseCase deletePdfPagesUseCase,
         ExtractPdfPagesUseCase extractPdfPagesUseCase,
         ReorderPdfPagesUseCase reorderPdfPagesUseCase,
+        IPdfMarkupService pdfMarkupService,
+        IImageMarkupService imageMarkupService,
+        ISignatureAssetStore signatureAssetStore,
         IRenderOrchestrator renderOrchestrator,
         IDocumentSessionStore documentSessionStore,
         IRecentFilesService recentFilesService,
@@ -165,6 +174,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         ArgumentNullException.ThrowIfNull(deletePdfPagesUseCase);
         ArgumentNullException.ThrowIfNull(extractPdfPagesUseCase);
         ArgumentNullException.ThrowIfNull(reorderPdfPagesUseCase);
+        ArgumentNullException.ThrowIfNull(pdfMarkupService);
+        ArgumentNullException.ThrowIfNull(imageMarkupService);
+        ArgumentNullException.ThrowIfNull(signatureAssetStore);
         ArgumentNullException.ThrowIfNull(renderOrchestrator);
         ArgumentNullException.ThrowIfNull(documentSessionStore);
         ArgumentNullException.ThrowIfNull(recentFilesService);
@@ -189,6 +201,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _deletePdfPagesUseCase = deletePdfPagesUseCase;
         _extractPdfPagesUseCase = extractPdfPagesUseCase;
         _reorderPdfPagesUseCase = reorderPdfPagesUseCase;
+        _pdfMarkupService = pdfMarkupService;
+        _imageMarkupService = imageMarkupService;
+        _signatureAssetStore = signatureAssetStore;
         _renderOrchestrator = renderOrchestrator;
         _documentSessionStore = documentSessionStore;
         _recentFilesService = recentFilesService;
@@ -205,6 +220,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         MemoryCacheEntryLimitOptions = new ObservableCollection<int> { 0, 32, 64, 128, 256 };
         ApplyPreferencesToUi(_userPreferencesService.Current);
         RefreshRecentFiles();
+        InitializeAnnotationWorkspace();
     }
 
     [ObservableProperty]
@@ -395,6 +411,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     };
     public bool HasRecentFiles => RecentFiles.Count > 0;
     public bool HasRenderedPage => CurrentRenderedBitmap is not null;
+    public bool ShowRenderingBanner => IsRendering && CurrentRenderedBitmap is null;
     public bool HasMultiplePages => TotalPages > 1;
     public bool HasThumbnails => Thumbnails.Count > 0;
     public bool HasSearchResults => SearchResults.Count > 0;
@@ -415,24 +432,24 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public bool IsScrollableViewerVisible => !IsImageAutoFitActive;
     public bool ShowWindowMenuBar => !OperatingSystem.IsMacOS();
     public double HeaderTitleMaxWidth => WindowWidth >= InlineHeaderSearchMinWidth
-        ? 320
+        ? 280
         : WindowWidth >= HeaderTitleCompactThreshold
-            ? 240
+            ? 220
             : WindowWidth >= HeaderTitleTightThreshold
-                ? 190
-                : 150;
+                ? 180
+                : 140;
     public bool IsSidebarVisible => HasOpenDocument && !IsCurrentImageDocument && ShowThumbnailsPanelPreference;
     public bool CanToggleSidebar => HasOpenDocument && !IsCurrentImageDocument;
     public string SidebarToggleLabel => IsSidebarVisible ? "Hide pages" : "Show pages";
     public bool ShowEditableHeaderTitle => HasOpenDocument && !IsEditingDocumentName;
     public bool ShowHeaderTitleEditor => HasOpenDocument && IsEditingDocumentName;
-    public bool UseInlineHeaderSearch => HasOpenDocument && WindowWidth >= InlineHeaderSearchMinWidth;
-    public bool UseCollapsedHeaderSearchButton => HasOpenDocument && !UseInlineHeaderSearch;
-    public bool IsPageNavigationVisible => !HasOpenDocument || !IsCurrentImageDocument;
+    public bool UseInlineHeaderSearch => HasOpenDocument && IsSearchAvailableForCurrentDocument && WindowWidth >= InlineHeaderSearchMinWidth;
+    public bool UseCollapsedHeaderSearchButton => HasOpenDocument && IsSearchAvailableForCurrentDocument && !UseInlineHeaderSearch;
+    public bool IsPageNavigationVisible => HasOpenDocument && !IsCurrentImageDocument;
     public bool IsPdfStructureActionsVisible => IsPdfDocument;
     public bool IsSidebarActionStripVisible => IsPdfDocument && (CanPersistCurrentPageRotation || HasPendingPageReorder);
     public bool IsInfoPanelOpen => HasOpenDocument && IsInfoPanelVisible;
-    public bool IsSearchPanelOpen => HasOpenDocument && IsSearchPanelVisible;
+    public bool IsSearchPanelOpen => HasOpenDocument && IsSearchAvailableForCurrentDocument && IsSearchPanelVisible;
     public bool IsPreferencesPanelOpen => IsPreferencesPanelVisible;
     public bool IsPrintPanelOpen => HasOpenDocument && IsPrintPanelVisible;
     public bool HasDocumentInfo => DocumentInfoItems.Count > 0;
@@ -460,12 +477,16 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public string SearchSelectionIndicator => _selectedSearchResultIndex < 0 || SearchResults.Count == 0
         ? "0 / 0"
         : $"{_selectedSearchResultIndex + 1} / {SearchResults.Count}";
-    public bool CanSearchText => HasOpenDocument && !_isAnalyzingDocumentText && _currentDocumentTextIndex is not null && !string.IsNullOrWhiteSpace(SearchQueryInput);
-    public bool CanRunDocumentOcr => HasOpenDocument && !_isAnalyzingDocumentText && _requiresSearchOcr;
-    public bool CanCancelDocumentTextAnalysis => HasOpenDocument && _isAnalyzingDocumentText && _currentDocumentTextJob is not null;
+    public bool CanSearchText => IsSearchAvailableForCurrentDocument && !_isAnalyzingDocumentText && _currentDocumentTextIndex is not null && !string.IsNullOrWhiteSpace(SearchQueryInput);
+    public bool CanRunDocumentOcr => IsSearchAvailableForCurrentDocument && !_isAnalyzingDocumentText && _requiresSearchOcr;
+    public bool CanCancelDocumentTextAnalysis => IsSearchAvailableForCurrentDocument && _isAnalyzingDocumentText && _currentDocumentTextJob is not null;
     public bool CanNavigateSearchResults => SearchResults.Count > 1;
     public double DisplayedRenderedPageWidth => CurrentRenderedBitmap?.PixelSize.Width ?? 0;
     public double DisplayedRenderedPageHeight => CurrentRenderedBitmap?.PixelSize.Height ?? 0;
+    public HorizontalAlignment ScrollableDocumentHorizontalAlignment =>
+        HasRenderedPage && DisplayedRenderedPageWidth > _documentViewportWidth + 1
+            ? HorizontalAlignment.Left
+            : HorizontalAlignment.Center;
     public bool IsPdfStructureOperationInProgress => _isApplyingPdfStructureOperation;
 
     public bool CanGoPreviousPage => HasOpenDocument && CurrentPage > 1;
@@ -486,10 +507,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         !IsPdfStructureOperationInProgress &&
         GetPendingPdfRotationGroups().Count > 0;
     public bool CanSaveDocument =>
-        IsPdfDocument &&
+        HasOpenDocument &&
         !IsPdfStructureOperationInProgress &&
         !string.IsNullOrWhiteSpace(CurrentDocumentPath) &&
-        (CanPersistCurrentPageRotation || HasPendingPageReorder || HasPendingRequestedSaveNameChange());
+        ((IsPdfDocument && (CanPersistCurrentPageRotation || HasPendingPageReorder || HasPendingRequestedSaveNameChange() || HasPendingAnnotationChanges)) ||
+         (IsCurrentImageDocument && (HasPendingRequestedSaveNameChange() || HasPendingAnnotationChanges)));
     public bool CanExtractCurrentPage =>
         IsPdfDocument &&
         !IsPdfStructureOperationInProgress &&
@@ -521,10 +543,14 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsPdfDocument));
         NotifyViewerModeChanged();
         NotifySidebarVisibilityChanged();
+        OnPropertyChanged(nameof(SidebarHostVisible));
+        OnPropertyChanged(nameof(SidebarOpacity));
+        OnPropertyChanged(nameof(IsSidebarInteractive));
         OnPropertyChanged(nameof(CanToggleSidebar));
         OnPropertyChanged(nameof(SidebarToggleLabel));
         OnPropertyChanged(nameof(ShowEditableHeaderTitle));
         OnPropertyChanged(nameof(ShowHeaderTitleEditor));
+        OnPropertyChanged(nameof(IsSearchAvailableForCurrentDocument));
         OnPropertyChanged(nameof(UseInlineHeaderSearch));
         OnPropertyChanged(nameof(UseCollapsedHeaderSearchButton));
         OnPropertyChanged(nameof(IsPageNavigationVisible));
@@ -534,12 +560,24 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsSidebarActionStripVisible));
         OnPropertyChanged(nameof(IsInfoPanelOpen));
         OnPropertyChanged(nameof(InfoPanelWidth));
+        OnPropertyChanged(nameof(InfoPanelOpacity));
+        OnPropertyChanged(nameof(IsInfoPanelInteractive));
         OnPropertyChanged(nameof(IsSearchPanelOpen));
         OnPropertyChanged(nameof(SearchPanelWidth));
+        OnPropertyChanged(nameof(SearchPanelOpacity));
+        OnPropertyChanged(nameof(IsSearchPanelInteractive));
+        OnPropertyChanged(nameof(IsAnnotationsPanelOpen));
+        OnPropertyChanged(nameof(AnnotationsPanelWidth));
+        OnPropertyChanged(nameof(AnnotationsPanelOpacity));
+        OnPropertyChanged(nameof(IsAnnotationsPanelInteractive));
         OnPropertyChanged(nameof(IsPreferencesPanelOpen));
         OnPropertyChanged(nameof(PreferencesPanelWidth));
+        OnPropertyChanged(nameof(PreferencesPanelOpacity));
+        OnPropertyChanged(nameof(IsPreferencesPanelInteractive));
         OnPropertyChanged(nameof(IsPrintPanelOpen));
         OnPropertyChanged(nameof(PrintPanelWidth));
+        OnPropertyChanged(nameof(PrintPanelOpacity));
+        OnPropertyChanged(nameof(IsPrintPanelInteractive));
         OnPropertyChanged(nameof(IsPrintPageRangeVisible));
         OnPropertyChanged(nameof(IsCustomPrintRangeVisible));
         PrintDocumentCommand.NotifyCanExecuteChanged();
@@ -550,6 +588,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         ToggleSearchPanelCommand.NotifyCanExecuteChanged();
         OpenSearchCommand.NotifyCanExecuteChanged();
         TogglePreferencesPanelCommand.NotifyCanExecuteChanged();
+        ToggleAnnotationsPanelCommand.NotifyCanExecuteChanged();
         ToggleSidebarCommand.NotifyCanExecuteChanged();
         NotifySearchStateChanged();
         PreviousPageCommand.NotifyCanExecuteChanged();
@@ -571,6 +610,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         SaveReorderedPdfCommand.NotifyCanExecuteChanged();
         MoveCurrentPageEarlierCommand.NotifyCanExecuteChanged();
         MoveCurrentPageLaterCommand.NotifyCanExecuteChanged();
+        AddHighlightAnnotationFromSelectionCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnIsCurrentImageDocumentChanged(bool value)
@@ -578,8 +618,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsPdfDocument));
         NotifyViewerModeChanged();
         NotifySidebarVisibilityChanged();
+        OnPropertyChanged(nameof(SidebarHostVisible));
+        OnPropertyChanged(nameof(SidebarOpacity));
+        OnPropertyChanged(nameof(IsSidebarInteractive));
         OnPropertyChanged(nameof(CanToggleSidebar));
         OnPropertyChanged(nameof(SidebarToggleLabel));
+        OnPropertyChanged(nameof(IsSearchAvailableForCurrentDocument));
         OnPropertyChanged(nameof(UseInlineHeaderSearch));
         OnPropertyChanged(nameof(UseCollapsedHeaderSearchButton));
         OnPropertyChanged(nameof(IsPageNavigationVisible));
@@ -594,9 +638,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         ExtractCurrentPageCommand.NotifyCanExecuteChanged();
         DeleteCurrentPageCommand.NotifyCanExecuteChanged();
         SaveReorderedPdfCommand.NotifyCanExecuteChanged();
+        ToggleAnnotationsPanelCommand.NotifyCanExecuteChanged();
         ToggleSidebarCommand.NotifyCanExecuteChanged();
         MoveCurrentPageEarlierCommand.NotifyCanExecuteChanged();
         MoveCurrentPageLaterCommand.NotifyCanExecuteChanged();
+        AddHighlightAnnotationFromSelectionCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnCurrentDocumentPathChanged(string? value)
@@ -609,12 +655,16 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         OnPropertyChanged(nameof(IsInfoPanelOpen));
         OnPropertyChanged(nameof(InfoPanelWidth));
+        OnPropertyChanged(nameof(InfoPanelOpacity));
+        OnPropertyChanged(nameof(IsInfoPanelInteractive));
     }
 
     partial void OnIsSearchPanelVisibleChanged(bool value)
     {
         OnPropertyChanged(nameof(IsSearchPanelOpen));
         OnPropertyChanged(nameof(SearchPanelWidth));
+        OnPropertyChanged(nameof(SearchPanelOpacity));
+        OnPropertyChanged(nameof(IsSearchPanelInteractive));
 
         if (!value)
         {
@@ -630,12 +680,16 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         OnPropertyChanged(nameof(IsPreferencesPanelOpen));
         OnPropertyChanged(nameof(PreferencesPanelWidth));
+        OnPropertyChanged(nameof(PreferencesPanelOpacity));
+        OnPropertyChanged(nameof(IsPreferencesPanelInteractive));
     }
 
     partial void OnIsPrintPanelVisibleChanged(bool value)
     {
         OnPropertyChanged(nameof(IsPrintPanelOpen));
         OnPropertyChanged(nameof(PrintPanelWidth));
+        OnPropertyChanged(nameof(PrintPanelOpacity));
+        OnPropertyChanged(nameof(IsPrintPanelInteractive));
     }
 
     partial void OnDocumentInfoWarningChanged(string? value)
@@ -685,10 +739,18 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(HasRenderedPage));
         OnPropertyChanged(nameof(DisplayedRenderedPageWidth));
         OnPropertyChanged(nameof(DisplayedRenderedPageHeight));
+        OnPropertyChanged(nameof(ShowRenderingBanner));
+        OnPropertyChanged(nameof(ScrollableDocumentHorizontalAlignment));
         FitToWidthCommand.NotifyCanExecuteChanged();
         FitToPageCommand.NotifyCanExecuteChanged();
         RefreshDocumentTextSelectionHighlights();
         RefreshSearchHighlights();
+        RefreshAnnotationOverlay();
+    }
+
+    partial void OnIsRenderingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowRenderingBanner));
     }
 
     partial void OnCurrentDocumentNameChanged(string? value)
@@ -730,6 +792,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         MoveCurrentPageEarlierCommand.NotifyCanExecuteChanged();
         MoveCurrentPageLaterCommand.NotifyCanExecuteChanged();
         RefreshSearchHighlights();
+        RefreshAnnotationWorkspaceState();
     }
 
     partial void OnTotalPagesChanged(int value)
@@ -780,6 +843,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         NotifySidebarVisibilityChanged();
         OnPropertyChanged(nameof(SidebarToggleLabel));
+        OnPropertyChanged(nameof(SidebarOpacity));
+        OnPropertyChanged(nameof(IsSidebarInteractive));
 
         if (_isApplyingPreferencesState)
         {
@@ -817,6 +882,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     partial void OnSelectedDocumentTextChanged(string? value)
     {
         OnPropertyChanged(nameof(HasSelectedDocumentText));
+        OnPropertyChanged(nameof(CanCreateHighlightAnnotation));
+        AddHighlightAnnotationFromSelectionCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnPrintCopiesInputChanged(string value)
@@ -1225,6 +1292,18 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
+        if (IsCurrentImageDocument)
+        {
+            if (!HasPendingRequestedSaveNameChange() && !HasPendingAnnotationChanges)
+            {
+                StatusText = "Nothing to save";
+                return;
+            }
+
+            await SaveImageDocumentInPlaceAsync(currentDocumentPath);
+            return;
+        }
+
         var pendingRotations = GetPendingPdfRotationGroups();
         var orderedPages = Thumbnails
             .Select(thumbnail => thumbnail.SourcePageNumber)
@@ -1233,9 +1312,16 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (pendingRotations.Count == 0 &&
             !HasPendingPageReorder &&
-            !hasPendingSaveNameChange)
+            !hasPendingSaveNameChange &&
+            !HasPendingAnnotationChanges)
         {
             StatusText = "Nothing to save";
+            return;
+        }
+
+        if (HasPendingAnnotationChanges)
+        {
+            await SaveAnnotatedPdfInPlaceAsync(currentDocumentPath);
             return;
         }
 
@@ -1369,10 +1455,16 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         StatusText = "Save name unchanged";
     }
 
-    [RelayCommand(CanExecute = nameof(HasOpenDocument))]
+    [RelayCommand(CanExecute = nameof(IsSearchAvailableForCurrentDocument))]
     private async Task OpenSearchAsync()
     {
+        if (!IsSearchAvailableForCurrentDocument)
+        {
+            return;
+        }
+
         IsInfoPanelVisible = false;
+        IsAnnotationsPanelVisible = false;
         IsPreferencesPanelVisible = false;
         IsPrintPanelVisible = false;
         IsSearchPanelVisible = true;
@@ -1408,9 +1500,14 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             : "Pages panel hidden";
     }
 
-    [RelayCommand(CanExecute = nameof(HasOpenDocument))]
+    [RelayCommand(CanExecute = nameof(IsSearchAvailableForCurrentDocument))]
     private async Task ToggleSearchPanelAsync()
     {
+        if (!IsSearchAvailableForCurrentDocument)
+        {
+            return;
+        }
+
         if (IsSearchPanelVisible)
         {
             IsSearchPanelVisible = false;
@@ -1419,6 +1516,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         IsInfoPanelVisible = false;
+        IsAnnotationsPanelVisible = false;
         IsPreferencesPanelVisible = false;
         IsPrintPanelVisible = false;
         IsSearchPanelVisible = true;
@@ -1720,13 +1818,25 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _documentViewportHeight = viewportHeight;
         FitToWidthCommand.NotifyCanExecuteChanged();
         FitToPageCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(ScrollableDocumentHorizontalAlignment));
 
         if (!widthChanged && !heightChanged)
         {
             return;
         }
 
-        await TryApplyViewportFitAsync(CurrentZoomMode, preserveStatusText: true);
+        if (CurrentZoomMode is ZoomMode.Custom)
+        {
+            return;
+        }
+
+        if (CurrentRenderedBitmap is null)
+        {
+            await TryApplyViewportFitAsync(CurrentZoomMode, preserveStatusText: true);
+            return;
+        }
+
+        await DebounceViewportFitUpdateAsync();
     }
 
     public void UpdateWindowWidth(double width)
@@ -1745,14 +1855,17 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private async Task OpenDocumentFromPathAsync(string filePath)
     {
+        CancelPendingViewportFitUpdate();
         CancelCurrentTextAnalysis();
         ClearDocumentTextSelection();
+        ResetAnnotationWorkspace();
         _currentDocumentTextIndex = null;
         _requiresSearchOcr = false;
         SearchQueryInput = string.Empty;
         SearchPanelNotice = null;
         ClearSearchResults();
         ClearSearchHighlights();
+        IsSearchPanelVisible = false;
 
         var result = await _openDocumentUseCase.ExecuteAsync(new OpenDocumentRequest(filePath));
 
@@ -1844,7 +1957,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private async Task EnsureDocumentTextAvailableAsync(bool forceOcr)
     {
-        if (!HasOpenDocument)
+        if (!HasOpenDocument || !IsSearchAvailableForCurrentDocument)
         {
             return;
         }
@@ -1932,7 +2045,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     public async Task<bool> EnsureDocumentTextReadyForSelectionAsync()
     {
-        if (!HasOpenDocument)
+        if (!HasOpenDocument || !IsSearchAvailableForCurrentDocument)
         {
             return false;
         }
@@ -2781,9 +2894,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         IsSearchPanelVisible = false;
         IsPreferencesPanelVisible = false;
         IsPrintPanelVisible = false;
+        IsAnnotationsPanelVisible = false;
         _currentDocumentTextSelection = null;
         _documentTextSelectionAnchorPoint = null;
         _currentDocumentTextIndex = null;
+        ResetAnnotationWorkspace();
         ClearDocumentInfo();
         SearchPanelNotice = null;
         PrintPanelNotice = null;
@@ -3547,6 +3662,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private async Task CloseCurrentDocumentStateAsync(bool clearNotifications)
     {
+        CancelPendingViewportFitUpdate();
         CancelCurrentRender();
         CancelCurrentTextAnalysis();
         CancelThumbnailGeneration();
@@ -3822,10 +3938,57 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private void NotifySidebarVisibilityChanged()
     {
+        OnPropertyChanged(nameof(SidebarHostVisible));
         OnPropertyChanged(nameof(IsSidebarVisible));
         OnPropertyChanged(nameof(SidebarColumnWidth));
         OnPropertyChanged(nameof(SidebarWidth));
+        OnPropertyChanged(nameof(SidebarOpacity));
+        OnPropertyChanged(nameof(IsSidebarInteractive));
         OnPropertyChanged(nameof(SidebarToggleLabel));
+    }
+
+    private async Task DebounceViewportFitUpdateAsync()
+    {
+        CancelPendingViewportFitUpdate();
+
+        var cancellationSource = new CancellationTokenSource();
+        _pendingViewportFitUpdateCancellation = cancellationSource;
+
+        try
+        {
+            await Task.Delay(ViewportFitDebounceDelay, cancellationSource.Token);
+
+            if (_disposed || _pendingViewportFitUpdateCancellation != cancellationSource)
+            {
+                return;
+            }
+
+            await TryApplyViewportFitAsync(CurrentZoomMode, preserveStatusText: true);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            if (_pendingViewportFitUpdateCancellation == cancellationSource)
+            {
+                _pendingViewportFitUpdateCancellation = null;
+            }
+
+            cancellationSource.Dispose();
+        }
+    }
+
+    private void CancelPendingViewportFitUpdate()
+    {
+        if (_pendingViewportFitUpdateCancellation is null)
+        {
+            return;
+        }
+
+        _pendingViewportFitUpdateCancellation.Cancel();
+        _pendingViewportFitUpdateCancellation.Dispose();
+        _pendingViewportFitUpdateCancellation = null;
     }
 
     private void RefreshDocumentInfo(DocumentMetadata metadata)
@@ -3930,6 +4093,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (disposing)
         {
+            CancelPendingViewportFitUpdate();
             CancelCurrentRender();
             CancelCurrentTextAnalysis();
             CancelThumbnailGeneration();

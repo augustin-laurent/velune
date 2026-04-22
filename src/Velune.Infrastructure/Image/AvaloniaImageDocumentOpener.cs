@@ -1,4 +1,5 @@
 using Avalonia.Media.Imaging;
+using SkiaSharp;
 using Velune.Application.Documents;
 using Velune.Domain.Abstractions;
 using Velune.Domain.Documents;
@@ -28,9 +29,13 @@ public sealed class AvaloniaImageDocumentOpener
 
         using var sourceStream = new MemoryStream(fileBytes);
         var bitmap = new Bitmap(sourceStream);
+        using var decodedBitmap = SKBitmap.Decode(fileBytes);
+
+        var pixelWidth = decodedBitmap?.Width ?? bitmap.PixelSize.Width;
+        var pixelHeight = decodedBitmap?.Height ?? bitmap.PixelSize.Height;
 
         var fileInfo = new FileInfo(filePath);
-        var imageMetadata = new ImageMetadata(bitmap.PixelSize.Width, bitmap.PixelSize.Height);
+        var imageMetadata = new ImageMetadata(pixelWidth, pixelHeight);
 
         var metadata = new DocumentMetadata(
             fileName: fileInfo.Name,
@@ -38,8 +43,8 @@ public sealed class AvaloniaImageDocumentOpener
             documentType: DocumentType.Image,
             fileSizeInBytes: fileInfo.Length,
             pageCount: 1,
-            pixelWidth: bitmap.PixelSize.Width,
-            pixelHeight: bitmap.PixelSize.Height,
+            pixelWidth: pixelWidth,
+            pixelHeight: pixelHeight,
             formatLabel: SupportedDocumentFormats.GetImageFormatLabel(extension),
             createdAt: fileInfo.CreationTimeUtc,
             modifiedAt: fileInfo.LastWriteTimeUtc);

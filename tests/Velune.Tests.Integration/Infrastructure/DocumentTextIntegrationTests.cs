@@ -15,6 +15,7 @@ using Velune.Infrastructure.Text;
 
 namespace Velune.Tests.Integration.Infrastructure;
 
+[Collection("IntegrationSerial")]
 public sealed class DocumentTextIntegrationTests
 {
     [Fact]
@@ -178,13 +179,11 @@ public sealed class DocumentTextIntegrationTests
             TesseractExecutablePath = TesseractTestSupport.GetExecutablePath(),
             DefaultOcrLanguages = ["eng"]
         });
-        var initializer = new PdfiumInitializer();
-
         return new DocumentTextService(
             new DocumentTextDiskCache(NullLogger<DocumentTextDiskCache>.Instance, options),
             new TesseractOcrEngine(options),
             new DispatchingRenderService(
-                new PdfiumRenderService(initializer),
+                new PdfiumRenderService(IntegrationPdfium.Initializer),
                 new ImageRenderService()),
             options);
     }
@@ -193,7 +192,7 @@ public sealed class DocumentTextIntegrationTests
     {
         if (string.Equals(Path.GetExtension(filePath), ".pdf", StringComparison.OrdinalIgnoreCase))
         {
-            return new PdfiumDocumentOpener(new PdfiumInitializer()).Open(filePath);
+            return new PdfiumDocumentOpener(IntegrationPdfium.Initializer).Open(filePath);
         }
 
         var fileInfo = new FileInfo(filePath);

@@ -44,6 +44,11 @@ public sealed class AppOptions
         get; set;
     }
 
+    public string? SignatureLibraryPath
+    {
+        get; set;
+    }
+
     public string TesseractExecutablePath
     {
         get; set;

@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Velune.Application.Abstractions;
 using Velune.Domain.Abstractions;
+using Velune.Infrastructure.Annotations;
 using Velune.Infrastructure.Documents;
 using Velune.Infrastructure.FileSystem;
 using Velune.Infrastructure.Image;
@@ -19,6 +20,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IUserPreferencesService, JsonUserPreferencesService>();
         services.AddSingleton<IPrintService, SystemPrintService>();
         services.AddSingleton<IOcrEngine, TesseractOcrEngine>();
+        services.AddSingleton<ISignatureAssetStore, JsonSignatureAssetStore>();
         services.AddTransient<IDocumentTextService, DocumentTextService>();
         services.AddTransient<IDocumentTextSelectionService, DocumentTextSelectionService>();
 
@@ -34,6 +36,8 @@ public static class ServiceCollectionExtensions
         services.AddTransient<PdfiumRenderService>();
         services.AddTransient<ImageRenderService>();
         services.AddTransient<IPdfDocumentStructureService, QpdfDocumentStructureService>();
+        services.AddTransient<IPdfMarkupService, SkiaPdfMarkupService>();
+        services.AddTransient<IImageMarkupService, SkiaImageMarkupService>();
 
         services.AddTransient<DispatchingRenderService>();
         services.AddTransient<IRenderService>(sp =>

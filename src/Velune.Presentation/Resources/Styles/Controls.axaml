@@ -21,6 +21,8 @@
     <Setter Property="Foreground" Value="{DynamicResource Brush.Foreground}" />
     <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
     <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
   </Style>
 
   <Style Selector="Button:pointerover">
@@ -192,6 +194,10 @@
       <Setter Property="MinHeight" Value="46" />
     </Style>
 
+    <Style Selector="Border.header-flex-item">
+      <Setter Property="Margin" Value="0,0,10,0" />
+    </Style>
+
     <Style Selector="TextBox.header-title-input">
       <Setter Property="MinHeight" Value="34" />
       <Setter Property="Padding" Value="0" />
@@ -286,6 +292,26 @@
 
     <Style Selector="Button.header-search-button:pointerover">
       <Setter Property="Background" Value="{DynamicResource Brush.SurfaceStrong}" />
+    </Style>
+
+    <Style Selector="Button.panel-close-button">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinHeight" Value="34" />
+      <Setter Property="MinWidth" Value="34" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="999" />
+    </Style>
+
+    <Style Selector="Button.panel-close-button:pointerover">
+      <Setter Property="Background" Value="{DynamicResource Brush.SurfaceMuted}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
+    </Style>
+
+    <Style Selector="Button.panel-close-button:pressed">
+      <Setter Property="Background" Value="{DynamicResource Brush.SurfaceStrong}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderStrong}" />
     </Style>
 
     <Style Selector="TextBlock.header-chip-label">
@@ -494,7 +520,6 @@
     </Style>
 
     <Style Selector="Border.info-panel">
-      <Setter Property="MinWidth" Value="280" />
       <Setter Property="MaxWidth" Value="320" />
     </Style>
 
@@ -558,5 +583,55 @@
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="CornerRadius" Value="3" />
       <Setter Property="Opacity" Value="1" />
+    </Style>
+
+    <Style Selector="Button.annotation-tool-button">
+      <Setter Property="MinHeight" Value="38" />
+      <Setter Property="MinWidth" Value="116" />
+      <Setter Property="Padding" Value="10,0" />
+      <Setter Property="Background" Value="{DynamicResource Brush.SurfaceMuted}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="Button.annotation-list-button">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+
+    <Style Selector="Button.annotation-list-button:pointerover /template/ ContentPresenter">
+      <Setter Property="Opacity" Value="0.97" />
+    </Style>
+
+    <Style Selector="Border.annotation-list-item">
+      <Setter Property="Padding" Value="12" />
+      <Setter Property="Margin" Value="0,0,0,10" />
+      <Setter Property="Background" Value="{DynamicResource Brush.SurfaceMuted}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="10" />
+    </Style>
+
+    <Style Selector="Button.annotation-list-delete-button">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinHeight" Value="32" />
+      <Setter Property="MinWidth" Value="32" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="999" />
+    </Style>
+
+    <Style Selector="Button.annotation-list-delete-button:pointerover">
+      <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
     </Style>
 </Styles>

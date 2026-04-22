@@ -9,6 +9,7 @@
         <PackageReference Include="Avalonia" Version="11.3.12" />
         <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.1" />
         <PackageReference Include="Material.Icons.Avalonia" Version="3.0.0" />
+        <PackageReference Include="SkiaSharp" Version="2.88.9" />
         <ProjectReference Include="..\Velune.Application\Velune.Application.csproj" />
     </ItemGroup>
 

@@ -22,6 +22,8 @@
     <KeyBinding Gesture="Meta+P" Command="{Binding PrintDocumentCommand}" />
     <KeyBinding Gesture="Ctrl+F" Command="{Binding ToggleSearchPanelCommand}" />
     <KeyBinding Gesture="Meta+F" Command="{Binding ToggleSearchPanelCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+A" Command="{Binding ToggleAnnotationsPanelCommand}" />
+    <KeyBinding Gesture="Meta+Shift+A" Command="{Binding ToggleAnnotationsPanelCommand}" />
     <KeyBinding Gesture="Ctrl+Add" Command="{Binding ZoomInCommand}" />
     <KeyBinding Gesture="Ctrl+OemPlus" Command="{Binding ZoomInCommand}" />
     <KeyBinding Gesture="Meta+Add" Command="{Binding ZoomInCommand}" />
@@ -91,6 +93,7 @@
           <NativeMenuItemSeparator />
           <NativeMenuItem Header="Search"
                           Command="{Binding ToggleSearchPanelCommand}"
+                          IsEnabled="{Binding IsSearchAvailableForCurrentDocument}"
                           Gesture="Meta+F" />
           <NativeMenuItem Header="Information"
                           Command="{Binding ToggleInfoPanelCommand}" />
@@ -109,12 +112,52 @@
                           Command="{Binding FitToPageCommand}" />
         </NativeMenu>
       </NativeMenuItem>
+
+      <NativeMenuItem Header="Annotate">
+        <NativeMenu>
+          <NativeMenuItem Header="Show Annotations"
+                          Command="{Binding ToggleAnnotationsPanelCommand}"
+                          Gesture="Meta+Shift+A" />
+          <NativeMenuItemSeparator />
+          <NativeMenuItem Header="Select Tool"
+                          Command="{Binding SelectAnnotationToolCommand}"
+                          CommandParameter="Select" />
+          <NativeMenuItem Header="Highlight Selection"
+                          Command="{Binding AddHighlightAnnotationFromSelectionCommand}"
+                          IsEnabled="{Binding CanCreateHighlightAnnotation}" />
+          <NativeMenuItem Header="Freehand"
+                          Command="{Binding SelectAnnotationToolCommand}"
+                          CommandParameter="Ink" />
+          <NativeMenuItem Header="Rectangle"
+                          Command="{Binding SelectAnnotationToolCommand}"
+                          CommandParameter="Rectangle" />
+          <NativeMenuItem Header="Text"
+                          Command="{Binding SelectAnnotationToolCommand}"
+                          CommandParameter="Text" />
+          <NativeMenuItem Header="Note"
+                          Command="{Binding SelectAnnotationToolCommand}"
+                          CommandParameter="Note" />
+          <NativeMenuItem Header="Stamp"
+                          Command="{Binding SelectAnnotationToolCommand}"
+                          CommandParameter="Stamp" />
+          <NativeMenuItem Header="Signature"
+                          Command="{Binding SelectAnnotationToolCommand}"
+                          CommandParameter="Signature" />
+          <NativeMenuItemSeparator />
+          <NativeMenuItem Header="Delete Selected Annotation"
+                          Command="{Binding DeleteSelectedAnnotationCommand}" />
+          <NativeMenuItem Header="Undo Annotation"
+                          Command="{Binding UndoAnnotationsCommand}" />
+          <NativeMenuItem Header="Redo Annotation"
+                          Command="{Binding RedoAnnotationsCommand}" />
+        </NativeMenu>
+      </NativeMenuItem>
     </NativeMenu>
   </NativeMenu.Menu>
 
   <Grid RowDefinitions="Auto,Auto,*,Auto">
     <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="{Binding SidebarColumnWidth}" />
+      <ColumnDefinition Width="Auto" />
       <ColumnDefinition Width="*" />
     </Grid.ColumnDefinitions>
 
@@ -169,7 +212,8 @@
                   Command="{Binding ToggleSidebarCommand}" />
         <Separator />
         <MenuItem Header="_Search"
-                  Command="{Binding ToggleSearchPanelCommand}" />
+                  Command="{Binding ToggleSearchPanelCommand}"
+                  IsEnabled="{Binding IsSearchAvailableForCurrentDocument}" />
         <MenuItem Header="_Information"
                   Command="{Binding ToggleInfoPanelCommand}" />
         <MenuItem Header="_Preferences"
@@ -185,6 +229,42 @@
         <MenuItem Header="Fit to _Page"
                   Command="{Binding FitToPageCommand}" />
       </MenuItem>
+
+      <MenuItem Header="_Annotate">
+        <MenuItem Header="Show _Annotations"
+                  Command="{Binding ToggleAnnotationsPanelCommand}" />
+        <Separator />
+        <MenuItem Header="_Select Tool"
+                  Command="{Binding SelectAnnotationToolCommand}"
+                  CommandParameter="Select" />
+        <MenuItem Header="_Highlight Selection"
+                  Command="{Binding AddHighlightAnnotationFromSelectionCommand}" />
+        <MenuItem Header="_Freehand"
+                  Command="{Binding SelectAnnotationToolCommand}"
+                  CommandParameter="Ink" />
+        <MenuItem Header="_Rectangle"
+                  Command="{Binding SelectAnnotationToolCommand}"
+                  CommandParameter="Rectangle" />
+        <MenuItem Header="_Text"
+                  Command="{Binding SelectAnnotationToolCommand}"
+                  CommandParameter="Text" />
+        <MenuItem Header="_Note"
+                  Command="{Binding SelectAnnotationToolCommand}"
+                  CommandParameter="Note" />
+        <MenuItem Header="_Stamp"
+                  Command="{Binding SelectAnnotationToolCommand}"
+                  CommandParameter="Stamp" />
+        <MenuItem Header="_Signature"
+                  Command="{Binding SelectAnnotationToolCommand}"
+                  CommandParameter="Signature" />
+        <Separator />
+        <MenuItem Header="_Delete Selected"
+                  Command="{Binding DeleteSelectedAnnotationCommand}" />
+        <MenuItem Header="_Undo"
+                  Command="{Binding UndoAnnotationsCommand}" />
+        <MenuItem Header="_Redo"
+                  Command="{Binding RedoAnnotationsCommand}" />
+      </MenuItem>
     </Menu>
 
     <!-- Header -->
@@ -196,114 +276,115 @@
             BorderBrush="{DynamicResource Brush.Border}"
             BorderThickness="0,0,0,1"
             Background="{DynamicResource Brush.Surface}">
-      <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto"
-            ColumnSpacing="20">
-        <Grid Grid.Column="0"
-              MaxWidth="{Binding HeaderTitleMaxWidth}"
-              Width="{Binding HeaderTitleMaxWidth}">
-          <StackPanel Spacing="2"
-                      IsVisible="{Binding ShouldEmphasizeOpenAction}">
-            <TextBlock Text="{Binding HeaderTitle}"
-                       Classes="title"
-                       TextTrimming="CharacterEllipsis" />
-            <TextBlock Text="{Binding HeaderSubtitle}"
-                       Classes="muted"
-                       TextTrimming="CharacterEllipsis" />
-          </StackPanel>
+      <DockPanel LastChildFill="True">
+        <StackPanel DockPanel.Dock="Left"
+                    Orientation="Horizontal"
+                    VerticalAlignment="Top"
+                    Spacing="14"
+                    Margin="0,0,20,0">
+          <Grid MaxWidth="{Binding HeaderTitleMaxWidth}"
+                Width="{Binding HeaderTitleMaxWidth}"
+                VerticalAlignment="Center">
+            <StackPanel Spacing="2"
+                        IsVisible="{Binding ShouldEmphasizeOpenAction}">
+              <TextBlock Text="{Binding HeaderTitle}"
+                         Classes="title"
+                         TextTrimming="CharacterEllipsis" />
+              <TextBlock Text="{Binding HeaderSubtitle}"
+                         Classes="muted"
+                         TextTrimming="CharacterEllipsis" />
+            </StackPanel>
 
-          <StackPanel Spacing="2"
-                      IsVisible="{Binding HasOpenDocument}">
-            <TextBox x:Name="DocumentNameEditorTextBox"
-                     Classes="header-title-input"
-                     Text="{Binding EditableDocumentName}"
-                     Watermark="Document name"
-                     ToolTip.Tip="Click to edit the save name"
-                     KeyDown="OnDocumentNameInputKeyDown"
-                     GotFocus="OnDocumentNameInputGotFocus"
-                     LostFocus="OnDocumentNameInputLostFocus" />
-            <TextBlock Text="{Binding HeaderSubtitle}"
-                       Classes="muted"
-                       TextTrimming="CharacterEllipsis"
-                       ToolTip.Tip="{Binding CurrentDocumentPath}" />
-          </StackPanel>
-        </Grid>
+            <StackPanel Spacing="2"
+                        IsVisible="{Binding HasOpenDocument}">
+              <TextBox x:Name="DocumentNameEditorTextBox"
+                       Classes="header-title-input"
+                       Text="{Binding EditableDocumentName}"
+                       Watermark="Document name"
+                       ToolTip.Tip="Click to edit the save name"
+                       KeyDown="OnDocumentNameInputKeyDown"
+                       GotFocus="OnDocumentNameInputGotFocus"
+                       LostFocus="OnDocumentNameInputLostFocus" />
+              <TextBlock Text="{Binding HeaderSubtitle}"
+                         Classes="muted"
+                         TextTrimming="CharacterEllipsis"
+                         ToolTip.Tip="{Binding CurrentDocumentPath}" />
+            </StackPanel>
+          </Grid>
 
-        <Button Grid.Column="1"
-                Classes="header-action-button sidebar-toggle-button"
-                Command="{Binding ToggleSidebarCommand}"
-                IsVisible="{Binding CanToggleSidebar}"
-                ToolTip.Tip="{Binding SidebarToggleLabel}">
-          <materialIcons:MaterialIcon Classes="toolbar-icon"
-                                      Kind="Menu"
-                                      Width="18"
-                                      Height="18" />
-        </Button>
+          <Button Classes="header-action-button sidebar-toggle-button"
+                  Command="{Binding ToggleSidebarCommand}"
+                  IsVisible="{Binding CanToggleSidebar}"
+                  ToolTip.Tip="{Binding SidebarToggleLabel}">
+            <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                        Kind="Menu"
+                                        Width="18"
+                                        Height="18" />
+          </Button>
 
-        <Border Grid.Column="2"
-                Classes="header-chip-group">
-          <StackPanel Orientation="Horizontal"
-                      Spacing="4">
-            <Button Classes="toolbar-primary-button"
-                    Command="{Binding OpenCommand}"
-                    IsVisible="{Binding ShouldEmphasizeOpenAction}"
-                    ToolTip.Tip="Open a document">
-              <StackPanel Orientation="Horizontal"
-                          HorizontalAlignment="Center"
-                          VerticalAlignment="Center"
-                          Spacing="8">
-                <materialIcons:MaterialIcon Classes="toolbar-primary-icon"
-                                            Kind="FolderOpenOutline"
-                                            Width="20"
-                                            Height="20" />
-                <TextBlock Text="Open"
-                           Classes="toolbar-primary-label" />
-              </StackPanel>
-            </Button>
+          <Border Classes="header-chip-group"
+                  VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal"
+                        Spacing="4">
+              <Button Classes="toolbar-primary-button"
+                      Command="{Binding OpenCommand}"
+                      IsVisible="{Binding ShouldEmphasizeOpenAction}"
+                      ToolTip.Tip="Open a document">
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Spacing="8">
+                  <materialIcons:MaterialIcon Classes="toolbar-primary-icon"
+                                              Kind="FolderOpenOutline"
+                                              Width="20"
+                                              Height="20" />
+                  <TextBlock Text="Open"
+                             Classes="toolbar-primary-label" />
+                </StackPanel>
+              </Button>
 
-            <Button Classes="header-action-button"
-                    Command="{Binding OpenCommand}"
-                    IsVisible="{Binding HasOpenDocument}"
-                    ToolTip.Tip="Open another document">
-              <StackPanel Orientation="Horizontal"
-                          Spacing="8">
+              <Button Classes="header-action-button"
+                      Command="{Binding OpenCommand}"
+                      IsVisible="{Binding HasOpenDocument}"
+                      ToolTip.Tip="Open another document">
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Spacing="8">
+                  <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                              Kind="FolderOpenOutline"
+                                              Width="18"
+                                              Height="18" />
+                  <TextBlock Text="Open"
+                             Classes="header-action-label" />
+                </StackPanel>
+              </Button>
+
+              <Button Classes="header-action-button"
+                      Command="{Binding PrintDocumentCommand}"
+                      IsVisible="{Binding HasOpenDocument}"
+                      ToolTip.Tip="Print the current document">
                 <materialIcons:MaterialIcon Classes="toolbar-icon"
-                                            Kind="FolderOpenOutline"
+                                            Kind="PrinterOutline"
                                             Width="18"
                                             Height="18" />
-                <TextBlock Text="Open"
-                           Classes="header-action-label" />
-              </StackPanel>
-            </Button>
+              </Button>
 
-            <Button Classes="header-action-button"
-                    Command="{Binding PrintDocumentCommand}"
-                    IsVisible="{Binding HasOpenDocument}"
-                    ToolTip.Tip="Print the current document">
-              <materialIcons:MaterialIcon Classes="toolbar-icon"
-                                          Kind="PrinterOutline"
-                                          Width="18"
-                                          Height="18" />
-            </Button>
+              <Button Classes="header-action-button"
+                      Command="{Binding CloseCommand}"
+                      IsVisible="{Binding HasOpenDocument}"
+                      ToolTip.Tip="Close the current document">
+                <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                            Kind="Close"
+                                            Width="18"
+                                            Height="18" />
+              </Button>
+            </StackPanel>
+          </Border>
+        </StackPanel>
 
-            <Button Classes="header-action-button"
-                    Command="{Binding CloseCommand}"
-                    IsVisible="{Binding HasOpenDocument}"
-                    ToolTip.Tip="Close the current document">
-              <materialIcons:MaterialIcon Classes="toolbar-icon"
-                                          Kind="Close"
-                                          Width="18"
-                                          Height="18" />
-            </Button>
-          </StackPanel>
-        </Border>
-
-        <StackPanel Grid.Column="3"
-                    Orientation="Horizontal"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    Spacing="10"
-                    IsVisible="{Binding HasOpenDocument}">
-          <Border Classes="header-pill"
+        <WrapPanel VerticalAlignment="Top">
+          <Border Classes="header-pill header-flex-item"
                   IsVisible="{Binding IsPageNavigationVisible}">
             <StackPanel Orientation="Horizontal"
                         Spacing="6">
@@ -343,7 +424,8 @@
             </StackPanel>
           </Border>
 
-          <Border Classes="header-pill">
+          <Border Classes="header-pill header-flex-item"
+                  IsVisible="{Binding HasOpenDocument}">
             <StackPanel Orientation="Horizontal"
                         Spacing="6">
               <Button Classes="header-pill-button"
@@ -390,14 +472,8 @@
               </Button>
             </StackPanel>
           </Border>
-        </StackPanel>
 
-        <StackPanel Grid.Column="4"
-                    Orientation="Horizontal"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Center"
-                    Spacing="8">
-          <Border Classes="header-search-group"
+          <Border Classes="header-search-group header-flex-item"
                   IsVisible="{Binding UseInlineHeaderSearch}">
             <Grid ColumnDefinitions="Auto,*,Auto"
                   ColumnSpacing="8">
@@ -410,7 +486,7 @@
 
               <TextBox Grid.Column="1"
                        Classes="header-search-input"
-                       Width="168"
+                       Width="156"
                        Watermark="Search in document"
                        Text="{Binding SearchQueryInput}"
                        KeyDown="OnSearchInputKeyDown" />
@@ -425,7 +501,7 @@
             </Grid>
           </Border>
 
-          <Border Classes="header-chip-group"
+          <Border Classes="header-chip-group header-flex-item"
                   IsVisible="{Binding HasOpenDocument}">
             <StackPanel Orientation="Horizontal"
                         Spacing="4">
@@ -452,7 +528,7 @@
             </StackPanel>
           </Border>
 
-          <Border Classes="header-chip-group"
+          <Border Classes="header-chip-group header-flex-item"
                   IsVisible="{Binding HasOpenDocument}">
             <StackPanel Orientation="Horizontal"
                         Spacing="4">
@@ -476,6 +552,15 @@
               </Button>
 
               <Button Classes="header-action-button"
+                      Command="{Binding ToggleAnnotationsPanelCommand}"
+                      ToolTip.Tip="Show annotations">
+                <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                            Kind="PencilOutline"
+                                            Width="18"
+                                            Height="18" />
+              </Button>
+
+              <Button Classes="header-action-button"
                       Command="{Binding TogglePreferencesPanelCommand}"
                       ToolTip.Tip="Show preferences">
                 <materialIcons:MaterialIcon Classes="toolbar-icon"
@@ -485,19 +570,26 @@
               </Button>
             </StackPanel>
           </Border>
-        </StackPanel>
-      </Grid>
+        </WrapPanel>
+      </DockPanel>
     </Border>
 
     <!-- Sidebar -->
     <Border Grid.Row="2"
             Grid.Column="0"
             Width="{Binding SidebarWidth}"
+            IsHitTestVisible="{Binding IsSidebarInteractive}"
             Padding="14"
             BorderBrush="{DynamicResource Brush.Border}"
             BorderThickness="0,0,1,0"
             Background="{DynamicResource Brush.Surface}"
-            IsVisible="{Binding IsSidebarVisible}">
+            ClipToBounds="True"
+            IsVisible="{Binding SidebarHostVisible}">
+      <Border.Transitions>
+        <Transitions>
+          <DoubleTransition Property="Width" Duration="0:0:0.22" />
+        </Transitions>
+      </Border.Transitions>
       <Grid RowDefinitions="Auto,*">
         <StackPanel Grid.Row="0"
                     Spacing="12"
@@ -735,6 +827,7 @@
                     Spacing="8">
           <Button Content="Open a file"
                   Width="140"
+                  HorizontalAlignment="Center"
                   Command="{Binding OpenCommand}" />
         </StackPanel>
 
@@ -799,6 +892,14 @@
                          HorizontalAlignment="Center"
                          VerticalAlignment="Center" />
 
+                  <Image Source="{Binding CurrentAnnotationOverlayBitmap}"
+                         Stretch="None"
+                         Width="{Binding DisplayedRenderedPageWidth}"
+                         Height="{Binding DisplayedRenderedPageHeight}"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center"
+                         IsHitTestVisible="False" />
+
                   <ItemsControl ItemsSource="{Binding SearchHighlights}"
                                 IsVisible="{Binding HasSearchHighlights}"
                                 IsHitTestVisible="False">
@@ -850,6 +951,13 @@
                           PointerMoved="OnDocumentTextSelectionPointerMoved"
                           PointerReleased="OnDocumentTextSelectionPointerReleased"
                           PointerCaptureLost="OnDocumentTextSelectionPointerCaptureLost" />
+
+                  <Border Background="Transparent"
+                          IsHitTestVisible="{Binding IsAnnotationModeActive}"
+                          PointerPressed="OnAnnotationPointerPressed"
+                          PointerMoved="OnAnnotationPointerMoved"
+                          PointerReleased="OnAnnotationPointerReleased"
+                          PointerCaptureLost="OnAnnotationPointerCaptureLost" />
                 </Grid>
               </Viewbox>
             </Grid>
@@ -862,7 +970,7 @@
             <Grid x:Name="ScrollableDocumentInteractionLayer"
                   Width="{Binding DisplayedRenderedPageWidth}"
                   Height="{Binding DisplayedRenderedPageHeight}"
-                  HorizontalAlignment="Center"
+                  HorizontalAlignment="{Binding ScrollableDocumentHorizontalAlignment}"
                   VerticalAlignment="Top">
               <Image Source="{Binding CurrentRenderedBitmap}"
                      Stretch="None"
@@ -870,6 +978,14 @@
                      Height="{Binding DisplayedRenderedPageHeight}"
                      HorizontalAlignment="Center"
                      VerticalAlignment="Top" />
+
+              <Image Source="{Binding CurrentAnnotationOverlayBitmap}"
+                     Stretch="None"
+                     Width="{Binding DisplayedRenderedPageWidth}"
+                     Height="{Binding DisplayedRenderedPageHeight}"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Top"
+                     IsHitTestVisible="False" />
 
               <ItemsControl ItemsSource="{Binding SearchHighlights}"
                             IsVisible="{Binding HasSearchHighlights}"
@@ -922,6 +1038,13 @@
                       PointerMoved="OnDocumentTextSelectionPointerMoved"
                       PointerReleased="OnDocumentTextSelectionPointerReleased"
                       PointerCaptureLost="OnDocumentTextSelectionPointerCaptureLost" />
+
+              <Border Background="Transparent"
+                      IsHitTestVisible="{Binding IsAnnotationModeActive}"
+                      PointerPressed="OnAnnotationPointerPressed"
+                      PointerMoved="OnAnnotationPointerMoved"
+                      PointerReleased="OnAnnotationPointerReleased"
+                      PointerCaptureLost="OnAnnotationPointerCaptureLost" />
             </Grid>
           </ScrollViewer>
 
@@ -929,7 +1052,7 @@
                   HorizontalAlignment="Center"
                   VerticalAlignment="Center"
                   Padding="12,10"
-                  IsVisible="{Binding IsRendering}">
+                  IsVisible="{Binding ShowRenderingBanner}">
             <TextBlock Text="Rendering..."
                        Classes="muted" />
           </Border>
@@ -939,11 +1062,18 @@
       <!-- Info panel -->
       <Border Grid.Column="1"
               Width="{Binding InfoPanelWidth}"
+              IsHitTestVisible="{Binding IsInfoPanelInteractive}"
               Margin="0,24,24,24"
               Padding="18,16"
               Classes="card info-panel"
               Background="{DynamicResource Brush.Surface}"
+              ClipToBounds="True"
               IsVisible="{Binding IsInfoPanelOpen}">
+        <Border.Transitions>
+          <Transitions>
+            <DoubleTransition Property="Width" Duration="0:0:0.22" />
+          </Transitions>
+        </Border.Transitions>
         <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto">
           <StackPanel Spacing="16">
@@ -989,15 +1119,25 @@
       <!-- Search panel -->
       <Border Grid.Column="1"
               Width="{Binding SearchPanelWidth}"
+              IsHitTestVisible="{Binding IsSearchPanelInteractive}"
               Margin="0,24,24,24"
-              Padding="18,16"
+              Padding="0"
               Classes="card info-panel"
               Background="{DynamicResource Brush.Surface}"
+              ClipToBounds="True"
               IsVisible="{Binding IsSearchPanelOpen}">
-        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
-                      VerticalScrollBarVisibility="Auto">
-          <StackPanel Spacing="18">
-            <StackPanel Spacing="4">
+        <Border.Transitions>
+          <Transitions>
+            <DoubleTransition Property="Width" Duration="0:0:0.22" />
+          </Transitions>
+        </Border.Transitions>
+        <Grid RowDefinitions="Auto,*">
+          <Grid Grid.Row="0"
+                ColumnDefinitions="*,Auto"
+                ColumnSpacing="8"
+                Margin="18,16,18,0">
+            <StackPanel Grid.Column="0"
+                        Spacing="4">
               <TextBlock Text="Search"
                          Classes="title" />
               <TextBlock Text="{Binding CurrentDocumentName}"
@@ -1008,118 +1148,144 @@
                          TextWrapping="Wrap" />
             </StackPanel>
 
-            <Border Classes="banner"
-                    Padding="10,8"
-                    IsVisible="{Binding HasSearchPanelNotice}">
-              <TextBlock Text="{Binding SearchPanelNotice}"
-                         Classes="muted"
-                         TextWrapping="Wrap" />
-            </Border>
+            <Button Grid.Column="1"
+                    Classes="panel-close-button"
+                    Command="{Binding ToggleSearchPanelCommand}"
+                    ToolTip.Tip="Close search">
+              <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                          Kind="Close"
+                                          Width="18"
+                                          Height="18" />
+            </Button>
+          </Grid>
 
-            <StackPanel Spacing="8">
-              <TextBlock Text="Query"
-                         Classes="metadata-label" />
-              <Grid ColumnDefinitions="*,Auto"
-                    ColumnSpacing="8">
-                <TextBox Classes="toolbar-input"
-                         Grid.Column="0"
-                         Watermark="Find text in this document"
-                         Text="{Binding SearchQueryInput}" />
+          <ScrollViewer Grid.Row="1"
+                        Margin="0,14,0,0"
+                        HorizontalScrollBarVisibility="Disabled"
+                        VerticalScrollBarVisibility="Auto">
+            <Border Padding="18,0,12,16">
+              <StackPanel Spacing="18">
+                <Border Classes="banner"
+                        Padding="10,8"
+                        IsVisible="{Binding HasSearchPanelNotice}">
+                  <TextBlock Text="{Binding SearchPanelNotice}"
+                             Classes="muted"
+                             TextWrapping="Wrap" />
+                </Border>
 
-                <Button Grid.Column="1"
-                        Content="Search"
-                        Command="{Binding SearchTextCommand}" />
-              </Grid>
-            </StackPanel>
+                <StackPanel Spacing="8">
+                  <TextBlock Text="Query"
+                             Classes="metadata-label" />
+                  <Grid ColumnDefinitions="*,Auto"
+                        ColumnSpacing="8">
+                    <TextBox Classes="toolbar-input"
+                             Grid.Column="0"
+                             Watermark="Find text in this document"
+                             Text="{Binding SearchQueryInput}" />
 
-            <StackPanel Orientation="Horizontal"
-                        Spacing="8">
-              <Button Content="Recognize text"
-                      Command="{Binding RunSearchOcrCommand}"
-                      IsVisible="{Binding CanRunDocumentOcr}" />
-              <Button Content="Cancel analysis"
-                      Command="{Binding CancelDocumentTextAnalysisCommand}"
-                      IsVisible="{Binding CanCancelDocumentTextAnalysis}" />
-            </StackPanel>
-
-            <Border Classes="toolbar-group"
-                    IsVisible="{Binding HasSearchResults}">
-              <DockPanel LastChildFill="False"
-                         Margin="0">
-                <StackPanel DockPanel.Dock="Left"
-                            Margin="4"
-                            Spacing="0">
-                  <TextBlock Text="{Binding SearchResultSummary}"
-                             Classes="toolbar-metric-value" />
-                  <TextBlock Text="{Binding SearchSelectionIndicator}"
-                             Classes="toolbar-metric-label" />
+                    <Button Grid.Column="1"
+                            Content="Search"
+                            Command="{Binding SearchTextCommand}" />
+                  </Grid>
                 </StackPanel>
 
-                <StackPanel DockPanel.Dock="Right"
-                            Orientation="Horizontal"
-                            Spacing="4">
-                  <Button Classes="toolbar-button"
-                          Command="{Binding PreviousSearchResultCommand}"
-                          ToolTip.Tip="Previous result">
-                    <materialIcons:MaterialIcon Classes="toolbar-icon"
-                                                Kind="ChevronUp"
-                                                Width="20"
-                                                Height="20"
-                                                Foreground="{DynamicResource Brush.Icon}" />
-                  </Button>
-
-                  <Button Classes="toolbar-button"
-                          Command="{Binding NextSearchResultCommand}"
-                          ToolTip.Tip="Next result">
-                    <materialIcons:MaterialIcon Classes="toolbar-icon"
-                                                Kind="ChevronDown"
-                                                Width="20"
-                                                Height="20"
-                                                Foreground="{DynamicResource Brush.Icon}" />
-                  </Button>
+                <StackPanel Orientation="Horizontal"
+                            Spacing="8">
+                  <Button Content="Recognize text"
+                          Command="{Binding RunSearchOcrCommand}"
+                          IsVisible="{Binding CanRunDocumentOcr}" />
+                  <Button Content="Cancel analysis"
+                          Command="{Binding CancelDocumentTextAnalysisCommand}"
+                          IsVisible="{Binding CanCancelDocumentTextAnalysis}" />
                 </StackPanel>
-              </DockPanel>
+
+                <Border Classes="toolbar-group"
+                        IsVisible="{Binding HasSearchResults}">
+                  <DockPanel LastChildFill="False"
+                             Margin="0">
+                    <StackPanel DockPanel.Dock="Left"
+                                Margin="4"
+                                Spacing="0">
+                      <TextBlock Text="{Binding SearchResultSummary}"
+                                 Classes="toolbar-metric-value" />
+                      <TextBlock Text="{Binding SearchSelectionIndicator}"
+                                 Classes="toolbar-metric-label" />
+                    </StackPanel>
+
+                    <StackPanel DockPanel.Dock="Right"
+                                Orientation="Horizontal"
+                                Spacing="4">
+                      <Button Classes="toolbar-button"
+                              Command="{Binding PreviousSearchResultCommand}"
+                              ToolTip.Tip="Previous result">
+                        <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                                    Kind="ChevronUp"
+                                                    Width="20"
+                                                    Height="20"
+                                                    Foreground="{DynamicResource Brush.Icon}" />
+                      </Button>
+
+                      <Button Classes="toolbar-button"
+                              Command="{Binding NextSearchResultCommand}"
+                              ToolTip.Tip="Next result">
+                        <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                                    Kind="ChevronDown"
+                                                    Width="20"
+                                                    Height="20"
+                                                    Foreground="{DynamicResource Brush.Icon}" />
+                      </Button>
+                    </StackPanel>
+                  </DockPanel>
+                </Border>
+
+                <ItemsControl ItemsSource="{Binding SearchResults}"
+                              IsVisible="{Binding HasSearchResults}">
+                  <ItemsControl.Styles>
+                    <Style Selector="ContentPresenter">
+                      <Setter Property="HorizontalAlignment" Value="Stretch" />
+                    </Style>
+                  </ItemsControl.Styles>
+
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Button Classes="search-result-button"
+                              Command="{Binding $parent[Window].DataContext.OpenSearchResultCommand}"
+                              CommandParameter="{Binding}"
+                              HorizontalContentAlignment="Stretch">
+                        <Border Classes="search-result-item"
+                                Classes.selected="{Binding IsSelected}">
+                          <StackPanel Spacing="6">
+                            <TextBlock Text="{Binding PageNumber, StringFormat=Page {0}}"
+                                       Classes="metadata-label" />
+                            <TextBlock Text="{Binding Excerpt}"
+                                       TextWrapping="Wrap" />
+                          </StackPanel>
+                        </Border>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
             </Border>
-
-            <ItemsControl ItemsSource="{Binding SearchResults}"
-                          IsVisible="{Binding HasSearchResults}">
-              <ItemsControl.Styles>
-                <Style Selector="ContentPresenter">
-                  <Setter Property="HorizontalAlignment" Value="Stretch" />
-                </Style>
-              </ItemsControl.Styles>
-
-              <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                  <Button Classes="search-result-button"
-                          Command="{Binding $parent[Window].DataContext.OpenSearchResultCommand}"
-                          CommandParameter="{Binding}"
-                          HorizontalContentAlignment="Stretch">
-                    <Border Classes="search-result-item"
-                            Classes.selected="{Binding IsSelected}">
-                      <StackPanel Spacing="6">
-                        <TextBlock Text="{Binding PageNumber, StringFormat=Page {0}}"
-                                   Classes="metadata-label" />
-                        <TextBlock Text="{Binding Excerpt}"
-                                   TextWrapping="Wrap" />
-                      </StackPanel>
-                    </Border>
-                  </Button>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-          </StackPanel>
-        </ScrollViewer>
+          </ScrollViewer>
+        </Grid>
       </Border>
 
       <!-- Preferences panel -->
       <Border Grid.Column="1"
               Width="{Binding PreferencesPanelWidth}"
+              IsHitTestVisible="{Binding IsPreferencesPanelInteractive}"
               Margin="0,24,24,24"
               Padding="18,16"
               Classes="card info-panel"
               Background="{DynamicResource Brush.Surface}"
+              ClipToBounds="True"
               IsVisible="{Binding IsPreferencesPanelOpen}">
+        <Border.Transitions>
+          <Transitions>
+            <DoubleTransition Property="Width" Duration="0:0:0.22" />
+          </Transitions>
+        </Border.Transitions>
         <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto">
           <StackPanel Spacing="18">
@@ -1171,11 +1337,18 @@
       <!-- Print panel -->
       <Border Grid.Column="1"
               Width="{Binding PrintPanelWidth}"
+              IsHitTestVisible="{Binding IsPrintPanelInteractive}"
               Margin="0,24,24,24"
               Padding="18,16"
               Classes="card info-panel"
               Background="{DynamicResource Brush.Surface}"
+              ClipToBounds="True"
               IsVisible="{Binding IsPrintPanelOpen}">
+        <Border.Transitions>
+          <Transitions>
+            <DoubleTransition Property="Width" Duration="0:0:0.22" />
+          </Transitions>
+        </Border.Transitions>
         <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto">
           <StackPanel Spacing="18">
@@ -1259,6 +1432,217 @@
                       Command="{Binding PrintDocumentCommand}" />
               <Button Content="Print"
                       Command="{Binding SubmitPrintJobCommand}" />
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+
+      <!-- Annotations panel -->
+      <Border Grid.Column="1"
+              Width="{Binding AnnotationsPanelWidth}"
+              IsHitTestVisible="{Binding IsAnnotationsPanelInteractive}"
+              Margin="0,24,24,24"
+              Padding="18,16"
+              Classes="card info-panel"
+              Background="{DynamicResource Brush.Surface}"
+              ClipToBounds="True"
+              IsVisible="{Binding IsAnnotationsPanelOpen}">
+        <Border.Transitions>
+          <Transitions>
+            <DoubleTransition Property="Width" Duration="0:0:0.22" />
+          </Transitions>
+        </Border.Transitions>
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="16">
+            <StackPanel Spacing="4">
+              <TextBlock Text="Annotations"
+                         Classes="title" />
+              <TextBlock Text="Annotate the current page, add a simple signature, then save the updated document."
+                         Classes="muted"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+
+            <Border Classes="banner"
+                    Padding="10,8"
+                    IsVisible="{Binding HasAnnotationsPanelNotice}">
+              <TextBlock Text="{Binding AnnotationsPanelNotice}"
+                         Classes="muted"
+                         TextWrapping="Wrap" />
+            </Border>
+
+            <WrapPanel Classes="annotation-tools-wrap"
+                       ItemWidth="128"
+                       ItemHeight="40">
+              <Button Classes="annotation-tool-button"
+                      Command="{Binding SelectAnnotationToolCommand}"
+                      CommandParameter="Select"
+                      Content="Select" />
+              <Button Classes="annotation-tool-button"
+                      Command="{Binding AddHighlightAnnotationFromSelectionCommand}"
+                      IsEnabled="{Binding CanCreateHighlightAnnotation}"
+                      Content="Highlight" />
+              <Button Classes="annotation-tool-button"
+                      Command="{Binding SelectAnnotationToolCommand}"
+                      CommandParameter="Ink"
+                      Content="Ink" />
+              <Button Classes="annotation-tool-button"
+                      Command="{Binding SelectAnnotationToolCommand}"
+                      CommandParameter="Rectangle"
+                      Content="Rectangle" />
+              <Button Classes="annotation-tool-button"
+                      Command="{Binding SelectAnnotationToolCommand}"
+                      CommandParameter="Text"
+                      Content="Text" />
+              <Button Classes="annotation-tool-button"
+                      Command="{Binding SelectAnnotationToolCommand}"
+                      CommandParameter="Note"
+                      Content="Note" />
+              <Button Classes="annotation-tool-button"
+                      Command="{Binding SelectAnnotationToolCommand}"
+                      CommandParameter="Stamp"
+                      Content="Stamp" />
+              <Button Classes="annotation-tool-button"
+                      Command="{Binding SelectAnnotationToolCommand}"
+                      CommandParameter="Signature"
+                      Content="Signature" />
+            </WrapPanel>
+
+            <StackPanel Spacing="8"
+                        IsVisible="{Binding ShowAnnotationTextEditor}">
+              <TextBlock Text="Annotation text"
+                         Classes="metadata-label" />
+              <TextBox Classes="toolbar-input"
+                       Text="{Binding AnnotationTextDraft}"
+                       Watermark="Text, note or stamp label" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+              <Grid ColumnDefinitions="*,Auto,Auto"
+                    ColumnSpacing="8">
+                <TextBlock Grid.Column="0"
+                           Text="Signature library"
+                           Classes="metadata-label"
+                           VerticalAlignment="Center" />
+                <Button Grid.Column="1"
+                        Content="Import image"
+                        Command="{Binding ImportSignatureAssetCommand}" />
+                <Button Grid.Column="2"
+                        Classes="annotation-list-delete-button"
+                        CommandParameter="{Binding SelectedSignatureAssetId}"
+                        Command="{Binding DeleteSelectedSignatureAssetCommand}"
+                        ToolTip.Tip="Delete selected signature">
+                  <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                              Kind="TrashCanOutline"
+                                              Width="16"
+                                              Height="16" />
+                </Button>
+              </Grid>
+
+              <ItemsControl ItemsSource="{Binding SignatureAssets}"
+                            IsVisible="{Binding HasSignatureAssets}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Border Classes="annotation-list-item">
+                      <Grid ColumnDefinitions="*,Auto"
+                            ColumnSpacing="8">
+                        <Button Grid.Column="0"
+                                Classes="annotation-list-button"
+                                Command="{Binding $parent[Window].DataContext.SelectSignatureAssetCommand}"
+                                CommandParameter="{Binding Id}"
+                                HorizontalContentAlignment="Stretch">
+                          <StackPanel Spacing="2">
+                            <TextBlock Text="{Binding DisplayName}"
+                                       FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding FilePath}"
+                                       Classes="muted"
+                                       TextTrimming="CharacterEllipsis" />
+                          </StackPanel>
+                        </Button>
+
+                        <Button Grid.Column="1"
+                                Classes="annotation-list-delete-button"
+                                Command="{Binding $parent[Window].DataContext.DeleteSelectedSignatureAssetCommand}"
+                                CommandParameter="{Binding Id}"
+                                ToolTip.Tip="Delete selected signature">
+                          <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                                      Kind="TrashCanOutline"
+                                                      Width="16"
+                                                      Height="16" />
+                        </Button>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <StackPanel Spacing="8">
+                <TextBlock Text="Draw a new signature"
+                           Classes="metadata-label" />
+                <TextBox Classes="toolbar-input"
+                         Text="{Binding SignatureAssetNameInput}"
+                         Watermark="Signature name" />
+
+                <Grid>
+                  <Image Source="{Binding SignaturePadPreviewBitmap}"
+                         Width="248"
+                         Height="124"
+                         Stretch="Fill" />
+                  <Border x:Name="SignaturePadInteractionLayer"
+                          Width="248"
+                          Height="124"
+                          Background="Transparent"
+                          PointerPressed="OnSignaturePadPointerPressed"
+                          PointerMoved="OnSignaturePadPointerMoved"
+                          PointerReleased="OnSignaturePadPointerReleased"
+                          PointerCaptureLost="OnSignaturePadPointerCaptureLost" />
+                </Grid>
+
+                <StackPanel Orientation="Horizontal"
+                            Spacing="8">
+                  <Button Content="Clear drawing"
+                          Command="{Binding ClearSignatureCaptureCommand}" />
+                  <Button Content="Save signature"
+                          Command="{Binding SaveDrawnSignatureAssetCommand}" />
+                </StackPanel>
+              </StackPanel>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal"
+                        Spacing="8">
+              <Button Content="Undo"
+                      Command="{Binding UndoAnnotationsCommand}" />
+              <Button Content="Redo"
+                      Command="{Binding RedoAnnotationsCommand}" />
+              <Button Content="Delete selected"
+                      Command="{Binding DeleteSelectedAnnotationCommand}" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+              <TextBlock Text="Current page annotations"
+                         Classes="metadata-label" />
+
+              <ItemsControl ItemsSource="{Binding CurrentPageAnnotations}"
+                            IsVisible="{Binding HasCurrentPageAnnotations}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Button Classes="annotation-list-button"
+                            Command="{Binding $parent[Window].DataContext.SelectCurrentPageAnnotationCommand}"
+                            CommandParameter="{Binding}"
+                            HorizontalContentAlignment="Stretch">
+                      <Border Classes="annotation-list-item">
+                        <StackPanel Spacing="4">
+                          <TextBlock Text="{Binding Kind}"
+                                     FontWeight="SemiBold" />
+                          <TextBlock Text="{Binding Text}"
+                                     Classes="muted"
+                                     TextWrapping="Wrap" />
+                        </StackPanel>
+                      </Border>
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
             </StackPanel>
           </StackPanel>
         </ScrollViewer>

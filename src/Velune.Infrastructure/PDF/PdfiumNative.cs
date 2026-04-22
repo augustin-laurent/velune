@@ -9,6 +9,13 @@ internal static partial class PdfiumNative
     internal const int FPDFBitmap_BGRA = 4;
     internal const int FPDF_ANNOT = 0x01;
 
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct FpdfFileWrite
+    {
+        internal int Version;
+        internal nint WriteBlock;
+    }
+
     [LibraryImport(LibraryName, EntryPoint = "FPDF_InitLibrary")]
     internal static partial void FPDF_InitLibrary();
 
@@ -39,6 +46,9 @@ internal static partial class PdfiumNative
 
     [LibraryImport(LibraryName, EntryPoint = "FPDF_ClosePage")]
     internal static partial void FPDF_ClosePage(nint page);
+
+    [LibraryImport(LibraryName, EntryPoint = "FPDFPage_CountObjects")]
+    internal static partial int FPDFPage_CountObjects(nint page);
 
     [LibraryImport(LibraryName, EntryPoint = "FPDF_GetPageWidthF")]
     internal static partial float FPDF_GetPageWidthF(nint page);
@@ -138,4 +148,43 @@ internal static partial class PdfiumNative
         int sizeY,
         int rotate,
         int flags);
+
+    [LibraryImport(LibraryName, EntryPoint = "FPDFPage_InsertObject")]
+    internal static partial void FPDFPage_InsertObject(nint page, nint pageObject);
+
+    [LibraryImport(LibraryName, EntryPoint = "FPDFPage_GenerateContent")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool FPDFPage_GenerateContent(nint page);
+
+    [LibraryImport(LibraryName, EntryPoint = "FPDFPageObj_NewImageObj")]
+    internal static partial nint FPDFPageObj_NewImageObj(nint document);
+
+    [LibraryImport(LibraryName, EntryPoint = "FPDFPageObj_Destroy")]
+    internal static partial void FPDFPageObj_Destroy(nint pageObject);
+
+    [LibraryImport(LibraryName, EntryPoint = "FPDFImageObj_SetBitmap")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool FPDFImageObj_SetBitmap(
+        [MarshalAs(UnmanagedType.LPArray)] nint[] pages,
+        int count,
+        nint imageObject,
+        nint bitmap);
+
+    [LibraryImport(LibraryName, EntryPoint = "FPDFImageObj_SetMatrix")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool FPDFImageObj_SetMatrix(
+        nint imageObject,
+        double a,
+        double b,
+        double c,
+        double d,
+        double e,
+        double f);
+
+    [LibraryImport(LibraryName, EntryPoint = "FPDF_SaveAsCopy")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool FPDF_SaveAsCopy(
+        nint document,
+        nint fileWrite,
+        uint flags);
 }

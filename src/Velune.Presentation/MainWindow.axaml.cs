@@ -30,6 +30,11 @@ public partial class MainWindow : Window
     private bool _suppressNextThumbnailTap;
     private Control? _documentTextSelectionLayer;
     private Control? _documentTextSelectionCoordinateLayer;
+    private Control? _annotationInteractionLayer;
+    private Control? _annotationCoordinateLayer;
+    private Control? _signaturePadLayer;
+    private bool _isCapturingSignaturePad;
+    private bool _isAnnotating;
     private bool _isSelectingDocumentText;
 
     public MainWindow()
@@ -349,6 +354,152 @@ public partial class MainWindow : Window
     private void OnDocumentTextSelectionPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
     {
         ResetDocumentTextSelectionInteraction();
+    }
+
+    private void OnAnnotationPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Control layer ||
+            DataContext is not MainWindowViewModel viewModel ||
+            e.GetCurrentPoint(layer).Properties.PointerUpdateKind is not PointerUpdateKind.LeftButtonPressed ||
+            !viewModel.IsAnnotationModeActive)
+        {
+            ResetAnnotationInteraction();
+            return;
+        }
+
+        _annotationInteractionLayer = layer;
+        var coordinateLayer = ResolveDocumentTextSelectionCoordinateLayer(layer);
+        _annotationCoordinateLayer = coordinateLayer;
+
+        var visualPosition = GetDocumentSelectionVisualPosition(e, coordinateLayer);
+        var didBegin = viewModel.BeginAnnotationInteraction(
+            visualPosition.X,
+            visualPosition.Y,
+            coordinateLayer.Bounds.Width,
+            coordinateLayer.Bounds.Height);
+
+        _isAnnotating = didBegin;
+        if (didBegin)
+        {
+            e.Pointer.Capture(layer);
+        }
+
+        e.Handled = true;
+    }
+
+    private void OnAnnotationPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (!_isAnnotating ||
+            sender is not Control layer ||
+            !ReferenceEquals(layer, _annotationInteractionLayer) ||
+            DataContext is not MainWindowViewModel viewModel ||
+            !e.GetCurrentPoint(layer).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        var coordinateLayer = _annotationCoordinateLayer ?? ResolveDocumentTextSelectionCoordinateLayer(layer);
+        _annotationCoordinateLayer = coordinateLayer;
+        var visualPosition = GetDocumentSelectionVisualPosition(e, coordinateLayer);
+        viewModel.UpdateAnnotationInteraction(
+            visualPosition.X,
+            visualPosition.Y,
+            coordinateLayer.Bounds.Width,
+            coordinateLayer.Bounds.Height);
+        e.Handled = true;
+    }
+
+    private void OnAnnotationPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (sender is not Control layer ||
+            DataContext is not MainWindowViewModel viewModel)
+        {
+            ResetAnnotationInteraction();
+            return;
+        }
+
+        var coordinateLayer = _annotationCoordinateLayer ?? ResolveDocumentTextSelectionCoordinateLayer(layer);
+        var visualPosition = GetDocumentSelectionVisualPosition(e, coordinateLayer);
+        viewModel.CompleteAnnotationInteraction(
+            visualPosition.X,
+            visualPosition.Y,
+            coordinateLayer.Bounds.Width,
+            coordinateLayer.Bounds.Height);
+        e.Pointer.Capture(null);
+        ResetAnnotationInteraction();
+        e.Handled = true;
+    }
+
+    private void OnAnnotationPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.CancelAnnotationInteraction();
+        }
+
+        ResetAnnotationInteraction();
+    }
+
+    private void OnSignaturePadPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Control layer ||
+            DataContext is not MainWindowViewModel viewModel ||
+            e.GetCurrentPoint(layer).Properties.PointerUpdateKind is not PointerUpdateKind.LeftButtonPressed)
+        {
+            ResetSignaturePadInteraction();
+            return;
+        }
+
+        _signaturePadLayer = layer;
+        _isCapturingSignaturePad = true;
+        var point = e.GetPosition(layer);
+        viewModel.BeginSignatureCapture(point.X, point.Y, layer.Bounds.Width, layer.Bounds.Height);
+        e.Pointer.Capture(layer);
+        e.Handled = true;
+    }
+
+    private void OnSignaturePadPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (!_isCapturingSignaturePad ||
+            sender is not Control layer ||
+            !ReferenceEquals(layer, _signaturePadLayer) ||
+            DataContext is not MainWindowViewModel viewModel ||
+            !e.GetCurrentPoint(layer).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        var point = e.GetPosition(layer);
+        viewModel.UpdateSignatureCapture(point.X, point.Y, layer.Bounds.Width, layer.Bounds.Height);
+        e.Handled = true;
+    }
+
+    private void OnSignaturePadPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (sender is not Control layer)
+        {
+            ResetSignaturePadInteraction();
+            return;
+        }
+
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.CompleteSignatureCapture();
+        }
+
+        e.Pointer.Capture(null);
+        ResetSignaturePadInteraction();
+        e.Handled = true;
+    }
+
+    private void OnSignaturePadPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.CompleteSignatureCapture();
+        }
+
+        ResetSignaturePadInteraction();
     }
 
     private void OnThumbnailPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -865,5 +1016,18 @@ public partial class MainWindow : Window
         _documentTextSelectionLayer = null;
         _documentTextSelectionCoordinateLayer = null;
         _isSelectingDocumentText = false;
+    }
+
+    private void ResetAnnotationInteraction()
+    {
+        _annotationInteractionLayer = null;
+        _annotationCoordinateLayer = null;
+        _isAnnotating = false;
+    }
+
+    private void ResetSignaturePadInteraction()
+    {
+        _signaturePadLayer = null;
+        _isCapturingSignaturePad = false;
     }
 }

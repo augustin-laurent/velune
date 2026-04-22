@@ -246,7 +246,7 @@ public partial class MainWindowViewModel
                 _selectedAnnotationId,
                 _signatureAssetLookup);
         }
-        catch (InvalidOperationException)
+        catch (Exception exception) when (AnnotationOverlayBitmapFactory.IsRenderingDependencyUnavailable(exception))
         {
             CurrentAnnotationOverlayBitmap = null;
         }
@@ -263,7 +263,7 @@ public partial class MainWindowViewModel
                 SignaturePadPreviewWidth,
                 SignaturePadPreviewHeight);
         }
-        catch (InvalidOperationException)
+        catch (Exception exception) when (AnnotationOverlayBitmapFactory.IsRenderingDependencyUnavailable(exception))
         {
             SignaturePadPreviewBitmap = null;
         }

@@ -11,6 +11,15 @@ namespace Velune.Presentation.Imaging;
 
 public static class AnnotationOverlayBitmapFactory
 {
+    public static bool IsRenderingDependencyUnavailable(Exception exception)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+
+        return exception is InvalidOperationException or DllNotFoundException or EntryPointNotFoundException ||
+               exception is TypeInitializationException typeInitializationException &&
+               typeInitializationException.InnerException is DllNotFoundException or EntryPointNotFoundException;
+    }
+
     public static WriteableBitmap? Create(
         IReadOnlyList<DocumentAnnotation> annotations,
         int width,

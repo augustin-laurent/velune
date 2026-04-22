@@ -17,7 +17,7 @@ public sealed class PdfAnnotationIntegrationTests
     {
         await using var workspace = await PdfAnnotationWorkspace.CreateAsync();
 
-        var initializer = new PdfiumInitializer();
+        var initializer = IntegrationPdfium.Initializer;
         var opener = new PdfiumDocumentOpener(initializer);
         var renderer = new PdfiumRenderService(initializer);
         var session = opener.Open(workspace.SourcePdfPath) as PdfiumDocumentSession;
@@ -115,7 +115,7 @@ public sealed class PdfAnnotationIntegrationTests
             {
                 SignatureLibraryPath = Path.Combine(workspacePath, "signature-library")
             });
-            var initializer = new PdfiumInitializer();
+            var initializer = IntegrationPdfium.Initializer;
 
             await Task.CompletedTask;
 

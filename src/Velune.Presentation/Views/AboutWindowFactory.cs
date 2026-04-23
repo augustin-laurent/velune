@@ -4,6 +4,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Velune.Presentation.Localization;
 
 namespace Velune.Presentation.Views;
 
@@ -11,20 +12,26 @@ public static class AboutWindowFactory
 {
     private static readonly Uri AppIconUri = new("avares://Velune.Presentation/Assets/Brand/velune-app-icon.png");
 
-    public static Window Create()
+    public static Window Create(ILocalizationService? localizationService = null)
     {
         var version = typeof(AboutWindowFactory).Assembly.GetName().Version?.ToString(3) ?? "Development";
+        var appName = localizationService?.GetString("app.name") ?? "Velune";
+        var aboutTitle = localizationService?.GetString("about.title") ?? "About Velune";
+        var aboutDescription = localizationService?.GetString("about.description") ??
+            "Native PDF and image viewing, page management, search, OCR, and printing in a focused desktop workspace.";
+        var closeLabel = localizationService?.GetString("about.close") ?? "Close";
+        var versionLabel = localizationService?.GetString("about.version", version) ?? $"Version {version}";
 
         var closeButton = new Button
         {
-            Content = "Close",
+            Content = closeLabel,
             MinWidth = 88,
             HorizontalAlignment = HorizontalAlignment.Right
         };
 
         var aboutWindow = new Window
         {
-            Title = "About Velune",
+            Title = aboutTitle,
             Width = 420,
             Height = 320,
             CanResize = false,
@@ -79,20 +86,20 @@ public static class AboutWindowFactory
                     },
                     new TextBlock
                     {
-                        Text = "Velune",
+                        Text = appName,
                         FontSize = 24,
                         FontWeight = FontWeight.SemiBold,
                         HorizontalAlignment = HorizontalAlignment.Center
                     },
                     new TextBlock
                     {
-                        Text = $"Version {version}",
+                        Text = versionLabel,
                         Opacity = 0.75,
                         HorizontalAlignment = HorizontalAlignment.Center
                     },
                     new TextBlock
                     {
-                        Text = "Native PDF and image viewing, page management, search, OCR, and printing in a focused desktop workspace.",
+                        Text = aboutDescription,
                         TextWrapping = TextWrapping.Wrap,
                         TextAlignment = TextAlignment.Center
                     },

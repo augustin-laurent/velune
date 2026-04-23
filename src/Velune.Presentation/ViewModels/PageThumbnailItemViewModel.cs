@@ -1,5 +1,6 @@
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Velune.Presentation.Localization;
 
 namespace Velune.Presentation.ViewModels;
 
@@ -32,6 +33,16 @@ public partial class PageThumbnailItemViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private bool _isDragging;
+
+    [ObservableProperty]
+    private string _pageLabel = string.Empty;
+
+    public void UpdateLocalization(ILocalizationService localizationService)
+    {
+        ArgumentNullException.ThrowIfNull(localizationService);
+
+        PageLabel = localizationService.GetString("sidebar.page", DisplayPageNumber);
+    }
 
     public void Dispose()
     {

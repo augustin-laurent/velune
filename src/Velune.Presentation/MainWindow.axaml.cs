@@ -5,6 +5,7 @@ using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Microsoft.Extensions.DependencyInjection;
+using Velune.Presentation.Localization;
 using Velune.Presentation.ViewModels;
 
 namespace Velune.Presentation.Views;
@@ -33,6 +34,8 @@ public partial class MainWindow : Window
     private Control? _annotationInteractionLayer;
     private Control? _annotationCoordinateLayer;
     private Control? _signaturePadLayer;
+    private ILocalizationService? _localizationService;
+    private NativeMenuLocalizationBinding? _nativeMenuLocalizationBinding;
     private bool _isCapturingSignaturePad;
     private bool _isAnnotating;
     private bool _isSelectingDocumentText;
@@ -41,6 +44,9 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         _thumbnailAutoScrollTimer.Tick += OnThumbnailAutoScrollTick;
+        Opened += OnWindowOpened;
+        Closed += OnWindowClosed;
+        AttachLocalization(LocalizationServiceLocator.Current);
     }
 
     [ActivatorUtilitiesConstructor]
@@ -50,6 +56,47 @@ public partial class MainWindow : Window
         ArgumentNullException.ThrowIfNull(viewModel);
         DataContext = viewModel;
         viewModel.UpdateWindowWidth(Width);
+        AttachLocalization(LocalizationServiceLocator.Current);
+    }
+
+    private void AttachLocalization(ILocalizationService? localizationService)
+    {
+        if (ReferenceEquals(_localizationService, localizationService) &&
+            _nativeMenuLocalizationBinding is not null)
+        {
+            return;
+        }
+
+        _nativeMenuLocalizationBinding?.Detach();
+        _nativeMenuLocalizationBinding = null;
+
+        _localizationService = localizationService;
+
+        if (_localizationService is null ||
+            NativeMenu.GetMenu(this) is not NativeMenu menu)
+        {
+            return;
+        }
+
+        _nativeMenuLocalizationBinding = new NativeMenuLocalizationBinding(
+            this,
+            menu,
+            _localizationService,
+            NativeMenuLocalizer.LocalizeMainWindowMenu);
+    }
+
+    private void OnWindowOpened(object? sender, EventArgs e)
+    {
+        AttachLocalization(LocalizationServiceLocator.Current);
+    }
+
+    private void OnWindowClosed(object? sender, EventArgs e)
+    {
+        _nativeMenuLocalizationBinding?.Detach();
+        _nativeMenuLocalizationBinding = null;
+        _localizationService = null;
+        Opened -= OnWindowOpened;
+        Closed -= OnWindowClosed;
     }
 
     private async void OnDocumentPointerWheelChanged(object? sender, PointerWheelEventArgs e)
@@ -177,7 +224,7 @@ public partial class MainWindow : Window
         }
 
         await clipboard.SetTextAsync(viewModel.SelectedDocumentText);
-        viewModel.StatusText = "Selected text copied";
+        viewModel.StatusText = LocalizationServiceLocator.Current?.GetString("status.clipboard.copied") ?? "Selected text copied";
         e.Handled = true;
     }
 
@@ -266,7 +313,7 @@ public partial class MainWindow : Window
 
     private async void OnAboutMenuClicked(object? sender, RoutedEventArgs e)
     {
-        var aboutWindow = AboutWindowFactory.Create();
+        var aboutWindow = AboutWindowFactory.Create(LocalizationServiceLocator.Current);
         await aboutWindow.ShowDialog(this);
         e.Handled = true;
     }
@@ -760,7 +807,8 @@ public partial class MainWindow : Window
 
         ThumbnailDragGhostPreviewImage.Source = thumbnail.Thumbnail;
         ThumbnailDragGhostLoadingText.IsVisible = thumbnail.IsLoading || thumbnail.Thumbnail is null;
-        ThumbnailDragGhostPageLabel.Text = $"Page {thumbnail.DisplayPageNumber}";
+        ThumbnailDragGhostPageLabel.Text = LocalizationServiceLocator.Current?.GetString("sidebar.page", thumbnail.DisplayPageNumber)
+            ?? $"Page {thumbnail.DisplayPageNumber}";
         ThumbnailDragGhostHost.IsVisible = true;
         UpdateThumbnailGhostPosition(currentPosition);
     }

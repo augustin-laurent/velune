@@ -17,6 +17,8 @@ using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
 using Velune.Presentation.FileSystem;
 using Velune.Presentation.Imaging;
+using Velune.Presentation.Localization;
+using Velune.Presentation.Platform;
 using Velune.Presentation.Search;
 
 namespace Velune.Presentation.ViewModels;
@@ -58,18 +60,6 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private const double InlineHeaderSearchMinWidth = 1480;
     private const double HeaderTitleCompactThreshold = 1420;
     private const double HeaderTitleTightThreshold = 1220;
-    private const string ThemeSystemLabel = "System";
-    private const string ThemeLightLabel = "Light";
-    private const string ThemeDarkLabel = "Dark";
-    private const string DefaultZoomFitToPageLabel = "Fit to page";
-    private const string DefaultZoomFitToWidthLabel = "Fit to width";
-    private const string DefaultZoomActualSizeLabel = "100%";
-    private const string PrintRangeAllPagesLabel = "All pages";
-    private const string PrintRangeCurrentPageLabel = "Current page";
-    private const string PrintRangeCustomLabel = "Custom range";
-    private const string PrintOrientationAutomaticLabel = "Automatic";
-    private const string PrintOrientationPortraitLabel = "Portrait";
-    private const string PrintOrientationLandscapeLabel = "Landscape";
 
     private readonly IFilePickerService _filePickerService;
     private readonly IPrintService _printService;
@@ -97,13 +87,16 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private readonly IRecentFilesService _recentFilesService;
     private readonly IPageViewportStore _pageViewportStore;
     private readonly IUserPreferencesService _userPreferencesService;
+    private readonly ILocalizationService _localizationService;
+    private readonly ILocalizedErrorFormatter _localizedErrorFormatter;
 
     private readonly Queue<NotificationEntry> _notificationQueue = [];
     private readonly Dictionary<int, RenderJobHandle> _thumbnailRenderJobs = [];
-    private readonly IReadOnlyList<string> _themePreferenceOptions = [ThemeSystemLabel, ThemeLightLabel, ThemeDarkLabel];
-    private readonly IReadOnlyList<string> _defaultZoomPreferenceOptions = [DefaultZoomFitToPageLabel, DefaultZoomFitToWidthLabel, DefaultZoomActualSizeLabel];
-    private readonly IReadOnlyList<string> _printPageRangeOptions = [PrintRangeAllPagesLabel, PrintRangeCurrentPageLabel, PrintRangeCustomLabel];
-    private readonly IReadOnlyList<string> _printOrientationOptions = [PrintOrientationAutomaticLabel, PrintOrientationPortraitLabel, PrintOrientationLandscapeLabel];
+    private IReadOnlyList<LocalizedOption<AppLanguagePreference>> _languagePreferenceOptions = [];
+    private IReadOnlyList<LocalizedOption<AppThemePreference>> _themePreferenceOptions = [];
+    private IReadOnlyList<LocalizedOption<DefaultZoomPreference>> _defaultZoomPreferenceOptions = [];
+    private IReadOnlyList<LocalizedOption<PrintPageRangeChoice>> _printPageRangeOptions = [];
+    private IReadOnlyList<LocalizedOption<PrintOrientationOption>> _printOrientationOptions = [];
     private bool _disposed;
     private double _documentViewportWidth;
     private double _documentViewportHeight;
@@ -154,7 +147,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         IDocumentSessionStore documentSessionStore,
         IRecentFilesService recentFilesService,
         IPageViewportStore pageViewportStore,
-        IUserPreferencesService userPreferencesService)
+        IUserPreferencesService userPreferencesService,
+        ILocalizationService localizationService,
+        ILocalizedErrorFormatter localizedErrorFormatter)
     {
         ArgumentNullException.ThrowIfNull(filePickerService);
         ArgumentNullException.ThrowIfNull(printService);
@@ -182,6 +177,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         ArgumentNullException.ThrowIfNull(recentFilesService);
         ArgumentNullException.ThrowIfNull(pageViewportStore);
         ArgumentNullException.ThrowIfNull(userPreferencesService);
+        ArgumentNullException.ThrowIfNull(localizationService);
+        ArgumentNullException.ThrowIfNull(localizedErrorFormatter);
 
         _filePickerService = filePickerService;
         _printService = printService;
@@ -209,6 +206,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _recentFilesService = recentFilesService;
         _pageViewportStore = pageViewportStore;
         _userPreferencesService = userPreferencesService;
+        _localizationService = localizationService;
+        _localizedErrorFormatter = localizedErrorFormatter;
 
         RecentFiles = [];
         Thumbnails = [];
@@ -218,28 +217,31 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         SearchHighlights = [];
         TextSelectionHighlights = [];
         MemoryCacheEntryLimitOptions = new ObservableCollection<int> { 0, 32, 64, 128, 256 };
+        RebuildLocalizedOptions();
+        ApplyLocalizedShellText();
         ApplyPreferencesToUi(_userPreferencesService.Current);
+        _localizationService.LanguageChanged += OnLanguageChanged;
         RefreshRecentFiles();
         InitializeAnnotationWorkspace();
     }
 
     [ObservableProperty]
-    private string _title = "Velune";
+    private string _title = string.Empty;
 
     [ObservableProperty]
-    private string _applicationTitle = "Velune";
+    private string _applicationTitle = string.Empty;
 
     [ObservableProperty]
-    private string _sidebarTitle = "Pages";
+    private string _sidebarTitle = string.Empty;
 
     [ObservableProperty]
-    private string _emptyStateTitle = "Open a document";
+    private string _emptyStateTitle = string.Empty;
 
     [ObservableProperty]
-    private string _emptyStateDescription = "Open a PDF or an image to start viewing it.";
+    private string _emptyStateDescription = string.Empty;
 
     [ObservableProperty]
-    private string _statusText = "Ready";
+    private string _statusText = string.Empty;
 
     [ObservableProperty]
     private bool _hasOpenDocument;
@@ -329,10 +331,13 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private bool _hasPendingPageReorder;
 
     [ObservableProperty]
-    private string _selectedThemePreference = ThemeSystemLabel;
+    private LocalizedOption<AppLanguagePreference>? _selectedLanguagePreference;
 
     [ObservableProperty]
-    private string _selectedDefaultZoomPreference = DefaultZoomFitToPageLabel;
+    private LocalizedOption<AppThemePreference>? _selectedThemePreference;
+
+    [ObservableProperty]
+    private LocalizedOption<DefaultZoomPreference>? _selectedDefaultZoomPreference;
 
     [ObservableProperty]
     private bool _showThumbnailsPanelPreference = true;
@@ -344,7 +349,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private PrintDestinationInfo? _selectedPrintDestination;
 
     [ObservableProperty]
-    private string _selectedPrintPageRangeOption = PrintRangeAllPagesLabel;
+    private LocalizedOption<PrintPageRangeChoice>? _selectedPrintPageRangeOption;
 
     [ObservableProperty]
     private string _printCustomPageRange = string.Empty;
@@ -353,7 +358,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private string _printCopiesInput = "1";
 
     [ObservableProperty]
-    private string _selectedPrintOrientationOption = PrintOrientationAutomaticLabel;
+    private LocalizedOption<PrintOrientationOption>? _selectedPrintOrientationOption;
 
     [ObservableProperty]
     private bool _printFitToPage = true;
@@ -390,10 +395,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         get;
     }
-    public IReadOnlyList<string> ThemePreferenceOptions => _themePreferenceOptions;
-    public IReadOnlyList<string> DefaultZoomPreferenceOptions => _defaultZoomPreferenceOptions;
-    public IReadOnlyList<string> PrintPageRangeOptions => _printPageRangeOptions;
-    public IReadOnlyList<string> PrintOrientationOptions => _printOrientationOptions;
+    public IReadOnlyList<LocalizedOption<AppLanguagePreference>> LanguagePreferenceOptions => _languagePreferenceOptions;
+    public IReadOnlyList<LocalizedOption<AppThemePreference>> ThemePreferenceOptions => _themePreferenceOptions;
+    public IReadOnlyList<LocalizedOption<DefaultZoomPreference>> DefaultZoomPreferenceOptions => _defaultZoomPreferenceOptions;
+    public IReadOnlyList<LocalizedOption<PrintPageRangeChoice>> PrintPageRangeOptions => _printPageRangeOptions;
+    public IReadOnlyList<LocalizedOption<PrintOrientationOption>> PrintOrientationOptions => _printOrientationOptions;
 
     public bool IsEmptyStateVisible => !HasOpenDocument;
     public bool HasUserMessage => !string.IsNullOrWhiteSpace(UserMessage);
@@ -424,8 +430,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             : EditableDocumentName)
         : ApplicationTitle;
     public string HeaderSubtitle => HasOpenDocument
-        ? (CurrentDocumentType ?? "Document")
-        : "PDF and image viewer";
+        ? (CurrentDocumentType ?? L("document.type.document"))
+        : L("app.window.subtitle");
     public bool ShouldEmphasizeOpenAction => !HasOpenDocument;
     public bool IsPdfDocument => HasOpenDocument && !IsCurrentImageDocument;
     public bool IsImageAutoFitActive => HasOpenDocument && IsCurrentImageDocument && _isImageAutoFitEnabled;
@@ -440,7 +446,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 : 140;
     public bool IsSidebarVisible => HasOpenDocument && !IsCurrentImageDocument && ShowThumbnailsPanelPreference;
     public bool CanToggleSidebar => HasOpenDocument && !IsCurrentImageDocument;
-    public string SidebarToggleLabel => IsSidebarVisible ? "Hide pages" : "Show pages";
+    public string SidebarToggleLabel => IsSidebarVisible ? L("toolbar.sidebar.hide") : L("toolbar.sidebar.show");
     public bool ShowEditableHeaderTitle => HasOpenDocument && !IsEditingDocumentName;
     public bool ShowHeaderTitleEditor => HasOpenDocument && IsEditingDocumentName;
     public bool UseInlineHeaderSearch => HasOpenDocument && IsSearchAvailableForCurrentDocument && WindowWidth >= InlineHeaderSearchMinWidth;
@@ -457,7 +463,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public bool HasSearchPanelNotice => !string.IsNullOrWhiteSpace(SearchPanelNotice);
     public bool HasPrintPanelNotice => !string.IsNullOrWhiteSpace(PrintPanelNotice);
     public bool IsPrintPageRangeVisible => IsPdfDocument;
-    public bool IsCustomPrintRangeVisible => IsPrintPageRangeVisible && SelectedPrintPageRangeOption == PrintRangeCustomLabel;
+    public bool IsCustomPrintRangeVisible => IsPrintPageRangeVisible && SelectedPrintPageRangeOption?.Value is PrintPageRangeChoice.CustomRange;
     public GridLength SidebarColumnWidth => new(SidebarWidth);
     public double SidebarWidth => IsSidebarVisible ? SidebarExpandedWidth : 0;
     public double InfoPanelWidth => IsInfoPanelOpen ? InfoPanelExpandedWidth : 0;
@@ -468,15 +474,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public string PageIndicator => TotalPages > 0 ? $"{CurrentPage} / {TotalPages}" : "-";
     public string SearchResultSummary => SearchResults.Count switch
     {
-        0 when _requiresSearchOcr => "OCR required",
-        0 when _isAnalyzingDocumentText => "Loading searchable text…",
-        0 => "No results",
-        1 => "1 result",
-        _ => $"{SearchResults.Count} results"
+        0 when _requiresSearchOcr => L("search.summary.ocr_required"),
+        0 when _isAnalyzingDocumentText => L("search.summary.loading"),
+        0 => L("search.summary.none"),
+        1 => L("search.summary.one"),
+        _ => L("search.summary.many", SearchResults.Count)
     };
     public string SearchSelectionIndicator => _selectedSearchResultIndex < 0 || SearchResults.Count == 0
-        ? "0 / 0"
-        : $"{_selectedSearchResultIndex + 1} / {SearchResults.Count}";
+        ? L("search.selection.none")
+        : L("search.selection.current", _selectedSearchResultIndex + 1, SearchResults.Count);
     public bool CanSearchText => IsSearchAvailableForCurrentDocument && !_isAnalyzingDocumentText && _currentDocumentTextIndex is not null && !string.IsNullOrWhiteSpace(SearchQueryInput);
     public bool CanRunDocumentOcr => IsSearchAvailableForCurrentDocument && !_isAnalyzingDocumentText && _requiresSearchOcr;
     public bool CanCancelDocumentTextAnalysis => IsSearchAvailableForCurrentDocument && _isAnalyzingDocumentText && _currentDocumentTextJob is not null;
@@ -776,6 +782,47 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(HeaderSubtitle));
     }
 
+    private void OnLanguageChanged(object? sender, EventArgs e)
+    {
+        ApplyLocalizedShellText();
+        ApplyPreferencesToUi(_userPreferencesService.Current);
+        RefreshRecentFiles();
+        RefreshSearchResultLocalization();
+        RefreshThumbnailLocalization();
+        RefreshAnnotationLocalization();
+
+        if (_documentSessionStore.Current is { } session)
+        {
+            CurrentDocumentType = GetLocalizedDocumentFormatLabel(session.Metadata);
+            RefreshDocumentInfo(session.Metadata);
+            EmptyStateTitle = session.Metadata.FileName;
+            EmptyStateDescription = L("document.empty.opened", GetDocumentKindLabel(session.Metadata.DocumentType));
+        }
+
+        OnPropertyChanged(nameof(HeaderSubtitle));
+        OnPropertyChanged(nameof(SidebarToggleLabel));
+        OnPropertyChanged(nameof(SearchResultSummary));
+        OnPropertyChanged(nameof(SearchSelectionIndicator));
+    }
+
+    private void ApplyLocalizedShellText()
+    {
+        Title = L("app.name");
+        ApplicationTitle = L("app.name");
+        SidebarTitle = L("sidebar.pages.title");
+
+        if (!HasOpenDocument)
+        {
+            EmptyStateTitle = L("app.empty.title");
+            EmptyStateDescription = L("app.empty.description");
+        }
+
+        if (string.IsNullOrWhiteSpace(StatusText))
+        {
+            StatusText = L("app.ready");
+        }
+    }
+
     partial void OnCurrentPageChanged(int value)
     {
         OnPropertyChanged(nameof(PageIndicator));
@@ -819,7 +866,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         MoveCurrentPageLaterCommand.NotifyCanExecuteChanged();
     }
 
-    partial void OnSelectedThemePreferenceChanged(string value)
+    partial void OnSelectedLanguagePreferenceChanged(LocalizedOption<AppLanguagePreference>? value)
     {
         if (_isApplyingPreferencesState)
         {
@@ -829,7 +876,17 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _ = PersistPreferencesFromUiAsync(applyDefaultZoomToOpenDocument: false);
     }
 
-    partial void OnSelectedDefaultZoomPreferenceChanged(string value)
+    partial void OnSelectedThemePreferenceChanged(LocalizedOption<AppThemePreference>? value)
+    {
+        if (_isApplyingPreferencesState)
+        {
+            return;
+        }
+
+        _ = PersistPreferencesFromUiAsync(applyDefaultZoomToOpenDocument: false);
+    }
+
+    partial void OnSelectedDefaultZoomPreferenceChanged(LocalizedOption<DefaultZoomPreference>? value)
     {
         if (_isApplyingPreferencesState)
         {
@@ -864,7 +921,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _ = PersistPreferencesFromUiAsync(applyDefaultZoomToOpenDocument: false);
     }
 
-    partial void OnSelectedPrintPageRangeOptionChanged(string value)
+    partial void OnSelectedPrintPageRangeOptionChanged(LocalizedOption<PrintPageRangeChoice>? value)
     {
         OnPropertyChanged(nameof(IsCustomPrintRangeVisible));
     }
@@ -898,7 +955,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (string.IsNullOrWhiteSpace(filePath))
         {
-            StatusText = "Open cancelled";
+            StatusText = L("status.open.cancelled");
             return;
         }
 
@@ -920,7 +977,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private async Task CloseAsync()
     {
         await CloseCurrentDocumentStateAsync(clearNotifications: true);
-        StatusText = "Document closed";
+        StatusText = L("status.document.closed");
     }
 
     [RelayCommand(CanExecute = nameof(HasOpenDocument))]
@@ -935,7 +992,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         if (IsPrintPanelVisible)
         {
             IsPrintPanelVisible = false;
-            StatusText = "Print panel hidden";
+            StatusText = L("status.print.panel_hidden");
             return;
         }
 
@@ -943,19 +1000,19 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         IsSearchPanelVisible = false;
         IsPreferencesPanelVisible = false;
         IsPrintPanelVisible = true;
-        StatusText = "Loading printers";
+        StatusText = L("status.print.loading_printers");
 
         await LoadPrintDestinationsAsync();
 
-        StatusText = "Print panel shown";
+        StatusText = L("status.print.panel_shown");
     }
 
     private async Task ShowSystemPrintDialogAsync()
     {
         if (string.IsNullOrWhiteSpace(CurrentDocumentPath))
         {
-            EnqueueWarning("No document to print", "Open a PDF or an image before printing.");
-            StatusText = "Print unavailable";
+            EnqueueLocalizedError(null, "error.print.no_document.title", "error.print.no_document.message");
+            StatusText = L("status.print.unavailable");
             return;
         }
 
@@ -963,23 +1020,23 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         IsSearchPanelVisible = false;
         IsPreferencesPanelVisible = false;
         IsPrintPanelVisible = false;
-        StatusText = "Opening system print dialog";
+        StatusText = L("status.print.opening_dialog");
 
         var result = await _showSystemPrintDialogUseCase.ExecuteAsync(CurrentDocumentPath);
         if (result.IsSuccess)
         {
-            StatusText = "System print dialog shown";
+            StatusText = L("status.print.dialog_shown");
             return;
         }
 
         if (string.Equals(result.Error?.Code, "print.cancelled", StringComparison.Ordinal))
         {
-            StatusText = "Print cancelled";
+            StatusText = L("status.print.cancelled");
             return;
         }
 
-        EnqueueError(result.Error?.Message ?? "The system print dialog could not be opened.", "Print failed");
-        StatusText = "Print failed";
+        EnqueueLocalizedError(result.Error, "error.print.dialog_failed.title", "error.print.dialog_failed.message");
+        StatusText = L("status.print.failed");
     }
 
     [RelayCommand(CanExecute = nameof(HasOpenDocument))]
@@ -991,7 +1048,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         await LoadPrintDestinationsAsync();
-        StatusText = "Printers refreshed";
+        StatusText = L("status.print.refreshed");
     }
 
     [RelayCommand(CanExecute = nameof(CanSubmitPrintJob))]
@@ -999,24 +1056,24 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         if (string.IsNullOrWhiteSpace(CurrentDocumentPath))
         {
-            EnqueueWarning("No document to print", "Open a PDF or an image before printing.");
-            StatusText = "Print unavailable";
+            EnqueueLocalizedError(null, "error.print.no_document.title", "error.print.no_document.message");
+            StatusText = L("status.print.unavailable");
             return;
         }
 
         if (!int.TryParse(PrintCopiesInput, NumberStyles.Integer, CultureInfo.InvariantCulture, out var copies) ||
             copies <= 0)
         {
-            EnqueueWarning("Invalid copy count", "Enter a valid number of copies.");
-            StatusText = "Invalid print settings";
+            EnqueueWarning(L("validation.print.title"), L("validation.print.copies"));
+            StatusText = L("validation.print.invalid_status");
             return;
         }
 
         var pageRanges = BuildRequestedPrintPageRanges();
         if (pageRanges is null && IsCustomPrintRangeVisible)
         {
-            EnqueueWarning("Invalid page range", "Enter a page range like 1-3,5.");
-            StatusText = "Invalid print settings";
+            EnqueueWarning(L("validation.print.title"), L("validation.print.range"));
+            StatusText = L("validation.print.invalid_status");
             return;
         }
 
@@ -1032,21 +1089,25 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                     SelectedPrintDestination?.Name,
                     copies,
                     pageRanges,
-                    ParsePrintOrientationOption(SelectedPrintOrientationOption),
+                    SelectedPrintOrientationOption?.Value ?? PrintOrientationOption.Automatic,
                     PrintFitToPage));
 
             if (result.IsFailure)
             {
-                EnqueueError(result.Error?.Message ?? "The document could not be printed.", "Print failed");
-                PrintPanelNotice = result.Error?.Message ?? "The document could not be printed.";
-                StatusText = "Print failed";
+                var presentation = _localizedErrorFormatter.Format(
+                    result.Error,
+                    "error.print.failed.title",
+                    "error.print.failed.message");
+                EnqueueError(presentation.Message, presentation.Title);
+                PrintPanelNotice = presentation.Message;
+                StatusText = L("status.print.failed");
                 return;
             }
 
             PrintPanelNotice = null;
             IsPrintPanelVisible = false;
-            EnqueueInfo("Print started", "The document was sent to the system print service.");
-            StatusText = "Print started";
+            EnqueueLocalizedInfo("notification.print.started.title", "notification.print.started.message");
+            StatusText = L("status.print.started");
         }
         finally
         {
@@ -1060,13 +1121,13 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private void ClearRecentFiles()
     {
         EnqueueConfirmation(
-            "Clear recent files?",
-            "This removes the recent file shortcuts, but your current session stays open.",
-            "Clear",
+            L("notification.clear_recent.title"),
+            L("notification.clear_recent.message"),
+            L("notification.clear_recent.confirm"),
             ConfirmClearRecentFiles,
-            "Keep");
+            L("notification.clear_recent.keep"));
 
-        StatusText = "Confirmation required";
+        StatusText = L("status.confirmation.required");
     }
 
     [RelayCommand(CanExecute = nameof(CanGoPreviousPage))]
@@ -1086,22 +1147,22 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         if (string.IsNullOrWhiteSpace(GoToPageInput))
         {
-            EnqueueWarning("Invalid page number", "Enter a page number.");
-            StatusText = "Invalid page number";
+            EnqueueWarning(L("status.page.invalid"), L("validation.page.enter"));
+            StatusText = L("status.page.invalid");
             return;
         }
 
         if (!int.TryParse(GoToPageInput, out var pageNumber))
         {
-            EnqueueWarning("Invalid page number", "Page number must be numeric.");
-            StatusText = "Invalid page number";
+            EnqueueWarning(L("status.page.invalid"), L("validation.page.numeric"));
+            StatusText = L("status.page.invalid");
             return;
         }
 
         if (pageNumber < 1 || pageNumber > TotalPages)
         {
-            EnqueueWarning("Invalid page number", $"Page number must be between 1 and {TotalPages}.");
-            StatusText = "Invalid page number";
+            EnqueueWarning(L("status.page.invalid"), L("validation.page.range", TotalPages));
+            StatusText = L("status.page.invalid");
             return;
         }
 
@@ -1132,7 +1193,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             CurrentPage,
             Thumbnails[currentIndex - 1].SourcePageNumber);
 
-        StatusText = $"Moved page {CurrentPage} earlier";
+        StatusText = L("status.page.moved_earlier", CurrentPage);
     }
 
     [RelayCommand(CanExecute = nameof(CanMoveCurrentPageLater))]
@@ -1148,7 +1209,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             CurrentPage,
             Thumbnails[currentIndex + 1].SourcePageNumber);
 
-        StatusText = $"Moved page {CurrentPage} later";
+        StatusText = L("status.page.moved_later", CurrentPage);
     }
 
     [RelayCommand(CanExecute = nameof(HasOpenDocument))]
@@ -1166,7 +1227,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         RefreshPageViewState();
 
         await RenderCurrentPageAsync();
-        StatusText = $"Zoom set to {CurrentZoom}";
+        StatusText = L("status.zoom.set", CurrentZoom);
     }
 
     [RelayCommand(CanExecute = nameof(HasOpenDocument))]
@@ -1184,7 +1245,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         RefreshPageViewState();
 
         await RenderCurrentPageAsync();
-        StatusText = $"Zoom set to {CurrentZoom}";
+        StatusText = L("status.zoom.set", CurrentZoom);
     }
 
     [RelayCommand(CanExecute = nameof(CanUseFitCommands))]
@@ -1195,7 +1256,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        StatusText = "Fit to width applied";
+        StatusText = L("status.zoom.fit_width");
     }
 
     [RelayCommand(CanExecute = nameof(CanUseFitCommands))]
@@ -1206,7 +1267,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        StatusText = "Fit to page applied";
+        StatusText = L("status.zoom.fit_page");
     }
 
     [RelayCommand(CanExecute = nameof(HasOpenDocument))]
@@ -1256,7 +1317,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         await RefreshThumbnailForActivePageAsync();
-        StatusText = $"Rotation set to {CurrentRotation}";
+        StatusText = L("status.rotation.set", CurrentRotation);
     }
 
     [RelayCommand(CanExecute = nameof(CanPersistCurrentPageRotation))]
@@ -1271,16 +1332,16 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         await ExecutePdfStructureOperationAsync(
-            title: "Save PDF with page rotations",
+            title: L("dialog.save.rotated_pdf"),
             suggestedFileName: BuildSuggestedPdfFileName(),
             executeOperation: outputPath => PersistPendingPdfRotationsAsync(
                 currentDocumentPath,
                 outputPath,
                 pendingRotations),
             successStatus: pendingRotations.Count == 1
-                ? $"Saved rotated PDF copy for page {pendingRotations[0].Pages[0]}"
-                : "Saved rotated PDF copy",
-            failureTitle: "Unable to save rotated PDF");
+                ? L("status.save.rotated_pdf.single", pendingRotations[0].Pages[0])
+                : L("status.save.rotated_pdf"),
+            failureTitle: L("error.save.rotated_pdf.title"));
     }
 
     [RelayCommand(CanExecute = nameof(CanSaveDocument))]
@@ -1296,7 +1357,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             if (!HasPendingRequestedSaveNameChange() && !HasPendingAnnotationChanges)
             {
-                StatusText = "Nothing to save";
+                StatusText = L("status.nothing_to_save");
                 return;
             }
 
@@ -1315,7 +1376,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             !hasPendingSaveNameChange &&
             !HasPendingAnnotationChanges)
         {
-            StatusText = "Nothing to save";
+            StatusText = L("status.nothing_to_save");
             return;
         }
 
@@ -1330,8 +1391,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             await ExecutePdfStructureSaveInPlaceAsync(
                 currentDocumentPath,
                 _ => Task.FromResult(ResultFactory.Success(currentDocumentPath)),
-                successStatus: "Document saved",
-                failureTitle: "Unable to save document");
+                successStatus: L("status.document.saved"),
+                failureTitle: L("error.save.document.title"));
             return;
         }
 
@@ -1343,8 +1404,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 pendingRotations,
                 orderedPages,
                 HasPendingPageReorder),
-            successStatus: "Document saved",
-            failureTitle: "Unable to save document");
+            successStatus: L("status.document.saved"),
+            failureTitle: L("error.save.document.title"));
     }
 
     [RelayCommand(CanExecute = nameof(CanExtractCurrentPage))]
@@ -1399,15 +1460,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             .ToArray();
 
         await ExecutePdfStructureOperationAsync(
-            title: "Save reordered PDF",
+            title: L("dialog.save.reordered_pdf"),
             suggestedFileName: BuildSuggestedPdfFileName(),
             executeOperation: outputPath => _reorderPdfPagesUseCase.ExecuteAsync(
                 new ReorderPdfPagesRequest(
                     currentDocumentPath,
                     outputPath,
                     orderedPages)),
-            successStatus: "Saved reordered PDF copy",
-            failureTitle: "Unable to save reordered PDF");
+            successStatus: L("status.save.reordered_pdf"),
+            failureTitle: L("error.save.reordered_pdf.title"));
     }
 
     [RelayCommand(CanExecute = nameof(HasOpenDocument))]
@@ -1415,7 +1476,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         EditableDocumentName = ResolveRequestedDocumentFileName();
         IsEditingDocumentName = true;
-        StatusText = "Editing save name";
+        StatusText = L("status.save_name.editing");
     }
 
     [RelayCommand(CanExecute = nameof(HasOpenDocument))]
@@ -1431,20 +1492,20 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             EditableDocumentName = CurrentDocumentName ?? string.Empty;
             IsEditingDocumentName = false;
-            StatusText = "Save name unchanged";
+            StatusText = L("status.save_name.unchanged");
             return;
         }
 
         if (!TryNormalizeRequestedDocumentFileName(proposedName, out var normalizedFileName, out var validationError))
         {
-            EnqueueWarning("Invalid file name", validationError ?? "Enter a valid file name.");
-            StatusText = "Invalid file name";
+            EnqueueWarning(L("status.save_name.invalid"), validationError ?? L("validation.file_name.enter"));
+            StatusText = L("status.save_name.invalid");
             return;
         }
 
         EditableDocumentName = normalizedFileName;
         IsEditingDocumentName = false;
-        StatusText = "Save name updated";
+        StatusText = L("status.save_name.updated");
     }
 
     [RelayCommand(CanExecute = nameof(HasOpenDocument))]
@@ -1452,7 +1513,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         EditableDocumentName = CurrentDocumentName ?? string.Empty;
         IsEditingDocumentName = false;
-        StatusText = "Save name unchanged";
+        StatusText = L("status.save_name.unchanged");
     }
 
     [RelayCommand(CanExecute = nameof(IsSearchAvailableForCurrentDocument))]
@@ -1471,7 +1532,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (string.IsNullOrWhiteSpace(SearchQueryInput))
         {
-            StatusText = "Search shown";
+            StatusText = L("status.search.shown");
             return;
         }
 
@@ -1487,7 +1548,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             _currentDocumentTextIndex is not null &&
             string.IsNullOrWhiteSpace(SearchQueryInput))
         {
-            StatusText = "Search shown";
+            StatusText = L("status.search.shown");
         }
     }
 
@@ -1496,8 +1557,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         ShowThumbnailsPanelPreference = !ShowThumbnailsPanelPreference;
         StatusText = ShowThumbnailsPanelPreference
-            ? "Pages panel shown"
-            : "Pages panel hidden";
+            ? L("status.pages_panel.shown")
+            : L("status.pages_panel.hidden");
     }
 
     [RelayCommand(CanExecute = nameof(IsSearchAvailableForCurrentDocument))]
@@ -1511,7 +1572,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         if (IsSearchPanelVisible)
         {
             IsSearchPanelVisible = false;
-            StatusText = "Search hidden";
+            StatusText = L("status.search.hidden");
             return;
         }
 
@@ -1520,7 +1581,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         IsPreferencesPanelVisible = false;
         IsPrintPanelVisible = false;
         IsSearchPanelVisible = true;
-        StatusText = "Loading searchable text";
+        StatusText = L("status.search.loading");
 
         await EnsureDocumentTextAvailableAsync(forceOcr: false);
 
@@ -1529,7 +1590,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             !_isAnalyzingDocumentText &&
             _currentDocumentTextIndex is not null)
         {
-            StatusText = "Search shown";
+            StatusText = L("status.search.shown");
         }
     }
 
@@ -1540,8 +1601,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             if (_requiresSearchOcr)
             {
-                EnqueueInfo("Recognize text first", "Run OCR to search inside this document.");
-                SearchPanelNotice = "This document has no searchable text yet. Recognize text to enable search.";
+                EnqueueLocalizedInfo("search.prompt.recognize_first.title", "search.prompt.recognize_first.message");
+                SearchPanelNotice = L("search.notice.no_text");
             }
 
             return;
@@ -1554,16 +1615,16 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (result.IsFailure)
         {
-            EnqueueWarning("Search unavailable", result.Error?.Message ?? "Search text is invalid.");
+            EnqueueLocalizedError(result.Error, "error.search.unavailable.title", "error.search.unavailable.message");
             return;
         }
 
         ApplySearchResults(result.Value ?? []);
         if (SearchResults.Count == 0)
         {
-            SearchPanelNotice = $"No result for “{SearchQueryInput.Trim()}”.";
+            SearchPanelNotice = L("search.notice.no_match", SearchQueryInput.Trim());
             ClearSearchHighlights();
-            StatusText = "No search results";
+            StatusText = L("status.search.none");
             return;
         }
 
@@ -1586,8 +1647,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         _cancelDocumentTextAnalysisUseCase.Execute(_currentDocumentTextJob.JobId);
-        SearchPanelNotice = "Text analysis cancelled.";
-        StatusText = "Text analysis cancelled";
+        SearchPanelNotice = L("search.notice.analysis_cancelled");
+        StatusText = L("status.analysis.cancelled");
     }
 
     [RelayCommand(CanExecute = nameof(CanNavigateSearchResults))]
@@ -1643,8 +1704,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         IsInfoPanelVisible = !IsInfoPanelVisible;
         StatusText = IsInfoPanelVisible
-            ? "File information shown"
-            : "File information hidden";
+            ? L("status.info.shown")
+            : L("status.info.hidden");
     }
 
     [RelayCommand]
@@ -1659,15 +1720,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         IsPreferencesPanelVisible = !IsPreferencesPanelVisible;
         StatusText = IsPreferencesPanelVisible
-            ? "Preferences shown"
-            : "Preferences hidden";
+            ? L("status.preferences.shown")
+            : L("status.preferences.hidden");
     }
 
     [RelayCommand(CanExecute = nameof(CanDismissUserMessage))]
     private void DismissMessage()
     {
         AdvanceNotificationQueue();
-        StatusText = "Notification dismissed";
+        StatusText = L("status.notification.dismissed");
     }
 
     [RelayCommand(CanExecute = nameof(HasNotificationPrimaryAction))]
@@ -1798,10 +1859,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         EnqueueInfo(
-            "Page order updated",
-            "Drag other thumbnails if needed, then save the document.",
+            L("notification.page_order_updated.title"),
+            L("notification.page_order_updated.message"),
             replaceCurrent: true);
-        StatusText = "Page order updated";
+        StatusText = L("status.page_order.updated");
     }
 
     public async Task UpdateDocumentViewportAsync(double viewportWidth, double viewportHeight)
@@ -1871,8 +1932,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (result.IsFailure)
         {
-            EnqueueError(result.Error?.Message ?? "Unable to open the selected document.", "Open failed");
-            StatusText = "Open failed";
+            EnqueueLocalizedError(result.Error, "error.open.failed.title", "error.open.failed.message");
+            StatusText = L("status.open.failed");
             return;
         }
 
@@ -1895,10 +1956,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         var detailsWarning = _documentSessionStore.Current?.Metadata.DetailsWarning;
         if (!string.IsNullOrWhiteSpace(detailsWarning))
         {
-            EnqueueInfo("Some file details are unavailable", detailsWarning);
+            EnqueueInfo(L("notification.document.details_unavailable.title"), detailsWarning);
         }
 
-        StatusText = $"Opened {CurrentDocumentName}";
+        StatusText = L("status.opened", CurrentDocumentName ?? string.Empty);
 
         await ApplyPreferredDefaultZoomAsync();
 
@@ -1926,7 +1987,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             {
                 PrintDestinations.Clear();
                 SelectedPrintDestination = null;
-                PrintPanelNotice = result.Error?.Message ?? "Printers could not be loaded.";
+                PrintPanelNotice = _localizedErrorFormatter
+                    .Format(result.Error, "error.print.failed.title", "error.print.failed.message")
+                    .Message;
                 return;
             }
 
@@ -1944,7 +2007,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 PrintDestinations.FirstOrDefault();
 
             PrintPanelNotice = PrintDestinations.Count == 0
-                ? "No printers were detected. The system default printer may still be unavailable."
+                ? L("error.print.no_printers")
                 : null;
         }
         finally
@@ -1973,8 +2036,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         NotifySearchStateChanged();
 
         SearchPanelNotice = forceOcr
-            ? "Recognizing text locally…"
-            : "Loading searchable text…";
+            ? L("search.notice.recognizing")
+            : L("search.notice.loading");
 
         try
         {
@@ -1986,8 +2049,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
             if (result.IsCanceled)
             {
-                SearchPanelNotice = "Text analysis cancelled.";
-                StatusText = "Text analysis cancelled";
+                SearchPanelNotice = L("search.notice.analysis_cancelled");
+                StatusText = L("status.analysis.cancelled");
                 return;
             }
 
@@ -1997,9 +2060,13 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 _requiresSearchOcr = !forceOcr;
                 ClearSearchResults();
                 ClearSearchHighlights();
-                SearchPanelNotice = result.Error?.Message ?? "Searchable text could not be loaded.";
-                EnqueueError(SearchPanelNotice, "Text analysis failed");
-                StatusText = "Text analysis failed";
+                var presentation = _localizedErrorFormatter.Format(
+                    result.Error,
+                    "error.text_analysis.failed.title",
+                    "error.text_analysis.failed.message");
+                SearchPanelNotice = presentation.Message;
+                EnqueueError(presentation.Message, presentation.Title);
+                StatusText = L("status.analysis.failed");
                 return;
             }
 
@@ -2009,8 +2076,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 _requiresSearchOcr = true;
                 ClearSearchResults();
                 ClearSearchHighlights();
-                SearchPanelNotice = "This document has no searchable text yet. Recognize text to enable search.";
-                StatusText = "OCR required";
+                SearchPanelNotice = L("search.notice.no_text");
+                StatusText = L("status.ocr.required");
                 return;
             }
 
@@ -2028,8 +2095,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 ClearSearchResults();
                 ClearSearchHighlights();
                 StatusText = forceOcr
-                    ? "Text recognized"
-                    : "Searchable text loaded";
+                    ? L("status.text.recognized")
+                    : L("status.text.loaded");
             }
         }
         finally
@@ -2069,7 +2136,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (_requiresSearchOcr)
         {
-            StatusText = "Recognize text to select text";
+            StatusText = L("search.status.recognize_first");
         }
 
         return false;
@@ -2099,7 +2166,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (updateStatus)
         {
-            StatusText = $"Search result on page {item.PageNumber}";
+            StatusText = L("status.search.result", item.PageNumber);
         }
     }
 
@@ -2109,12 +2176,20 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         foreach (var hit in hits)
         {
-            SearchResults.Add(new SearchResultItemViewModel(hit, hit.PageIndex.Value + 1));
+            SearchResults.Add(new SearchResultItemViewModel(hit, hit.PageIndex.Value + 1, _localizationService));
         }
 
         _selectedSearchResultIndex = SearchResults.Count > 0 ? 0 : -1;
         NotifySearchStateChanged();
         OnPropertyChanged(nameof(SearchSelectionIndicator));
+    }
+
+    private void RefreshSearchResultLocalization()
+    {
+        foreach (var result in SearchResults)
+        {
+            result.UpdateLocalization(_localizationService);
+        }
     }
 
     private void ClearSearchResults()
@@ -2212,7 +2287,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         if (HasSelectedDocumentText)
         {
-            StatusText = "Text selected";
+            StatusText = L("status.text.selected");
         }
     }
 
@@ -2427,7 +2502,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var defaultZoomPreference = ParseDefaultZoomPreference(SelectedDefaultZoomPreference);
+        var defaultZoomPreference = SelectedDefaultZoomPreference?.Value ?? DefaultZoomPreference.FitToPage;
         switch (defaultZoomPreference)
         {
             case DefaultZoomPreference.FitToWidth:
@@ -2489,17 +2564,17 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private string? BuildRequestedPrintPageRanges()
     {
-        if (!IsPrintPageRangeVisible || SelectedPrintPageRangeOption == PrintRangeAllPagesLabel)
+        if (!IsPrintPageRangeVisible || SelectedPrintPageRangeOption?.Value is PrintPageRangeChoice.AllPages)
         {
             return null;
         }
 
-        if (SelectedPrintPageRangeOption == PrintRangeCurrentPageLabel)
+        if (SelectedPrintPageRangeOption?.Value is PrintPageRangeChoice.CurrentPage)
         {
             return CurrentPage.ToString(CultureInfo.InvariantCulture);
         }
 
-        if (SelectedPrintPageRangeOption != PrintRangeCustomLabel)
+        if (SelectedPrintPageRangeOption?.Value is not PrintPageRangeChoice.CustomRange)
         {
             return null;
         }
@@ -2524,22 +2599,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         return trimmed;
     }
 
-    private static PrintOrientationOption ParsePrintOrientationOption(string? value)
-    {
-        return value switch
-        {
-            PrintOrientationPortraitLabel => PrintOrientationOption.Portrait,
-            PrintOrientationLandscapeLabel => PrintOrientationOption.Landscape,
-            _ => PrintOrientationOption.Automatic
-        };
-    }
-
     private async Task ChangeToPageAsync(int pageNumber)
     {
         if (pageNumber < 1 || (TotalPages > 0 && pageNumber > TotalPages))
         {
-            EnqueueWarning("Invalid page number", $"Page number must be between 1 and {TotalPages}.");
-            StatusText = "Invalid page number";
+            EnqueueWarning(L("status.page.invalid"), L("validation.page.range", TotalPages));
+            StatusText = L("status.page.invalid");
             return;
         }
 
@@ -2548,8 +2613,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (result.IsFailure)
         {
-            EnqueueError(result.Error?.Message ?? "Unable to change page.", "Page change failed");
-            StatusText = "Page change failed";
+            EnqueueLocalizedError(result.Error, "error.page_change.failed.title", "error.page_change.failed.message");
+            StatusText = L("status.page.change_failed");
             return;
         }
 
@@ -2572,7 +2637,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             await RenderCurrentPageAsync();
         }
 
-        StatusText = $"Page {CurrentPage}";
+        StatusText = L("status.page.current", CurrentPage);
     }
 
     private async Task RenderCurrentPageAsync(bool preserveStatusText = false)
@@ -2616,22 +2681,22 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
             if (result.IsFailure)
             {
-                EnqueueError(result.Error?.Message ?? "Unable to render the current page.", "Render failed");
-                StatusText = "Render failed";
+                EnqueueLocalizedError(result.Error, "error.render.failed.title", "error.render.failed.message");
+                StatusText = L("status.render.failed");
                 return;
             }
 
             if (result.Page is null)
             {
-                EnqueueError("No rendered page was returned.", "Render failed");
-                StatusText = "Render failed";
+                EnqueueLocalizedError(null, "error.render.empty.title", "error.render.empty.message");
+                StatusText = L("status.render.failed");
                 return;
             }
 
             CurrentRenderedBitmap?.Dispose();
             CurrentRenderedBitmap = RenderedPageBitmapFactory.Create(result.Page);
             renderSucceeded = true;
-            StatusText = preserveStatusText ? previousStatusText : $"Rendered page {CurrentPage}";
+            StatusText = preserveStatusText ? previousStatusText : L("status.page.rendered", CurrentPage);
         }
         finally
         {
@@ -2777,6 +2842,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         RefreshThumbnailDisplayNumbers();
+        RefreshThumbnailLocalization();
         NotifyThumbnailOrderCommandsChanged();
         OnPropertyChanged(nameof(HasThumbnails));
     }
@@ -2786,6 +2852,14 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         foreach (var item in Thumbnails)
         {
             item.IsSelected = item.SourcePageNumber == CurrentPage;
+        }
+    }
+
+    private void RefreshThumbnailLocalization()
+    {
+        foreach (var item in Thumbnails)
+        {
+            item.UpdateLocalization(_localizationService);
         }
     }
 
@@ -2851,7 +2925,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         IsCurrentImageDocument = session.Metadata.DocumentType is DocumentType.Image;
         HasOpenDocument = true;
         CurrentDocumentName = session.Metadata.FileName;
-        CurrentDocumentType = session.Metadata.FormatLabel ?? GetDocumentKindLabel(session.Metadata.DocumentType);
+        CurrentDocumentType = GetLocalizedDocumentFormatLabel(session.Metadata);
         CurrentDocumentPath = session.Metadata.FilePath;
         EditableDocumentName = session.Metadata.FileName;
         IsEditingDocumentName = false;
@@ -2860,7 +2934,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         RefreshDocumentInfo(session.Metadata);
 
         EmptyStateTitle = session.Metadata.FileName;
-        EmptyStateDescription = $"Opened {session.Metadata.DocumentType} document.";
+        EmptyStateDescription = L("document.empty.opened", GetDocumentKindLabel(session.Metadata.DocumentType));
     }
 
     private void RefreshPageViewState()
@@ -2904,10 +2978,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         PrintPanelNotice = null;
         PrintDestinations.Clear();
         SelectedPrintDestination = null;
-        SelectedPrintPageRangeOption = PrintRangeAllPagesLabel;
+        SelectedPrintPageRangeOption = FindOption(_printPageRangeOptions, PrintPageRangeChoice.AllPages);
         PrintCustomPageRange = string.Empty;
         PrintCopiesInput = "1";
-        SelectedPrintOrientationOption = PrintOrientationAutomaticLabel;
+        SelectedPrintOrientationOption = FindOption(_printOrientationOptions, PrintOrientationOption.Automatic);
         PrintFitToPage = true;
         CurrentPage = 1;
         TotalPages = 0;
@@ -2925,8 +2999,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         CurrentRenderedBitmap?.Dispose();
         CurrentRenderedBitmap = null;
 
-        EmptyStateTitle = "Open a document";
-        EmptyStateDescription = "Open a PDF or an image to start viewing it.";
+        EmptyStateTitle = L("app.empty.title");
+        EmptyStateDescription = L("app.empty.description");
     }
 
     private void DisableImageAutoFit()
@@ -3044,8 +3118,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (result.IsFailure)
         {
-            EnqueueError(result.Error?.Message ?? "Unable to update zoom.", "Zoom update failed");
-            StatusText = "Zoom update failed";
+            EnqueueLocalizedError(result.Error, "error.zoom_update.failed.title", "error.zoom_update.failed.message");
+            StatusText = L("status.zoom.update_failed");
             return false;
         }
 
@@ -3060,8 +3134,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (result.IsFailure)
         {
-            EnqueueError(result.Error?.Message ?? "Unable to update rotation.", "Rotation update failed");
-            StatusText = "Rotation update failed";
+            EnqueueLocalizedError(result.Error, "error.rotation_update.failed.title", "error.rotation_update.failed.message");
+            StatusText = L("status.rotation.update_failed");
             return false;
         }
 
@@ -3166,10 +3240,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         EnqueueInfo(
-            "Page order updated",
-            "Drag other thumbnails if needed, then save the document.",
+            L("notification.page_order_updated.title"),
+            L("notification.page_order_updated.message"),
             replaceCurrent: true);
-        StatusText = "Page order updated";
+        StatusText = L("status.page_order.updated");
     }
 
     private void RefreshThumbnailDisplayNumbers()
@@ -3215,7 +3289,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         var outputPath = await _filePickerService.PickSavePdfFileAsync(title, suggestedFileName);
         if (string.IsNullOrWhiteSpace(outputPath))
         {
-            StatusText = "Save cancelled";
+            StatusText = L("status.save.cancelled");
             return;
         }
 
@@ -3226,7 +3300,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             var result = await executeOperation(outputPath);
             if (result.IsFailure)
             {
-                EnqueueError(result.Error?.Message ?? "The PDF update failed.", failureTitle);
+                EnqueueLocalizedError(result.Error, "error.save.document.title", "error.save.document.message");
                 StatusText = failureTitle;
                 return;
             }
@@ -3342,8 +3416,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 out var targetFileName,
                 out var validationError))
         {
-            EnqueueWarning("Invalid save name", validationError ?? "Enter a valid file name before saving.");
-            StatusText = "Invalid save name";
+            EnqueueWarning(L("status.save_name.invalid"), validationError ?? L("validation.file_name.save_default"));
+            StatusText = L("status.save_name.invalid");
             return;
         }
 
@@ -3362,7 +3436,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             var result = await executeOperation(temporaryOutputPath);
             if (result.IsFailure)
             {
-                EnqueueError(result.Error?.Message ?? "The PDF update failed.", failureTitle);
+                EnqueueLocalizedError(result.Error, "error.save.document.title", "error.save.document.message");
                 StatusText = failureTitle;
                 return;
             }
@@ -3378,7 +3452,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                EnqueueError(ex.Message, failureTitle);
+                EnqueueLocalizedError(AppError.Infrastructure("document.save.copy_failed", ex.Message), "error.save.document.title", "error.save.document.message");
                 StatusText = failureTitle;
                 return;
             }
@@ -3495,15 +3569,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         await ExecutePdfStructureOperationAsync(
-            title: "Extract page",
+            title: L("dialog.extract_page"),
             suggestedFileName: BuildSuggestedPdfFileName(),
             executeOperation: outputPath => _extractPdfPagesUseCase.ExecuteAsync(
                 new ExtractPdfPagesRequest(
                     currentDocumentPath,
                     outputPath,
                     [sourcePageNumber])),
-            successStatus: $"Extracted page {pageLabel}",
-            failureTitle: "Unable to extract page");
+            successStatus: L("status.page.extracted", pageLabel),
+            failureTitle: L("error.page.extract_failed.title"));
     }
 
     private async Task DeletePageAsync(int sourcePageNumber, string pageLabel)
@@ -3515,22 +3589,22 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         await ExecutePdfStructureOperationAsync(
-            title: "Save PDF without page",
+            title: L("dialog.delete_page"),
             suggestedFileName: BuildSuggestedPdfFileName(),
             executeOperation: outputPath => _deletePdfPagesUseCase.ExecuteAsync(
                 new DeletePdfPagesRequest(
                     currentDocumentPath,
                     outputPath,
                     [sourcePageNumber])),
-            successStatus: $"Saved PDF without page {pageLabel}",
-            failureTitle: "Unable to delete page");
+            successStatus: L("status.page.deleted_from_pdf", pageLabel),
+            failureTitle: L("error.page.delete_failed.title"));
     }
 
     private string BuildSuggestedPdfFileName()
     {
         var resolvedFileName = ResolveRequestedDocumentFileName();
         return string.IsNullOrWhiteSpace(resolvedFileName)
-            ? "document.pdf"
+            ? L("document.file_name.default")
             : resolvedFileName;
     }
 
@@ -3542,7 +3616,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (string.IsNullOrWhiteSpace(candidate))
         {
-            candidate = "document";
+            candidate = L("document.file_name.fallback");
         }
 
         if (!Path.HasExtension(candidate))
@@ -3563,7 +3637,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (string.IsNullOrWhiteSpace(candidate))
         {
-            validationError = "The file name cannot be empty.";
+            validationError = L("validation.file_name.empty");
             return false;
         }
 
@@ -3572,13 +3646,13 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         if (candidate.Contains(Path.DirectorySeparatorChar) ||
             candidate.Contains(Path.AltDirectorySeparatorChar))
         {
-            validationError = "Only the file name can be edited here.";
+            validationError = L("validation.file_name.name_only");
             return false;
         }
 
         if (candidate.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
         {
-            validationError = "The file name contains unsupported characters.";
+            validationError = L("validation.file_name.unsupported");
             return false;
         }
 
@@ -3626,14 +3700,14 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         var currentDirectory = Path.GetDirectoryName(currentDocumentPath);
         if (string.IsNullOrWhiteSpace(currentDirectory))
         {
-            validationError = "The current document directory is unavailable.";
+            validationError = L("validation.file_name.directory_missing");
             return false;
         }
 
         targetDocumentPath = Path.Combine(currentDirectory, targetFileName);
         if (!PathsEqual(currentDocumentPath, targetDocumentPath) && File.Exists(targetDocumentPath))
         {
-            validationError = $"A file named “{targetFileName}” already exists in this folder.";
+            validationError = L("validation.file_name.exists", targetFileName);
             return false;
         }
 
@@ -3687,20 +3761,31 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         try
         {
-            await _userPreferencesService.SaveAsync(BuildUserPreferencesFromUi());
+            var updatedPreferences = BuildUserPreferencesFromUi();
+            var languageChanged = _userPreferencesService.Current.Language != updatedPreferences.Language;
+
+            await _userPreferencesService.SaveAsync(updatedPreferences);
 
             if (applyDefaultZoomToOpenDocument && HasOpenDocument)
             {
                 await ApplyPreferredDefaultZoomAsync(preserveStatusText: true);
             }
 
-            StatusText = "Preferences updated";
+            if (languageChanged && PresentationPlatform.IsMacOS)
+            {
+                EnqueueLocalizedInfo(
+                    "notification.language.restart_required.title",
+                    "notification.language.restart_required.message",
+                    replaceCurrent: true);
+            }
+
+            StatusText = L("status.preferences.updated");
         }
         catch
         {
             ApplyPreferencesToUi(_userPreferencesService.Current);
-            EnqueueError("Unable to save your preferences right now.", "Preferences not saved");
-            StatusText = "Preferences not saved";
+            EnqueueLocalizedError(null, "error.preferences.not_saved.title", "error.preferences.not_saved.message");
+            StatusText = L("status.preferences.not_saved");
         }
     }
 
@@ -3708,8 +3793,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         return new UserPreferences
         {
-            Theme = ParseThemePreference(SelectedThemePreference),
-            DefaultZoom = ParseDefaultZoomPreference(SelectedDefaultZoomPreference),
+            Language = SelectedLanguagePreference?.Value ?? AppLanguagePreference.System,
+            Theme = SelectedThemePreference?.Value ?? AppThemePreference.System,
+            DefaultZoom = SelectedDefaultZoomPreference?.Value ?? DefaultZoomPreference.FitToPage,
             ShowThumbnailsPanel = ShowThumbnailsPanelPreference,
             MemoryCacheEntryLimit = SelectedMemoryCacheEntryLimit
         };
@@ -3724,8 +3810,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _isApplyingPreferencesState = true;
         try
         {
-            SelectedThemePreference = ToThemePreferenceLabel(preferences.Theme);
-            SelectedDefaultZoomPreference = ToDefaultZoomPreferenceLabel(preferences.DefaultZoom);
+            RebuildLocalizedOptions();
+            SelectedLanguagePreference = FindOption(_languagePreferenceOptions, preferences.Language);
+            SelectedThemePreference = FindOption(_themePreferenceOptions, preferences.Theme);
+            SelectedDefaultZoomPreference = FindOption(_defaultZoomPreferenceOptions, preferences.DefaultZoom);
             ShowThumbnailsPanelPreference = preferences.ShowThumbnailsPanel;
             SelectedMemoryCacheEntryLimit = preferences.MemoryCacheEntryLimit;
         }
@@ -3754,44 +3842,53 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         MemoryCacheEntryLimitOptions.Insert(insertionIndex, entryLimit);
     }
 
-    private static AppThemePreference ParseThemePreference(string? value)
+    private static LocalizedOption<TValue>? FindOption<TValue>(
+        IReadOnlyList<LocalizedOption<TValue>> options,
+        TValue value)
+        where TValue : struct
     {
-        return value switch
-        {
-            ThemeLightLabel => AppThemePreference.Light,
-            ThemeDarkLabel => AppThemePreference.Dark,
-            _ => AppThemePreference.System
-        };
+        return options.FirstOrDefault(option => EqualityComparer<TValue>.Default.Equals(option.Value, value));
     }
 
-    private static string ToThemePreferenceLabel(AppThemePreference value)
+    private void RebuildLocalizedOptions()
     {
-        return value switch
-        {
-            AppThemePreference.Light => ThemeLightLabel,
-            AppThemePreference.Dark => ThemeDarkLabel,
-            _ => ThemeSystemLabel
-        };
-    }
+        _languagePreferenceOptions =
+        [
+            new LocalizedOption<AppLanguagePreference>(AppLanguagePreference.System, L("preferences.language.system")),
+            new LocalizedOption<AppLanguagePreference>(AppLanguagePreference.English, L("preferences.language.english")),
+            new LocalizedOption<AppLanguagePreference>(AppLanguagePreference.French, L("preferences.language.french")),
+            new LocalizedOption<AppLanguagePreference>(AppLanguagePreference.Spanish, L("preferences.language.spanish"))
+        ];
+        _themePreferenceOptions =
+        [
+            new LocalizedOption<AppThemePreference>(AppThemePreference.System, L("preferences.theme.system")),
+            new LocalizedOption<AppThemePreference>(AppThemePreference.Light, L("preferences.theme.light")),
+            new LocalizedOption<AppThemePreference>(AppThemePreference.Dark, L("preferences.theme.dark"))
+        ];
+        _defaultZoomPreferenceOptions =
+        [
+            new LocalizedOption<DefaultZoomPreference>(DefaultZoomPreference.FitToPage, L("preferences.zoom.fit_page")),
+            new LocalizedOption<DefaultZoomPreference>(DefaultZoomPreference.FitToWidth, L("preferences.zoom.fit_width")),
+            new LocalizedOption<DefaultZoomPreference>(DefaultZoomPreference.ActualSize, L("preferences.zoom.actual_size"))
+        ];
+        _printPageRangeOptions =
+        [
+            new LocalizedOption<PrintPageRangeChoice>(PrintPageRangeChoice.AllPages, L("preferences.print.pages.all")),
+            new LocalizedOption<PrintPageRangeChoice>(PrintPageRangeChoice.CurrentPage, L("preferences.print.pages.current")),
+            new LocalizedOption<PrintPageRangeChoice>(PrintPageRangeChoice.CustomRange, L("preferences.print.pages.custom"))
+        ];
+        _printOrientationOptions =
+        [
+            new LocalizedOption<PrintOrientationOption>(PrintOrientationOption.Automatic, L("preferences.print.orientation.automatic")),
+            new LocalizedOption<PrintOrientationOption>(PrintOrientationOption.Portrait, L("preferences.print.orientation.portrait")),
+            new LocalizedOption<PrintOrientationOption>(PrintOrientationOption.Landscape, L("preferences.print.orientation.landscape"))
+        ];
 
-    private static DefaultZoomPreference ParseDefaultZoomPreference(string? value)
-    {
-        return value switch
-        {
-            DefaultZoomFitToWidthLabel => DefaultZoomPreference.FitToWidth,
-            DefaultZoomActualSizeLabel => DefaultZoomPreference.ActualSize,
-            _ => DefaultZoomPreference.FitToPage
-        };
-    }
-
-    private static string ToDefaultZoomPreferenceLabel(DefaultZoomPreference value)
-    {
-        return value switch
-        {
-            DefaultZoomPreference.FitToWidth => DefaultZoomFitToWidthLabel,
-            DefaultZoomPreference.ActualSize => DefaultZoomActualSizeLabel,
-            _ => DefaultZoomFitToPageLabel
-        };
+        OnPropertyChanged(nameof(LanguagePreferenceOptions));
+        OnPropertyChanged(nameof(ThemePreferenceOptions));
+        OnPropertyChanged(nameof(DefaultZoomPreferenceOptions));
+        OnPropertyChanged(nameof(PrintPageRangeOptions));
+        OnPropertyChanged(nameof(PrintOrientationOptions));
     }
 
     private sealed record PendingPdfRotationGroup(
@@ -3802,8 +3899,33 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         _recentFilesService.Clear();
         RefreshRecentFiles();
-        EnqueueInfo("Recent files cleared", "The recent files list was cleared.");
-        StatusText = "Recent files cleared";
+        EnqueueLocalizedInfo("notification.recent_cleared.title", "notification.recent_cleared.message");
+        StatusText = L("status.recent_files.cleared");
+    }
+
+    private string L(string key) => _localizationService.GetString(key);
+
+    private string L(string key, params object?[] arguments) => _localizationService.GetString(key, arguments);
+
+    private void EnqueueLocalizedInfo(string titleKey, string messageKey, bool replaceCurrent = false, params object?[] messageArguments)
+    {
+        EnqueueInfo(L(titleKey), L(messageKey, messageArguments), replaceCurrent);
+    }
+
+    private void EnqueueLocalizedWarning(string titleKey, string messageKey, bool replaceCurrent = false, params object?[] messageArguments)
+    {
+        EnqueueWarning(L(titleKey), L(messageKey, messageArguments), replaceCurrent);
+    }
+
+    private void EnqueueLocalizedError(
+        AppError? error,
+        string fallbackTitleKey,
+        string fallbackMessageKey,
+        bool replaceCurrent = false,
+        params object?[] fallbackArguments)
+    {
+        var presentation = _localizedErrorFormatter.Format(error, fallbackTitleKey, fallbackMessageKey, fallbackArguments);
+        EnqueueError(presentation.Message, presentation.Title, replaceCurrent);
     }
 
     private void EnqueueInfo(string title, string message, bool replaceCurrent = false)
@@ -3816,9 +3938,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         EnqueueNotification(new NotificationEntry(title, message, NotificationKind.Warning), replaceCurrent);
     }
 
-    private void EnqueueError(string message, string title = "Non-fatal error", bool replaceCurrent = false)
+    private void EnqueueError(string message, string? title = null, bool replaceCurrent = false)
     {
-        EnqueueNotification(new NotificationEntry(title, message, NotificationKind.Error), replaceCurrent);
+        EnqueueNotification(new NotificationEntry(title ?? L("error.non_fatal.title"), message, NotificationKind.Error), replaceCurrent);
     }
 
     private void EnqueueConfirmation(
@@ -3826,7 +3948,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         string message,
         string confirmLabel,
         Action onConfirm,
-        string cancelLabel = "Cancel")
+        string? cancelLabel = null)
     {
         EnqueueNotification(
             new NotificationEntry(
@@ -3835,8 +3957,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 NotificationKind.Confirmation,
                 confirmLabel,
                 onConfirm,
-                cancelLabel,
-                () => StatusText = "Action cancelled",
+                cancelLabel ?? L("app.cancel"),
+                () => StatusText = L("notification.action.cancelled"),
                 IsDismissible: false),
             replaceCurrent: true);
     }
@@ -3929,11 +4051,32 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         foreach (var item in _recentFilesService.GetAll())
         {
-            RecentFiles.Add(item);
+            RecentFiles.Add(item with
+            {
+                DocumentType = GetLocalizedRecentFileType(item)
+            });
         }
 
         OnPropertyChanged(nameof(HasRecentFiles));
         ClearRecentFilesCommand.NotifyCanExecuteChanged();
+    }
+
+    private string GetLocalizedRecentFileType(RecentFileItem item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+
+        var extension = Path.GetExtension(item.FilePath);
+        if (Velune.Application.Documents.SupportedDocumentFormats.IsPdf(extension))
+        {
+            return L("document.type.pdf");
+        }
+
+        if (Velune.Application.Documents.SupportedDocumentFormats.IsImage(extension))
+        {
+            return GetImageFormatLabel(extension);
+        }
+
+        return L("document.type.document");
     }
 
     private void NotifySidebarVisibilityChanged()
@@ -3997,34 +4140,34 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         DocumentInfoItems.Clear();
 
-        AddDocumentInfo("Kind", metadata.FormatLabel ?? GetDocumentKindLabel(metadata.DocumentType));
-        AddDocumentInfo("Size", FormatFileSize(metadata.FileSizeInBytes));
+        AddDocumentInfo(L("document.kind.label"), GetLocalizedDocumentFormatLabel(metadata));
+        AddDocumentInfo(L("document.size.label"), FormatFileSize(metadata.FileSizeInBytes));
 
         if (metadata.PageCount is > 0)
         {
-            AddDocumentInfo("Pages", metadata.PageCount.Value.ToString(CultureInfo.InvariantCulture));
+            AddDocumentInfo(L("document.pages.label"), metadata.PageCount.Value.ToString(CultureInfo.InvariantCulture));
         }
 
         if (metadata.PixelWidth is > 0 && metadata.PixelHeight is > 0)
         {
-            AddDocumentInfo("Dimensions", $"{metadata.PixelWidth} × {metadata.PixelHeight} px");
+            AddDocumentInfo(L("document.dimensions.label"), $"{metadata.PixelWidth} × {metadata.PixelHeight} px");
         }
 
         if (metadata.CreatedAt is not null)
         {
-            AddDocumentInfo("Created", FormatDate(metadata.CreatedAt.Value));
+            AddDocumentInfo(L("document.created.label"), FormatDate(metadata.CreatedAt.Value));
         }
 
         if (metadata.ModifiedAt is not null)
         {
-            AddDocumentInfo("Modified", FormatDate(metadata.ModifiedAt.Value));
+            AddDocumentInfo(L("document.modified.label"), FormatDate(metadata.ModifiedAt.Value));
         }
 
-        AddDocumentInfo("Title", metadata.DocumentTitle);
-        AddDocumentInfo("Author", metadata.Author);
-        AddDocumentInfo("Creator", metadata.Creator);
-        AddDocumentInfo("Producer", metadata.Producer);
-        AddDocumentInfo("Location", Path.GetDirectoryName(metadata.FilePath));
+        AddDocumentInfo(L("document.title.label"), metadata.DocumentTitle);
+        AddDocumentInfo(L("document.author.label"), metadata.Author);
+        AddDocumentInfo(L("document.creator.label"), metadata.Creator);
+        AddDocumentInfo(L("document.producer.label"), metadata.Producer);
+        AddDocumentInfo(L("document.location.label"), Path.GetDirectoryName(metadata.FilePath));
 
         DocumentInfoWarning = metadata.DetailsWarning;
         OnPropertyChanged(nameof(HasDocumentInfo));
@@ -4047,13 +4190,36 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         DocumentInfoItems.Add(new DocumentInfoItem(label, value));
     }
 
-    private static string GetDocumentKindLabel(DocumentType documentType)
+    private string GetLocalizedDocumentFormatLabel(DocumentMetadata metadata)
+    {
+        ArgumentNullException.ThrowIfNull(metadata);
+
+        return metadata.DocumentType switch
+        {
+            DocumentType.Pdf => L("document.type.pdf"),
+            DocumentType.Image => GetImageFormatLabel(Path.GetExtension(metadata.FilePath)),
+            _ => L("document.type.document")
+        };
+    }
+
+    private string GetImageFormatLabel(string extension)
+    {
+        return Path.GetExtension(extension).ToLowerInvariant() switch
+        {
+            ".jpg" or ".jpeg" => L("document.type.jpeg"),
+            ".png" => L("document.type.png"),
+            ".webp" => L("document.type.webp"),
+            _ => L("document.type.image")
+        };
+    }
+
+    private string GetDocumentKindLabel(DocumentType documentType)
     {
         return documentType switch
         {
-            DocumentType.Pdf => "PDF document",
-            DocumentType.Image => "Image",
-            _ => "Document"
+            DocumentType.Pdf => L("document.type.pdf"),
+            DocumentType.Image => L("document.type.image"),
+            _ => L("document.type.document")
         };
     }
 
@@ -4062,9 +4228,16 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         return value.ToLocalTime().ToString("f", CultureInfo.CurrentCulture);
     }
 
-    private static string FormatFileSize(long fileSizeInBytes)
+    private string FormatFileSize(long fileSizeInBytes)
     {
-        string[] units = ["bytes", "KB", "MB", "GB", "TB"];
+        string[] units =
+        [
+            L("document.file_size.bytes"),
+            L("document.file_size.kb"),
+            L("document.file_size.mb"),
+            L("document.file_size.gb"),
+            L("document.file_size.tb")
+        ];
         var size = (double)fileSizeInBytes;
         var unitIndex = 0;
 
@@ -4075,7 +4248,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         var format = unitIndex == 0 ? "0" : "0.#";
-        return $"{size.ToString(format, CultureInfo.InvariantCulture)} {units[unitIndex]}";
+        return $"{size.ToString(format, CultureInfo.CurrentCulture)} {units[unitIndex]}";
     }
 
     public void Dispose()
@@ -4093,6 +4266,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (disposing)
         {
+            _localizationService.LanguageChanged -= OnLanguageChanged;
             CancelPendingViewportFitUpdate();
             CancelCurrentRender();
             CancelCurrentTextAnalysis();

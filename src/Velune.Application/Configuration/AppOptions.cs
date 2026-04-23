@@ -49,6 +49,11 @@ public sealed class AppOptions
         get; set;
     }
 
+    public string? LocalizationPath
+    {
+        get; set;
+    }
+
     public string TesseractExecutablePath
     {
         get; set;

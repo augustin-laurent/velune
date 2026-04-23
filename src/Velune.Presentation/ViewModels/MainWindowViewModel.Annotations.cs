@@ -40,10 +40,10 @@ public partial class MainWindowViewModel
     private AnnotationTool _selectedAnnotationTool = AnnotationTool.Select;
 
     [ObservableProperty]
-    private string _annotationTextDraft = "New note";
+    private string _annotationTextDraft = string.Empty;
 
     [ObservableProperty]
-    private string _signatureAssetNameInput = "My signature";
+    private string _signatureAssetNameInput = string.Empty;
 
     [ObservableProperty]
     private string? _selectedSignatureAssetId;
@@ -57,7 +57,7 @@ public partial class MainWindowViewModel
     [ObservableProperty]
     private Bitmap? _signaturePadPreviewBitmap;
 
-    public ObservableCollection<DocumentAnnotation> CurrentPageAnnotations
+    public ObservableCollection<AnnotationListItemViewModel> CurrentPageAnnotations
     {
         get;
         private set;
@@ -114,6 +114,8 @@ public partial class MainWindowViewModel
 
     private void InitializeAnnotationWorkspace()
     {
+        AnnotationTextDraft = L("annotation.default.note");
+        SignatureAssetNameInput = L("annotation.default.signature_name");
         LoadSignatureAssets();
         RefreshAnnotationWorkspaceState();
         RefreshSignaturePadPreview();
@@ -132,7 +134,8 @@ public partial class MainWindowViewModel
         _isCapturingAnnotation = false;
         IsAnnotationsPanelVisible = false;
         SelectedAnnotationTool = AnnotationTool.Select;
-        AnnotationTextDraft = "New note";
+        AnnotationTextDraft = L("annotation.default.note");
+        SignatureAssetNameInput = L("annotation.default.signature_name");
         AnnotationsPanelNotice = null;
 
         CurrentAnnotationOverlayBitmap?.Dispose();
@@ -205,10 +208,20 @@ public partial class MainWindowViewModel
 
         foreach (var annotation in _annotations.Where(annotation => annotation.PageIndex.Value == CurrentPage - 1))
         {
-            CurrentPageAnnotations.Add(annotation);
+            CurrentPageAnnotations.Add(new AnnotationListItemViewModel(annotation, _localizationService));
         }
 
         OnPropertyChanged(nameof(HasCurrentPageAnnotations));
+    }
+
+    private void RefreshAnnotationLocalization()
+    {
+        foreach (var annotation in CurrentPageAnnotations)
+        {
+            annotation.UpdateLocalization(_localizationService);
+        }
+
+        OnPropertyChanged(nameof(CurrentPageAnnotations));
     }
 
     private void RefreshAnnotationOverlay()
@@ -278,7 +291,7 @@ public partial class MainWindowViewModel
         if (IsAnnotationsPanelVisible)
         {
             IsAnnotationsPanelVisible = false;
-            StatusText = "Annotations hidden";
+            StatusText = L("status.annotations.hidden");
         }
         else
         {
@@ -287,7 +300,7 @@ public partial class MainWindowViewModel
             IsPreferencesPanelVisible = false;
             IsPrintPanelVisible = false;
             IsAnnotationsPanelVisible = true;
-            StatusText = "Annotations shown";
+            StatusText = L("status.annotations.shown");
         }
     }
 
@@ -301,8 +314,8 @@ public partial class MainWindowViewModel
 
         SelectedAnnotationTool = tool;
         StatusText = tool is AnnotationTool.Select
-            ? "Selection tool active"
-            : $"{tool} tool active";
+            ? L("status.annotation.tool.select")
+            : L("status.annotation.tool.active", GetAnnotationToolLabel(tool));
     }
 
     [RelayCommand(CanExecute = nameof(CanCreateHighlightAnnotation))]
@@ -327,8 +340,8 @@ public partial class MainWindowViewModel
 
         _selectedAnnotationId = _annotations.LastOrDefault()?.Id;
         ClearDocumentTextSelection();
-        AnnotationsPanelNotice = "Highlight added from the current text selection.";
-        StatusText = "Highlight added";
+        AnnotationsPanelNotice = L("notice.annotation.highlight_added");
+        StatusText = L("status.annotation.highlight_added");
         RefreshAnnotationWorkspaceState();
     }
 
@@ -343,8 +356,8 @@ public partial class MainWindowViewModel
         CaptureAnnotationSnapshot();
         _annotations.RemoveAll(item => item.Id == annotation.Id);
         _selectedAnnotationId = null;
-        AnnotationsPanelNotice = "Annotation removed.";
-        StatusText = "Annotation deleted";
+        AnnotationsPanelNotice = L("notice.annotation.removed");
+        StatusText = L("status.annotation.deleted");
         RefreshAnnotationWorkspaceState();
     }
 
@@ -359,7 +372,7 @@ public partial class MainWindowViewModel
         _annotationRedoSnapshots.Push(CloneAnnotations(_annotations));
         RestoreAnnotations(_annotationUndoSnapshots.Pop());
         _selectedAnnotationId = null;
-        StatusText = "Annotation change reverted";
+        StatusText = L("status.annotation.undo");
         RefreshAnnotationWorkspaceState();
     }
 
@@ -374,7 +387,7 @@ public partial class MainWindowViewModel
         _annotationUndoSnapshots.Push(CloneAnnotations(_annotations));
         RestoreAnnotations(_annotationRedoSnapshots.Pop());
         _selectedAnnotationId = null;
-        StatusText = "Annotation change restored";
+        StatusText = L("status.annotation.redo");
         RefreshAnnotationWorkspaceState();
     }
 
@@ -389,20 +402,20 @@ public partial class MainWindowViewModel
 
         if (!Velune.Application.Documents.SupportedDocumentFormats.IsImage(Path.GetExtension(imagePath)))
         {
-            EnqueueWarning("Unsupported signature image", "Choose a PNG, JPEG or WebP image for the signature.");
+            EnqueueLocalizedError(null, "error.signature.unsupported_image.title", "error.signature.unsupported_image.message");
             return;
         }
 
         var result = _signatureAssetStore.Import(imagePath);
         if (result.IsFailure || result.Value is null)
         {
-            EnqueueError(result.Error?.Message ?? "Unable to import this signature image.", "Signature import failed");
+            EnqueueLocalizedError(result.Error, "error.signature.import_failed.title", "error.signature.import_failed.message");
             return;
         }
 
         LoadSignatureAssets();
         SelectedSignatureAssetId = result.Value.Id;
-        StatusText = $"Imported signature “{result.Value.DisplayName}”";
+        StatusText = L("status.signature.imported", result.Value.DisplayName);
     }
 
     [RelayCommand(CanExecute = nameof(CanDeleteSelectedSignatureAsset))]
@@ -421,10 +434,8 @@ public partial class MainWindowViewModel
                 annotation.Kind == DocumentAnnotationKind.Signature &&
                 string.Equals(annotation.AssetId, targetAssetId, StringComparison.Ordinal)))
         {
-            EnqueueWarning(
-                "Signature in use",
-                "Remove the placed signature annotations that use this asset before deleting it from the library.");
-            StatusText = "Signature still used in this document";
+            EnqueueLocalizedWarning("prompt.signature.in_use.title", "prompt.signature.in_use.message");
+            StatusText = L("status.signature.in_use");
             return;
         }
 
@@ -432,7 +443,7 @@ public partial class MainWindowViewModel
         var result = _signatureAssetStore.Delete(deletedAssetId);
         if (result.IsFailure)
         {
-            EnqueueError(result.Error?.Message ?? "Unable to delete this signature.", "Signature delete failed");
+            EnqueueLocalizedError(result.Error, "error.signature.delete_failed.title", "error.signature.delete_failed.message");
             return;
         }
 
@@ -442,8 +453,8 @@ public partial class MainWindowViewModel
             SelectedSignatureAssetId = SignatureAssets.FirstOrDefault()?.Id;
         }
 
-        StatusText = "Signature deleted";
-        AnnotationsPanelNotice = "The selected signature was removed from the local library.";
+        StatusText = L("status.signature.deleted");
+        AnnotationsPanelNotice = L("notice.signature.deleted");
     }
 
     [RelayCommand(CanExecute = nameof(CanSaveSignatureCapture))]
@@ -452,7 +463,7 @@ public partial class MainWindowViewModel
         var result = _signatureAssetStore.SaveInkSignature(SignatureAssetNameInput.Trim(), _signatureCapturePoints);
         if (result.IsFailure || result.Value is null)
         {
-            EnqueueError(result.Error?.Message ?? "Unable to save the drawn signature.", "Signature save failed");
+            EnqueueLocalizedError(result.Error, "error.signature.save_failed.title", "error.signature.save_failed.message");
             return;
         }
 
@@ -460,7 +471,7 @@ public partial class MainWindowViewModel
         SelectedSignatureAssetId = result.Value.Id;
         _signatureCapturePoints.Clear();
         RefreshSignaturePadPreview();
-        StatusText = $"Saved signature “{result.Value.DisplayName}”";
+        StatusText = L("status.signature.saved", result.Value.DisplayName);
     }
 
     [RelayCommand]
@@ -468,7 +479,7 @@ public partial class MainWindowViewModel
     {
         _signatureCapturePoints.Clear();
         RefreshSignaturePadPreview();
-        StatusText = "Signature draft cleared";
+        StatusText = L("status.signature.cleared");
     }
 
     [RelayCommand]
@@ -480,11 +491,11 @@ public partial class MainWindowViewModel
         }
 
         SelectedSignatureAssetId = assetId;
-        StatusText = "Signature selected";
+        StatusText = L("status.signature.selected");
     }
 
     [RelayCommand]
-    private void SelectCurrentPageAnnotation(DocumentAnnotation? annotation)
+    private void SelectCurrentPageAnnotation(AnnotationListItemViewModel? annotation)
     {
         _selectedAnnotationId = annotation?.Id;
         RefreshAnnotationWorkspaceState();
@@ -522,7 +533,7 @@ public partial class MainWindowViewModel
 
         if (SelectedAnnotationTool is AnnotationTool.Signature && !CanUseSignaturePlacement)
         {
-            EnqueueInfo("Choose a signature first", "Import or draw a signature before placing it on the document.");
+            EnqueueLocalizedInfo("prompt.signature.choose_first.title", "prompt.signature.choose_first.message");
             return false;
         }
 
@@ -579,7 +590,7 @@ public partial class MainWindowViewModel
             CaptureAnnotationSnapshot();
             _annotations.Add(finalAnnotation);
             _selectedAnnotationId = finalAnnotation.Id;
-            StatusText = $"{finalAnnotation.Kind} annotation added";
+            StatusText = L("status.annotation.added", GetAnnotationKindLabel(finalAnnotation.Kind));
         }
 
         _annotationPreview = null;
@@ -697,7 +708,7 @@ public partial class MainWindowViewModel
             : DocumentAnnotationCoordinateMapper.InflatePoint(start, AnnotationDefaultWidthRatio, AnnotationDefaultHeightRatio);
     }
 
-    private static string? ResolveAnnotationText(DocumentAnnotationKind kind, string? text)
+    private string? ResolveAnnotationText(DocumentAnnotationKind kind, string? text)
     {
         if (!string.IsNullOrWhiteSpace(text))
         {
@@ -706,9 +717,9 @@ public partial class MainWindowViewModel
 
         return kind switch
         {
-            DocumentAnnotationKind.Stamp => "APPROVED",
-            DocumentAnnotationKind.Text => "Text",
-            DocumentAnnotationKind.Note => "Note",
+            DocumentAnnotationKind.Stamp => L("annotation.default.stamp"),
+            DocumentAnnotationKind.Text => L("annotation.default.text"),
+            DocumentAnnotationKind.Note => L("annotation.default.note_label"),
             _ => null
         };
     }
@@ -731,9 +742,11 @@ public partial class MainWindowViewModel
     {
         var candidate = CurrentPageAnnotations
             .Reverse()
-            .FirstOrDefault(annotation => AnnotationContains(annotation, point));
+            .FirstOrDefault(annotation => AnnotationContains(annotation.Annotation, point));
         _selectedAnnotationId = candidate?.Id;
-        StatusText = candidate is null ? "No annotation selected" : $"{candidate.Kind} selected";
+        StatusText = candidate is null
+            ? L("status.annotation.none_selected")
+            : L("status.annotation.selected", candidate.KindLabel);
         RefreshAnnotationWorkspaceState();
     }
 
@@ -797,8 +810,8 @@ public partial class MainWindowViewModel
                 out var targetFileName,
                 out var validationError))
         {
-            EnqueueWarning("Invalid save name", validationError ?? "Enter a valid file name before saving.");
-            StatusText = "Invalid save name";
+            EnqueueWarning(L("status.save_name.invalid"), validationError ?? L("validation.file_name.save_default"));
+            StatusText = L("status.save_name.invalid");
             return;
         }
 
@@ -831,8 +844,8 @@ public partial class MainWindowViewModel
 
                 if (structureResult.IsFailure)
                 {
-                    EnqueueError(structureResult.Error?.Message ?? "The updated PDF structure could not be saved.", "Unable to save document");
-                    StatusText = "Unable to save document";
+                    EnqueueLocalizedError(structureResult.Error, "error.save.pdf_structure.title", "error.save.pdf_structure.message");
+                    StatusText = L("error.save.document.title");
                     return;
                 }
 
@@ -848,8 +861,8 @@ public partial class MainWindowViewModel
 
             if (result.IsFailure)
             {
-                EnqueueError(result.Error?.Message ?? "The annotated PDF could not be saved.", "Unable to save document");
-                StatusText = "Unable to save document";
+                EnqueueLocalizedError(result.Error, "error.save.document.title", "error.save.document.message");
+                StatusText = L("error.save.document.title");
                 return;
             }
 
@@ -861,12 +874,12 @@ public partial class MainWindowViewModel
                 overwrite: PathsEqual(currentDocumentPath, targetDocumentPath));
 
             await OpenDocumentFromPathAsync(targetDocumentPath);
-            StatusText = "Document saved";
+            StatusText = L("status.document.saved");
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            EnqueueError(exception.Message, "Unable to save document");
-            StatusText = "Unable to save document";
+            EnqueueLocalizedError(AppError.Infrastructure("document.save.copy_failed", exception.Message), "error.save.document.title", "error.save.document.message");
+            StatusText = L("error.save.document.title");
         }
         finally
         {
@@ -899,8 +912,8 @@ public partial class MainWindowViewModel
                 out var targetFileName,
                 out var validationError))
         {
-            EnqueueWarning("Invalid save name", validationError ?? "Enter a valid file name before saving.");
-            StatusText = "Invalid save name";
+            EnqueueWarning(L("status.save_name.invalid"), validationError ?? L("validation.file_name.save_default"));
+            StatusText = L("status.save_name.invalid");
             return;
         }
 
@@ -932,8 +945,8 @@ public partial class MainWindowViewModel
 
             if (result.IsFailure)
             {
-                EnqueueError(result.Error?.Message ?? "The annotated image could not be saved.", "Unable to save document");
-                StatusText = "Unable to save document";
+                EnqueueLocalizedError(result.Error, "error.save.document.title", "error.save.document.message");
+                StatusText = L("error.save.document.title");
                 return;
             }
 
@@ -945,12 +958,12 @@ public partial class MainWindowViewModel
                 overwrite: PathsEqual(currentDocumentPath, targetDocumentPath));
 
             await OpenDocumentFromPathAsync(targetDocumentPath);
-            StatusText = "Document saved";
+            StatusText = L("status.document.saved");
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            EnqueueError(exception.Message, "Unable to save document");
-            StatusText = "Unable to save document";
+            EnqueueLocalizedError(AppError.Infrastructure("image.save.copy_failed", exception.Message), "error.save.document.title", "error.save.document.message");
+            StatusText = L("error.save.document.title");
         }
         finally
         {
@@ -1013,5 +1026,36 @@ public partial class MainWindowViewModel
     partial void OnAnnotationsPanelNoticeChanged(string? value)
     {
         OnPropertyChanged(nameof(HasAnnotationsPanelNotice));
+    }
+
+    private string GetAnnotationToolLabel(AnnotationTool tool)
+    {
+        return tool switch
+        {
+            AnnotationTool.Select => L("annotation.tool.select"),
+            AnnotationTool.Highlight => L("annotation.tool.highlight"),
+            AnnotationTool.Ink => L("annotation.tool.ink"),
+            AnnotationTool.Rectangle => L("annotation.tool.rectangle"),
+            AnnotationTool.Text => L("annotation.tool.text"),
+            AnnotationTool.Note => L("annotation.tool.note"),
+            AnnotationTool.Stamp => L("annotation.tool.stamp"),
+            AnnotationTool.Signature => L("annotation.tool.signature"),
+            _ => tool.ToString()
+        };
+    }
+
+    private string GetAnnotationKindLabel(DocumentAnnotationKind kind)
+    {
+        return kind switch
+        {
+            DocumentAnnotationKind.Highlight => L("annotation.kind.highlight"),
+            DocumentAnnotationKind.Ink => L("annotation.kind.ink"),
+            DocumentAnnotationKind.Rectangle => L("annotation.kind.rectangle"),
+            DocumentAnnotationKind.Text => L("annotation.kind.text"),
+            DocumentAnnotationKind.Note => L("annotation.kind.note"),
+            DocumentAnnotationKind.Stamp => L("annotation.kind.stamp"),
+            DocumentAnnotationKind.Signature => L("annotation.kind.signature"),
+            _ => kind.ToString()
+        };
     }
 }

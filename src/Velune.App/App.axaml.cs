@@ -5,6 +5,7 @@ using Avalonia.Styling;
 using Microsoft.Extensions.DependencyInjection;
 using Velune.Application.Abstractions;
 using Velune.Application.Configuration;
+using Velune.Presentation.Localization;
 using Velune.Presentation.ViewModels;
 using Velune.Presentation.Views;
 
@@ -13,6 +14,8 @@ namespace Velune.App;
 public partial class App : Avalonia.Application
 {
     private IUserPreferencesService? _userPreferencesService;
+    private ILocalizationService? _localizationService;
+    private NativeMenuLocalizationBinding? _appMenuLocalizationBinding;
 
     public override void Initialize()
     {
@@ -22,8 +25,10 @@ public partial class App : Avalonia.Application
     public override void OnFrameworkInitializationCompleted()
     {
         _userPreferencesService = Program.AppHost.Services.GetRequiredService<IUserPreferencesService>();
+        _localizationService = Program.AppHost.Services.GetRequiredService<ILocalizationService>();
         ApplyThemePreference(_userPreferencesService.Current.Theme);
         _userPreferencesService.PreferencesChanged += OnPreferencesChanged;
+        AttachAppMenuLocalization();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
@@ -41,6 +46,10 @@ public partial class App : Avalonia.Application
         }
 
         _userPreferencesService.PreferencesChanged -= OnPreferencesChanged;
+        _appMenuLocalizationBinding?.Detach();
+        _appMenuLocalizationBinding = null;
+        _localizationService = null;
+
         _userPreferencesService = null;
     }
 
@@ -72,7 +81,7 @@ public partial class App : Avalonia.Application
             return;
         }
 
-        var aboutWindow = AboutWindowFactory.Create();
+        var aboutWindow = AboutWindowFactory.Create(_localizationService);
         await aboutWindow.ShowDialog(mainWindow);
     }
 
@@ -86,5 +95,23 @@ public partial class App : Avalonia.Application
         }
 
         viewModel.TogglePreferencesPanelCommand.Execute(null);
+    }
+
+    private void AttachAppMenuLocalization()
+    {
+        _appMenuLocalizationBinding?.Detach();
+        _appMenuLocalizationBinding = null;
+
+        if (_localizationService is null ||
+            NativeMenu.GetMenu(this) is not NativeMenu menu)
+        {
+            return;
+        }
+
+        _appMenuLocalizationBinding = new NativeMenuLocalizationBinding(
+            this,
+            menu,
+            _localizationService,
+            NativeMenuLocalizer.LocalizeAppMenu);
     }
 }

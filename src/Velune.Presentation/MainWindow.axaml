@@ -2,6 +2,7 @@
     x:Class="Velune.Presentation.Views.MainWindow"
     x:Name="RootWindow"
     xmlns="https://github.com/avaloniaui"
+    xmlns:loc="clr-namespace:Velune.Presentation.Localization"
     xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Width="1280"
@@ -44,111 +45,111 @@
 
   <NativeMenu.Menu>
     <NativeMenu>
-      <NativeMenuItem Header="File">
+      <NativeMenuItem Header="{loc:Loc app.menu.file}">
         <NativeMenu>
-          <NativeMenuItem Header="Open..."
+          <NativeMenuItem Header="{loc:Loc app.menu.open}"
                           Command="{Binding OpenCommand}"
                           Gesture="Meta+O" />
-          <NativeMenuItem Header="Save"
+          <NativeMenuItem Header="{loc:Loc app.menu.save}"
                           Command="{Binding SaveDocumentCommand}"
                           Gesture="Meta+S" />
           <NativeMenuItemSeparator />
-          <NativeMenuItem Header="Print..."
+          <NativeMenuItem Header="{loc:Loc app.menu.print}"
                           Command="{Binding PrintDocumentCommand}"
                           Gesture="Meta+P" />
           <NativeMenuItemSeparator />
-          <NativeMenuItem Header="Close"
+          <NativeMenuItem Header="{loc:Loc app.menu.close}"
                           Command="{Binding CloseCommand}" />
         </NativeMenu>
       </NativeMenuItem>
 
-      <NativeMenuItem Header="Page">
+      <NativeMenuItem Header="{loc:Loc app.menu.page}">
         <NativeMenu>
-          <NativeMenuItem Header="Previous Page"
+          <NativeMenuItem Header="{loc:Loc app.menu.page.previous}"
                           Command="{Binding PreviousPageCommand}" />
-          <NativeMenuItem Header="Next Page"
+          <NativeMenuItem Header="{loc:Loc app.menu.page.next}"
                           Command="{Binding NextPageCommand}" />
           <NativeMenuItemSeparator />
-          <NativeMenuItem Header="Rotate Left"
+          <NativeMenuItem Header="{loc:Loc app.menu.page.rotate_left}"
                           Command="{Binding RotateLeftCommand}" />
-          <NativeMenuItem Header="Rotate Right"
+          <NativeMenuItem Header="{loc:Loc app.menu.page.rotate_right}"
                           Command="{Binding RotateRightCommand}" />
           <NativeMenuItemSeparator />
-          <NativeMenuItem Header="Move Page Earlier"
+          <NativeMenuItem Header="{loc:Loc app.menu.page.move_earlier}"
                           Command="{Binding MoveCurrentPageEarlierCommand}" />
-          <NativeMenuItem Header="Move Page Later"
+          <NativeMenuItem Header="{loc:Loc app.menu.page.move_later}"
                           Command="{Binding MoveCurrentPageLaterCommand}" />
           <NativeMenuItemSeparator />
-          <NativeMenuItem Header="Extract Current Page"
+          <NativeMenuItem Header="{loc:Loc app.menu.page.extract}"
                           Command="{Binding ExtractCurrentPageCommand}" />
-          <NativeMenuItem Header="Delete Current Page"
+          <NativeMenuItem Header="{loc:Loc app.menu.page.delete}"
                           Command="{Binding DeleteCurrentPageCommand}" />
         </NativeMenu>
       </NativeMenuItem>
 
-      <NativeMenuItem Header="View">
+      <NativeMenuItem Header="{loc:Loc app.menu.view}">
         <NativeMenu>
-          <NativeMenuItem Header="Show Pages Sidebar"
+          <NativeMenuItem Header="{loc:Loc app.menu.view.sidebar}"
                           Command="{Binding ToggleSidebarCommand}" />
           <NativeMenuItemSeparator />
-          <NativeMenuItem Header="Search"
+          <NativeMenuItem Header="{loc:Loc app.menu.view.search}"
                           Command="{Binding ToggleSearchPanelCommand}"
                           IsEnabled="{Binding IsSearchAvailableForCurrentDocument}"
                           Gesture="Meta+F" />
-          <NativeMenuItem Header="Information"
+          <NativeMenuItem Header="{loc:Loc app.menu.view.info}"
                           Command="{Binding ToggleInfoPanelCommand}" />
-          <NativeMenuItem Header="Preferences"
+          <NativeMenuItem Header="{loc:Loc app.menu.view.preferences}"
                           Command="{Binding TogglePreferencesPanelCommand}"
                           Gesture="Meta+OemComma" />
           <NativeMenuItemSeparator />
-          <NativeMenuItem Header="Zoom In"
+          <NativeMenuItem Header="{loc:Loc app.menu.view.zoom_in}"
                           Command="{Binding ZoomInCommand}" />
-          <NativeMenuItem Header="Zoom Out"
+          <NativeMenuItem Header="{loc:Loc app.menu.view.zoom_out}"
                           Command="{Binding ZoomOutCommand}" />
           <NativeMenuItemSeparator />
-          <NativeMenuItem Header="Fit to Width"
+          <NativeMenuItem Header="{loc:Loc app.menu.view.fit_width}"
                           Command="{Binding FitToWidthCommand}" />
-          <NativeMenuItem Header="Fit to Page"
+          <NativeMenuItem Header="{loc:Loc app.menu.view.fit_page}"
                           Command="{Binding FitToPageCommand}" />
         </NativeMenu>
       </NativeMenuItem>
 
-      <NativeMenuItem Header="Annotate">
+      <NativeMenuItem Header="{loc:Loc app.menu.annotate}">
         <NativeMenu>
-          <NativeMenuItem Header="Show Annotations"
+          <NativeMenuItem Header="{loc:Loc app.menu.annotate.show}"
                           Command="{Binding ToggleAnnotationsPanelCommand}"
                           Gesture="Meta+Shift+A" />
           <NativeMenuItemSeparator />
-          <NativeMenuItem Header="Select Tool"
+          <NativeMenuItem Header="{loc:Loc app.menu.annotate.select}"
                           Command="{Binding SelectAnnotationToolCommand}"
                           CommandParameter="Select" />
-          <NativeMenuItem Header="Highlight Selection"
+          <NativeMenuItem Header="{loc:Loc app.menu.annotate.highlight}"
                           Command="{Binding AddHighlightAnnotationFromSelectionCommand}"
                           IsEnabled="{Binding CanCreateHighlightAnnotation}" />
-          <NativeMenuItem Header="Freehand"
+          <NativeMenuItem Header="{loc:Loc app.menu.annotate.freehand}"
                           Command="{Binding SelectAnnotationToolCommand}"
                           CommandParameter="Ink" />
-          <NativeMenuItem Header="Rectangle"
+          <NativeMenuItem Header="{loc:Loc app.menu.annotate.rectangle}"
                           Command="{Binding SelectAnnotationToolCommand}"
                           CommandParameter="Rectangle" />
-          <NativeMenuItem Header="Text"
+          <NativeMenuItem Header="{loc:Loc app.menu.annotate.text}"
                           Command="{Binding SelectAnnotationToolCommand}"
                           CommandParameter="Text" />
-          <NativeMenuItem Header="Note"
+          <NativeMenuItem Header="{loc:Loc app.menu.annotate.note}"
                           Command="{Binding SelectAnnotationToolCommand}"
                           CommandParameter="Note" />
-          <NativeMenuItem Header="Stamp"
+          <NativeMenuItem Header="{loc:Loc app.menu.annotate.stamp}"
                           Command="{Binding SelectAnnotationToolCommand}"
                           CommandParameter="Stamp" />
-          <NativeMenuItem Header="Signature"
+          <NativeMenuItem Header="{loc:Loc app.menu.annotate.signature}"
                           Command="{Binding SelectAnnotationToolCommand}"
                           CommandParameter="Signature" />
           <NativeMenuItemSeparator />
-          <NativeMenuItem Header="Delete Selected Annotation"
+          <NativeMenuItem Header="{loc:Loc app.menu.annotate.delete}"
                           Command="{Binding DeleteSelectedAnnotationCommand}" />
-          <NativeMenuItem Header="Undo Annotation"
+          <NativeMenuItem Header="{loc:Loc app.menu.annotate.undo}"
                           Command="{Binding UndoAnnotationsCommand}" />
-          <NativeMenuItem Header="Redo Annotation"
+          <NativeMenuItem Header="{loc:Loc app.menu.annotate.redo}"
                           Command="{Binding RedoAnnotationsCommand}" />
         </NativeMenu>
       </NativeMenuItem>
@@ -165,104 +166,104 @@
           Grid.Column="0"
           Grid.ColumnSpan="2"
           IsVisible="{Binding ShowWindowMenuBar}">
-      <MenuItem Header="_Velune">
-        <MenuItem Header="_About Velune..."
+      <MenuItem Header="{loc:Loc app.menu.app.mnemonic}">
+        <MenuItem Header="{loc:Loc app.menu.about.mnemonic}"
                   Click="OnAboutMenuClicked" />
-        <MenuItem Header="_Preferences"
+        <MenuItem Header="{loc:Loc app.menu.preferences.mnemonic}"
                   Command="{Binding TogglePreferencesPanelCommand}" />
       </MenuItem>
 
-      <MenuItem Header="_File">
-        <MenuItem Header="_Open..."
+      <MenuItem Header="{loc:Loc app.menu.file.mnemonic}">
+        <MenuItem Header="{loc:Loc app.menu.open.mnemonic}"
                   Command="{Binding OpenCommand}" />
-        <MenuItem Header="_Save"
+        <MenuItem Header="{loc:Loc app.menu.save.mnemonic}"
                   Command="{Binding SaveDocumentCommand}" />
         <Separator />
-        <MenuItem Header="_Print..."
+        <MenuItem Header="{loc:Loc app.menu.print.mnemonic}"
                   Command="{Binding PrintDocumentCommand}" />
         <Separator />
-        <MenuItem Header="_Close"
+        <MenuItem Header="{loc:Loc app.menu.close.mnemonic}"
                   Command="{Binding CloseCommand}" />
       </MenuItem>
 
-      <MenuItem Header="_Page">
-        <MenuItem Header="_Previous Page"
+      <MenuItem Header="{loc:Loc app.menu.page.mnemonic}">
+        <MenuItem Header="{loc:Loc app.menu.page.previous.mnemonic}"
                   Command="{Binding PreviousPageCommand}" />
-        <MenuItem Header="_Next Page"
+        <MenuItem Header="{loc:Loc app.menu.page.next.mnemonic}"
                   Command="{Binding NextPageCommand}" />
         <Separator />
-        <MenuItem Header="Rotate _Left"
+        <MenuItem Header="{loc:Loc app.menu.page.rotate_left.mnemonic}"
                   Command="{Binding RotateLeftCommand}" />
-        <MenuItem Header="Rotate _Right"
+        <MenuItem Header="{loc:Loc app.menu.page.rotate_right.mnemonic}"
                   Command="{Binding RotateRightCommand}" />
         <Separator />
-        <MenuItem Header="Move Page _Earlier"
+        <MenuItem Header="{loc:Loc app.menu.page.move_earlier.mnemonic}"
                   Command="{Binding MoveCurrentPageEarlierCommand}" />
-        <MenuItem Header="Move Page _Later"
+        <MenuItem Header="{loc:Loc app.menu.page.move_later.mnemonic}"
                   Command="{Binding MoveCurrentPageLaterCommand}" />
         <Separator />
-        <MenuItem Header="_Extract Current Page"
+        <MenuItem Header="{loc:Loc app.menu.page.extract.mnemonic}"
                   Command="{Binding ExtractCurrentPageCommand}" />
-        <MenuItem Header="_Delete Current Page"
+        <MenuItem Header="{loc:Loc app.menu.page.delete.mnemonic}"
                   Command="{Binding DeleteCurrentPageCommand}" />
       </MenuItem>
 
-      <MenuItem Header="_View">
-        <MenuItem Header="Show _Pages Sidebar"
+      <MenuItem Header="{loc:Loc app.menu.view.mnemonic}">
+        <MenuItem Header="{loc:Loc app.menu.view.sidebar.mnemonic}"
                   Command="{Binding ToggleSidebarCommand}" />
         <Separator />
-        <MenuItem Header="_Search"
+        <MenuItem Header="{loc:Loc app.menu.view.search.mnemonic}"
                   Command="{Binding ToggleSearchPanelCommand}"
                   IsEnabled="{Binding IsSearchAvailableForCurrentDocument}" />
-        <MenuItem Header="_Information"
+        <MenuItem Header="{loc:Loc app.menu.view.info.mnemonic}"
                   Command="{Binding ToggleInfoPanelCommand}" />
-        <MenuItem Header="_Preferences"
+        <MenuItem Header="{loc:Loc app.menu.view.preferences.mnemonic}"
                   Command="{Binding TogglePreferencesPanelCommand}" />
         <Separator />
-        <MenuItem Header="Zoom _In"
+        <MenuItem Header="{loc:Loc app.menu.view.zoom_in.mnemonic}"
                   Command="{Binding ZoomInCommand}" />
-        <MenuItem Header="Zoom _Out"
+        <MenuItem Header="{loc:Loc app.menu.view.zoom_out.mnemonic}"
                   Command="{Binding ZoomOutCommand}" />
         <Separator />
-        <MenuItem Header="Fit to _Width"
+        <MenuItem Header="{loc:Loc app.menu.view.fit_width.mnemonic}"
                   Command="{Binding FitToWidthCommand}" />
-        <MenuItem Header="Fit to _Page"
+        <MenuItem Header="{loc:Loc app.menu.view.fit_page.mnemonic}"
                   Command="{Binding FitToPageCommand}" />
       </MenuItem>
 
-      <MenuItem Header="_Annotate">
-        <MenuItem Header="Show _Annotations"
+      <MenuItem Header="{loc:Loc app.menu.annotate.mnemonic}">
+        <MenuItem Header="{loc:Loc app.menu.annotate.show.mnemonic}"
                   Command="{Binding ToggleAnnotationsPanelCommand}" />
         <Separator />
-        <MenuItem Header="_Select Tool"
+        <MenuItem Header="{loc:Loc app.menu.annotate.select.mnemonic}"
                   Command="{Binding SelectAnnotationToolCommand}"
                   CommandParameter="Select" />
-        <MenuItem Header="_Highlight Selection"
+        <MenuItem Header="{loc:Loc app.menu.annotate.highlight.mnemonic}"
                   Command="{Binding AddHighlightAnnotationFromSelectionCommand}" />
-        <MenuItem Header="_Freehand"
+        <MenuItem Header="{loc:Loc app.menu.annotate.freehand.mnemonic}"
                   Command="{Binding SelectAnnotationToolCommand}"
                   CommandParameter="Ink" />
-        <MenuItem Header="_Rectangle"
+        <MenuItem Header="{loc:Loc app.menu.annotate.rectangle.mnemonic}"
                   Command="{Binding SelectAnnotationToolCommand}"
                   CommandParameter="Rectangle" />
-        <MenuItem Header="_Text"
+        <MenuItem Header="{loc:Loc app.menu.annotate.text.mnemonic}"
                   Command="{Binding SelectAnnotationToolCommand}"
                   CommandParameter="Text" />
-        <MenuItem Header="_Note"
+        <MenuItem Header="{loc:Loc app.menu.annotate.note.mnemonic}"
                   Command="{Binding SelectAnnotationToolCommand}"
                   CommandParameter="Note" />
-        <MenuItem Header="_Stamp"
+        <MenuItem Header="{loc:Loc app.menu.annotate.stamp.mnemonic}"
                   Command="{Binding SelectAnnotationToolCommand}"
                   CommandParameter="Stamp" />
-        <MenuItem Header="_Signature"
+        <MenuItem Header="{loc:Loc app.menu.annotate.signature.mnemonic}"
                   Command="{Binding SelectAnnotationToolCommand}"
                   CommandParameter="Signature" />
         <Separator />
-        <MenuItem Header="_Delete Selected"
+        <MenuItem Header="{loc:Loc app.menu.annotate.delete.mnemonic}"
                   Command="{Binding DeleteSelectedAnnotationCommand}" />
-        <MenuItem Header="_Undo"
+        <MenuItem Header="{loc:Loc app.menu.annotate.undo.mnemonic}"
                   Command="{Binding UndoAnnotationsCommand}" />
-        <MenuItem Header="_Redo"
+        <MenuItem Header="{loc:Loc app.menu.annotate.redo.mnemonic}"
                   Command="{Binding RedoAnnotationsCommand}" />
       </MenuItem>
     </Menu>
@@ -276,43 +277,55 @@
             BorderBrush="{DynamicResource Brush.Border}"
             BorderThickness="0,0,0,1"
             Background="{DynamicResource Brush.Surface}">
-      <DockPanel LastChildFill="True">
-        <StackPanel DockPanel.Dock="Left"
-                    Orientation="Horizontal"
-                    VerticalAlignment="Top"
-                    Spacing="14"
-                    Margin="0,0,20,0">
-          <Grid MaxWidth="{Binding HeaderTitleMaxWidth}"
-                Width="{Binding HeaderTitleMaxWidth}"
+      <Grid ColumnDefinitions="*,Auto"
+            ColumnSpacing="18"
+            ClipToBounds="True">
+        <Grid Grid.Column="0"
+              ColumnDefinitions="*,Auto,Auto"
+              ColumnSpacing="14"
+              VerticalAlignment="Center"
+              MinWidth="0">
+          <Grid Grid.Column="0"
+                MinWidth="0"
+                MaxWidth="{Binding HeaderTitleMaxWidth}"
+                HorizontalAlignment="Stretch"
                 VerticalAlignment="Center">
             <StackPanel Spacing="2"
+                        MinWidth="0"
                         IsVisible="{Binding ShouldEmphasizeOpenAction}">
               <TextBlock Text="{Binding HeaderTitle}"
                          Classes="title"
-                         TextTrimming="CharacterEllipsis" />
+                         TextWrapping="NoWrap"
+                         TextTrimming="CharacterEllipsis"
+                         ToolTip.Tip="{Binding CurrentDocumentPath}" />
               <TextBlock Text="{Binding HeaderSubtitle}"
                          Classes="muted"
+                         TextWrapping="NoWrap"
                          TextTrimming="CharacterEllipsis" />
             </StackPanel>
 
             <StackPanel Spacing="2"
+                        MinWidth="0"
                         IsVisible="{Binding HasOpenDocument}">
               <TextBox x:Name="DocumentNameEditorTextBox"
                        Classes="header-title-input"
+                       HorizontalAlignment="Stretch"
                        Text="{Binding EditableDocumentName}"
-                       Watermark="Document name"
-                       ToolTip.Tip="Click to edit the save name"
+                       Watermark="{loc:Loc toolbar.document_name.placeholder}"
+                       ToolTip.Tip="{loc:Loc toolbar.document_name.tooltip}"
                        KeyDown="OnDocumentNameInputKeyDown"
                        GotFocus="OnDocumentNameInputGotFocus"
                        LostFocus="OnDocumentNameInputLostFocus" />
               <TextBlock Text="{Binding HeaderSubtitle}"
                          Classes="muted"
+                         TextWrapping="NoWrap"
                          TextTrimming="CharacterEllipsis"
                          ToolTip.Tip="{Binding CurrentDocumentPath}" />
             </StackPanel>
           </Grid>
 
-          <Button Classes="header-action-button sidebar-toggle-button"
+          <Button Grid.Column="1"
+                  Classes="header-action-button sidebar-toggle-button"
                   Command="{Binding ToggleSidebarCommand}"
                   IsVisible="{Binding CanToggleSidebar}"
                   ToolTip.Tip="{Binding SidebarToggleLabel}">
@@ -322,14 +335,15 @@
                                         Height="18" />
           </Button>
 
-          <Border Classes="header-chip-group"
+          <Border Grid.Column="2"
+                  Classes="header-chip-group"
                   VerticalAlignment="Center">
             <StackPanel Orientation="Horizontal"
                         Spacing="4">
               <Button Classes="toolbar-primary-button"
                       Command="{Binding OpenCommand}"
                       IsVisible="{Binding ShouldEmphasizeOpenAction}"
-                      ToolTip.Tip="Open a document">
+                      ToolTip.Tip="{loc:Loc toolbar.open.tooltip}">
                 <StackPanel Orientation="Horizontal"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
@@ -338,7 +352,7 @@
                                               Kind="FolderOpenOutline"
                                               Width="20"
                                               Height="20" />
-                  <TextBlock Text="Open"
+                  <TextBlock Text="{loc:Loc toolbar.open.label}"
                              Classes="toolbar-primary-label" />
                 </StackPanel>
               </Button>
@@ -346,7 +360,7 @@
               <Button Classes="header-action-button"
                       Command="{Binding OpenCommand}"
                       IsVisible="{Binding HasOpenDocument}"
-                      ToolTip.Tip="Open another document">
+                      ToolTip.Tip="{loc:Loc toolbar.open_another.tooltip}">
                 <StackPanel Orientation="Horizontal"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
@@ -355,7 +369,7 @@
                                               Kind="FolderOpenOutline"
                                               Width="18"
                                               Height="18" />
-                  <TextBlock Text="Open"
+                  <TextBlock Text="{loc:Loc toolbar.open.label}"
                              Classes="header-action-label" />
                 </StackPanel>
               </Button>
@@ -363,7 +377,7 @@
               <Button Classes="header-action-button"
                       Command="{Binding PrintDocumentCommand}"
                       IsVisible="{Binding HasOpenDocument}"
-                      ToolTip.Tip="Print the current document">
+                      ToolTip.Tip="{loc:Loc toolbar.print.tooltip}">
                 <materialIcons:MaterialIcon Classes="toolbar-icon"
                                             Kind="PrinterOutline"
                                             Width="18"
@@ -373,7 +387,7 @@
               <Button Classes="header-action-button"
                       Command="{Binding CloseCommand}"
                       IsVisible="{Binding HasOpenDocument}"
-                      ToolTip.Tip="Close the current document">
+                      ToolTip.Tip="{loc:Loc toolbar.close.tooltip}">
                 <materialIcons:MaterialIcon Classes="toolbar-icon"
                                             Kind="Close"
                                             Width="18"
@@ -381,16 +395,20 @@
               </Button>
             </StackPanel>
           </Border>
-        </StackPanel>
+        </Grid>
 
-        <WrapPanel VerticalAlignment="Top">
+        <StackPanel Grid.Column="1"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Spacing="0">
           <Border Classes="header-pill header-flex-item"
                   IsVisible="{Binding IsPageNavigationVisible}">
             <StackPanel Orientation="Horizontal"
                         Spacing="6">
               <Button Classes="header-pill-button"
                       Command="{Binding PreviousPageCommand}"
-                      ToolTip.Tip="Previous page">
+                      ToolTip.Tip="{loc:Loc toolbar.page.previous}">
                 <materialIcons:MaterialIcon Classes="toolbar-icon"
                                             Kind="ChevronLeft"
                                             Width="18"
@@ -403,7 +421,7 @@
                        Width="46"
                        Text="{Binding GoToPageInput}"
                        IsEnabled="{Binding CanGoToPage}"
-                       ToolTip.Tip="Enter a page number then press Enter"
+                       ToolTip.Tip="{loc:Loc toolbar.page.input.tooltip}"
                        KeyDown="OnGoToPageInputKeyDown" />
 
               <TextBlock Text="/"
@@ -415,7 +433,7 @@
 
               <Button Classes="header-pill-button"
                       Command="{Binding NextPageCommand}"
-                      ToolTip.Tip="Next page">
+                      ToolTip.Tip="{loc:Loc toolbar.page.next}">
                 <materialIcons:MaterialIcon Classes="toolbar-icon"
                                             Kind="ChevronRight"
                                             Width="18"
@@ -430,7 +448,7 @@
                         Spacing="6">
               <Button Classes="header-pill-button"
                       Command="{Binding ZoomOutCommand}"
-                      ToolTip.Tip="Zoom out">
+                      ToolTip.Tip="{loc:Loc toolbar.zoom.out}">
                 <materialIcons:MaterialIcon Classes="toolbar-icon"
                                             Kind="MagnifyMinusOutline"
                                             Width="18"
@@ -446,7 +464,7 @@
 
               <Button Classes="header-pill-button"
                       Command="{Binding FitToWidthCommand}"
-                      ToolTip.Tip="Fit to width">
+                      ToolTip.Tip="{loc:Loc toolbar.zoom.fit_width}">
                 <materialIcons:MaterialIcon Classes="toolbar-icon"
                                             Kind="ArrowExpandHorizontal"
                                             Width="18"
@@ -455,7 +473,7 @@
 
               <Button Classes="header-pill-button"
                       Command="{Binding FitToPageCommand}"
-                      ToolTip.Tip="Fit to page">
+                      ToolTip.Tip="{loc:Loc toolbar.zoom.fit_page}">
                 <materialIcons:MaterialIcon Classes="toolbar-icon"
                                             Kind="FitToPageOutline"
                                             Width="18"
@@ -464,7 +482,7 @@
 
               <Button Classes="header-pill-button"
                       Command="{Binding ZoomInCommand}"
-                      ToolTip.Tip="Zoom in">
+                      ToolTip.Tip="{loc:Loc toolbar.zoom.in}">
                 <materialIcons:MaterialIcon Classes="toolbar-icon"
                                             Kind="MagnifyPlusOutline"
                                             Width="18"
@@ -487,15 +505,15 @@
               <TextBox Grid.Column="1"
                        Classes="header-search-input"
                        Width="156"
-                       Watermark="Search in document"
+                       Watermark="{loc:Loc toolbar.search.placeholder}"
                        Text="{Binding SearchQueryInput}"
                        KeyDown="OnSearchInputKeyDown" />
 
               <Button Grid.Column="2"
                       Classes="header-search-button"
                       Command="{Binding OpenSearchCommand}"
-                      ToolTip.Tip="Search in document">
-                <TextBlock Text="Search"
+                      ToolTip.Tip="{loc:Loc toolbar.search.tooltip}">
+                <TextBlock Text="{loc:Loc toolbar.search.label}"
                            Classes="header-action-label" />
               </Button>
             </Grid>
@@ -507,7 +525,7 @@
                         Spacing="4">
               <Button Classes="header-action-button"
                       Command="{Binding RotateLeftCommand}"
-                      ToolTip.Tip="Rotate left">
+                      ToolTip.Tip="{loc:Loc toolbar.rotate.left}">
                 <materialIcons:MaterialIcon Classes="toolbar-icon"
                                             Kind="RotateLeftVariant"
                                             Width="18"
@@ -519,7 +537,7 @@
 
               <Button Classes="header-action-button"
                       Command="{Binding RotateRightCommand}"
-                      ToolTip.Tip="Rotate right">
+                      ToolTip.Tip="{loc:Loc toolbar.rotate.right}">
                 <materialIcons:MaterialIcon Classes="toolbar-icon"
                                             Kind="RotateRightVariant"
                                             Width="18"
@@ -535,7 +553,7 @@
               <Button Classes="header-action-button"
                       Command="{Binding ToggleSearchPanelCommand}"
                       IsVisible="{Binding UseCollapsedHeaderSearchButton}"
-                      ToolTip.Tip="Open search">
+                      ToolTip.Tip="{loc:Loc toolbar.search.open}">
                 <materialIcons:MaterialIcon Classes="toolbar-icon"
                                             Kind="Magnify"
                                             Width="18"
@@ -544,7 +562,7 @@
 
               <Button Classes="header-action-button"
                       Command="{Binding ToggleInfoPanelCommand}"
-                      ToolTip.Tip="Show file information">
+                      ToolTip.Tip="{loc:Loc toolbar.info.open}">
                 <materialIcons:MaterialIcon Classes="toolbar-icon"
                                             Kind="InformationCircleOutline"
                                             Width="18"
@@ -553,7 +571,7 @@
 
               <Button Classes="header-action-button"
                       Command="{Binding ToggleAnnotationsPanelCommand}"
-                      ToolTip.Tip="Show annotations">
+                      ToolTip.Tip="{loc:Loc toolbar.annotations.open}">
                 <materialIcons:MaterialIcon Classes="toolbar-icon"
                                             Kind="PencilOutline"
                                             Width="18"
@@ -562,7 +580,7 @@
 
               <Button Classes="header-action-button"
                       Command="{Binding TogglePreferencesPanelCommand}"
-                      ToolTip.Tip="Show preferences">
+                      ToolTip.Tip="{loc:Loc toolbar.preferences.open}">
                 <materialIcons:MaterialIcon Classes="toolbar-icon"
                                             Kind="CogOutline"
                                             Width="18"
@@ -570,8 +588,8 @@
               </Button>
             </StackPanel>
           </Border>
-        </WrapPanel>
-      </DockPanel>
+        </StackPanel>
+      </Grid>
     </Border>
 
     <!-- Sidebar -->
@@ -601,7 +619,7 @@
                        VerticalAlignment="Center" />
 
             <TextBlock Grid.Column="1"
-                       Text="Loading..."
+                       Text="{loc:Loc app.loading}"
                        Classes="muted"
                        VerticalAlignment="Center"
                        IsVisible="{Binding IsGeneratingThumbnails}" />
@@ -621,7 +639,7 @@
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
                   <Border Classes="thumbnail-hitbox"
-                          ToolTip.Tip="Right-click for page actions"
+                          ToolTip.Tip="{loc:Loc sidebar.page.actions}"
                           PointerPressed="OnThumbnailPointerPressed"
                           PointerMoved="OnThumbnailPointerMoved"
                           PointerReleased="OnThumbnailPointerReleased"
@@ -629,13 +647,13 @@
                           Tapped="OnThumbnailTapped">
                     <Border.ContextMenu>
                       <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
-                        <MenuItem Header="Open page"
+                        <MenuItem Header="{loc:Loc sidebar.page.open}"
                                   Command="{Binding DataContext.SelectThumbnailCommand, ElementName=RootWindow}"
                                   CommandParameter="{Binding}" />
-                        <MenuItem Header="Extract this page"
+                        <MenuItem Header="{loc:Loc sidebar.page.extract}"
                                   Command="{Binding DataContext.ExtractThumbnailPageCommand, ElementName=RootWindow}"
                                   CommandParameter="{Binding}" />
-                        <MenuItem Header="Delete this page"
+                        <MenuItem Header="{loc:Loc sidebar.page.delete}"
                                   Command="{Binding DataContext.DeleteThumbnailPageCommand, ElementName=RootWindow}"
                                   CommandParameter="{Binding}" />
                       </ContextMenu>
@@ -660,7 +678,7 @@
                                    MaxHeight="150"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center" />
-                            <TextBlock Text="Loading..."
+                            <TextBlock Text="{loc:Loc app.loading}"
                                        Classes="muted"
                                        HorizontalAlignment="Center"
                                        VerticalAlignment="Center"
@@ -668,7 +686,7 @@
                           </Grid>
                         </Border>
 
-                        <TextBlock Text="{Binding DisplayPageNumber, StringFormat=Page {0}}"
+                        <TextBlock Text="{Binding PageLabel}"
                                    HorizontalAlignment="Center"
                                    FontWeight="SemiBold" />
                       </StackPanel>
@@ -706,7 +724,7 @@
                              HorizontalAlignment="Center"
                              VerticalAlignment="Center" />
                       <TextBlock x:Name="ThumbnailDragGhostLoadingText"
-                                 Text="Loading..."
+                                 Text="{loc:Loc app.loading}"
                                  Classes="muted"
                                  HorizontalAlignment="Center"
                                  VerticalAlignment="Center"
@@ -775,7 +793,7 @@
                     Command="{Binding NotificationPrimaryActionCommand}"
                     IsVisible="{Binding HasNotificationPrimaryAction}" />
 
-            <Button Content="Dismiss"
+            <Button Content="{loc:Loc app.dismiss}"
                     Command="{Binding DismissMessageCommand}"
                     IsVisible="{Binding CanDismissUserMessage}" />
           </StackPanel>
@@ -825,7 +843,7 @@
         <StackPanel Orientation="Horizontal"
                     HorizontalAlignment="Center"
                     Spacing="8">
-          <Button Content="Open a file"
+          <Button Content="{loc:Loc app.open.button}"
                   Width="140"
                   HorizontalAlignment="Center"
                   Command="{Binding OpenCommand}" />
@@ -837,11 +855,11 @@
                 IsVisible="{Binding HasRecentFiles}">
           <StackPanel Spacing="10">
             <DockPanel LastChildFill="False">
-              <TextBlock Text="Recent files"
+              <TextBlock Text="{loc:Loc app.recent.title}"
                          Classes="title"
                          VerticalAlignment="Center" />
 
-              <Button Content="Clear"
+              <Button Content="{loc:Loc app.recent.clear}"
                       DockPanel.Dock="Right"
                       Command="{Binding ClearRecentFilesCommand}" />
             </DockPanel>
@@ -1053,7 +1071,7 @@
                   VerticalAlignment="Center"
                   Padding="12,10"
                   IsVisible="{Binding ShowRenderingBanner}">
-            <TextBlock Text="Rendering..."
+            <TextBlock Text="{loc:Loc app.rendering}"
                        Classes="muted" />
           </Border>
           </Grid>
@@ -1078,7 +1096,7 @@
                       VerticalScrollBarVisibility="Auto">
           <StackPanel Spacing="16">
             <StackPanel Spacing="4">
-              <TextBlock Text="Informations"
+              <TextBlock Text="{loc:Loc panel.info.title}"
                          Classes="title" />
               <TextBlock Text="{Binding CurrentDocumentName}"
                          FontWeight="SemiBold"
@@ -1138,12 +1156,12 @@
                 Margin="18,16,18,0">
             <StackPanel Grid.Column="0"
                         Spacing="4">
-              <TextBlock Text="Search"
+              <TextBlock Text="{loc:Loc panel.search.title}"
                          Classes="title" />
               <TextBlock Text="{Binding CurrentDocumentName}"
                          FontWeight="SemiBold"
                          TextWrapping="Wrap" />
-              <TextBlock Text="Search inside the current document or recognize text locally when needed."
+              <TextBlock Text="{loc:Loc panel.search.description}"
                          Classes="muted"
                          TextWrapping="Wrap" />
             </StackPanel>
@@ -1151,7 +1169,7 @@
             <Button Grid.Column="1"
                     Classes="panel-close-button"
                     Command="{Binding ToggleSearchPanelCommand}"
-                    ToolTip.Tip="Close search">
+                    ToolTip.Tip="{loc:Loc panel.search.close}">
               <materialIcons:MaterialIcon Classes="toolbar-icon"
                                           Kind="Close"
                                           Width="18"
@@ -1174,27 +1192,27 @@
                 </Border>
 
                 <StackPanel Spacing="8">
-                  <TextBlock Text="Query"
+                  <TextBlock Text="{loc:Loc panel.search.query}"
                              Classes="metadata-label" />
                   <Grid ColumnDefinitions="*,Auto"
                         ColumnSpacing="8">
                     <TextBox Classes="toolbar-input"
                              Grid.Column="0"
-                             Watermark="Find text in this document"
+                             Watermark="{loc:Loc panel.search.query.placeholder}"
                              Text="{Binding SearchQueryInput}" />
 
                     <Button Grid.Column="1"
-                            Content="Search"
+                            Content="{loc:Loc toolbar.search.label}"
                             Command="{Binding SearchTextCommand}" />
                   </Grid>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal"
                             Spacing="8">
-                  <Button Content="Recognize text"
+                  <Button Content="{loc:Loc panel.search.recognize}"
                           Command="{Binding RunSearchOcrCommand}"
                           IsVisible="{Binding CanRunDocumentOcr}" />
-                  <Button Content="Cancel analysis"
+                  <Button Content="{loc:Loc panel.search.cancel_analysis}"
                           Command="{Binding CancelDocumentTextAnalysisCommand}"
                           IsVisible="{Binding CanCancelDocumentTextAnalysis}" />
                 </StackPanel>
@@ -1217,7 +1235,7 @@
                                 Spacing="4">
                       <Button Classes="toolbar-button"
                               Command="{Binding PreviousSearchResultCommand}"
-                              ToolTip.Tip="Previous result">
+                              ToolTip.Tip="{loc:Loc search.result.previous}">
                         <materialIcons:MaterialIcon Classes="toolbar-icon"
                                                     Kind="ChevronUp"
                                                     Width="20"
@@ -1227,7 +1245,7 @@
 
                       <Button Classes="toolbar-button"
                               Command="{Binding NextSearchResultCommand}"
-                              ToolTip.Tip="Next result">
+                              ToolTip.Tip="{loc:Loc search.result.next}">
                         <materialIcons:MaterialIcon Classes="toolbar-icon"
                                                     Kind="ChevronDown"
                                                     Width="20"
@@ -1255,7 +1273,7 @@
                         <Border Classes="search-result-item"
                                 Classes.selected="{Binding IsSelected}">
                           <StackPanel Spacing="6">
-                            <TextBlock Text="{Binding PageNumber, StringFormat=Page {0}}"
+                            <TextBlock Text="{Binding PageLabel}"
                                        Classes="metadata-label" />
                             <TextBlock Text="{Binding Excerpt}"
                                        TextWrapping="Wrap" />
@@ -1290,15 +1308,23 @@
                       VerticalScrollBarVisibility="Auto">
           <StackPanel Spacing="18">
             <StackPanel Spacing="4">
-              <TextBlock Text="Preferences"
+              <TextBlock Text="{loc:Loc panel.preferences.title}"
                          Classes="title" />
-              <TextBlock Text="Choose the default viewer behavior for the next documents you open."
+              <TextBlock Text="{loc:Loc panel.preferences.description}"
                          Classes="muted"
                          TextWrapping="Wrap" />
             </StackPanel>
 
             <StackPanel Spacing="8">
-              <TextBlock Text="Theme"
+              <TextBlock Text="{loc:Loc panel.preferences.language}"
+                         Classes="metadata-label" />
+              <ComboBox Classes="preferences-input"
+                        ItemsSource="{Binding LanguagePreferenceOptions}"
+                        SelectedItem="{Binding SelectedLanguagePreference}" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+              <TextBlock Text="{loc:Loc panel.preferences.theme}"
                          Classes="metadata-label" />
               <ComboBox Classes="preferences-input"
                         ItemsSource="{Binding ThemePreferenceOptions}"
@@ -1306,7 +1332,7 @@
             </StackPanel>
 
             <StackPanel Spacing="8">
-              <TextBlock Text="Default zoom"
+              <TextBlock Text="{loc:Loc panel.preferences.default_zoom}"
                          Classes="metadata-label" />
               <ComboBox Classes="preferences-input"
                         ItemsSource="{Binding DefaultZoomPreferenceOptions}"
@@ -1314,19 +1340,19 @@
             </StackPanel>
 
             <StackPanel Spacing="8">
-              <TextBlock Text="Sidebar"
+              <TextBlock Text="{loc:Loc panel.preferences.sidebar}"
                          Classes="metadata-label" />
-              <CheckBox Content="Show page thumbnails for PDF documents"
+              <CheckBox Content="{loc:Loc panel.preferences.show_thumbnails}"
                         IsChecked="{Binding ShowThumbnailsPanelPreference}" />
             </StackPanel>
 
             <StackPanel Spacing="8">
-              <TextBlock Text="Memory cache size"
+              <TextBlock Text="{loc:Loc panel.preferences.cache_size}"
                          Classes="metadata-label" />
               <ComboBox Classes="preferences-input"
                         ItemsSource="{Binding MemoryCacheEntryLimitOptions}"
                         SelectedItem="{Binding SelectedMemoryCacheEntryLimit}" />
-              <TextBlock Text="0 disables the in-memory render cache."
+              <TextBlock Text="{loc:Loc panel.preferences.cache_help}"
                          Classes="muted"
                          TextWrapping="Wrap" />
             </StackPanel>
@@ -1353,12 +1379,12 @@
                       VerticalScrollBarVisibility="Auto">
           <StackPanel Spacing="18">
             <StackPanel Spacing="4">
-              <TextBlock Text="Print"
+              <TextBlock Text="{loc:Loc panel.print.title}"
                          Classes="title" />
               <TextBlock Text="{Binding CurrentDocumentName}"
                          FontWeight="SemiBold"
                          TextWrapping="Wrap" />
-              <TextBlock Text="Choose a printer and the basic print options."
+              <TextBlock Text="{loc:Loc panel.print.description}"
                          Classes="muted"
                          TextWrapping="Wrap" />
             </StackPanel>
@@ -1373,10 +1399,10 @@
 
             <StackPanel Spacing="8">
               <DockPanel LastChildFill="False">
-                <TextBlock Text="Printer"
+                <TextBlock Text="{loc:Loc panel.print.printer}"
                            Classes="metadata-label"
                            VerticalAlignment="Center" />
-                <Button Content="Refresh"
+                <Button Content="{loc:Loc panel.print.refresh}"
                         DockPanel.Dock="Right"
                         Command="{Binding RefreshPrintDestinationsCommand}" />
               </DockPanel>
@@ -1395,7 +1421,7 @@
             </StackPanel>
 
             <StackPanel Spacing="8">
-              <TextBlock Text="Copies"
+              <TextBlock Text="{loc:Loc panel.print.copies}"
                          Classes="metadata-label" />
               <TextBox Classes="toolbar-input"
                        Text="{Binding PrintCopiesInput}" />
@@ -1403,34 +1429,34 @@
 
             <StackPanel Spacing="8"
                         IsVisible="{Binding IsPrintPageRangeVisible}">
-              <TextBlock Text="Pages"
+              <TextBlock Text="{loc:Loc panel.print.pages}"
                          Classes="metadata-label" />
               <ComboBox Classes="preferences-input"
                         ItemsSource="{Binding PrintPageRangeOptions}"
                         SelectedItem="{Binding SelectedPrintPageRangeOption}" />
               <TextBox Classes="toolbar-input"
-                       Watermark="1-3,5"
+                       Watermark="{loc:Loc panel.print.pages.placeholder}"
                        Text="{Binding PrintCustomPageRange}"
                        IsVisible="{Binding IsCustomPrintRangeVisible}" />
             </StackPanel>
 
             <StackPanel Spacing="8">
-              <TextBlock Text="Orientation"
+              <TextBlock Text="{loc:Loc panel.print.orientation}"
                          Classes="metadata-label" />
               <ComboBox Classes="preferences-input"
                         ItemsSource="{Binding PrintOrientationOptions}"
                         SelectedItem="{Binding SelectedPrintOrientationOption}" />
             </StackPanel>
 
-            <CheckBox Content="Scale content to fit the page"
+            <CheckBox Content="{loc:Loc panel.print.fit}"
                       IsChecked="{Binding PrintFitToPage}" />
 
             <StackPanel Orientation="Horizontal"
                         HorizontalAlignment="Right"
                         Spacing="8">
-              <Button Content="Cancel"
+              <Button Content="{loc:Loc app.cancel}"
                       Command="{Binding PrintDocumentCommand}" />
-              <Button Content="Print"
+              <Button Content="{loc:Loc panel.print.print}"
                       Command="{Binding SubmitPrintJobCommand}" />
             </StackPanel>
           </StackPanel>
@@ -1456,9 +1482,9 @@
                       VerticalScrollBarVisibility="Auto">
           <StackPanel Spacing="16">
             <StackPanel Spacing="4">
-              <TextBlock Text="Annotations"
+              <TextBlock Text="{loc:Loc panel.annotations.title}"
                          Classes="title" />
-              <TextBlock Text="Annotate the current page, add a simple signature, then save the updated document."
+              <TextBlock Text="{loc:Loc panel.annotations.description}"
                          Classes="muted"
                          TextWrapping="Wrap" />
             </StackPanel>
@@ -1477,61 +1503,61 @@
               <Button Classes="annotation-tool-button"
                       Command="{Binding SelectAnnotationToolCommand}"
                       CommandParameter="Select"
-                      Content="Select" />
+                      Content="{loc:Loc annotation.tool.select}" />
               <Button Classes="annotation-tool-button"
                       Command="{Binding AddHighlightAnnotationFromSelectionCommand}"
                       IsEnabled="{Binding CanCreateHighlightAnnotation}"
-                      Content="Highlight" />
+                      Content="{loc:Loc annotation.tool.highlight}" />
               <Button Classes="annotation-tool-button"
                       Command="{Binding SelectAnnotationToolCommand}"
                       CommandParameter="Ink"
-                      Content="Ink" />
+                      Content="{loc:Loc annotation.tool.ink}" />
               <Button Classes="annotation-tool-button"
                       Command="{Binding SelectAnnotationToolCommand}"
                       CommandParameter="Rectangle"
-                      Content="Rectangle" />
+                      Content="{loc:Loc annotation.tool.rectangle}" />
               <Button Classes="annotation-tool-button"
                       Command="{Binding SelectAnnotationToolCommand}"
                       CommandParameter="Text"
-                      Content="Text" />
+                      Content="{loc:Loc annotation.tool.text}" />
               <Button Classes="annotation-tool-button"
                       Command="{Binding SelectAnnotationToolCommand}"
                       CommandParameter="Note"
-                      Content="Note" />
+                      Content="{loc:Loc annotation.tool.note}" />
               <Button Classes="annotation-tool-button"
                       Command="{Binding SelectAnnotationToolCommand}"
                       CommandParameter="Stamp"
-                      Content="Stamp" />
+                      Content="{loc:Loc annotation.tool.stamp}" />
               <Button Classes="annotation-tool-button"
                       Command="{Binding SelectAnnotationToolCommand}"
                       CommandParameter="Signature"
-                      Content="Signature" />
+                      Content="{loc:Loc annotation.tool.signature}" />
             </WrapPanel>
 
             <StackPanel Spacing="8"
                         IsVisible="{Binding ShowAnnotationTextEditor}">
-              <TextBlock Text="Annotation text"
+              <TextBlock Text="{loc:Loc panel.annotations.text}"
                          Classes="metadata-label" />
               <TextBox Classes="toolbar-input"
                        Text="{Binding AnnotationTextDraft}"
-                       Watermark="Text, note or stamp label" />
+                       Watermark="{loc:Loc panel.annotations.text.placeholder}" />
             </StackPanel>
 
             <StackPanel Spacing="8">
               <Grid ColumnDefinitions="*,Auto,Auto"
                     ColumnSpacing="8">
                 <TextBlock Grid.Column="0"
-                           Text="Signature library"
+                           Text="{loc:Loc panel.annotations.signature_library}"
                            Classes="metadata-label"
                            VerticalAlignment="Center" />
                 <Button Grid.Column="1"
-                        Content="Import image"
+                        Content="{loc:Loc panel.annotations.import_image}"
                         Command="{Binding ImportSignatureAssetCommand}" />
                 <Button Grid.Column="2"
                         Classes="annotation-list-delete-button"
                         CommandParameter="{Binding SelectedSignatureAssetId}"
                         Command="{Binding DeleteSelectedSignatureAssetCommand}"
-                        ToolTip.Tip="Delete selected signature">
+                        ToolTip.Tip="{loc:Loc panel.annotations.delete_signature}">
                   <materialIcons:MaterialIcon Classes="toolbar-icon"
                                               Kind="TrashCanOutline"
                                               Width="16"
@@ -1564,7 +1590,7 @@
                                 Classes="annotation-list-delete-button"
                                 Command="{Binding $parent[Window].DataContext.DeleteSelectedSignatureAssetCommand}"
                                 CommandParameter="{Binding Id}"
-                                ToolTip.Tip="Delete selected signature">
+                                ToolTip.Tip="{loc:Loc panel.annotations.delete_signature}">
                           <materialIcons:MaterialIcon Classes="toolbar-icon"
                                                       Kind="TrashCanOutline"
                                                       Width="16"
@@ -1577,11 +1603,11 @@
               </ItemsControl>
 
               <StackPanel Spacing="8">
-                <TextBlock Text="Draw a new signature"
+                <TextBlock Text="{loc:Loc panel.annotations.draw_signature}"
                            Classes="metadata-label" />
                 <TextBox Classes="toolbar-input"
                          Text="{Binding SignatureAssetNameInput}"
-                         Watermark="Signature name" />
+                         Watermark="{loc:Loc panel.annotations.signature_name.placeholder}" />
 
                 <Grid>
                   <Image Source="{Binding SignaturePadPreviewBitmap}"
@@ -1600,9 +1626,9 @@
 
                 <StackPanel Orientation="Horizontal"
                             Spacing="8">
-                  <Button Content="Clear drawing"
+                  <Button Content="{loc:Loc panel.annotations.clear_drawing}"
                           Command="{Binding ClearSignatureCaptureCommand}" />
-                  <Button Content="Save signature"
+                  <Button Content="{loc:Loc panel.annotations.save_signature}"
                           Command="{Binding SaveDrawnSignatureAssetCommand}" />
                 </StackPanel>
               </StackPanel>
@@ -1610,16 +1636,16 @@
 
             <StackPanel Orientation="Horizontal"
                         Spacing="8">
-              <Button Content="Undo"
+              <Button Content="{loc:Loc panel.annotations.undo}"
                       Command="{Binding UndoAnnotationsCommand}" />
-              <Button Content="Redo"
+              <Button Content="{loc:Loc panel.annotations.redo}"
                       Command="{Binding RedoAnnotationsCommand}" />
-              <Button Content="Delete selected"
+              <Button Content="{loc:Loc panel.annotations.delete_selected}"
                       Command="{Binding DeleteSelectedAnnotationCommand}" />
             </StackPanel>
 
             <StackPanel Spacing="8">
-              <TextBlock Text="Current page annotations"
+              <TextBlock Text="{loc:Loc panel.annotations.current_page}"
                          Classes="metadata-label" />
 
               <ItemsControl ItemsSource="{Binding CurrentPageAnnotations}"
@@ -1632,7 +1658,7 @@
                             HorizontalContentAlignment="Stretch">
                       <Border Classes="annotation-list-item">
                         <StackPanel Spacing="4">
-                          <TextBlock Text="{Binding Kind}"
+                          <TextBlock Text="{Binding KindLabel}"
                                      FontWeight="SemiBold" />
                           <TextBlock Text="{Binding Text}"
                                      Classes="muted"

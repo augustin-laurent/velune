@@ -8,7 +8,8 @@
 
   <NativeMenu.Menu>
     <NativeMenu>
-      <NativeMenuItem Header="About Velune" Click="OnAboutMenuClicked" />
+      <NativeMenuItem Header="About Velune"
+                      Click="OnAboutMenuClicked" />
       <NativeMenuItem Header="Preferences"
                       Click="OnPreferencesMenuClicked"
                       Gesture="Meta+OemComma" />

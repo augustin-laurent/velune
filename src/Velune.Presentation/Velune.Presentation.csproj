@@ -17,4 +17,11 @@
     <ItemGroup>
         <AvaloniaResource Include="Assets\**\*" />
     </ItemGroup>
+
+    <ItemGroup>
+        <Content Include="Resources\Localization\*.lang">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <TargetPath>Localization\%(Filename)%(Extension)</TargetPath>
+        </Content>
+    </ItemGroup>
 </Project>

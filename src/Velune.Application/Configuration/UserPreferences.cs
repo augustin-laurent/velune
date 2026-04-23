@@ -14,6 +14,14 @@ public enum DefaultZoomPreference
     ActualSize = 2
 }
 
+public enum AppLanguagePreference
+{
+    System = 0,
+    English = 1,
+    French = 2,
+    Spanish = 3
+}
+
 public sealed record UserPreferences
 {
     public AppThemePreference Theme
@@ -25,6 +33,11 @@ public sealed record UserPreferences
     {
         get; init;
     } = DefaultZoomPreference.FitToPage;
+
+    public AppLanguagePreference Language
+    {
+        get; init;
+    } = AppLanguagePreference.System;
 
     public bool ShowThumbnailsPanel
     {
@@ -52,6 +65,9 @@ public sealed record UserPreferences
         var normalizedZoom = Enum.IsDefined(DefaultZoom)
             ? DefaultZoom
             : DefaultZoomPreference.FitToPage;
+        var normalizedLanguage = Enum.IsDefined(Language)
+            ? Language
+            : AppLanguagePreference.System;
         var normalizedCacheEntryLimit = MemoryCacheEntryLimit < 0
             ? Math.Max(0, defaultMemoryCacheEntryLimit)
             : MemoryCacheEntryLimit;
@@ -60,6 +76,7 @@ public sealed record UserPreferences
         {
             Theme = normalizedTheme,
             DefaultZoom = normalizedZoom,
+            Language = normalizedLanguage,
             MemoryCacheEntryLimit = normalizedCacheEntryLimit
         };
     }

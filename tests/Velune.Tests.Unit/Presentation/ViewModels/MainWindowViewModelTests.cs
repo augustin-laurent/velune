@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging.Abstractions;
 using Velune.Application.Abstractions;
 using Velune.Application.Configuration;
 using Velune.Application.DTOs;
@@ -9,6 +10,8 @@ using Velune.Domain.Annotations;
 using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
 using Velune.Presentation.FileSystem;
+using Velune.Presentation.Localization;
+using Velune.Presentation.Platform;
 using Velune.Presentation.ViewModels;
 using Velune.Tests.Unit.Support;
 using AppResult = Velune.Application.Results.Result;
@@ -68,6 +71,32 @@ public sealed class MainWindowViewModelTests
         Assert.Single(viewModel.RecentFiles);
         Assert.False(viewModel.HasUserMessage);
         Assert.Equal("Action cancelled", viewModel.StatusText);
+    }
+
+    [Fact]
+    public void LanguagePreferenceChange_OnMacOs_ShouldShowRestartNoticeInSelectedLanguage()
+    {
+        var previousDetector = PresentationPlatform.IsMacOSDetector;
+        PresentationPlatform.IsMacOSDetector = static () => true;
+
+        try
+        {
+            using var viewModel = CreateViewModel();
+
+            viewModel.SelectedLanguagePreference = viewModel.LanguagePreferenceOptions
+                .Single(option => option.Value == AppLanguagePreference.French);
+
+            Assert.True(viewModel.HasUserMessage);
+            Assert.Equal("Un redémarrage peut être nécessaire", viewModel.UserMessageTitle);
+            Assert.Equal(
+                "Certains libellés du menu natif macOS peuvent rester dans l’ancienne langue jusqu’au redémarrage de Velune.",
+                viewModel.UserMessage);
+            Assert.Equal("Préférences mises à jour", viewModel.StatusText);
+        }
+        finally
+        {
+            PresentationPlatform.IsMacOSDetector = previousDetector;
+        }
     }
 
     [Fact]
@@ -597,8 +626,10 @@ public sealed class MainWindowViewModelTests
         await viewModel.PrintDocumentCommand.ExecuteAsync(null);
 
         viewModel.PrintCopiesInput = "2";
-        viewModel.SelectedPrintPageRangeOption = "Current page";
-        viewModel.SelectedPrintOrientationOption = "Landscape";
+        viewModel.SelectedPrintPageRangeOption = viewModel.PrintPageRangeOptions
+            .Single(option => option.Value == PrintPageRangeChoice.CurrentPage);
+        viewModel.SelectedPrintOrientationOption = viewModel.PrintOrientationOptions
+            .Single(option => option.Value == PrintOrientationOption.Landscape);
         viewModel.PrintFitToPage = true;
 
         await viewModel.SubmitPrintJobCommand.ExecuteAsync(null);
@@ -639,11 +670,14 @@ public sealed class MainWindowViewModelTests
         await viewModel.PrintDocumentCommand.ExecuteAsync(null);
         await viewModel.SubmitPrintJobCommand.ExecuteAsync(null);
 
+        const string ExpectedMessage =
+            "The document could not be printed.\n\nTechnical details: Printing is not available on this platform yet.";
+
         Assert.Equal("Print failed", viewModel.UserMessageTitle);
         Assert.Equal("Print failed", viewModel.StatusText);
-        Assert.Equal("Printing is not available on this platform yet.", viewModel.UserMessage);
+        Assert.Equal(ExpectedMessage, viewModel.UserMessage);
         Assert.True(viewModel.IsPrintPanelOpen);
-        Assert.Equal("Printing is not available on this platform yet.", viewModel.PrintPanelNotice);
+        Assert.Equal(ExpectedMessage, viewModel.PrintPanelNotice);
     }
 
     [Fact]
@@ -785,6 +819,8 @@ public sealed class MainWindowViewModelTests
         var activePrintService = printService ?? new StubPrintService(ResultFactory.Success());
         var activeTextAnalysisOrchestrator = textAnalysisOrchestrator ?? new StubDocumentTextAnalysisOrchestrator();
         var activeTextSelectionService = textSelectionService ?? new StubDocumentTextSelectionService();
+        var activeUserPreferencesService = userPreferencesService ?? new StubUserPreferencesService();
+        var localizationService = CreateLocalizationService(activeUserPreferencesService);
 
         return new MainWindowViewModel(
             filePickerService ?? new StubFilePickerService(),
@@ -812,12 +848,47 @@ public sealed class MainWindowViewModelTests
             sessionStore,
             recentFilesService ?? CreateRecentFilesService(),
             viewportStore,
-            userPreferencesService ?? new StubUserPreferencesService());
+            activeUserPreferencesService,
+            localizationService,
+            new LocalizedErrorFormatter(localizationService));
     }
 
     private static IRecentFilesService CreateRecentFilesService()
     {
         return new InMemoryRecentFilesService(Options.Create(new AppOptions()));
+    }
+
+    private static FileLocalizationService CreateLocalizationService(IUserPreferencesService userPreferencesService)
+    {
+        return new FileLocalizationService(
+            NullLogger<FileLocalizationService>.Instance,
+            userPreferencesService,
+            Options.Create(new AppOptions
+            {
+                LocalizationPath = ResolveLocalizationCatalogRoot()
+            }));
+    }
+
+    private static string ResolveLocalizationCatalogRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            var candidate = Path.Combine(
+                directory.FullName,
+                "src",
+                "Velune.Presentation",
+                "Resources",
+                "Localization");
+            if (Directory.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new DirectoryNotFoundException("Unable to locate the localization catalog root for unit tests.");
     }
 
     private static DocumentTextIndex CreateDocumentTextIndex(string text)
@@ -1103,7 +1174,10 @@ public sealed class MainWindowViewModelTests
     {
         public StubUserPreferencesService(UserPreferences? current = null)
         {
-            Current = current ?? UserPreferences.CreateDefault(64);
+            Current = current ?? UserPreferences.CreateDefault(64) with
+            {
+                Language = AppLanguagePreference.English
+            };
         }
 
         public UserPreferences Current { get; private set; }

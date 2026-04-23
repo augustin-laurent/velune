@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Velune.Presentation.FileSystem;
+using Velune.Presentation.Localization;
 using Velune.Presentation.ViewModels;
 using Velune.Presentation.Views;
 
@@ -13,6 +14,8 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<TopLevelProvider>();
         services.AddSingleton<IFilePickerService, AvaloniaFilePickerService>();
+        services.AddSingleton<ILocalizationService, FileLocalizationService>();
+        services.AddSingleton<ILocalizedErrorFormatter, LocalizedErrorFormatter>();
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<MainWindow>();
 

@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.Input;
 using Material.Icons;
 using Velune.Application.Abstractions;
 using Velune.Application.Configuration;
+using Velune.Application.Documents;
 using Velune.Application.DTOs;
 using Velune.Application.Results;
 using Velune.Application.Text;
@@ -79,6 +80,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private readonly DeletePdfPagesUseCase _deletePdfPagesUseCase;
     private readonly ExtractPdfPagesUseCase _extractPdfPagesUseCase;
     private readonly ReorderPdfPagesUseCase _reorderPdfPagesUseCase;
+    private readonly MergePdfDocumentsUseCase _mergePdfDocumentsUseCase;
     private readonly IPdfMarkupService _pdfMarkupService;
     private readonly IImageMarkupService _imageMarkupService;
     private readonly ISignatureAssetStore _signatureAssetStore;
@@ -106,6 +108,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private bool _isLoadingPrintDestinations;
     private bool _isAnalyzingDocumentText;
     private bool _isApplyingPreferencesState;
+    private bool _hasPendingMergedDocumentSave;
     private bool _requiresSearchOcr;
     private NotificationKind _currentNotificationKind = NotificationKind.Info;
     private bool _isCurrentNotificationDismissible;
@@ -114,6 +117,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private double _windowWidth = 1280;
     private Action? _notificationPrimaryAction;
     private Action? _notificationSecondaryAction;
+    private string? _pendingMergedDocumentTemporaryDirectory;
+    private string? _pendingMergedDocumentSuggestedFileName;
+    private string? _pendingMergedDocumentTargetPath;
+    private string _pendingMergedDocumentSaveSuccessStatusKey = "status.save.merged_pdf";
+    private bool _pendingMergedDocumentRequiresSavePicker = true;
     private DocumentTextIndex? _currentDocumentTextIndex;
     private DocumentTextSelectionResult? _currentDocumentTextSelection;
     private RenderJobHandle? _currentRenderJob;
@@ -140,6 +148,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         DeletePdfPagesUseCase deletePdfPagesUseCase,
         ExtractPdfPagesUseCase extractPdfPagesUseCase,
         ReorderPdfPagesUseCase reorderPdfPagesUseCase,
+        MergePdfDocumentsUseCase mergePdfDocumentsUseCase,
         IPdfMarkupService pdfMarkupService,
         IImageMarkupService imageMarkupService,
         ISignatureAssetStore signatureAssetStore,
@@ -169,6 +178,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         ArgumentNullException.ThrowIfNull(deletePdfPagesUseCase);
         ArgumentNullException.ThrowIfNull(extractPdfPagesUseCase);
         ArgumentNullException.ThrowIfNull(reorderPdfPagesUseCase);
+        ArgumentNullException.ThrowIfNull(mergePdfDocumentsUseCase);
         ArgumentNullException.ThrowIfNull(pdfMarkupService);
         ArgumentNullException.ThrowIfNull(imageMarkupService);
         ArgumentNullException.ThrowIfNull(signatureAssetStore);
@@ -198,6 +208,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _deletePdfPagesUseCase = deletePdfPagesUseCase;
         _extractPdfPagesUseCase = extractPdfPagesUseCase;
         _reorderPdfPagesUseCase = reorderPdfPagesUseCase;
+        _mergePdfDocumentsUseCase = mergePdfDocumentsUseCase;
         _pdfMarkupService = pdfMarkupService;
         _imageMarkupService = imageMarkupService;
         _signatureAssetStore = signatureAssetStore;
@@ -444,8 +455,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             : WindowWidth >= HeaderTitleTightThreshold
                 ? 180
                 : 140;
-    public bool IsSidebarVisible => HasOpenDocument && !IsCurrentImageDocument && ShowThumbnailsPanelPreference;
-    public bool CanToggleSidebar => HasOpenDocument && !IsCurrentImageDocument;
+    public bool IsSidebarVisible => HasOpenDocument && ShowThumbnailsPanelPreference;
+    public bool CanToggleSidebar => HasOpenDocument;
     public string SidebarToggleLabel => IsSidebarVisible ? L("toolbar.sidebar.hide") : L("toolbar.sidebar.show");
     public bool ShowEditableHeaderTitle => HasOpenDocument && !IsEditingDocumentName;
     public bool ShowHeaderTitleEditor => HasOpenDocument && IsEditingDocumentName;
@@ -516,7 +527,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         HasOpenDocument &&
         !IsPdfStructureOperationInProgress &&
         !string.IsNullOrWhiteSpace(CurrentDocumentPath) &&
-        ((IsPdfDocument && (CanPersistCurrentPageRotation || HasPendingPageReorder || HasPendingRequestedSaveNameChange() || HasPendingAnnotationChanges)) ||
+        ((IsPdfDocument && (_hasPendingMergedDocumentSave || CanPersistCurrentPageRotation || HasPendingPageReorder || HasPendingRequestedSaveNameChange() || HasPendingAnnotationChanges)) ||
          (IsCurrentImageDocument && (HasPendingRequestedSaveNameChange() || HasPendingAnnotationChanges)));
     public bool CanExtractCurrentPage =>
         IsPdfDocument &&
@@ -530,6 +541,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         IsPdfDocument &&
         !IsPdfStructureOperationInProgress &&
         HasPendingPageReorder;
+    public bool CanMergePdfDocuments => !IsPdfStructureOperationInProgress;
+    public bool CanAcceptThumbnailDocumentDrop =>
+        HasOpenDocument &&
+        !IsPdfStructureOperationInProgress &&
+        !string.IsNullOrWhiteSpace(CurrentDocumentPath);
     public bool CanMoveCurrentPageEarlier =>
         IsPdfDocument &&
         !IsPdfStructureOperationInProgress &&
@@ -553,6 +569,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(SidebarOpacity));
         OnPropertyChanged(nameof(IsSidebarInteractive));
         OnPropertyChanged(nameof(CanToggleSidebar));
+        OnPropertyChanged(nameof(CanAcceptThumbnailDocumentDrop));
         OnPropertyChanged(nameof(SidebarToggleLabel));
         OnPropertyChanged(nameof(ShowEditableHeaderTitle));
         OnPropertyChanged(nameof(ShowHeaderTitleEditor));
@@ -563,6 +580,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsPdfStructureActionsVisible));
         OnPropertyChanged(nameof(CanPersistCurrentPageRotation));
         OnPropertyChanged(nameof(CanSaveDocument));
+        OnPropertyChanged(nameof(CanAcceptThumbnailDocumentDrop));
         OnPropertyChanged(nameof(IsSidebarActionStripVisible));
         OnPropertyChanged(nameof(IsInfoPanelOpen));
         OnPropertyChanged(nameof(InfoPanelWidth));
@@ -628,6 +646,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(SidebarOpacity));
         OnPropertyChanged(nameof(IsSidebarInteractive));
         OnPropertyChanged(nameof(CanToggleSidebar));
+        OnPropertyChanged(nameof(CanAcceptThumbnailDocumentDrop));
         OnPropertyChanged(nameof(SidebarToggleLabel));
         OnPropertyChanged(nameof(IsSearchAvailableForCurrentDocument));
         OnPropertyChanged(nameof(UseInlineHeaderSearch));
@@ -654,6 +673,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     partial void OnCurrentDocumentPathChanged(string? value)
     {
         OnPropertyChanged(nameof(CanSaveDocument));
+        OnPropertyChanged(nameof(CanAcceptThumbnailDocumentDrop));
         SaveDocumentCommand.NotifyCanExecuteChanged();
     }
 
@@ -1180,6 +1200,25 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         await ChangeToPageAsync(thumbnail.SourcePageNumber);
     }
 
+    public Task OpenThumbnailContextMenuActionAsync(PageThumbnailItemViewModel? thumbnail)
+    {
+        return SelectThumbnailAsync(thumbnail);
+    }
+
+    public Task ExtractThumbnailContextMenuActionAsync(PageThumbnailItemViewModel? thumbnail)
+    {
+        return CanExtractCurrentPage
+            ? ExtractThumbnailPageAsync(thumbnail)
+            : Task.CompletedTask;
+    }
+
+    public Task DeleteThumbnailContextMenuActionAsync(PageThumbnailItemViewModel? thumbnail)
+    {
+        return CanDeleteCurrentPage
+            ? DeleteThumbnailPageAsync(thumbnail)
+            : Task.CompletedTask;
+    }
+
     [RelayCommand(CanExecute = nameof(CanMoveCurrentPageEarlier))]
     private async Task MoveCurrentPageEarlierAsync()
     {
@@ -1365,6 +1404,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
+        if (_hasPendingMergedDocumentSave)
+        {
+            await SavePendingMergedDocumentAsync(currentDocumentPath);
+            return;
+        }
+
         var pendingRotations = GetPendingPdfRotationGroups();
         var orderedPages = Thumbnails
             .Select(thumbnail => thumbnail.SourcePageNumber)
@@ -1469,6 +1514,408 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                     orderedPages)),
             successStatus: L("status.save.reordered_pdf"),
             failureTitle: L("error.save.reordered_pdf.title"));
+    }
+
+    [RelayCommand(CanExecute = nameof(CanMergePdfDocuments))]
+    private async Task MergePdfDocumentsAsync()
+    {
+        var sourcePaths = await _filePickerService.PickOpenMergeSourceFilesAsync(
+            L("dialog.open.merge_pdf_sources"));
+        if (sourcePaths.Count == 0)
+        {
+            StatusText = L("status.merge.cancelled");
+            return;
+        }
+
+        await MergeDocumentSourcesAsync(sourcePaths);
+    }
+
+    public async Task HandleThumbnailFilesDroppedAsync(IReadOnlyList<string> filePaths, int insertionIndex)
+    {
+        ArgumentNullException.ThrowIfNull(filePaths);
+
+        if (!CanAcceptThumbnailDocumentDrop ||
+            string.IsNullOrWhiteSpace(CurrentDocumentPath))
+        {
+            return;
+        }
+
+        var supportedDroppedPaths = filePaths
+            .Where(IsSupportedMergeSourcePath)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (supportedDroppedPaths.Length == 0)
+        {
+            EnqueueLocalizedWarning(
+                "notification.merge.drop_unsupported.title",
+                "notification.merge.drop_unsupported.message",
+                replaceCurrent: true);
+            StatusText = L("status.merge.drop_unsupported");
+            return;
+        }
+
+        var sourcePaths = new[] { CurrentDocumentPath }
+            .Concat(supportedDroppedPaths)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        await MergeDroppedDocumentSourcesAsync(sourcePaths, insertionIndex);
+    }
+
+    private async Task MergeDocumentSourcesAsync(IReadOnlyList<string> sourcePaths)
+    {
+        if (sourcePaths.Count < 2)
+        {
+            EnqueueLocalizedWarning(
+                "notification.merge.selection_invalid.title",
+                "notification.merge.selection_invalid.message",
+                replaceCurrent: true);
+            StatusText = L("status.merge.selection_invalid");
+            return;
+        }
+
+        await CreateMergedDocumentPreviewAsync(
+            BuildSuggestedMergedPdfFileName(sourcePaths),
+            _ => Task.FromResult<(string[]? SourcePaths, AppError? Error)>((sourcePaths.ToArray(), null)));
+    }
+
+    private async Task MergeDroppedDocumentSourcesAsync(string[] sourcePaths, int insertionIndex)
+    {
+        if (sourcePaths.Length < 2)
+        {
+            EnqueueLocalizedWarning(
+                "notification.merge.selection_invalid.title",
+                "notification.merge.selection_invalid.message",
+                replaceCurrent: true);
+            StatusText = L("status.merge.selection_invalid");
+            return;
+        }
+
+        await CreateMergedDocumentPreviewAsync(
+            BuildSuggestedMergedPdfFileName(sourcePaths),
+            getTemporaryDirectory => BuildDroppedMergeSourcePathsAsync(
+                sourcePaths,
+                insertionIndex,
+                getTemporaryDirectory));
+    }
+
+    private async Task CreateMergedDocumentPreviewAsync(
+        string suggestedFileName,
+        Func<Func<string>, Task<(string[]? SourcePaths, AppError? Error)>> resolveMergeSourcePathsAsync)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(suggestedFileName);
+        ArgumentNullException.ThrowIfNull(resolveMergeSourcePathsAsync);
+
+        string? sourceTemporaryDirectory = null;
+        var previewDirectory = CreateMergeTemporaryDirectory();
+        var previewOutputPath = Path.Combine(previewDirectory, suggestedFileName);
+        var keepPreviewDirectory = false;
+
+        try
+        {
+            SetPdfStructureOperationState(true);
+
+            var mergeSourcePaths = await resolveMergeSourcePathsAsync(() =>
+            {
+                sourceTemporaryDirectory ??= CreateMergeTemporaryDirectory();
+                return sourceTemporaryDirectory;
+            });
+            if (mergeSourcePaths.Error is not null)
+            {
+                EnqueueLocalizedError(mergeSourcePaths.Error, "error.save.merged_pdf.title", "error.save.document.message");
+                StatusText = L("error.save.merged_pdf.title");
+                return;
+            }
+
+            var result = await _mergePdfDocumentsUseCase.ExecuteAsync(
+                new MergePdfDocumentsRequest(mergeSourcePaths.SourcePaths!, previewOutputPath));
+            if (result.IsFailure)
+            {
+                EnqueueLocalizedError(result.Error, "error.save.merged_pdf.title", "error.save.document.message");
+                StatusText = L("error.save.merged_pdf.title");
+                return;
+            }
+
+            var previewPath = result.Value ?? previewOutputPath;
+            await OpenDocumentFromPathAsync(
+                previewPath,
+                addToRecentFiles: false,
+                displayFileName: suggestedFileName);
+
+            if (string.IsNullOrWhiteSpace(CurrentDocumentPath) ||
+                !PathsEqual(CurrentDocumentPath, previewPath))
+            {
+                return;
+            }
+
+            SetPendingMergedDocumentSave(previewDirectory, suggestedFileName);
+            keepPreviewDirectory = true;
+            StatusText = L("status.merge.ready_to_save");
+        }
+        finally
+        {
+            TryDeleteDirectory(sourceTemporaryDirectory);
+
+            if (!keepPreviewDirectory)
+            {
+                TryDeleteDirectory(previewDirectory);
+            }
+
+            SetPdfStructureOperationState(false);
+        }
+    }
+
+    private async Task SavePendingMergedDocumentAsync(string currentDocumentPath)
+    {
+        var suggestedFileName = string.IsNullOrWhiteSpace(EditableDocumentName)
+            ? _pendingMergedDocumentSuggestedFileName ?? BuildSuggestedPdfFileName()
+            : BuildSuggestedPdfFileName();
+
+        var outputPath = _pendingMergedDocumentRequiresSavePicker
+            ? await _filePickerService.PickSavePdfFileAsync(
+                L("dialog.save.merged_pdf"),
+                suggestedFileName)
+            : _pendingMergedDocumentTargetPath;
+        if (string.IsNullOrWhiteSpace(outputPath))
+        {
+            StatusText = L("status.save.cancelled");
+            return;
+        }
+
+        string? temporaryDirectory = null;
+        var successStatusKey = _pendingMergedDocumentSaveSuccessStatusKey;
+
+        try
+        {
+            SetPdfStructureOperationState(true);
+
+            var outputSourcePath = currentDocumentPath;
+            var pendingRotations = GetPendingPdfRotationGroups();
+            var hasPendingReorder = HasPendingPageReorder;
+            var hasPendingAnnotations = HasPendingAnnotationChanges;
+
+            if (pendingRotations.Count > 0 || hasPendingReorder || hasPendingAnnotations)
+            {
+                temporaryDirectory = Path.Combine(
+                    Path.GetTempPath(),
+                    "velune-merged-pdf-save",
+                    Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(temporaryDirectory);
+            }
+
+            if (pendingRotations.Count > 0 || hasPendingReorder)
+            {
+                var orderedPages = Thumbnails
+                    .Select(thumbnail => thumbnail.SourcePageNumber)
+                    .ToArray();
+                var structuredPath = Path.Combine(temporaryDirectory!, $"structured-{suggestedFileName}");
+                var structureResult = await SavePdfDocumentChangesAsync(
+                    currentDocumentPath,
+                    structuredPath,
+                    pendingRotations,
+                    orderedPages,
+                    hasPendingReorder);
+                if (structureResult.IsFailure)
+                {
+                    EnqueueLocalizedError(structureResult.Error, "error.save.document.title", "error.save.document.message");
+                    StatusText = L("error.save.document.title");
+                    return;
+                }
+
+                outputSourcePath = structureResult.Value ?? structuredPath;
+            }
+
+            if (hasPendingAnnotations)
+            {
+                if (_documentSessionStore.Current is not { } session)
+                {
+                    return;
+                }
+
+                var annotatedPath = Path.Combine(temporaryDirectory!, suggestedFileName);
+                var annotationResult = await _pdfMarkupService.ApplyAnnotationsAsync(
+                    new ApplyPdfAnnotationsRequest(
+                        session,
+                        outputSourcePath,
+                        annotatedPath,
+                        CloneAnnotations(_annotations)));
+                if (annotationResult.IsFailure)
+                {
+                    EnqueueLocalizedError(annotationResult.Error, "error.save.document.title", "error.save.document.message");
+                    StatusText = L("error.save.document.title");
+                    return;
+                }
+
+                outputSourcePath = annotationResult.Value ?? annotatedPath;
+            }
+
+            if (!PathsEqual(outputSourcePath, outputPath))
+            {
+                File.Copy(outputSourcePath, outputPath, overwrite: true);
+            }
+
+            var previewDirectory = _pendingMergedDocumentTemporaryDirectory;
+            ClearPendingMergedDocumentSave(deleteTemporaryDirectory: false);
+            await OpenDocumentFromPathAsync(outputPath);
+
+            if (!string.IsNullOrWhiteSpace(CurrentDocumentPath) &&
+                PathsEqual(CurrentDocumentPath, outputPath))
+            {
+                TryDeleteDirectory(previewDirectory);
+                StatusText = L(successStatusKey);
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            EnqueueLocalizedError(AppError.Infrastructure("document.save.copy_failed", exception.Message), "error.save.document.title", "error.save.document.message");
+            StatusText = L("error.save.document.title");
+        }
+        finally
+        {
+            TryDeleteDirectory(temporaryDirectory);
+            SetPdfStructureOperationState(false);
+        }
+    }
+
+    private void SetPendingMergedDocumentSave(
+        string temporaryDirectory,
+        string suggestedFileName,
+        bool requiresSavePicker = true,
+        string? targetPath = null,
+        string saveSuccessStatusKey = "status.save.merged_pdf")
+    {
+        _pendingMergedDocumentTemporaryDirectory = temporaryDirectory;
+        _pendingMergedDocumentSuggestedFileName = suggestedFileName;
+        _pendingMergedDocumentTargetPath = targetPath;
+        _pendingMergedDocumentRequiresSavePicker = requiresSavePicker;
+        _pendingMergedDocumentSaveSuccessStatusKey = saveSuccessStatusKey;
+        _hasPendingMergedDocumentSave = true;
+        NotifySaveDocumentStateChanged();
+    }
+
+    private void ClearPendingMergedDocumentSave(bool deleteTemporaryDirectory)
+    {
+        var temporaryDirectory = _pendingMergedDocumentTemporaryDirectory;
+        var hadPendingSave = _hasPendingMergedDocumentSave;
+
+        _pendingMergedDocumentTemporaryDirectory = null;
+        _pendingMergedDocumentSuggestedFileName = null;
+        _pendingMergedDocumentTargetPath = null;
+        _pendingMergedDocumentRequiresSavePicker = true;
+        _pendingMergedDocumentSaveSuccessStatusKey = "status.save.merged_pdf";
+        _hasPendingMergedDocumentSave = false;
+
+        if (hadPendingSave)
+        {
+            NotifySaveDocumentStateChanged();
+        }
+
+        if (deleteTemporaryDirectory)
+        {
+            TryDeleteDirectory(temporaryDirectory);
+        }
+    }
+
+    private void NotifySaveDocumentStateChanged()
+    {
+        OnPropertyChanged(nameof(CanSaveDocument));
+        SaveDocumentCommand.NotifyCanExecuteChanged();
+    }
+
+    private async Task<(string[]? SourcePaths, AppError? Error)> BuildDroppedMergeSourcePathsAsync(
+        string[] sourcePaths,
+        int insertionIndex,
+        Func<string> getTemporaryDirectory)
+    {
+        var currentDocumentPath = sourcePaths[0];
+        var droppedSourcePaths = sourcePaths.Skip(1).ToArray();
+
+        if (!IsPdfDocument || TotalPages <= 1)
+        {
+            return insertionIndex <= 0
+                ? ([.. droppedSourcePaths, currentDocumentPath], null)
+                : ([currentDocumentPath, .. droppedSourcePaths], null);
+        }
+
+        var normalizedInsertionIndex = Math.Clamp(insertionIndex, 0, TotalPages);
+        if (normalizedInsertionIndex <= 0)
+        {
+            return ([.. droppedSourcePaths, currentDocumentPath], null);
+        }
+
+        if (normalizedInsertionIndex >= TotalPages)
+        {
+            return ([currentDocumentPath, .. droppedSourcePaths], null);
+        }
+
+        var temporaryDirectory = getTemporaryDirectory();
+        var beforePath = Path.Combine(temporaryDirectory, "current-before-drop.pdf");
+        var afterPath = Path.Combine(temporaryDirectory, "current-after-drop.pdf");
+
+        var beforeResult = await _extractPdfPagesUseCase.ExecuteAsync(
+            new ExtractPdfPagesRequest(
+                currentDocumentPath,
+                beforePath,
+                Enumerable.Range(1, normalizedInsertionIndex).ToArray()));
+        if (beforeResult.IsFailure)
+        {
+            return (null, beforeResult.Error);
+        }
+
+        var afterResult = await _extractPdfPagesUseCase.ExecuteAsync(
+            new ExtractPdfPagesRequest(
+                currentDocumentPath,
+                afterPath,
+                Enumerable.Range(
+                    normalizedInsertionIndex + 1,
+                    TotalPages - normalizedInsertionIndex).ToArray()));
+        if (afterResult.IsFailure)
+        {
+            return (null, afterResult.Error);
+        }
+
+        return ([beforePath, .. droppedSourcePaths, afterPath], null);
+    }
+
+    private static bool IsSupportedMergeSourcePath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        var extension = Path.GetExtension(path);
+        return !string.IsNullOrWhiteSpace(extension) &&
+            SupportedDocumentFormats.IsSupported(extension);
+    }
+
+    private static string CreateMergeTemporaryDirectory()
+    {
+        var directoryPath = Path.Combine(
+            Path.GetTempPath(),
+            "velune-drop-merge",
+            Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directoryPath);
+        return directoryPath;
+    }
+
+    private static void TryDeleteDirectory(string? directoryPath)
+    {
+        if (string.IsNullOrWhiteSpace(directoryPath) ||
+            !Directory.Exists(directoryPath))
+        {
+            return;
+        }
+
+        try
+        {
+            Directory.Delete(directoryPath, recursive: true);
+        }
+        catch
+        {
+            // Best-effort cleanup for temporary current-document page slices.
+        }
     }
 
     [RelayCommand(CanExecute = nameof(HasOpenDocument))]
@@ -1914,8 +2361,18 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(UseCollapsedHeaderSearchButton));
     }
 
-    private async Task OpenDocumentFromPathAsync(string filePath)
+    private async Task OpenDocumentFromPathAsync(
+        string filePath,
+        bool addToRecentFiles = true,
+        string? displayFileName = null)
     {
+        if (_hasPendingMergedDocumentSave &&
+            !string.IsNullOrWhiteSpace(CurrentDocumentPath) &&
+            !PathsEqual(CurrentDocumentPath, filePath))
+        {
+            ClearPendingMergedDocumentSave(deleteTemporaryDirectory: true);
+        }
+
         CancelPendingViewportFitUpdate();
         CancelCurrentTextAnalysis();
         ClearDocumentTextSelection();
@@ -1938,6 +2395,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         RefreshFromSession();
+        if (!string.IsNullOrWhiteSpace(displayFileName))
+        {
+            ApplyCurrentDocumentDisplayName(displayFileName);
+        }
+
         HasPendingPageReorder = false;
 
         _pageViewportStore.Initialize(TotalPages > 0 ? TotalPages : 1);
@@ -1945,12 +2407,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         RefreshPageViewState();
 
         ClearThumbnails();
-        if (!IsCurrentImageDocument)
-        {
-            BuildThumbnailPlaceholders();
-        }
+        BuildThumbnailPlaceholders();
 
-        AddCurrentDocumentToRecentFiles();
+        if (addToRecentFiles)
+        {
+            AddCurrentDocumentToRecentFiles();
+        }
 
         ClearNotifications();
         var detailsWarning = _documentSessionStore.Current?.Metadata.DetailsWarning;
@@ -1963,10 +2425,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         await ApplyPreferredDefaultZoomAsync();
 
-        if (!IsCurrentImageDocument)
-        {
-            _ = GenerateThumbnailsAsync();
-        }
+        _ = GenerateThumbnailsAsync();
     }
 
     private async Task LoadPrintDestinationsAsync()
@@ -2937,6 +3396,13 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         EmptyStateDescription = L("document.empty.opened", GetDocumentKindLabel(session.Metadata.DocumentType));
     }
 
+    private void ApplyCurrentDocumentDisplayName(string fileName)
+    {
+        CurrentDocumentName = fileName;
+        EditableDocumentName = fileName;
+        EmptyStateTitle = fileName;
+    }
+
     private void RefreshPageViewState()
     {
         CurrentZoom = $"{GetCurrentZoomFactor() * 100:0}%";
@@ -2951,6 +3417,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private void ResetDocumentState()
     {
+        ClearPendingMergedDocumentSave(deleteTemporaryDirectory: true);
         _isImageAutoFitEnabled = false;
         _isApplyingPdfStructureOperation = false;
         _isPrintingDocument = false;
@@ -3397,6 +3864,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         ExtractCurrentPageCommand.NotifyCanExecuteChanged();
         DeleteCurrentPageCommand.NotifyCanExecuteChanged();
         SaveReorderedPdfCommand.NotifyCanExecuteChanged();
+        MergePdfDocumentsCommand.NotifyCanExecuteChanged();
     }
 
     private async Task ExecutePdfStructureSaveInPlaceAsync(
@@ -3588,16 +4056,63 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        await ExecutePdfStructureOperationAsync(
-            title: L("dialog.delete_page"),
-            suggestedFileName: BuildSuggestedPdfFileName(),
-            executeOperation: outputPath => _deletePdfPagesUseCase.ExecuteAsync(
+        var hasExistingPendingSave = _hasPendingMergedDocumentSave;
+        var requiresSavePicker = hasExistingPendingSave && _pendingMergedDocumentRequiresSavePicker;
+        var targetDocumentPath = requiresSavePicker
+            ? null
+            : _pendingMergedDocumentTargetPath ?? currentDocumentPath;
+        var suggestedFileName = BuildSuggestedPdfFileName();
+        var previewDirectory = CreateMergeTemporaryDirectory();
+        var previewOutputPath = Path.Combine(previewDirectory, suggestedFileName);
+        var keepPreviewDirectory = false;
+
+        try
+        {
+            SetPdfStructureOperationState(true);
+
+            var result = await _deletePdfPagesUseCase.ExecuteAsync(
                 new DeletePdfPagesRequest(
                     currentDocumentPath,
-                    outputPath,
-                    [sourcePageNumber])),
-            successStatus: L("status.page.deleted_from_pdf", pageLabel),
-            failureTitle: L("error.page.delete_failed.title"));
+                    previewOutputPath,
+                    [sourcePageNumber]));
+            if (result.IsFailure)
+            {
+                EnqueueLocalizedError(result.Error, "error.page.delete_failed.title", "error.save.document.message");
+                StatusText = L("error.page.delete_failed.title");
+                return;
+            }
+
+            var displayFileName = CurrentDocumentName ?? suggestedFileName;
+            var previewPath = result.Value ?? previewOutputPath;
+            await OpenDocumentFromPathAsync(
+                previewPath,
+                addToRecentFiles: false,
+                displayFileName: displayFileName);
+
+            if (string.IsNullOrWhiteSpace(CurrentDocumentPath) ||
+                !PathsEqual(CurrentDocumentPath, previewPath))
+            {
+                return;
+            }
+
+            SetPendingMergedDocumentSave(
+                previewDirectory,
+                suggestedFileName,
+                requiresSavePicker: requiresSavePicker,
+                targetPath: targetDocumentPath,
+                saveSuccessStatusKey: requiresSavePicker ? "status.save.merged_pdf" : "status.document.saved");
+            keepPreviewDirectory = true;
+            StatusText = L("status.page.deleted_from_pdf", pageLabel);
+        }
+        finally
+        {
+            if (!keepPreviewDirectory)
+            {
+                TryDeleteDirectory(previewDirectory);
+            }
+
+            SetPdfStructureOperationState(false);
+        }
     }
 
     private string BuildSuggestedPdfFileName()
@@ -3606,6 +4121,23 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         return string.IsNullOrWhiteSpace(resolvedFileName)
             ? L("document.file_name.default")
             : resolvedFileName;
+    }
+
+    private string BuildSuggestedMergedPdfFileName(IReadOnlyList<string> sourcePaths)
+    {
+        ArgumentNullException.ThrowIfNull(sourcePaths);
+
+        var firstSourcePath = sourcePaths.FirstOrDefault(path => !string.IsNullOrWhiteSpace(path));
+        var baseFileName = string.IsNullOrWhiteSpace(firstSourcePath)
+            ? Path.GetFileNameWithoutExtension(L("document.file_name.default"))
+            : Path.GetFileNameWithoutExtension(firstSourcePath);
+
+        if (string.IsNullOrWhiteSpace(baseFileName))
+        {
+            baseFileName = Path.GetFileNameWithoutExtension(L("document.file_name.default"));
+        }
+
+        return $"{baseFileName}-merged.pdf";
     }
 
     private string ResolveRequestedDocumentFileName()
@@ -4271,6 +4803,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             CancelCurrentRender();
             CancelCurrentTextAnalysis();
             CancelThumbnailGeneration();
+            ClearPendingMergedDocumentSave(deleteTemporaryDirectory: true);
 
             CurrentRenderedBitmap?.Dispose();
             CurrentRenderedBitmap = null;

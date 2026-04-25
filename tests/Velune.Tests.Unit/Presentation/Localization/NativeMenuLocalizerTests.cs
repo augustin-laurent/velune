@@ -32,8 +32,11 @@ public sealed class NativeMenuLocalizerTests
         Assert.Equal("Annotate", ((NativeMenuItem)menu.Items[3]).Header);
 
         var fileMenu = ((NativeMenuItem)menu.Items[0]).Menu!;
+        Assert.Equal(6, fileMenu.Items.Count);
         Assert.Equal("Open", ((NativeMenuItem)fileMenu.Items[0]).Header);
+        Assert.Equal("Save", ((NativeMenuItem)fileMenu.Items[1]).Header);
         Assert.Equal("Print", ((NativeMenuItem)fileMenu.Items[3]).Header);
+        Assert.Equal("Close", ((NativeMenuItem)fileMenu.Items[5]).Header);
 
         var annotateMenu = ((NativeMenuItem)menu.Items[3]).Menu!;
         Assert.Equal("Signature", ((NativeMenuItem)annotateMenu.Items[9]).Header);

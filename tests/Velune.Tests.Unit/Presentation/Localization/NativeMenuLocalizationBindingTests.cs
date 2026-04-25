@@ -148,9 +148,75 @@ public sealed class NativeMenuLocalizationBindingTests
 
             localizationService.RaiseLanguageChanged();
 
-            Assert.Equal(1, localizeCalls);
+            Assert.Equal(0, localizeCalls);
             Assert.Equal(0, menuPropertyChanges);
             Assert.Same(menu, NativeMenu.GetMenu(owner));
+            binding.Detach();
+        }
+        finally
+        {
+            PresentationPlatform.IsMacOSDetector = previousDetector;
+        }
+    }
+
+    [Fact]
+    public void Constructor_ShouldNotRelocalizeMenuThroughBindingOnMacOs()
+    {
+        var previousDetector = PresentationPlatform.IsMacOSDetector;
+        PresentationPlatform.IsMacOSDetector = static () => true;
+
+        try
+        {
+            var owner = new Decorator();
+            var menu = new NativeMenu();
+            NativeMenu.SetMenu(owner, menu);
+            var localizationService = new TriggerableLocalizationService();
+            var localizeCalls = 0;
+
+            var binding = new NativeMenuLocalizationBinding(
+                owner,
+                menu,
+                localizationService,
+                (_, _) => localizeCalls++);
+
+            Assert.Equal(0, localizeCalls);
+            binding.Detach();
+        }
+        finally
+        {
+            PresentationPlatform.IsMacOSDetector = previousDetector;
+        }
+    }
+
+    [Fact]
+    public void NeedsUpdate_ShouldNotRelocalizeMenuOnMacOs()
+    {
+        var previousDetector = PresentationPlatform.IsMacOSDetector;
+        PresentationPlatform.IsMacOSDetector = static () => true;
+
+        try
+        {
+            var owner = new Decorator();
+            var menu = new NativeMenu();
+            NativeMenu.SetMenu(owner, menu);
+            var localizationService = new TriggerableLocalizationService();
+            var localizeCalls = 0;
+            var binding = new NativeMenuLocalizationBinding(
+                owner,
+                menu,
+                localizationService,
+                (_, _) => localizeCalls++);
+
+            localizeCalls = 0;
+            var raiseNeedsUpdate = typeof(NativeMenu).GetMethod(
+                "Avalonia.Controls.INativeMenuExporterEventsImplBridge.RaiseNeedsUpdate",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.NotNull(raiseNeedsUpdate);
+
+            raiseNeedsUpdate!.Invoke(menu, Array.Empty<object>());
+
+            Assert.Equal(0, localizeCalls);
             binding.Detach();
         }
         finally

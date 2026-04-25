@@ -335,7 +335,7 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
-    public async Task ImageDocuments_ShouldHideSidebarControls()
+    public async Task ImageDocuments_ShouldShowThumbnailPaneWithoutPdfStructureControls()
     {
         using var viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService("/tmp/image.png"),
@@ -356,10 +356,13 @@ public sealed class MainWindowViewModelTests
 
         await viewModel.OpenCommand.ExecuteAsync(null);
 
-        Assert.False(viewModel.SidebarHostVisible);
-        Assert.False(viewModel.IsSidebarVisible);
-        Assert.False(viewModel.CanToggleSidebar);
-        Assert.False(viewModel.ToggleSidebarCommand.CanExecute(null));
+        Assert.True(viewModel.SidebarHostVisible);
+        Assert.True(viewModel.IsSidebarVisible);
+        Assert.True(viewModel.CanToggleSidebar);
+        Assert.True(viewModel.ToggleSidebarCommand.CanExecute(null));
+        Assert.False(viewModel.IsPageNavigationVisible);
+        Assert.False(viewModel.IsPdfStructureActionsVisible);
+        Assert.Single(viewModel.Thumbnails);
     }
 
     [Fact]
@@ -739,11 +742,54 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
-    public async Task DeleteCurrentPageCommand_ShouldUseFilePickerAndDeleteSelectedPage()
+    public async Task DeleteCurrentPageCommand_ShouldDeleteSelectedPageWithoutSavePicker()
     {
         var filePickerService = new StubFilePickerService(
             openPath: "/tmp/document.pdf",
-            savePath: "/tmp/document-without-page-1.pdf");
+            savePath: "/tmp/document.pdf");
+        var pdfStructureService = new StubPdfDocumentStructureService();
+
+        using var viewModel = CreateViewModel(
+            filePickerService: filePickerService,
+            documentOpener: new PathAwareStubDocumentOpener(
+                ("/tmp/document.pdf", DocumentType.Pdf, 3)),
+            pdfDocumentStructureService: pdfStructureService);
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        await viewModel.DeleteCurrentPageCommand.ExecuteAsync(null);
+
+        Assert.Null(filePickerService.LastSaveTitle);
+        Assert.Null(filePickerService.LastSuggestedFileName);
+        Assert.Equal([1], pdfStructureService.LastDeletedPages);
+        Assert.EndsWith("document.pdf", pdfStructureService.LastOutputPath);
+        Assert.Equal("Deleted page 1", viewModel.StatusText);
+        Assert.True(viewModel.CanSaveDocument);
+    }
+
+    [Fact]
+    public async Task SelectThumbnailCommand_ShouldOpenRequestedThumbnailPage()
+    {
+        using var viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService("/tmp/document.pdf"),
+            documentOpener: new StubDocumentOpener(
+                new DocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata("Document.pdf", "/tmp/document.pdf", DocumentType.Pdf, 1024, 3),
+                    ViewportState.Default)));
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        await viewModel.SelectThumbnailCommand.ExecuteAsync(viewModel.Thumbnails[1]);
+
+        Assert.Equal(2, viewModel.CurrentPage);
+        Assert.True(viewModel.Thumbnails[1].IsSelected);
+    }
+
+    [Fact]
+    public async Task ExtractThumbnailPageCommand_ShouldUseSelectedThumbnailPage()
+    {
+        var filePickerService = new StubFilePickerService(
+            openPath: "/tmp/document.pdf",
+            savePath: "/tmp/page-3.pdf");
         var pdfStructureService = new StubPdfDocumentStructureService();
 
         using var viewModel = CreateViewModel(
@@ -756,12 +802,83 @@ public sealed class MainWindowViewModelTests
             pdfDocumentStructureService: pdfStructureService);
 
         await viewModel.OpenCommand.ExecuteAsync(null);
-        await viewModel.DeleteCurrentPageCommand.ExecuteAsync(null);
+        await viewModel.ExtractThumbnailPageCommand.ExecuteAsync(viewModel.Thumbnails[2]);
 
-        Assert.Equal("Save PDF without page", filePickerService.LastSaveTitle);
-        Assert.Equal("Document.pdf", filePickerService.LastSuggestedFileName);
-        Assert.Equal([1], pdfStructureService.LastDeletedPages);
-        Assert.Equal("/tmp/document-without-page-1.pdf", pdfStructureService.LastOutputPath);
+        Assert.Equal("Extract page", filePickerService.LastSaveTitle);
+        Assert.Single(pdfStructureService.ExtractCalls);
+        Assert.Equal([3], pdfStructureService.ExtractCalls[0].Pages);
+        Assert.Equal("/tmp/page-3.pdf", pdfStructureService.LastOutputPath);
+    }
+
+    [Fact]
+    public async Task DeleteThumbnailPageCommand_ShouldDeleteSelectedThumbnailPageWithoutSavePicker()
+    {
+        var filePickerService = new StubFilePickerService(
+            openPath: "/tmp/document.pdf",
+            savePath: "/tmp/document.pdf");
+        var pdfStructureService = new StubPdfDocumentStructureService();
+
+        using var viewModel = CreateViewModel(
+            filePickerService: filePickerService,
+            documentOpener: new PathAwareStubDocumentOpener(
+                ("/tmp/document.pdf", DocumentType.Pdf, 3)),
+            pdfDocumentStructureService: pdfStructureService);
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        await viewModel.DeleteThumbnailPageCommand.ExecuteAsync(viewModel.Thumbnails[1]);
+
+        Assert.Null(filePickerService.LastSaveTitle);
+        Assert.Null(filePickerService.LastSuggestedFileName);
+        Assert.Equal([2], pdfStructureService.LastDeletedPages);
+        Assert.EndsWith("document.pdf", pdfStructureService.LastOutputPath);
+        Assert.Equal("Deleted page 2", viewModel.StatusText);
+        Assert.True(viewModel.CanSaveDocument);
+    }
+
+    [Fact]
+    public async Task SaveDocumentCommand_ShouldPersistDeletedPageWithoutSavePicker()
+    {
+        var directoryPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var currentPath = Path.Combine(directoryPath, "document.pdf");
+        Directory.CreateDirectory(directoryPath);
+        await File.WriteAllTextAsync(currentPath, "%PDF-1.4\n% Original test PDF\n");
+
+        try
+        {
+            var filePickerService = new StubFilePickerService(
+                openPath: currentPath,
+                savePath: Path.Combine(directoryPath, "should-not-be-used.pdf"));
+            var pdfStructureService = new StubPdfDocumentStructureService();
+
+            using var viewModel = CreateViewModel(
+                filePickerService: filePickerService,
+                documentOpener: new PathAwareStubDocumentOpener(
+                    (currentPath, DocumentType.Pdf, 3)),
+                pdfDocumentStructureService: pdfStructureService);
+
+            await viewModel.OpenCommand.ExecuteAsync(null);
+            await viewModel.DeleteCurrentPageCommand.ExecuteAsync(null);
+            await viewModel.SaveDocumentCommand.ExecuteAsync(null);
+
+            Assert.Null(filePickerService.LastSaveTitle);
+            Assert.Null(filePickerService.LastSuggestedFileName);
+            Assert.Equal(currentPath, viewModel.CurrentDocumentPath);
+            Assert.Equal("Document saved", viewModel.StatusText);
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(directoryPath))
+                {
+                    Directory.Delete(directoryPath, recursive: true);
+                }
+            }
+            catch
+            {
+                // Best-effort cleanup for temporary test files.
+            }
+        }
     }
 
     [Fact]
@@ -795,6 +912,177 @@ public sealed class MainWindowViewModelTests
         Assert.Equal(Rotation.Deg90, pdfStructureService.RotateCalls[0].Rotation);
         Assert.Equal([2], pdfStructureService.RotateCalls[1].Pages);
         Assert.Equal(Rotation.Deg270, pdfStructureService.RotateCalls[1].Rotation);
+    }
+
+    [Fact]
+    public async Task MergePdfDocumentsCommand_ShouldCreatePendingMergedDocument()
+    {
+        var filePickerService = new StubFilePickerService(
+            savePath: "/tmp/document-merged.pdf",
+            openPaths: ["/tmp/first.pdf", "/tmp/second.pdf"]);
+        var pdfStructureService = new StubPdfDocumentStructureService();
+
+        using var viewModel = CreateViewModel(
+            filePickerService: filePickerService,
+            pdfDocumentStructureService: pdfStructureService,
+            documentOpener: new PathAwareStubDocumentOpener());
+
+        await viewModel.MergePdfDocumentsCommand.ExecuteAsync(null);
+
+        Assert.Equal("Select documents to merge", filePickerService.LastOpenMergeSourcesTitle);
+        Assert.Null(filePickerService.LastSaveTitle);
+        Assert.Null(filePickerService.LastSuggestedFileName);
+        Assert.Equal(["/tmp/first.pdf", "/tmp/second.pdf"], pdfStructureService.LastMergedSourcePaths);
+        Assert.EndsWith("first-merged.pdf", pdfStructureService.LastOutputPath);
+        Assert.Equal("Merged PDF ready. Use Save when you're ready.", viewModel.StatusText);
+        Assert.True(viewModel.CanSaveDocument);
+    }
+
+    [Fact]
+    public async Task SaveDocumentCommand_ShouldSavePendingMergedDocumentWhenUserChoosesDestination()
+    {
+        var directoryPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var outputPath = Path.Combine(directoryPath, "document-merged.pdf");
+        Directory.CreateDirectory(directoryPath);
+
+        try
+        {
+            var filePickerService = new StubFilePickerService(
+                savePath: outputPath,
+                openPaths: ["/tmp/first.pdf", "/tmp/second.pdf"]);
+            var pdfStructureService = new StubPdfDocumentStructureService();
+
+            using var viewModel = CreateViewModel(
+                filePickerService: filePickerService,
+                pdfDocumentStructureService: pdfStructureService,
+                documentOpener: new PathAwareStubDocumentOpener());
+
+            await viewModel.MergePdfDocumentsCommand.ExecuteAsync(null);
+            await viewModel.SaveDocumentCommand.ExecuteAsync(null);
+
+            Assert.Equal("Save merged PDF", filePickerService.LastSaveTitle);
+            Assert.Equal("first-merged.pdf", filePickerService.LastSuggestedFileName);
+            Assert.Equal(outputPath, viewModel.CurrentDocumentPath);
+            Assert.Equal("Saved merged PDF", viewModel.StatusText);
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(directoryPath))
+                {
+                    Directory.Delete(directoryPath, recursive: true);
+                }
+            }
+            catch
+            {
+                // Best-effort cleanup for temporary test files.
+            }
+        }
+    }
+
+    [Fact]
+    public async Task HandleThumbnailFilesDroppedAsync_ShouldMergeCurrentPdfWithDroppedDocumentsWithoutSavingImmediately()
+    {
+        var directoryPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var currentPath = Path.Combine(directoryPath, "current.pdf");
+        var filePickerService = new StubFilePickerService(
+            openPath: currentPath);
+        var pdfStructureService = new StubPdfDocumentStructureService();
+
+        using var viewModel = CreateViewModel(
+            filePickerService: filePickerService,
+            pdfDocumentStructureService: pdfStructureService,
+            documentOpener: new PathAwareStubDocumentOpener(
+                (currentPath, DocumentType.Pdf, 1)));
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        await viewModel.HandleThumbnailFilesDroppedAsync(["/tmp/append.pdf", "/tmp/photo.png"], insertionIndex: 1);
+
+        Assert.Equal([currentPath, "/tmp/append.pdf", "/tmp/photo.png"], pdfStructureService.LastMergedSourcePaths);
+        Assert.EndsWith("current-merged.pdf", pdfStructureService.LastOutputPath);
+        Assert.Null(filePickerService.LastSaveTitle);
+        Assert.Null(filePickerService.LastSuggestedFileName);
+        Assert.Equal("Merged PDF ready. Use Save when you're ready.", viewModel.StatusText);
+        Assert.True(viewModel.CanSaveDocument);
+    }
+
+    [Fact]
+    public async Task HandleThumbnailFilesDroppedAsync_ShouldInsertDroppedDocumentsAtThumbnailIndex()
+    {
+        var directoryPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var currentPath = Path.Combine(directoryPath, "current.pdf");
+        var filePickerService = new StubFilePickerService(
+            openPath: currentPath);
+        var pdfStructureService = new StubPdfDocumentStructureService();
+
+        using var viewModel = CreateViewModel(
+            filePickerService: filePickerService,
+            pdfDocumentStructureService: pdfStructureService,
+            documentOpener: new PathAwareStubDocumentOpener(
+                (currentPath, DocumentType.Pdf, 3)));
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        await viewModel.HandleThumbnailFilesDroppedAsync(["/tmp/insert.pdf"], insertionIndex: 1);
+
+        Assert.Equal(2, pdfStructureService.ExtractCalls.Count);
+        Assert.Equal([1], pdfStructureService.ExtractCalls[0].Pages);
+        Assert.Equal([2, 3], pdfStructureService.ExtractCalls[1].Pages);
+        Assert.NotNull(pdfStructureService.LastMergedSourcePaths);
+        Assert.Equal("/tmp/insert.pdf", pdfStructureService.LastMergedSourcePaths[1]);
+        Assert.EndsWith("current-before-drop.pdf", pdfStructureService.LastMergedSourcePaths[0]);
+        Assert.EndsWith("current-after-drop.pdf", pdfStructureService.LastMergedSourcePaths[2]);
+        Assert.EndsWith("current-merged.pdf", pdfStructureService.LastOutputPath);
+        Assert.Null(filePickerService.LastSaveTitle);
+        Assert.Null(filePickerService.LastSuggestedFileName);
+    }
+
+    [Fact]
+    public async Task HandleThumbnailFilesDroppedAsync_ShouldMergeCurrentImageWithDroppedDocument()
+    {
+        var directoryPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var currentPath = Path.Combine(directoryPath, "photo.png");
+        var filePickerService = new StubFilePickerService(
+            openPath: currentPath);
+        var pdfStructureService = new StubPdfDocumentStructureService();
+
+        using var viewModel = CreateViewModel(
+            filePickerService: filePickerService,
+            pdfDocumentStructureService: pdfStructureService,
+            documentOpener: new PathAwareStubDocumentOpener(
+                (currentPath, DocumentType.Image, 1)));
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        await viewModel.HandleThumbnailFilesDroppedAsync(["/tmp/append.pdf"], insertionIndex: 1);
+
+        Assert.Equal([currentPath, "/tmp/append.pdf"], pdfStructureService.LastMergedSourcePaths);
+        Assert.EndsWith("photo-merged.pdf", pdfStructureService.LastOutputPath);
+        Assert.Null(filePickerService.LastSaveTitle);
+        Assert.Null(filePickerService.LastSuggestedFileName);
+    }
+
+    [Fact]
+    public async Task HandleThumbnailFilesDroppedAsync_ShouldWarnWhenDroppedFilesAreUnsupported()
+    {
+        var filePickerService = new StubFilePickerService(
+            openPath: "/tmp/current.pdf",
+            savePath: "/tmp/current-merged.pdf");
+        var pdfStructureService = new StubPdfDocumentStructureService();
+
+        using var viewModel = CreateViewModel(
+            filePickerService: filePickerService,
+            pdfDocumentStructureService: pdfStructureService,
+            documentOpener: new StubDocumentOpener(
+                new DocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata("current.pdf", "/tmp/current.pdf", DocumentType.Pdf, 1024, 1),
+                    ViewportState.Default)));
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        await viewModel.HandleThumbnailFilesDroppedAsync(["/tmp/readme.txt"], insertionIndex: 1);
+
+        Assert.Null(pdfStructureService.LastMergedSourcePaths);
+        Assert.Equal("Drop PDF or image files to merge", viewModel.StatusText);
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage(
@@ -841,6 +1129,7 @@ public sealed class MainWindowViewModelTests
             new DeletePdfPagesUseCase(structureService),
             new ExtractPdfPagesUseCase(structureService),
             new ReorderPdfPagesUseCase(structureService),
+            new MergePdfDocumentsUseCase(structureService),
             new StubPdfMarkupService(),
             new StubImageMarkupService(),
             new StubSignatureAssetStore(),
@@ -935,12 +1224,20 @@ public sealed class MainWindowViewModelTests
     {
         private readonly string? _openPath;
         private readonly string? _savePath;
+        private readonly IReadOnlyList<string> _openPaths;
 
-        public StubFilePickerService(string? openPath = null, string? savePath = null)
+        public StubFilePickerService(
+            string? openPath = null,
+            string? savePath = null,
+            IReadOnlyList<string>? openPaths = null)
         {
             _openPath = openPath;
             _savePath = savePath;
+            _openPaths = openPaths?.ToArray() ??
+                (string.IsNullOrWhiteSpace(openPath) ? [] : [openPath]);
         }
+
+        public string? LastOpenMergeSourcesTitle { get; private set; }
 
         public string? LastSaveTitle { get; private set; }
 
@@ -949,6 +1246,14 @@ public sealed class MainWindowViewModelTests
         public Task<string?> PickOpenFileAsync(CancellationToken cancellationToken = default)
         {
             return Task.FromResult(_openPath);
+        }
+
+        public Task<IReadOnlyList<string>> PickOpenMergeSourceFilesAsync(
+            string title,
+            CancellationToken cancellationToken = default)
+        {
+            LastOpenMergeSourcesTitle = title;
+            return Task.FromResult(_openPaths);
         }
 
         public Task<string?> PickSavePdfFileAsync(
@@ -978,6 +1283,56 @@ public sealed class MainWindowViewModelTests
         public Task<IDocumentSession> OpenAsync(string filePath, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(_documentSession);
+        }
+    }
+
+    private sealed class PathAwareStubDocumentOpener : IDocumentOpener
+    {
+        private readonly Dictionary<string, (DocumentType Type, int PageCount)> _metadataByPath;
+
+        public PathAwareStubDocumentOpener(params (string Path, DocumentType Type, int PageCount)[] metadata)
+        {
+            _metadataByPath = metadata.ToDictionary(
+                item => item.Path,
+                item => (item.Type, item.PageCount),
+                StringComparer.OrdinalIgnoreCase);
+        }
+
+        public Task<IDocumentSession> OpenAsync(string filePath, CancellationToken cancellationToken = default)
+        {
+            var metadata = _metadataByPath.TryGetValue(filePath, out var configuredMetadata)
+                ? configuredMetadata
+                : InferMetadata(filePath);
+            var fileName = Path.GetFileName(filePath);
+            var documentMetadata = new DocumentMetadata(
+                fileName,
+                filePath,
+                metadata.Type,
+                1024,
+                metadata.PageCount,
+                pixelWidth: metadata.Type is DocumentType.Image ? 1200 : null,
+                pixelHeight: metadata.Type is DocumentType.Image ? 800 : null,
+                formatLabel: metadata.Type is DocumentType.Image ? "PNG image" : null);
+
+            IDocumentSession session = metadata.Type is DocumentType.Image
+                ? new StubImageDocumentSession(
+                    DocumentId.New(),
+                    documentMetadata,
+                    ViewportState.Default,
+                    new ImageMetadata(1200, 800))
+                : new DocumentSession(
+                    DocumentId.New(),
+                    documentMetadata,
+                    ViewportState.Default);
+
+            return Task.FromResult(session);
+        }
+
+        private static (DocumentType Type, int PageCount) InferMetadata(string filePath)
+        {
+            return string.Equals(Path.GetExtension(filePath), ".pdf", StringComparison.OrdinalIgnoreCase)
+                ? (DocumentType.Pdf, 1)
+                : (DocumentType.Image, 1);
         }
     }
 
@@ -1267,7 +1622,11 @@ public sealed class MainWindowViewModelTests
     {
         public List<(string SourcePath, string OutputPath, IReadOnlyList<int> Pages, Rotation Rotation)> RotateCalls { get; } = [];
 
+        public List<(string SourcePath, string OutputPath, IReadOnlyList<int> Pages)> ExtractCalls { get; } = [];
+
         public IReadOnlyList<int>? LastDeletedPages { get; private set; }
+
+        public IReadOnlyList<string>? LastMergedSourcePaths { get; private set; }
 
         public string? LastOutputPath { get; private set; }
 
@@ -1293,6 +1652,7 @@ public sealed class MainWindowViewModelTests
         {
             LastDeletedPages = pages.ToArray();
             LastOutputPath = outputPath;
+            WriteStubPdf(outputPath);
             return Task.FromResult(ResultFactory.Success(outputPath));
         }
 
@@ -1302,6 +1662,7 @@ public sealed class MainWindowViewModelTests
             IReadOnlyList<int> pages,
             CancellationToken cancellationToken = default)
         {
+            ExtractCalls.Add((sourcePath, outputPath, pages.ToArray()));
             LastOutputPath = outputPath;
             return Task.FromResult(ResultFactory.Success(outputPath));
         }
@@ -1311,7 +1672,9 @@ public sealed class MainWindowViewModelTests
             string outputPath,
             CancellationToken cancellationToken = default)
         {
+            LastMergedSourcePaths = sourcePaths.ToArray();
             LastOutputPath = outputPath;
+            WriteStubPdf(outputPath);
             return Task.FromResult(ResultFactory.Success(outputPath));
         }
 
@@ -1323,6 +1686,17 @@ public sealed class MainWindowViewModelTests
         {
             LastOutputPath = outputPath;
             return Task.FromResult(ResultFactory.Success(outputPath));
+        }
+
+        private static void WriteStubPdf(string outputPath)
+        {
+            var directoryPath = Path.GetDirectoryName(outputPath);
+            if (!string.IsNullOrWhiteSpace(directoryPath))
+            {
+                Directory.CreateDirectory(directoryPath);
+            }
+
+            File.WriteAllText(outputPath, "%PDF-1.4\n% Velune test PDF\n");
         }
     }
 }

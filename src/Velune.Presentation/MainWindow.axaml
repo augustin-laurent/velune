@@ -45,111 +45,111 @@
 
   <NativeMenu.Menu>
     <NativeMenu>
-      <NativeMenuItem Header="{loc:Loc app.menu.file}">
+      <NativeMenuItem Header="{loc:NativeLoc app.menu.file}">
         <NativeMenu>
-          <NativeMenuItem Header="{loc:Loc app.menu.open}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.open}"
                           Command="{Binding OpenCommand}"
                           Gesture="Meta+O" />
-          <NativeMenuItem Header="{loc:Loc app.menu.save}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.save}"
                           Command="{Binding SaveDocumentCommand}"
                           Gesture="Meta+S" />
           <NativeMenuItemSeparator />
-          <NativeMenuItem Header="{loc:Loc app.menu.print}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.print}"
                           Command="{Binding PrintDocumentCommand}"
                           Gesture="Meta+P" />
           <NativeMenuItemSeparator />
-          <NativeMenuItem Header="{loc:Loc app.menu.close}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.close}"
                           Command="{Binding CloseCommand}" />
         </NativeMenu>
       </NativeMenuItem>
 
-      <NativeMenuItem Header="{loc:Loc app.menu.page}">
+      <NativeMenuItem Header="{loc:NativeLoc app.menu.page}">
         <NativeMenu>
-          <NativeMenuItem Header="{loc:Loc app.menu.page.previous}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.page.previous}"
                           Command="{Binding PreviousPageCommand}" />
-          <NativeMenuItem Header="{loc:Loc app.menu.page.next}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.page.next}"
                           Command="{Binding NextPageCommand}" />
           <NativeMenuItemSeparator />
-          <NativeMenuItem Header="{loc:Loc app.menu.page.rotate_left}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.page.rotate_left}"
                           Command="{Binding RotateLeftCommand}" />
-          <NativeMenuItem Header="{loc:Loc app.menu.page.rotate_right}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.page.rotate_right}"
                           Command="{Binding RotateRightCommand}" />
           <NativeMenuItemSeparator />
-          <NativeMenuItem Header="{loc:Loc app.menu.page.move_earlier}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.page.move_earlier}"
                           Command="{Binding MoveCurrentPageEarlierCommand}" />
-          <NativeMenuItem Header="{loc:Loc app.menu.page.move_later}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.page.move_later}"
                           Command="{Binding MoveCurrentPageLaterCommand}" />
           <NativeMenuItemSeparator />
-          <NativeMenuItem Header="{loc:Loc app.menu.page.extract}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.page.extract}"
                           Command="{Binding ExtractCurrentPageCommand}" />
-          <NativeMenuItem Header="{loc:Loc app.menu.page.delete}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.page.delete}"
                           Command="{Binding DeleteCurrentPageCommand}" />
         </NativeMenu>
       </NativeMenuItem>
 
-      <NativeMenuItem Header="{loc:Loc app.menu.view}">
+      <NativeMenuItem Header="{loc:NativeLoc app.menu.view}">
         <NativeMenu>
-          <NativeMenuItem Header="{loc:Loc app.menu.view.sidebar}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.view.sidebar}"
                           Command="{Binding ToggleSidebarCommand}" />
           <NativeMenuItemSeparator />
-          <NativeMenuItem Header="{loc:Loc app.menu.view.search}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.view.search}"
                           Command="{Binding ToggleSearchPanelCommand}"
                           IsEnabled="{Binding IsSearchAvailableForCurrentDocument}"
                           Gesture="Meta+F" />
-          <NativeMenuItem Header="{loc:Loc app.menu.view.info}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.view.info}"
                           Command="{Binding ToggleInfoPanelCommand}" />
-          <NativeMenuItem Header="{loc:Loc app.menu.view.preferences}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.view.preferences}"
                           Command="{Binding TogglePreferencesPanelCommand}"
                           Gesture="Meta+OemComma" />
           <NativeMenuItemSeparator />
-          <NativeMenuItem Header="{loc:Loc app.menu.view.zoom_in}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.view.zoom_in}"
                           Command="{Binding ZoomInCommand}" />
-          <NativeMenuItem Header="{loc:Loc app.menu.view.zoom_out}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.view.zoom_out}"
                           Command="{Binding ZoomOutCommand}" />
           <NativeMenuItemSeparator />
-          <NativeMenuItem Header="{loc:Loc app.menu.view.fit_width}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.view.fit_width}"
                           Command="{Binding FitToWidthCommand}" />
-          <NativeMenuItem Header="{loc:Loc app.menu.view.fit_page}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.view.fit_page}"
                           Command="{Binding FitToPageCommand}" />
         </NativeMenu>
       </NativeMenuItem>
 
-      <NativeMenuItem Header="{loc:Loc app.menu.annotate}">
+      <NativeMenuItem Header="{loc:NativeLoc app.menu.annotate}">
         <NativeMenu>
-          <NativeMenuItem Header="{loc:Loc app.menu.annotate.show}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.annotate.show}"
                           Command="{Binding ToggleAnnotationsPanelCommand}"
                           Gesture="Meta+Shift+A" />
           <NativeMenuItemSeparator />
-          <NativeMenuItem Header="{loc:Loc app.menu.annotate.select}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.annotate.select}"
                           Command="{Binding SelectAnnotationToolCommand}"
                           CommandParameter="Select" />
-          <NativeMenuItem Header="{loc:Loc app.menu.annotate.highlight}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.annotate.highlight}"
                           Command="{Binding AddHighlightAnnotationFromSelectionCommand}"
                           IsEnabled="{Binding CanCreateHighlightAnnotation}" />
-          <NativeMenuItem Header="{loc:Loc app.menu.annotate.freehand}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.annotate.freehand}"
                           Command="{Binding SelectAnnotationToolCommand}"
                           CommandParameter="Ink" />
-          <NativeMenuItem Header="{loc:Loc app.menu.annotate.rectangle}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.annotate.rectangle}"
                           Command="{Binding SelectAnnotationToolCommand}"
                           CommandParameter="Rectangle" />
-          <NativeMenuItem Header="{loc:Loc app.menu.annotate.text}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.annotate.text}"
                           Command="{Binding SelectAnnotationToolCommand}"
                           CommandParameter="Text" />
-          <NativeMenuItem Header="{loc:Loc app.menu.annotate.note}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.annotate.note}"
                           Command="{Binding SelectAnnotationToolCommand}"
                           CommandParameter="Note" />
-          <NativeMenuItem Header="{loc:Loc app.menu.annotate.stamp}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.annotate.stamp}"
                           Command="{Binding SelectAnnotationToolCommand}"
                           CommandParameter="Stamp" />
-          <NativeMenuItem Header="{loc:Loc app.menu.annotate.signature}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.annotate.signature}"
                           Command="{Binding SelectAnnotationToolCommand}"
                           CommandParameter="Signature" />
           <NativeMenuItemSeparator />
-          <NativeMenuItem Header="{loc:Loc app.menu.annotate.delete}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.annotate.delete}"
                           Command="{Binding DeleteSelectedAnnotationCommand}" />
-          <NativeMenuItem Header="{loc:Loc app.menu.annotate.undo}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.annotate.undo}"
                           Command="{Binding UndoAnnotationsCommand}" />
-          <NativeMenuItem Header="{loc:Loc app.menu.annotate.redo}"
+          <NativeMenuItem Header="{loc:NativeLoc app.menu.annotate.redo}"
                           Command="{Binding RedoAnnotationsCommand}" />
         </NativeMenu>
       </NativeMenuItem>
@@ -372,6 +372,14 @@
                   <TextBlock Text="{loc:Loc toolbar.open.label}"
                              Classes="header-action-label" />
                 </StackPanel>
+              </Button>
+
+              <Button Classes="header-action-button"
+                      Command="{Binding MergePdfDocumentsCommand}"
+                      IsVisible="{Binding HasOpenDocument}"
+                      ToolTip.Tip="{loc:Loc toolbar.merge.tooltip}">
+                <TextBlock Text="{loc:Loc toolbar.merge.label}"
+                           Classes="header-action-label" />
               </Button>
 
               <Button Classes="header-action-button"
@@ -630,7 +638,11 @@
               Grid.Row="1"
               Width="220"
               MaxWidth="220"
-              ClipToBounds="False">
+              ClipToBounds="False"
+              DragDrop.AllowDrop="True"
+              DragDrop.DragOver="OnThumbnailExternalDragOver"
+              DragDrop.DragLeave="OnThumbnailExternalDragLeave"
+              DragDrop.Drop="OnThumbnailExternalDrop">
           <ScrollViewer x:Name="ThumbnailScrollViewer"
                         HorizontalScrollBarVisibility="Disabled"
                         VerticalScrollBarVisibility="Auto">
@@ -646,16 +658,42 @@
                           PointerCaptureLost="OnThumbnailPointerCaptureLost"
                           Tapped="OnThumbnailTapped">
                     <Border.ContextMenu>
-                      <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
-                        <MenuItem Header="{loc:Loc sidebar.page.open}"
-                                  Command="{Binding DataContext.SelectThumbnailCommand, ElementName=RootWindow}"
-                                  CommandParameter="{Binding}" />
-                        <MenuItem Header="{loc:Loc sidebar.page.extract}"
-                                  Command="{Binding DataContext.ExtractThumbnailPageCommand, ElementName=RootWindow}"
-                                  CommandParameter="{Binding}" />
-                        <MenuItem Header="{loc:Loc sidebar.page.delete}"
-                                  Command="{Binding DataContext.DeleteThumbnailPageCommand, ElementName=RootWindow}"
-                                  CommandParameter="{Binding}" />
+                      <ContextMenu Classes="thumbnail-context-menu"
+                                   DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
+                                   Opened="OnThumbnailContextMenuOpened">
+                        <MenuItem Classes="thumbnail-context-title"
+                                  IsEnabled="False" />
+                        <Separator Classes="thumbnail-context-separator" />
+                        <MenuItem Classes="thumbnail-context-menu-item thumbnail-open-action"
+                                  Header="{loc:Loc sidebar.page.open}"
+                                  Click="OnThumbnailContextOpenClick">
+                          <MenuItem.Icon>
+                            <materialIcons:MaterialIcon Classes="context-menu-icon"
+                                                        Kind="Magnify"
+                                                        Width="16"
+                                                        Height="16" />
+                          </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Classes="thumbnail-context-menu-item thumbnail-extract-action"
+                                  Header="{loc:Loc sidebar.page.extract}"
+                                  Click="OnThumbnailContextExtractClick">
+                          <MenuItem.Icon>
+                            <materialIcons:MaterialIcon Classes="context-menu-icon"
+                                                        Kind="ArrowExpandHorizontal"
+                                                        Width="16"
+                                                        Height="16" />
+                          </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Classes="thumbnail-context-menu-item thumbnail-delete-action destructive"
+                                  Header="{loc:Loc sidebar.page.delete}"
+                                  Click="OnThumbnailContextDeleteClick">
+                          <MenuItem.Icon>
+                            <materialIcons:MaterialIcon Classes="context-menu-icon destructive"
+                                                        Kind="TrashCanOutline"
+                                                        Width="16"
+                                                        Height="16" />
+                          </MenuItem.Icon>
+                        </MenuItem>
                       </ContextMenu>
                     </Border.ContextMenu>
 
@@ -847,6 +885,10 @@
                   Width="140"
                   HorizontalAlignment="Center"
                   Command="{Binding OpenCommand}" />
+          <Button Content="{loc:Loc app.merge.button}"
+                  Width="140"
+                  HorizontalAlignment="Center"
+                  Command="{Binding MergePdfDocumentsCommand}" />
         </StackPanel>
 
         <Border Classes="card"

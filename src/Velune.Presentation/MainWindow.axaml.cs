@@ -2,6 +2,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Microsoft.Extensions.DependencyInjection;
@@ -39,6 +41,7 @@ public partial class MainWindow : Window
     private bool _isCapturingSignaturePad;
     private bool _isAnnotating;
     private bool _isSelectingDocumentText;
+    private PageThumbnailItemViewModel? _thumbnailContextTarget;
 
     public MainWindow()
     {
@@ -97,6 +100,182 @@ public partial class MainWindow : Window
         _localizationService = null;
         Opened -= OnWindowOpened;
         Closed -= OnWindowClosed;
+    }
+
+    private void OnThumbnailExternalDragOver(object? sender, DragEventArgs e)
+    {
+        var dropPreview = GetThumbnailDropPreview(e.GetPosition(ThumbnailDragSurface));
+        if (DataContext is MainWindowViewModel viewModel &&
+            viewModel.CanAcceptThumbnailDocumentDrop &&
+            HasDroppedLocalFiles(e.DataTransfer) &&
+            dropPreview is not null)
+        {
+            ShowThumbnailDropIndicator(dropPreview.Value);
+            e.DragEffects = DragDropEffects.Copy;
+        }
+        else
+        {
+            HideThumbnailDropIndicator();
+            e.DragEffects = DragDropEffects.None;
+        }
+
+        e.Handled = true;
+    }
+
+    private void OnThumbnailExternalDragLeave(object? sender, DragEventArgs e)
+    {
+        HideThumbnailDropIndicator();
+        e.Handled = true;
+    }
+
+    private async void OnThumbnailExternalDrop(object? sender, DragEventArgs e)
+    {
+        e.Handled = true;
+
+        if (DataContext is not MainWindowViewModel viewModel ||
+            !viewModel.CanAcceptThumbnailDocumentDrop)
+        {
+            return;
+        }
+
+        var filePaths = GetDroppedLocalFilePaths(e.DataTransfer);
+        if (filePaths.Length == 0)
+        {
+            return;
+        }
+
+        var insertionIndex = GetThumbnailDropPreview(e.GetPosition(ThumbnailDragSurface))?.FinalIndex
+            ?? viewModel.Thumbnails.Count;
+        HideThumbnailDropIndicator();
+
+        await viewModel.HandleThumbnailFilesDroppedAsync(filePaths, insertionIndex);
+    }
+
+    private void OnThumbnailContextMenuOpened(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not ContextMenu contextMenu ||
+            DataContext is not MainWindowViewModel viewModel)
+        {
+            return;
+        }
+
+        var thumbnail = ResolveThumbnailContextTarget(contextMenu);
+        _thumbnailContextTarget = thumbnail;
+        contextMenu.DataContext = thumbnail;
+
+        foreach (var menuItem in contextMenu.Items.OfType<MenuItem>())
+        {
+            if (menuItem.Classes.Contains("thumbnail-context-title"))
+            {
+                menuItem.Header = thumbnail?.PageLabel ?? string.Empty;
+                continue;
+            }
+
+            menuItem.Tag = thumbnail;
+
+            if (menuItem.Classes.Contains("thumbnail-open-action"))
+            {
+                menuItem.IsEnabled = thumbnail is not null && viewModel.HasOpenDocument;
+            }
+            else if (menuItem.Classes.Contains("thumbnail-extract-action"))
+            {
+                menuItem.IsVisible = viewModel.IsPdfDocument;
+                menuItem.IsEnabled = thumbnail is not null && viewModel.CanExtractCurrentPage;
+            }
+            else if (menuItem.Classes.Contains("thumbnail-delete-action"))
+            {
+                menuItem.IsVisible = viewModel.IsPdfDocument;
+                menuItem.IsEnabled = thumbnail is not null && viewModel.CanDeleteCurrentPage;
+            }
+        }
+    }
+
+    private async void OnThumbnailContextOpenClick(object? sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+
+        if (DataContext is MainWindowViewModel viewModel &&
+            TryGetThumbnailMenuTarget(sender, out var thumbnail))
+        {
+            await viewModel.OpenThumbnailContextMenuActionAsync(thumbnail);
+        }
+    }
+
+    private async void OnThumbnailContextExtractClick(object? sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+
+        if (DataContext is MainWindowViewModel viewModel &&
+            TryGetThumbnailMenuTarget(sender, out var thumbnail))
+        {
+            await viewModel.ExtractThumbnailContextMenuActionAsync(thumbnail);
+        }
+    }
+
+    private async void OnThumbnailContextDeleteClick(object? sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+
+        if (DataContext is MainWindowViewModel viewModel &&
+            TryGetThumbnailMenuTarget(sender, out var thumbnail))
+        {
+            await viewModel.DeleteThumbnailContextMenuActionAsync(thumbnail);
+        }
+    }
+
+    private PageThumbnailItemViewModel? ResolveThumbnailContextTarget(ContextMenu contextMenu)
+    {
+        return contextMenu.PlacementTarget?.DataContext as PageThumbnailItemViewModel ??
+            contextMenu.DataContext as PageThumbnailItemViewModel ??
+            _thumbnailContextTarget;
+    }
+
+    private bool TryGetThumbnailMenuTarget(
+        object? sender,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out PageThumbnailItemViewModel? thumbnail)
+    {
+        thumbnail = null;
+
+        if (sender is not MenuItem menuItem)
+        {
+            return false;
+        }
+
+        thumbnail = menuItem.Tag as PageThumbnailItemViewModel ??
+            menuItem.DataContext as PageThumbnailItemViewModel ??
+            menuItem.GetLogicalAncestors()
+                .OfType<ContextMenu>()
+                .Select(contextMenu => contextMenu.DataContext)
+                .OfType<PageThumbnailItemViewModel>()
+                .FirstOrDefault() ??
+            _thumbnailContextTarget;
+
+        return thumbnail is not null;
+    }
+
+    private static bool HasDroppedLocalFiles(IDataTransfer dataTransfer)
+    {
+        return GetDroppedLocalFilePaths(dataTransfer).Length > 0;
+    }
+
+    private static string[] GetDroppedLocalFilePaths(IDataTransfer dataTransfer)
+    {
+        if (!dataTransfer.Contains(DataFormat.File))
+        {
+            return [];
+        }
+
+        var files = dataTransfer.TryGetFiles();
+        if (files is null)
+        {
+            return [];
+        }
+
+        return files
+            .Select(file => file.TryGetLocalPath())
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Cast<string>()
+            .ToArray();
     }
 
     private async void OnDocumentPointerWheelChanged(object? sender, PointerWheelEventArgs e)
@@ -552,8 +731,15 @@ public partial class MainWindow : Window
     private void OnThumbnailPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (sender is not Control control ||
-            control.DataContext is not PageThumbnailItemViewModel thumbnail ||
-            e.GetCurrentPoint(control).Properties.PointerUpdateKind is not PointerUpdateKind.LeftButtonPressed)
+            control.DataContext is not PageThumbnailItemViewModel thumbnail)
+        {
+            ClearThumbnailDragState();
+            return;
+        }
+
+        _thumbnailContextTarget = thumbnail;
+
+        if (e.GetCurrentPoint(control).Properties.PointerUpdateKind is not PointerUpdateKind.LeftButtonPressed)
         {
             ClearThumbnailDragState();
             return;
@@ -775,7 +961,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var dropPreview = GetThumbnailDropPreview(currentPosition);
+        var dropPreview = GetThumbnailDropPreview(currentPosition, _draggedThumbnailPageNumber.Value);
         if (dropPreview is null)
         {
             HideThumbnailDropIndicator();
@@ -882,14 +1068,9 @@ public partial class MainWindow : Window
             .FirstOrDefault(control => control.Classes.Contains("thumbnail-item"));
     }
 
-    private ThumbnailDropPreview? GetThumbnailDropPreview(Point pointerPosition)
+    private ThumbnailDropPreview? GetThumbnailDropPreview(Point pointerPosition, int? excludedSourcePageNumber = null)
     {
-        if (_draggedThumbnailPageNumber is null)
-        {
-            return null;
-        }
-
-        var hitboxes = GetThumbnailHitboxes(_draggedThumbnailPageNumber.Value);
+        var hitboxes = GetThumbnailHitboxes(excludedSourcePageNumber);
         if (hitboxes.Count == 0)
         {
             return null;

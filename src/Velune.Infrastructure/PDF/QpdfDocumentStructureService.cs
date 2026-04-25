@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using Microsoft.Extensions.Options;
+using SkiaSharp;
 using Velune.Application.Abstractions;
 using Velune.Application.Configuration;
+using Velune.Application.Documents;
 using Velune.Application.Results;
 using Velune.Domain.ValueObjects;
 
@@ -139,7 +141,7 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
         return RunQpdfAsync(commandArguments, outputPath, cancellationToken);
     }
 
-    public Task<Result<string>> MergeDocumentsAsync(
+    public async Task<Result<string>> MergeDocumentsAsync(
         IReadOnlyList<string> sourcePaths,
         string outputPath,
         CancellationToken cancellationToken = default)
@@ -148,54 +150,96 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
 
         if (!IsAvailable())
         {
-            return Task.FromResult(ResultFactory.Failure<string>(CreateUnavailableError()));
+            return ResultFactory.Failure<string>(CreateUnavailableError());
         }
 
         if (sourcePaths.Count < 2)
         {
-            return Task.FromResult(ResultFactory.Failure<string>(
+            return ResultFactory.Failure<string>(
                 AppError.Validation(
                     "pdf.structure.merge.sources.invalid",
-                    "At least two PDF documents are required for a merge.")));
+                    "At least two documents are required for a merge."));
         }
 
         foreach (var sourcePath in sourcePaths)
         {
             if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
             {
-                return Task.FromResult(ResultFactory.Failure<string>(
+                return ResultFactory.Failure<string>(
                     AppError.NotFound(
                         "pdf.structure.merge.source.missing",
-                        "One of the source PDF documents could not be found.")));
+                        "One of the source documents could not be found."));
+            }
+
+            if (!IsSupportedMergeSource(sourcePath))
+            {
+                return ResultFactory.Failure<string>(
+                    AppError.Validation(
+                        "pdf.structure.merge.source.unsupported",
+                        "Only PDF and image documents can be merged."));
             }
         }
 
         if (string.IsNullOrWhiteSpace(outputPath))
         {
-            return Task.FromResult(ResultFactory.Failure<string>(
+            return ResultFactory.Failure<string>(
                 AppError.Validation(
                     "pdf.structure.output.empty",
-                    "An output path is required.")));
+                    "An output path is required."));
         }
 
         EnsureOutputDirectory(outputPath);
 
-        var commandArguments = new List<string>
-        {
-            "--empty",
-            "--warning-exit-0",
-            "--pages"
-        };
+        string? temporaryDirectory = null;
 
-        foreach (var sourcePath in sourcePaths)
+        try
         {
-            commandArguments.Add(sourcePath);
+            var preparedSourcePaths = new List<string>(sourcePaths.Count);
+
+            foreach (var sourcePath in sourcePaths)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (SupportedDocumentFormats.IsPdf(Path.GetExtension(sourcePath)))
+                {
+                    preparedSourcePaths.Add(sourcePath);
+                    continue;
+                }
+
+                temporaryDirectory ??= CreateMergeTemporaryDirectory();
+                var convertedPdfPath = Path.Combine(
+                    temporaryDirectory,
+                    $"{preparedSourcePaths.Count:D4}-{Path.GetFileNameWithoutExtension(sourcePath)}.pdf");
+                var conversionResult = ConvertImageToPdf(sourcePath, convertedPdfPath);
+                if (conversionResult.IsFailure)
+                {
+                    return ResultFactory.Failure<string>(conversionResult.Error!);
+                }
+
+                preparedSourcePaths.Add(conversionResult.Value!);
+            }
+
+            var commandArguments = new List<string>
+            {
+                "--empty",
+                "--warning-exit-0",
+                "--pages"
+            };
+
+            foreach (var sourcePath in preparedSourcePaths)
+            {
+                commandArguments.Add(sourcePath);
+            }
+
+            commandArguments.Add("--");
+            commandArguments.Add(outputPath);
+
+            return await RunQpdfAsync(commandArguments, outputPath, cancellationToken);
         }
-
-        commandArguments.Add("--");
-        commandArguments.Add(outputPath);
-
-        return RunQpdfAsync(commandArguments, outputPath, cancellationToken);
+        finally
+        {
+            TryDeleteDirectory(temporaryDirectory);
+        }
     }
 
     public Task<Result<string>> ReorderPagesAsync(
@@ -508,6 +552,75 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
         if (!string.IsNullOrWhiteSpace(directoryPath))
         {
             Directory.CreateDirectory(directoryPath);
+        }
+    }
+
+    private static bool IsSupportedMergeSource(string sourcePath)
+    {
+        var extension = Path.GetExtension(sourcePath);
+        return !string.IsNullOrWhiteSpace(extension) &&
+            SupportedDocumentFormats.IsSupported(extension);
+    }
+
+    private static string CreateMergeTemporaryDirectory()
+    {
+        var path = Path.Combine(
+            Path.GetTempPath(),
+            "velune-merge",
+            Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(path);
+        return path;
+    }
+
+    private static Result<string> ConvertImageToPdf(string imagePath, string outputPath)
+    {
+        try
+        {
+            EnsureOutputDirectory(outputPath);
+
+            using var bitmap = SKBitmap.Decode(imagePath);
+            if (bitmap is null || bitmap.Width <= 0 || bitmap.Height <= 0)
+            {
+                return ResultFactory.Failure<string>(
+                    AppError.Validation(
+                        "pdf.structure.merge.image.invalid",
+                        "One of the image documents could not be decoded."));
+            }
+
+            using var stream = File.Create(outputPath);
+            using var document = SKDocument.CreatePdf(stream);
+            var canvas = document.BeginPage(bitmap.Width, bitmap.Height);
+            canvas.Clear(SKColors.White);
+            canvas.DrawBitmap(bitmap, 0, 0);
+            document.EndPage();
+            document.Close();
+
+            return ResultFactory.Success(outputPath);
+        }
+        catch (Exception ex)
+        {
+            return ResultFactory.Failure<string>(
+                AppError.Infrastructure(
+                    "pdf.structure.merge.image_conversion_failed",
+                    ex.Message));
+        }
+    }
+
+    private static void TryDeleteDirectory(string? directoryPath)
+    {
+        if (string.IsNullOrWhiteSpace(directoryPath) ||
+            !Directory.Exists(directoryPath))
+        {
+            return;
+        }
+
+        try
+        {
+            Directory.Delete(directoryPath, recursive: true);
+        }
+        catch
+        {
+            // Best-effort cleanup for temporary image-to-PDF conversion files.
         }
     }
 

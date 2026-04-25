@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.Extensions.Options;
+using SkiaSharp;
 using Velune.Application.Configuration;
 using Velune.Application.DTOs;
 using Velune.Application.UseCases;
@@ -85,6 +86,26 @@ public sealed class PdfDocumentStructureIntegrationTests
     }
 
     [RequiresQpdfFact]
+    public async Task MergePdfDocuments_ShouldAppendImageSourcesAsPages()
+    {
+        await using var workspace = await PdfStructureTestWorkspace.CreateAsync();
+        var useCase = workspace.CreateMergeUseCase();
+
+        var outputPath = workspace.GetOutputPath("merged-with-image.pdf");
+
+        var result = await useCase.ExecuteAsync(
+            new MergePdfDocumentsRequest([workspace.SourcePdfPath, workspace.ImagePath, workspace.SecondaryPdfPath], outputPath));
+
+        Assert.True(result.IsSuccess, result.Error?.Message);
+
+        var documentInfo = PdfInspection.Load(outputPath);
+        Assert.Equal(6, documentInfo.PageCount);
+        Assert.Equal(
+            [(100, 200), (200, 100), (90, 90), (32, 48), (60, 60), (140, 80)],
+            documentInfo.Pages.Select(page => (page.Width, page.Height)).ToArray());
+    }
+
+    [RequiresQpdfFact]
     public async Task ReorderPdfPages_ShouldPersistRequestedOrder()
     {
         await using var workspace = await PdfStructureTestWorkspace.CreateAsync();
@@ -116,6 +137,7 @@ public sealed class PdfDocumentStructureIntegrationTests
 
         public string SourcePdfPath => Path.Combine(_workspacePath, "source.pdf");
         public string SecondaryPdfPath => Path.Combine(_workspacePath, "secondary.pdf");
+        public string ImagePath => Path.Combine(_workspacePath, "photo.png");
 
         public static async Task<PdfStructureTestWorkspace> CreateAsync()
         {
@@ -136,6 +158,8 @@ public sealed class PdfDocumentStructureIntegrationTests
                 Path.Combine(workspacePath, "secondary.pdf"),
                 new PdfPageSpec(60, 60),
                 new PdfPageSpec(140, 80));
+
+            CreateImage(Path.Combine(workspacePath, "photo.png"), 32, 48);
 
             await Task.CompletedTask;
 
@@ -160,6 +184,17 @@ public sealed class PdfDocumentStructureIntegrationTests
         public ReorderPdfPagesUseCase CreateReorderUseCase() => new(_service);
 
         public string GetOutputPath(string fileName) => Path.Combine(_workspacePath, fileName);
+
+        private static void CreateImage(string outputPath, int width, int height)
+        {
+            using var bitmap = new SKBitmap(width, height);
+            using var canvas = new SKCanvas(bitmap);
+            canvas.Clear(SKColors.CornflowerBlue);
+            using var image = SKImage.FromBitmap(bitmap);
+            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+            using var stream = File.Create(outputPath);
+            data.SaveTo(stream);
+        }
 
         public ValueTask DisposeAsync()
         {

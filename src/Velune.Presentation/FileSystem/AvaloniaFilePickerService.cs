@@ -40,6 +40,35 @@ public sealed class AvaloniaFilePickerService : IFilePickerService
         return files[0].TryGetLocalPath();
     }
 
+    public async Task<IReadOnlyList<string>> PickOpenMergeSourceFilesAsync(
+        string title,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+
+        var topLevel = _topLevelProvider.GetTopLevel()
+            ?? throw new InvalidOperationException("No active TopLevel is available.");
+
+        var files = await topLevel.StorageProvider.OpenFilePickerAsync(
+            new FilePickerOpenOptions
+            {
+                Title = title,
+                AllowMultiple = true,
+                FileTypeFilter =
+                [
+                    CreateSupportedDocumentsFileType(),
+                    CreatePdfFileType(),
+                    CreateImagesFileType()
+                ]
+            });
+
+        return files
+            .Select(file => file.TryGetLocalPath())
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Cast<string>()
+            .ToArray();
+    }
+
     public async Task<string?> PickSavePdfFileAsync(
         string title,
         string suggestedFileName,

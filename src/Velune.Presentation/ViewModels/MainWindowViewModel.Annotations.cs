@@ -72,7 +72,7 @@ public partial class MainWindowViewModel
     public bool CanAnnotateCurrentDocument => HasOpenDocument;
     public bool IsSearchAvailableForCurrentDocument => IsPdfDocument;
     public bool IsAnnotationModeActive => HasOpenDocument && IsAnnotationsPanelOpen;
-    public bool SidebarHostVisible => HasOpenDocument && !IsCurrentImageDocument;
+    public bool SidebarHostVisible => HasOpenDocument;
     public double SidebarOpacity => IsSidebarVisible ? 1 : 0;
     public bool IsSidebarInteractive => IsSidebarVisible;
     public double InfoPanelOpacity => IsInfoPanelOpen ? 1 : 0;

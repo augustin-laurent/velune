@@ -8,6 +8,7 @@ using Velune.Infrastructure.Image;
 using Velune.Infrastructure.Preferences;
 using Velune.Infrastructure.Pdf;
 using Velune.Infrastructure.Text;
+using Velune.Infrastructure.State;
 
 namespace Velune.Infrastructure.DependencyInjection;
 
@@ -18,6 +19,7 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton<IUserPreferencesService, JsonUserPreferencesService>();
+        services.AddSingleton<IRecentFilesService, JsonRecentFilesService>();
         services.AddSingleton<IPrintService, SystemPrintService>();
         services.AddSingleton<IOcrEngine, TesseractOcrEngine>();
         services.AddSingleton<ISignatureAssetStore, JsonSignatureAssetStore>();

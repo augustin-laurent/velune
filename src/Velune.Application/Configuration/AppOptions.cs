@@ -19,6 +19,11 @@ public sealed class AppOptions
         get; set;
     } = 10;
 
+    public string? RecentFilesPath
+    {
+        get; set;
+    }
+
     public int RenderCacheEntryLimit
     {
         get; set;

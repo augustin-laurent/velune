@@ -151,6 +151,40 @@ public partial class MainWindow : Window
         await viewModel.HandleThumbnailFilesDroppedAsync(filePaths, insertionIndex);
     }
 
+    private void OnHomeDropZoneDragOver(object? sender, DragEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel { IsEmptyStateVisible: true } &&
+            HasDroppedLocalFiles(e.DataTransfer))
+        {
+            e.DragEffects = DragDropEffects.Copy;
+        }
+        else
+        {
+            e.DragEffects = DragDropEffects.None;
+        }
+
+        e.Handled = true;
+    }
+
+    private async void OnHomeDropZoneDrop(object? sender, DragEventArgs e)
+    {
+        e.Handled = true;
+
+        if (DataContext is not MainWindowViewModel viewModel ||
+            !viewModel.IsEmptyStateVisible)
+        {
+            return;
+        }
+
+        var filePaths = GetDroppedLocalFilePaths(e.DataTransfer);
+        if (filePaths.Length == 0)
+        {
+            return;
+        }
+
+        await viewModel.HandleHomeFilesDroppedAsync(filePaths);
+    }
+
     private void OnThumbnailContextMenuOpened(object? sender, RoutedEventArgs e)
     {
         if (sender is not ContextMenu contextMenu ||

@@ -413,6 +413,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public IReadOnlyList<LocalizedOption<PrintOrientationOption>> PrintOrientationOptions => _printOrientationOptions;
 
     public bool IsEmptyStateVisible => !HasOpenDocument;
+    public bool ShowRecentFilesFooter => IsEmptyStateVisible && HasRecentFiles;
+    public bool ShowStatusFooter => !ShowRecentFilesFooter;
     public bool HasUserMessage => !string.IsNullOrWhiteSpace(UserMessage);
     public bool CanDismissUserMessage => HasUserMessage && _isCurrentNotificationDismissible;
     public bool HasUserMessageTitle => !string.IsNullOrWhiteSpace(UserMessageTitle);
@@ -559,6 +561,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     partial void OnHasOpenDocumentChanged(bool value)
     {
         OnPropertyChanged(nameof(IsEmptyStateVisible));
+        OnPropertyChanged(nameof(ShowRecentFilesFooter));
+        OnPropertyChanged(nameof(ShowStatusFooter));
         OnPropertyChanged(nameof(HeaderSubtitle));
         OnPropertyChanged(nameof(ShouldEmphasizeOpenAction));
         OnPropertyChanged(nameof(CanGoToPage));
@@ -991,6 +995,34 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         await OpenDocumentFromPathAsync(item.FilePath);
+    }
+
+    public async Task HandleHomeFilesDroppedAsync(IReadOnlyList<string> filePaths)
+    {
+        ArgumentNullException.ThrowIfNull(filePaths);
+
+        var supportedPaths = filePaths
+            .Where(IsSupportedMergeSourcePath)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (supportedPaths.Length == 0)
+        {
+            EnqueueLocalizedWarning(
+                "notification.merge.drop_unsupported.title",
+                "notification.merge.drop_unsupported.message",
+                replaceCurrent: true);
+            StatusText = L("status.merge.drop_unsupported");
+            return;
+        }
+
+        if (supportedPaths.Length == 1)
+        {
+            await OpenDocumentFromPathAsync(supportedPaths[0]);
+            return;
+        }
+
+        await MergeDocumentSourcesAsync(supportedPaths);
     }
 
     [RelayCommand(CanExecute = nameof(HasOpenDocument))]
@@ -4590,6 +4622,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         OnPropertyChanged(nameof(HasRecentFiles));
+        OnPropertyChanged(nameof(ShowRecentFilesFooter));
+        OnPropertyChanged(nameof(ShowStatusFooter));
         ClearRecentFilesCommand.NotifyCanExecuteChanged();
     }
 

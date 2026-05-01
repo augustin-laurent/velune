@@ -273,6 +273,7 @@
             Grid.Row="1"
             Grid.Column="0"
             Grid.ColumnSpan="2"
+            IsVisible="{Binding HasOpenDocument}"
             Padding="18,14"
             BorderBrush="{DynamicResource Brush.Border}"
             BorderThickness="0,0,0,1"
@@ -839,98 +840,117 @@
       </Border>
 
       <!-- Empty state -->
-      <StackPanel HorizontalAlignment="Center"
-                  Grid.ColumnSpan="2"
-                  VerticalAlignment="Center"
-                  Spacing="18"
-                  MaxWidth="560"
-                  IsVisible="{Binding IsEmptyStateVisible}">
-        <Grid Width="286"
-              Height="286"
-              HorizontalAlignment="Center">
-          <Ellipse Width="286"
-                   Height="286"
-                   Fill="{DynamicResource Brush.BrandHalo}" />
-
-          <Border Classes="empty-state-brand-shell"
-                  Width="248"
-                  Height="248"
-                  Padding="18"
-                  HorizontalAlignment="Center"
-                  VerticalAlignment="Center">
-            <Image Source="avares://Velune.Presentation/Assets/Brand/velune-logo.png"
-                   Stretch="Uniform"
-                   Width="212"
-                   Height="212"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center" />
-          </Border>
-        </Grid>
-
-        <TextBlock Text="{Binding EmptyStateTitle}"
-                   Classes="hero"
-                   HorizontalAlignment="Center"
-                   TextAlignment="Center" />
-
-        <TextBlock Text="{Binding EmptyStateDescription}"
-                   Classes="muted"
-                   FontSize="{DynamicResource FontSize.BodyLarge}"
-                   HorizontalAlignment="Center"
-                   TextAlignment="Center" />
-
-        <StackPanel Orientation="Horizontal"
+      <Grid Grid.ColumnSpan="2"
+            Margin="84,34,84,28"
+            RowDefinitions="Auto,Auto,Auto,*"
+            IsVisible="{Binding IsEmptyStateVisible}">
+        <StackPanel Grid.Row="0"
+                    Classes="home-brand"
+                    HorizontalAlignment="Center">
+          <Grid Width="172"
+                Height="172"
+                HorizontalAlignment="Center">
+            <Ellipse Width="172"
+                     Height="172"
+                     Fill="{DynamicResource Brush.BrandHalo}" />
+            <Border Classes="empty-state-brand-shell home-logo-shell"
+                    Width="134"
+                    Height="134"
+                    Padding="12"
                     HorizontalAlignment="Center"
-                    Spacing="8">
-          <Button Content="{loc:Loc app.open.button}"
-                  Width="140"
-                  HorizontalAlignment="Center"
-                  Command="{Binding OpenCommand}" />
-          <Button Content="{loc:Loc app.merge.button}"
-                  Width="140"
-                  HorizontalAlignment="Center"
-                  Command="{Binding MergePdfDocumentsCommand}" />
+                    VerticalAlignment="Center">
+              <Image Source="avares://Velune.Presentation/Assets/Brand/velune-logo.png"
+                     Stretch="Uniform"
+                     Width="108"
+                     Height="108"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center" />
+            </Border>
+          </Grid>
+
+          <TextBlock Text="{loc:Loc app.name}"
+                     Classes="home-brand-title"
+                     HorizontalAlignment="Center"
+                     TextAlignment="Center" />
+
+          <TextBlock Text="{loc:Loc app.window.subtitle}"
+                     Classes="muted home-brand-subtitle"
+                     HorizontalAlignment="Center"
+                     TextAlignment="Center" />
         </StackPanel>
 
-        <Border Classes="card"
-                Padding="16"
-                Margin="0,12,0,0"
-                IsVisible="{Binding HasRecentFiles}">
-          <StackPanel Spacing="10">
-            <DockPanel LastChildFill="False">
-              <TextBlock Text="{loc:Loc app.recent.title}"
-                         Classes="title"
-                         VerticalAlignment="Center" />
+        <Border Grid.Row="1"
+                Classes="home-drop-zone"
+                DragDrop.AllowDrop="True"
+                DragDrop.DragOver="OnHomeDropZoneDragOver"
+                DragDrop.Drop="OnHomeDropZoneDrop">
+          <Grid Classes="home-drop-content"
+                RowDefinitions="44,28,36"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center">
+            <TextBlock Grid.Row="0"
+                       Text="{loc:Loc app.empty.drop_title}"
+                       Classes="home-drop-title"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       TextAlignment="Center"
+                       TextWrapping="NoWrap" />
 
-              <Button Content="{loc:Loc app.recent.clear}"
-                      DockPanel.Dock="Right"
-                      Command="{Binding ClearRecentFilesCommand}" />
-            </DockPanel>
+            <TextBlock Grid.Row="1"
+                       Text="{loc:Loc app.empty.or}"
+                       Classes="home-drop-separator"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       TextAlignment="Center" />
 
-            <ItemsControl ItemsSource="{Binding RecentFiles}">
-              <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                  <Button Classes="recent-file-button"
-                          Command="{Binding $parent[Window].DataContext.OpenRecentFileCommand}"
-                          CommandParameter="{Binding}"
-                          HorizontalContentAlignment="Stretch">
-                    <Border Classes="recent-file-item">
-                      <StackPanel>
-                        <TextBlock Text="{Binding FileName}"
-                                   FontWeight="SemiBold" />
-                        <TextBlock Text="{Binding DocumentType}"
-                                   Classes="muted" />
-                        <TextBlock Text="{Binding FilePath}"
-                                   Classes="muted"
-                                   TextWrapping="Wrap" />
-                      </StackPanel>
-                    </Border>
-                  </Button>
-                </DataTemplate>
-              </ItemsControl.ItemTemplate>
-            </ItemsControl>
-          </StackPanel>
+            <Button Grid.Row="2"
+                    Classes="home-link-button"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Command="{Binding OpenCommand}">
+              <TextBlock Text="{loc:Loc app.empty.open_link}"
+                         FontSize="17"
+                         FontWeight="SemiBold"
+                         TextDecorations="Underline" />
+            </Button>
+          </Grid>
         </Border>
-      </StackPanel>
+
+        <StackPanel Grid.Row="2"
+                    Classes="home-action-row"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Center"
+                    Spacing="64">
+          <Button Classes="home-action-button"
+                  Command="{Binding OpenCommand}">
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Spacing="16">
+              <materialIcons:MaterialIcon Kind="FolderOpenOutline"
+                                          Width="24"
+                                          Height="24" />
+              <TextBlock Text="{loc:Loc app.open.button}"
+                         Classes="home-action-label" />
+            </StackPanel>
+          </Button>
+
+          <Button Classes="home-action-button"
+                  Command="{Binding MergePdfDocumentsCommand}">
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Spacing="16">
+              <materialIcons:MaterialIcon Kind="ArrowExpandHorizontal"
+                                          Width="24"
+                                          Height="24" />
+              <TextBlock Text="{loc:Loc app.merge.button}"
+                         Classes="home-action-label" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+
+      </Grid>
 
       <!-- Viewer -->
       <Grid Margin="24"
@@ -1725,8 +1745,66 @@
             BorderBrush="{DynamicResource Brush.Border}"
             BorderThickness="0,1,0,0"
             Background="{DynamicResource Brush.Surface}">
-      <TextBlock Text="{Binding StatusText}"
-                 Classes="muted" />
+      <Grid>
+        <TextBlock Text="{Binding StatusText}"
+                   Classes="muted"
+                   IsVisible="{Binding ShowStatusFooter}" />
+
+        <DockPanel LastChildFill="True"
+                   IsVisible="{Binding ShowRecentFilesFooter}">
+          <TextBlock Text="{loc:Loc app.recent.title}"
+                     Classes="footer-recent-title"
+                     DockPanel.Dock="Left"
+                     VerticalAlignment="Center"
+                     Margin="4,0,14,0" />
+
+          <Button Content="{loc:Loc app.recent.clear}"
+                  Classes="footer-clear-button"
+                  DockPanel.Dock="Right"
+                  Command="{Binding ClearRecentFilesCommand}" />
+
+          <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                        VerticalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding RecentFiles}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Button Classes="recent-file-button footer-recent-button"
+                          Command="{Binding $parent[Window].DataContext.OpenRecentFileCommand}"
+                          CommandParameter="{Binding}"
+                          ToolTip.Tip="{Binding FilePath}">
+                    <Border Classes="footer-recent-file-card">
+                      <StackPanel Orientation="Horizontal"
+                                  Spacing="8"
+                                  VerticalAlignment="Center">
+                        <materialIcons:MaterialIcon Kind="FolderOpenOutline"
+                                                    Classes="footer-recent-icon"
+                                                    Width="18"
+                                                    Height="18" />
+                        <StackPanel Width="150">
+                          <TextBlock Text="{Binding FileName}"
+                                     FontWeight="SemiBold"
+                                     TextTrimming="CharacterEllipsis"
+                                     TextWrapping="NoWrap" />
+                          <TextBlock Text="{Binding DocumentType}"
+                                     Classes="muted"
+                                     FontSize="11"
+                                     TextTrimming="CharacterEllipsis"
+                                     TextWrapping="NoWrap" />
+                        </StackPanel>
+                      </StackPanel>
+                    </Border>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </DockPanel>
+      </Grid>
     </Border>
   </Grid>
 </Window>

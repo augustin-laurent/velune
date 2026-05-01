@@ -75,6 +75,16 @@ jobs:
           choco install qpdf tesseract --yes --no-progress
           Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
           refreshenv
+          $tessdata = Join-Path $env:ProgramFiles "Tesseract-OCR\tessdata"
+          New-Item -ItemType Directory -Path $tessdata -Force | Out-Null
+          foreach ($language in @("eng", "fra", "osd")) {
+            $target = Join-Path $tessdata "$language.traineddata"
+            if (-not (Test-Path -LiteralPath $target)) {
+              Invoke-WebRequest `
+                -Uri "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/$language.traineddata" `
+                -OutFile $target
+            }
+          }
 
       - name: Resolve dev build version
         id: version

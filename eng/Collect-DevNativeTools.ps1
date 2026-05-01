@@ -36,7 +36,15 @@ function Find-Executable {
     param([string] $Name)
 
     $executableName = Get-ExecutableName -Name $Name
-    $candidates = @()
+    $candidates = [System.Collections.Generic.List[string]]::new()
+
+    function Add-Candidate {
+        param([string] $Path)
+
+        if (-not [string]::IsNullOrWhiteSpace($Path)) {
+            $candidates.Add($Path)
+        }
+    }
 
     if ($RuntimeIdentifier.StartsWith("win-", [System.StringComparison]::Ordinal)) {
         $programFiles = @(
@@ -47,15 +55,34 @@ function Find-Executable {
 
         foreach ($root in $programFiles) {
             if (Test-Path -LiteralPath $root) {
-                $candidates += Get-ChildItem -LiteralPath $root -Filter $executableName -Recurse -ErrorAction SilentlyContinue |
-                    Select-Object -ExpandProperty FullName
+                Get-ChildItem -LiteralPath $root -Filter $executableName -Recurse -ErrorAction SilentlyContinue |
+                    ForEach-Object { Add-Candidate -Path $_.FullName }
             }
+        }
+    } elseif ($RuntimeIdentifier.StartsWith("osx-", [System.StringComparison]::Ordinal)) {
+        foreach ($path in @(
+                "/opt/homebrew/bin/$executableName",
+                "/usr/local/bin/$executableName",
+                "/usr/bin/$executableName")) {
+            Add-Candidate -Path $path
+        }
+    } else {
+        foreach ($path in @(
+                "/usr/bin/$executableName",
+                "/usr/local/bin/$executableName",
+                "/bin/$executableName")) {
+            Add-Candidate -Path $path
         }
     }
 
-    $command = Get-Command $Name -CommandType Application -ErrorAction SilentlyContinue
-    if ($command?.Source) {
-        $candidates += $command.Source
+    $commands = Get-Command @($Name, $executableName) -CommandType Application -All -ErrorAction SilentlyContinue
+    foreach ($command in $commands) {
+        foreach ($propertyName in @("Path", "Source", "Definition")) {
+            $property = $command.PSObject.Properties[$propertyName]
+            if ($null -ne $property) {
+                Add-Candidate -Path ([string] $property.Value)
+            }
+        }
     }
 
     $selected = $candidates |
@@ -64,7 +91,8 @@ function Find-Executable {
         Select-Object -First 1
 
     if ([string]::IsNullOrWhiteSpace($selected)) {
-        throw "Unable to locate $Name for $RuntimeIdentifier."
+        $checkedCandidates = ($candidates | Select-Object -Unique) -join ", "
+        throw "Unable to locate $Name for $RuntimeIdentifier. Checked: $checkedCandidates"
     }
 
     return $selected

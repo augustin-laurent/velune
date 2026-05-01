@@ -401,6 +401,113 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public async Task AnnotationProperties_ShouldApplyToNewAnnotations()
+    {
+        using var viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService("/tmp/image.png"),
+            documentOpener: new StubDocumentOpener(
+                new StubImageDocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata(
+                        "image.png",
+                        "/tmp/image.png",
+                        DocumentType.Image,
+                        2048,
+                        1,
+                        pixelWidth: 1200,
+                        pixelHeight: 800,
+                        formatLabel: "PNG image"),
+                    ViewportState.Default,
+                    new ImageMetadata(1200, 800))));
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        viewModel.ToggleAnnotationsPanelCommand.Execute(null);
+        viewModel.SelectAnnotationColorCommand.Execute("#7B61FF");
+        viewModel.SelectAnnotationThicknessCommand.Execute("8");
+        viewModel.SelectAnnotationToolCommand.Execute("Rectangle");
+
+        Assert.True(viewModel.BeginAnnotationInteraction(20, 30, 200, 200));
+        viewModel.UpdateAnnotationInteraction(120, 140, 200, 200);
+        viewModel.CompleteAnnotationInteraction(120, 140, 200, 200);
+
+        var annotation = Assert.Single(viewModel.CurrentPageAnnotations);
+        Assert.Equal("#7B61FF", annotation.Annotation.Appearance.StrokeHex);
+        Assert.Equal(8.0, annotation.Annotation.Appearance.StrokeThickness);
+    }
+
+    [Fact]
+    public async Task AnnotationProperties_ShouldUpdateSelectedAnnotation()
+    {
+        using var viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService("/tmp/image.png"),
+            documentOpener: new StubDocumentOpener(
+                new StubImageDocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata(
+                        "image.png",
+                        "/tmp/image.png",
+                        DocumentType.Image,
+                        2048,
+                        1,
+                        pixelWidth: 1200,
+                        pixelHeight: 800,
+                        formatLabel: "PNG image"),
+                    ViewportState.Default,
+                    new ImageMetadata(1200, 800))));
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        viewModel.ToggleAnnotationsPanelCommand.Execute(null);
+        viewModel.SelectAnnotationToolCommand.Execute("Rectangle");
+
+        Assert.True(viewModel.BeginAnnotationInteraction(20, 30, 200, 200));
+        viewModel.UpdateAnnotationInteraction(120, 140, 200, 200);
+        viewModel.CompleteAnnotationInteraction(120, 140, 200, 200);
+
+        viewModel.SelectAnnotationColorCommand.Execute("#E04DA5");
+        viewModel.SelectAnnotationThicknessCommand.Execute("4");
+
+        var annotation = Assert.Single(viewModel.CurrentPageAnnotations);
+        Assert.Equal("#E04DA5", annotation.Annotation.Appearance.StrokeHex);
+        Assert.Equal(4.0, annotation.Annotation.Appearance.StrokeThickness);
+        Assert.True(viewModel.CanUndoAnnotations);
+    }
+
+    [Fact]
+    public async Task DeleteCurrentPageAnnotationCommand_ShouldRemoveRequestedAnnotation()
+    {
+        using var viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService("/tmp/image.png"),
+            documentOpener: new StubDocumentOpener(
+                new StubImageDocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata(
+                        "image.png",
+                        "/tmp/image.png",
+                        DocumentType.Image,
+                        2048,
+                        1,
+                        pixelWidth: 1200,
+                        pixelHeight: 800,
+                        formatLabel: "PNG image"),
+                    ViewportState.Default,
+                    new ImageMetadata(1200, 800))));
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        viewModel.ToggleAnnotationsPanelCommand.Execute(null);
+        viewModel.SelectAnnotationToolCommand.Execute("Rectangle");
+
+        Assert.True(viewModel.BeginAnnotationInteraction(20, 30, 200, 200));
+        viewModel.UpdateAnnotationInteraction(120, 140, 200, 200);
+        viewModel.CompleteAnnotationInteraction(120, 140, 200, 200);
+
+        var annotation = Assert.Single(viewModel.CurrentPageAnnotations);
+        viewModel.DeleteCurrentPageAnnotationCommand.Execute(annotation);
+
+        Assert.Empty(viewModel.CurrentPageAnnotations);
+        Assert.True(viewModel.CanUndoAnnotations);
+    }
+
+    [Fact]
     public async Task Annotations_ShouldSupportUndoAndRedo()
     {
         using var viewModel = CreateViewModel(

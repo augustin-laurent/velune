@@ -181,6 +181,14 @@ panel.print.fit=Scale content to fit the page
 panel.print.print=Print
 panel.annotations.title=Annotations
 panel.annotations.description=Annotate the current page, add a simple signature, then save the updated document.
+panel.annotations.tab.tools=Tools
+panel.annotations.tab.style=Style
+panel.annotations.tab.comments=Comments
+panel.annotations.section.add=1. Add an annotation
+panel.annotations.section.properties=2. Properties
+panel.annotations.section.page=3. Annotations on this page
+panel.annotations.color=Color
+panel.annotations.thickness=Thickness
 panel.annotations.text=Annotation text
 panel.annotations.text.placeholder=Text, note or stamp label
 panel.annotations.signature_library=Signature library
@@ -194,6 +202,7 @@ panel.annotations.undo=Undo
 panel.annotations.redo=Redo
 panel.annotations.delete_selected=Delete selected
 panel.annotations.current_page=Current page annotations
+panel.annotations.empty_page=No annotations on this page yet.
 
 # Annotation tools
 annotation.tool.select=Select

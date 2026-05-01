@@ -106,6 +106,24 @@ function Get-PlatformExecutableName {
     return $Name
 }
 
+function Invoke-LoggedCommand {
+    param(
+        [Parameter(Mandatory = $true)]
+        [scriptblock] $Command,
+
+        [Parameter(Mandatory = $true)]
+        [string] $ErrorMessage
+    )
+
+    & $Command 2>&1 | ForEach-Object {
+        Write-Host $_
+    }
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "$ErrorMessage Exit code: $LASTEXITCODE"
+    }
+}
+
 function Assert-BundledNativeTools {
     param([string] $ToolsDirectory)
 
@@ -225,18 +243,18 @@ New-CleanDirectory -Path $publishDir
 New-CleanDirectory -Path $stagingRoot
 New-Item -ItemType Directory -Path $packageRoot -Force | Out-Null
 
-dotnet publish $projectFullPath `
-    --configuration $Configuration `
-    --runtime $RuntimeIdentifier `
-    --self-contained true `
-    --output $publishDir `
-    /p:Version=$Version `
-    /p:InformationalVersion=$InformationalVersion `
-    /p:PublishSingleFile=false
-
-if ($LASTEXITCODE -ne 0) {
-    throw "dotnet publish failed with exit code $LASTEXITCODE"
-}
+Invoke-LoggedCommand `
+    -ErrorMessage "dotnet publish failed." `
+    -Command {
+        dotnet publish $projectFullPath `
+            --configuration $Configuration `
+            --runtime $RuntimeIdentifier `
+            --self-contained true `
+            --output $publishDir `
+            /p:Version=$Version `
+            /p:InformationalVersion=$InformationalVersion `
+            /p:PublishSingleFile=false
+    }
 
 $packageName = "Velune-$safeVersion-$RuntimeIdentifier"
 

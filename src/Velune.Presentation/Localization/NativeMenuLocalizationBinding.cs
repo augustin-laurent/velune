@@ -11,6 +11,7 @@ internal sealed class NativeMenuLocalizationBinding
     private readonly NativeMenu _menu;
     private readonly ILocalizationService _localizationService;
     private readonly Action<NativeMenu, ILocalizationService> _localizeMenu;
+    private readonly bool _usesRuntimeLocalization;
     private bool _isDisposed;
 
     internal NativeMenuLocalizationBinding(
@@ -24,9 +25,15 @@ internal sealed class NativeMenuLocalizationBinding
         _localizationService = localizationService ?? throw new ArgumentNullException(nameof(localizationService));
         _localizeMenu = localizeMenu ?? throw new ArgumentNullException(nameof(localizeMenu));
 
+        if (PresentationPlatform.IsMacOS)
+        {
+            return;
+        }
+
+        Refresh();
         _menu.NeedsUpdate += OnMenuNeedsUpdate;
         _localizationService.LanguageChanged += OnLanguageChanged;
-        Refresh();
+        _usesRuntimeLocalization = true;
     }
 
     internal void Refresh()
@@ -46,8 +53,12 @@ internal sealed class NativeMenuLocalizationBinding
             return;
         }
 
-        _menu.NeedsUpdate -= OnMenuNeedsUpdate;
-        _localizationService.LanguageChanged -= OnLanguageChanged;
+        if (_usesRuntimeLocalization)
+        {
+            _menu.NeedsUpdate -= OnMenuNeedsUpdate;
+            _localizationService.LanguageChanged -= OnLanguageChanged;
+        }
+
         _isDisposed = true;
     }
 

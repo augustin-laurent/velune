@@ -50,6 +50,146 @@
     <Setter Property="BoxShadow" Value="0 22 48 0 #18000000, 0 8 20 0 #14000000" />
   </Style>
 
+  <Style Selector="Border.home-drop-zone">
+    <Setter Property="MinHeight" Value="232" />
+    <Setter Property="Padding" Value="28" />
+    <Setter Property="Background" Value="{DynamicResource Brush.SurfaceMuted}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderStrong}" />
+    <Setter Property="BorderThickness" Value="2" />
+    <Setter Property="CornerRadius" Value="34" />
+  </Style>
+
+  <Style Selector="StackPanel.home-brand">
+    <Setter Property="Margin" Value="0,0,0,18" />
+  </Style>
+
+  <Style Selector="Border.home-logo-shell">
+    <Setter Property="CornerRadius" Value="30" />
+  </Style>
+
+  <Style Selector="TextBlock.home-brand-title">
+    <Setter Property="FontSize" Value="30" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Margin" Value="0,2,0,0" />
+  </Style>
+
+  <Style Selector="TextBlock.home-brand-subtitle">
+    <Setter Property="FontSize" Value="18" />
+  </Style>
+
+  <Style Selector="Border.home-drop-zone:pointerover">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
+  </Style>
+
+  <Style Selector="Grid.home-drop-content">
+    <Setter Property="Width" Value="420" />
+  </Style>
+
+  <Style Selector="TextBlock.home-drop-title">
+    <Setter Property="FontSize" Value="28" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style Selector="TextBlock.home-drop-separator">
+    <Setter Property="FontSize" Value="18" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.ForegroundMuted}" />
+  </Style>
+
+  <Style Selector="Button.home-link-button">
+    <Setter Property="Padding" Value="4,1" />
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource Brush.Accent}" />
+  </Style>
+
+  <Style Selector="Button.home-link-button:pointerover /template/ ContentPresenter">
+    <Setter Property="Opacity" Value="0.82" />
+  </Style>
+
+  <Style Selector="StackPanel.home-action-row">
+    <Setter Property="Margin" Value="0,30,0,0" />
+  </Style>
+
+  <Style Selector="Button.home-action-button">
+    <Setter Property="Width" Value="176" />
+    <Setter Property="MinHeight" Value="62" />
+    <Setter Property="Padding" Value="20,12" />
+    <Setter Property="Background" Value="{DynamicResource Brush.SurfaceStrong}" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="CornerRadius" Value="13" />
+  </Style>
+
+  <Style Selector="Button.home-action-button:pointerover">
+    <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
+  </Style>
+
+  <Style Selector="TextBlock.home-action-label">
+    <Setter Property="FontSize" Value="19" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style Selector="StackPanel.home-recent-section">
+    <Setter Property="Margin" Value="0,48,0,0" />
+  </Style>
+
+  <Style Selector="TextBlock.home-section-title">
+    <Setter Property="FontSize" Value="26" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style Selector="Button.home-clear-button">
+    <Setter Property="Padding" Value="12,6" />
+    <Setter Property="MinHeight" Value="30" />
+  </Style>
+
+  <Style Selector="Border.home-recent-file-card">
+    <Setter Property="Width" Value="200" />
+    <Setter Property="MinHeight" Value="118" />
+    <Setter Property="Margin" Value="0,16,20,0" />
+    <Setter Property="Padding" Value="14" />
+    <Setter Property="CornerRadius" Value="12" />
+  </Style>
+
+  <Style Selector="materialIcons|MaterialIcon.home-recent-icon">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.Accent}" />
+    <Setter Property="Margin" Value="0,0,0,14" />
+  </Style>
+
+  <Style Selector="TextBlock.home-recent-file-name">
+    <Setter Property="FontSize" Value="16" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Margin" Value="0,0,0,4" />
+  </Style>
+
+  <Style Selector="TextBlock.footer-recent-title">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style Selector="materialIcons|MaterialIcon.footer-recent-icon">
+    <Setter Property="Foreground" Value="{DynamicResource Brush.Accent}" />
+  </Style>
+
+  <Style Selector="Button.footer-clear-button">
+    <Setter Property="Padding" Value="10,5" />
+    <Setter Property="MinHeight" Value="28" />
+    <Setter Property="Margin" Value="12,0,0,0" />
+  </Style>
+
+  <Style Selector="Button.footer-recent-button">
+    <Setter Property="Margin" Value="0,0,8,0" />
+  </Style>
+
+  <Style Selector="Border.footer-recent-file-card">
+    <Setter Property="Padding" Value="10,7" />
+    <Setter Property="Background" Value="{DynamicResource Brush.SurfaceMuted}" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="MinWidth" Value="206" />
+  </Style>
+
   <Style Selector="TextBlock.title">
     <Setter Property="FontSize" Value="{DynamicResource FontSize.Title}" />
     <Setter Property="FontWeight" Value="SemiBold" />
@@ -126,6 +266,47 @@
       <Setter Property="BorderBrush" Value="{DynamicResource Brush.BorderStrong}" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="Opacity" Value="0.16" />
+    </Style>
+
+    <Style Selector="ContextMenu.thumbnail-context-menu">
+      <Setter Property="Padding" Value="6" />
+      <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="12" />
+    </Style>
+
+    <Style Selector="MenuItem.thumbnail-context-title">
+      <Setter Property="Foreground" Value="{DynamicResource Brush.ForegroundMuted}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Padding" Value="10,6" />
+    </Style>
+
+    <Style Selector="MenuItem.thumbnail-context-menu-item">
+      <Setter Property="MinHeight" Value="34" />
+      <Setter Property="Padding" Value="10,7" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Foreground}" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+
+    <Style Selector="MenuItem.thumbnail-context-menu-item:pointerover">
+      <Setter Property="Background" Value="{DynamicResource Brush.SurfaceMuted}" />
+    </Style>
+
+    <Style Selector="MenuItem.thumbnail-context-menu-item:disabled">
+      <Setter Property="Opacity" Value="0.42" />
+    </Style>
+
+    <Style Selector="MenuItem.thumbnail-context-menu-item.destructive">
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Danger}" />
+    </Style>
+
+    <Style Selector="Separator.thumbnail-context-separator">
+      <Setter Property="Margin" Value="8,4" />
+      <Setter Property="Background" Value="{DynamicResource Brush.Border}" />
     </Style>
 
     <Style Selector="Button.sidebar-action-button">
@@ -476,6 +657,16 @@
       <Setter Property="Foreground" Value="{DynamicResource Brush.Icon}" />
       <Setter Property="HorizontalAlignment" Value="Center" />
       <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="materialIcons|MaterialIcon.context-menu-icon">
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Icon}" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="materialIcons|MaterialIcon.context-menu-icon.destructive">
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Danger}" />
     </Style>
 
     <Style Selector="materialIcons|MaterialIcon.toolbar-primary-icon">

@@ -11,6 +11,7 @@
   <Color x:Key="Color.ForegroundMuted">#FFD4CCE0</Color>
   <Color x:Key="Color.Icon">#FFF6EEF7</Color>
   <Color x:Key="Color.Accent">#FFA6C4F2</Color>
+  <Color x:Key="Color.Danger">#FFFF9A8E</Color>
 
   <SolidColorBrush x:Key="Brush.Background" Color="{StaticResource Color.Background}" />
   <SolidColorBrush x:Key="Brush.Surface" Color="{StaticResource Color.Surface}" />
@@ -22,6 +23,7 @@
   <SolidColorBrush x:Key="Brush.ForegroundMuted" Color="{StaticResource Color.ForegroundMuted}" />
   <SolidColorBrush x:Key="Brush.Icon" Color="{StaticResource Color.Icon}" />
   <SolidColorBrush x:Key="Brush.Accent" Color="{StaticResource Color.Accent}" />
+  <SolidColorBrush x:Key="Brush.Danger" Color="{StaticResource Color.Danger}" />
   <LinearGradientBrush x:Key="Brush.BrandPanel" StartPoint="0,0" EndPoint="1,1">
     <GradientStop Color="#FF2B3046" Offset="0" />
     <GradientStop Color="#FF283854" Offset="0.55" />

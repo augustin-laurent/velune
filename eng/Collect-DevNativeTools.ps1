@@ -47,15 +47,30 @@ function Find-Executable {
     }
 
     if ($RuntimeIdentifier.StartsWith("win-", [System.StringComparison]::Ordinal)) {
-        $programFiles = @(
-            ${env:ProgramFiles},
-            ${env:ProgramFiles(x86)},
-            "C:\ProgramData\chocolatey\lib"
-        ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+        $programFiles = [Environment]::GetEnvironmentVariable("ProgramFiles")
+        $programFilesX86 = [Environment]::GetEnvironmentVariable("ProgramFiles(x86)")
+        $chocolateyRoot = if (-not [string]::IsNullOrWhiteSpace($env:ChocolateyInstall)) {
+            $env:ChocolateyInstall
+        } else {
+            "C:\ProgramData\chocolatey"
+        }
 
-        foreach ($root in $programFiles) {
-            if (Test-Path -LiteralPath $root) {
-                Get-ChildItem -LiteralPath $root -Filter $executableName -Recurse -ErrorAction SilentlyContinue |
+        if ($Name.Equals("tesseract", [System.StringComparison]::OrdinalIgnoreCase)) {
+            foreach ($root in @($programFiles, $programFilesX86)) {
+                if (-not [string]::IsNullOrWhiteSpace($root)) {
+                    Add-Candidate -Path (Join-Path $root "Tesseract-OCR\$executableName")
+                }
+            }
+        } elseif ($Name.Equals("qpdf", [System.StringComparison]::OrdinalIgnoreCase)) {
+            $qpdfToolsRoot = Join-Path $chocolateyRoot "lib\qpdf\tools"
+            foreach ($path in @(
+                    (Join-Path $qpdfToolsRoot $executableName),
+                    (Join-Path $qpdfToolsRoot "bin\$executableName"))) {
+                Add-Candidate -Path $path
+            }
+
+            if (Test-Path -LiteralPath $qpdfToolsRoot) {
+                Get-ChildItem -LiteralPath $qpdfToolsRoot -Filter $executableName -Recurse -File -ErrorAction SilentlyContinue |
                     ForEach-Object { Add-Candidate -Path $_.FullName }
             }
         }

@@ -1,0 +1,306 @@
+name: Beta Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing beta tag to publish.
+        required: true
+        default: v1.0.0-beta.1
+  push:
+    tags:
+      - "v*-beta.*"
+
+concurrency:
+  group: beta-release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  VELUNE_RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+
+jobs:
+  validate-build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.VELUNE_RELEASE_TAG }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-beta-${{ hashFiles('**/*.csproj', 'Velune.slnx') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-beta-
+            ${{ runner.os }}-nuget-
+
+      - name: Restore
+        run: dotnet restore Velune.slnx
+
+      - name: Build
+        run: dotnet build Velune.slnx --configuration Release --no-restore
+
+  validate-tests:
+    name: Tests (ubuntu-latest)
+    runs-on: ubuntu-latest
+    needs: validate-build
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.VELUNE_RELEASE_TAG }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-beta-${{ hashFiles('**/*.csproj', 'Velune.slnx') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-beta-
+            ${{ runner.os }}-nuget-
+
+      - name: Restore
+        run: dotnet restore Velune.slnx
+
+      - name: Install native test tools
+        run: sudo apt-get update && sudo apt-get install -y qpdf tesseract-ocr
+
+      - name: Unit tests
+        run: dotnet test tests/Velune.Tests.Unit/Velune.Tests.Unit.csproj --configuration Release --no-restore
+
+      - name: Integration tests
+        run: dotnet test tests/Velune.Tests.Integration/Velune.Tests.Integration.csproj --configuration Release --no-restore
+
+  validate-render:
+    name: Render snapshots (macos-latest)
+    runs-on: macos-latest
+    needs: validate-build
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.VELUNE_RELEASE_TAG }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-beta-${{ hashFiles('**/*.csproj', 'Velune.slnx') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-beta-
+            ${{ runner.os }}-nuget-
+
+      - name: Restore
+        run: dotnet restore Velune.slnx
+
+      - name: Render tests
+        run: dotnet test tests/Velune.Tests.Render/Velune.Tests.Render.csproj --configuration Release --no-restore
+
+  package:
+    name: Package (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    needs:
+      - validate-tests
+      - validate-render
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: windows-x64
+            os: windows-latest
+            rid: win-x64
+          - label: linux-x64
+            os: ubuntu-latest
+            rid: linux-x64
+          - label: macos-arm64
+            os: macos-latest
+            rid: osx-arm64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.VELUNE_RELEASE_TAG }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-beta-${{ hashFiles('**/*.csproj', 'Velune.slnx') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-beta-
+            ${{ runner.os }}-nuget-
+
+      - name: Restore
+        run: dotnet restore Velune.slnx
+
+      - name: Install native tools (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y qpdf tesseract-ocr tesseract-ocr-eng tesseract-ocr-fra
+
+      - name: Install native tools (macOS)
+        if: runner.os == 'macOS'
+        run: brew install qpdf tesseract tesseract-lang
+
+      - name: Install native tools (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install qpdf tesseract --yes --no-progress
+          Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
+          refreshenv
+          $tessdata = Join-Path $env:ProgramFiles "Tesseract-OCR\tessdata"
+          New-Item -ItemType Directory -Path $tessdata -Force | Out-Null
+          foreach ($language in @("eng", "fra", "osd")) {
+            $target = Join-Path $tessdata "$language.traineddata"
+            if (-not (Test-Path -LiteralPath $target)) {
+              Invoke-WebRequest `
+                -Uri "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/$language.traineddata" `
+                -OutFile $target
+            }
+          }
+
+      - name: Resolve beta version
+        id: version
+        shell: pwsh
+        run: |
+          $versionInfo = ./eng/Get-BetaReleaseVersion.ps1 -TagName "$env:VELUNE_RELEASE_TAG" | ConvertFrom-Json
+          "tag_name=$($versionInfo.TagName)" >> $env:GITHUB_OUTPUT
+          "version=$($versionInfo.Version)" >> $env:GITHUB_OUTPUT
+          "informational_version=$($versionInfo.InformationalVersion)" >> $env:GITHUB_OUTPUT
+          "Resolved Velune beta version: $($versionInfo.InformationalVersion)"
+
+      - name: Collect bundled native tools
+        shell: pwsh
+        run: |
+          $nativeToolsInfo = ./eng/Collect-DevNativeTools.ps1 -RuntimeIdentifier "${{ matrix.rid }}" | ConvertFrom-Json
+          "Bundled native tools: $($nativeToolsInfo.ToolsRoot)"
+
+      - name: Build package
+        id: package
+        shell: pwsh
+        run: |
+          $packageInfo = ./eng/New-DevBuildPackage.ps1 `
+            -RuntimeIdentifier "${{ matrix.rid }}" `
+            -Version "${{ steps.version.outputs.version }}" `
+            -InformationalVersion "${{ steps.version.outputs.informational_version }}" `
+            -OutputRoot "artifacts/beta-release" | ConvertFrom-Json
+
+          "package_path=$($packageInfo.PackagePath)" >> $env:GITHUB_OUTPUT
+          "checksum_path=$($packageInfo.ChecksumPath)" >> $env:GITHUB_OUTPUT
+          "Built package: $($packageInfo.PackagePath)"
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: velune-beta-${{ matrix.label }}-${{ steps.version.outputs.version }}
+          if-no-files-found: error
+          path: |
+            ${{ steps.package.outputs.package_path }}
+            ${{ steps.package.outputs.checksum_path }}
+
+  publish:
+    name: Publish GitHub pre-release
+    runs-on: ubuntu-latest
+    needs: package
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.VELUNE_RELEASE_TAG }}
+
+      - name: Resolve beta version
+        id: version
+        shell: pwsh
+        run: |
+          $versionInfo = ./eng/Get-BetaReleaseVersion.ps1 -TagName "$env:VELUNE_RELEASE_TAG" | ConvertFrom-Json
+          "tag_name=$($versionInfo.TagName)" >> $env:GITHUB_OUTPUT
+          "version=$($versionInfo.Version)" >> $env:GITHUB_OUTPUT
+          "informational_version=$($versionInfo.InformationalVersion)" >> $env:GITHUB_OUTPUT
+
+      - name: Download package artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: velune-beta-*
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: Write release notes
+        shell: bash
+        run: |
+          cat > RELEASE_NOTES.md <<'EOF'
+          ## Velune ${{ steps.version.outputs.version }}
+
+          First beta release for public validation. This is not the final V1 stable release.
+
+          Downloads:
+          - Windows x64: `Velune-${{ steps.version.outputs.version }}-win-x64.zip`
+          - Linux x64: `Velune-${{ steps.version.outputs.version }}-linux-x64.tar.gz`
+          - macOS Apple Silicon: `Velune-${{ steps.version.outputs.version }}-osx-arm64.tar.gz`
+
+          Notes:
+          - Packages are self-contained and include `.NET`, `qpdf`, `tesseract`, English OCR data and French OCR data.
+          - Windows is distributed as an unsigned archive for this beta.
+          - macOS is distributed as an unsigned and non-notarized `.app` archive for this beta.
+          - Linux is distributed as a `.tar.gz` archive for this beta.
+          - Checksums are attached next to each package.
+          EOF
+
+      - name: Publish pre-release
+        shell: bash
+        run: |
+          mapfile -t files < <(find release-artifacts -type f | sort)
+
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No release artifacts found."
+            exit 1
+          fi
+
+          tag="${{ steps.version.outputs.tag_name }}"
+          title="Velune ${{ steps.version.outputs.version }}"
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "${files[@]}" --clobber
+            gh release edit "$tag" --title "$title" --notes-file RELEASE_NOTES.md --prerelease
+          else
+            gh release create "$tag" "${files[@]}" --title "$title" --notes-file RELEASE_NOTES.md --prerelease --verify-tag
+          fi

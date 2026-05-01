@@ -2,6 +2,8 @@
 
 Development builds provide shareable executable artifacts for the target platforms. They are not final signed installers.
 
+Public beta releases use `.github/workflows/beta-release.yml`; see `docs/beta-releases.md`.
+
 ## Artifacts
 
 - Windows: self-contained `win-x64` `.zip`

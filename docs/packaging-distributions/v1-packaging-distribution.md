@@ -26,6 +26,8 @@ Development builds may use archives until final installers are ready:
 - Linux `.tar.gz`
 - macOS `.tar.gz` containing `Velune.app`
 
+Beta releases use the same archive formats and must be published as GitHub pre-releases.
+
 ## Platform Notes
 
 ### Windows

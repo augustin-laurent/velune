@@ -181,6 +181,14 @@ panel.print.fit=Ajuster le contenu à la page
 panel.print.print=Imprimer
 panel.annotations.title=Annotations
 panel.annotations.description=Annotez la page courante, ajoutez une signature simple puis enregistrez le document mis à jour.
+panel.annotations.tab.tools=Outils
+panel.annotations.tab.style=Style
+panel.annotations.tab.comments=Commentaires
+panel.annotations.section.add=1. Ajouter une annotation
+panel.annotations.section.properties=2. Propriétés
+panel.annotations.section.page=3. Annotations de cette page
+panel.annotations.color=Couleur
+panel.annotations.thickness=Épaisseur
 panel.annotations.text=Texte d’annotation
 panel.annotations.text.placeholder=Texte, note ou libellé du tampon
 panel.annotations.signature_library=Bibliothèque de signatures
@@ -194,6 +202,7 @@ panel.annotations.undo=Annuler
 panel.annotations.redo=Rétablir
 panel.annotations.delete_selected=Supprimer la sélection
 panel.annotations.current_page=Annotations de la page courante
+panel.annotations.empty_page=Aucune annotation sur cette page pour le moment.
 
 # Annotation tools
 annotation.tool.select=Sélection

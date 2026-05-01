@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Collections.ObjectModel;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -21,6 +22,8 @@ public partial class MainWindowViewModel
     private const double SignatureDefaultHeightRatio = 0.10;
     private const int SignaturePadPreviewWidth = 248;
     private const int SignaturePadPreviewHeight = 124;
+    private const string DefaultAnnotationColorHex = "#F2C94C";
+    private const double DefaultAnnotationStrokeThickness = 2.0;
 
     private readonly List<DocumentAnnotation> _annotations = [];
     private readonly Stack<IReadOnlyList<DocumentAnnotation>> _annotationUndoSnapshots = [];
@@ -44,6 +47,12 @@ public partial class MainWindowViewModel
 
     [ObservableProperty]
     private string _signatureAssetNameInput = string.Empty;
+
+    [ObservableProperty]
+    private string _selectedAnnotationColorHex = DefaultAnnotationColorHex;
+
+    [ObservableProperty]
+    private double _selectedAnnotationStrokeThickness = DefaultAnnotationStrokeThickness;
 
     [ObservableProperty]
     private string? _selectedSignatureAssetId;
@@ -100,12 +109,30 @@ public partial class MainWindowViewModel
         _currentDocumentTextSelection.Regions.Count > 0;
     public bool ShowAnnotationTextEditor =>
         SelectedAnnotationTool is AnnotationTool.Text or AnnotationTool.Note or AnnotationTool.Stamp;
+    public bool ShowSignatureControls => SelectedAnnotationTool is AnnotationTool.Signature;
     public bool HasSignatureAssets => SignatureAssets.Count > 0;
     public bool CanDeleteSelectedSignatureAsset => HasSignatureAssets;
     public bool CanSaveSignatureCapture =>
         _signatureCapturePoints.Count > 0 &&
         !string.IsNullOrWhiteSpace(SignatureAssetNameInput);
     public bool CanUseSignaturePlacement => HasSignatureAssets && !string.IsNullOrWhiteSpace(SelectedSignatureAssetId);
+    public bool HasNoCurrentPageAnnotations => !HasCurrentPageAnnotations;
+    public bool IsSelectAnnotationToolSelected => SelectedAnnotationTool is AnnotationTool.Select;
+    public bool IsInkAnnotationToolSelected => SelectedAnnotationTool is AnnotationTool.Ink;
+    public bool IsRectangleAnnotationToolSelected => SelectedAnnotationTool is AnnotationTool.Rectangle;
+    public bool IsTextAnnotationToolSelected => SelectedAnnotationTool is AnnotationTool.Text;
+    public bool IsNoteAnnotationToolSelected => SelectedAnnotationTool is AnnotationTool.Note;
+    public bool IsStampAnnotationToolSelected => SelectedAnnotationTool is AnnotationTool.Stamp;
+    public bool IsSignatureAnnotationToolSelected => SelectedAnnotationTool is AnnotationTool.Signature;
+    public bool IsAnnotationColorRedSelected => IsSelectedAnnotationColor("#E95058");
+    public bool IsAnnotationColorYellowSelected => IsSelectedAnnotationColor("#F2C94C");
+    public bool IsAnnotationColorGreenSelected => IsSelectedAnnotationColor("#58C874");
+    public bool IsAnnotationColorCyanSelected => IsSelectedAnnotationColor("#1CB6D8");
+    public bool IsAnnotationColorPurpleSelected => IsSelectedAnnotationColor("#7B61FF");
+    public bool IsAnnotationColorPinkSelected => IsSelectedAnnotationColor("#E04DA5");
+    public bool IsAnnotationThicknessTwoSelected => IsSelectedAnnotationThickness(2.0);
+    public bool IsAnnotationThicknessFourSelected => IsSelectedAnnotationThickness(4.0);
+    public bool IsAnnotationThicknessEightSelected => IsSelectedAnnotationThickness(8.0);
 
     private DocumentAnnotation? SelectedAnnotation =>
         _selectedAnnotationId is { } selectedId
@@ -177,6 +204,7 @@ public partial class MainWindowViewModel
         OnPropertyChanged(nameof(IsAnnotationsPanelInteractive));
         OnPropertyChanged(nameof(IsAnnotationModeActive));
         OnPropertyChanged(nameof(HasCurrentPageAnnotations));
+        OnPropertyChanged(nameof(HasNoCurrentPageAnnotations));
         OnPropertyChanged(nameof(HasAnyAnnotations));
         OnPropertyChanged(nameof(HasPendingAnnotationChanges));
         OnPropertyChanged(nameof(CanUndoAnnotations));
@@ -184,6 +212,7 @@ public partial class MainWindowViewModel
         OnPropertyChanged(nameof(CanDeleteSelectedAnnotation));
         OnPropertyChanged(nameof(CanCreateHighlightAnnotation));
         OnPropertyChanged(nameof(ShowAnnotationTextEditor));
+        OnPropertyChanged(nameof(ShowSignatureControls));
         OnPropertyChanged(nameof(CanDeleteSelectedSignatureAsset));
         OnPropertyChanged(nameof(CanSaveSignatureCapture));
         OnPropertyChanged(nameof(CanUseSignaturePlacement));
@@ -212,6 +241,7 @@ public partial class MainWindowViewModel
         }
 
         OnPropertyChanged(nameof(HasCurrentPageAnnotations));
+        OnPropertyChanged(nameof(HasNoCurrentPageAnnotations));
     }
 
     private void RefreshAnnotationLocalization()
@@ -318,6 +348,35 @@ public partial class MainWindowViewModel
             : L("status.annotation.tool.active", GetAnnotationToolLabel(tool));
     }
 
+    [RelayCommand]
+    private void SelectAnnotationColor(string? colorHex)
+    {
+        if (!TryNormalizeAnnotationColor(colorHex, out var normalizedColorHex))
+        {
+            return;
+        }
+
+        SelectedAnnotationColorHex = normalizedColorHex;
+        ApplySelectedAppearanceToSelectedAnnotation();
+    }
+
+    [RelayCommand]
+    private void SelectAnnotationThickness(string? strokeThickness)
+    {
+        if (!double.TryParse(
+                strokeThickness,
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out var thickness) ||
+            thickness <= 0)
+        {
+            return;
+        }
+
+        SelectedAnnotationStrokeThickness = thickness;
+        ApplySelectedAppearanceToSelectedAnnotation();
+    }
+
     [RelayCommand(CanExecute = nameof(CanCreateHighlightAnnotation))]
     private void AddHighlightAnnotationFromSelection()
     {
@@ -356,6 +415,32 @@ public partial class MainWindowViewModel
         CaptureAnnotationSnapshot();
         _annotations.RemoveAll(item => item.Id == annotation.Id);
         _selectedAnnotationId = null;
+        AnnotationsPanelNotice = L("notice.annotation.removed");
+        StatusText = L("status.annotation.deleted");
+        RefreshAnnotationWorkspaceState();
+    }
+
+    [RelayCommand]
+    private void DeleteCurrentPageAnnotation(AnnotationListItemViewModel? annotation)
+    {
+        if (annotation is null)
+        {
+            return;
+        }
+
+        var existingAnnotation = _annotations.FirstOrDefault(item => item.Id == annotation.Id);
+        if (existingAnnotation is null)
+        {
+            return;
+        }
+
+        CaptureAnnotationSnapshot();
+        _annotations.Remove(existingAnnotation);
+        if (_selectedAnnotationId == annotation.Id)
+        {
+            _selectedAnnotationId = null;
+        }
+
         AnnotationsPanelNotice = L("notice.annotation.removed");
         StatusText = L("status.annotation.deleted");
         RefreshAnnotationWorkspaceState();
@@ -498,6 +583,7 @@ public partial class MainWindowViewModel
     private void SelectCurrentPageAnnotation(AnnotationListItemViewModel? annotation)
     {
         _selectedAnnotationId = annotation?.Id;
+        SyncAnnotationAppearanceControls(annotation?.Annotation);
         RefreshAnnotationWorkspaceState();
     }
 
@@ -724,18 +810,131 @@ public partial class MainWindowViewModel
         };
     }
 
-    private static AnnotationAppearance BuildAppearanceForKind(DocumentAnnotationKind kind)
+    private AnnotationAppearance BuildAppearanceForKind(DocumentAnnotationKind kind)
+    {
+        var strokeHex = SelectedAnnotationColorHex;
+        var fillHex = kind is DocumentAnnotationKind.Highlight
+            ? SelectedAnnotationColorHex
+            : kind is DocumentAnnotationKind.Rectangle or DocumentAnnotationKind.Note or DocumentAnnotationKind.Stamp or DocumentAnnotationKind.Text
+                ? GetDefaultFillForKind(kind)
+                : null;
+
+        return kind switch
+        {
+            DocumentAnnotationKind.Highlight => new AnnotationAppearance(strokeHex, fillHex, SelectedAnnotationStrokeThickness, 0.58),
+            DocumentAnnotationKind.Ink => new AnnotationAppearance(strokeHex, null, SelectedAnnotationStrokeThickness, 0.98),
+            DocumentAnnotationKind.Rectangle => new AnnotationAppearance(strokeHex, fillHex, SelectedAnnotationStrokeThickness, 0.95),
+            DocumentAnnotationKind.Note => new AnnotationAppearance(strokeHex, fillHex, SelectedAnnotationStrokeThickness, 0.98),
+            DocumentAnnotationKind.Stamp => new AnnotationAppearance(strokeHex, fillHex, SelectedAnnotationStrokeThickness, 0.98),
+            DocumentAnnotationKind.Signature => new AnnotationAppearance(strokeHex, "#FFFFFF", SelectedAnnotationStrokeThickness, 1.0),
+            _ => new AnnotationAppearance(strokeHex, GetDefaultFillForKind(kind), SelectedAnnotationStrokeThickness, 0.96)
+        };
+    }
+
+    private void ApplySelectedAppearanceToSelectedAnnotation()
+    {
+        if (SelectedAnnotation is not { } annotation)
+        {
+            return;
+        }
+
+        CaptureAnnotationSnapshot();
+        ReplaceAnnotation(
+            annotation,
+            new AnnotationAppearance(
+                SelectedAnnotationColorHex,
+                annotation.Kind is DocumentAnnotationKind.Highlight
+                    ? SelectedAnnotationColorHex
+                    : annotation.Appearance.FillHex,
+                SelectedAnnotationStrokeThickness,
+                annotation.Appearance.Opacity));
+        RefreshAnnotationWorkspaceState();
+    }
+
+    private void ReplaceAnnotation(DocumentAnnotation annotation, AnnotationAppearance appearance)
+    {
+        var index = _annotations.FindIndex(item => item.Id == annotation.Id);
+        if (index < 0)
+        {
+            return;
+        }
+
+        _annotations[index] = new DocumentAnnotation(
+            annotation.Id,
+            annotation.Kind,
+            annotation.PageIndex,
+            appearance,
+            annotation.Bounds,
+            annotation.Points,
+            annotation.Text,
+            annotation.AssetId);
+    }
+
+    private static string? GetDefaultFillForKind(DocumentAnnotationKind kind)
     {
         return kind switch
         {
-            DocumentAnnotationKind.Highlight => new AnnotationAppearance("#E2B54B", "#F9DE86", 1.5, 0.58),
-            DocumentAnnotationKind.Ink => new AnnotationAppearance("#F39AC7", null, 4.0, 0.98),
-            DocumentAnnotationKind.Rectangle => new AnnotationAppearance("#93B9FF", "#DDE9FF", 2.5, 0.95),
-            DocumentAnnotationKind.Note => new AnnotationAppearance("#D9A357", "#FFF2D7", 2.0, 0.98),
-            DocumentAnnotationKind.Stamp => new AnnotationAppearance("#E37AA7", "#FDE5F0", 2.5, 0.98),
-            DocumentAnnotationKind.Signature => new AnnotationAppearance("#2F3150", "#FFFFFF", 1.5, 1.0),
-            _ => new AnnotationAppearance("#93B9FF", "#EEF1FF", 2.0, 0.96)
+            DocumentAnnotationKind.Rectangle or DocumentAnnotationKind.Text => "#EEF1FF",
+            DocumentAnnotationKind.Note => "#FFF2D7",
+            DocumentAnnotationKind.Stamp => "#FDE5F0",
+            DocumentAnnotationKind.Signature => "#FFFFFF",
+            _ => null
         };
+    }
+
+    private static bool TryNormalizeAnnotationColor(string? colorHex, out string normalizedColorHex)
+    {
+        normalizedColorHex = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(colorHex))
+        {
+            return false;
+        }
+
+        var trimmedColor = colorHex.Trim();
+        if (trimmedColor.Length == 7 &&
+            trimmedColor[0] == '#' &&
+            trimmedColor.Skip(1).All(Uri.IsHexDigit))
+        {
+            normalizedColorHex = trimmedColor.ToUpperInvariant();
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool IsSelectedAnnotationColor(string colorHex)
+    {
+        return string.Equals(SelectedAnnotationColorHex, colorHex, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool IsSelectedAnnotationThickness(double strokeThickness)
+    {
+        return Math.Abs(SelectedAnnotationStrokeThickness - strokeThickness) < 0.01;
+    }
+
+    private void SyncAnnotationAppearanceControls(DocumentAnnotation? annotation)
+    {
+        if (annotation is null)
+        {
+            return;
+        }
+
+        SelectedAnnotationColorHex = annotation.Appearance.StrokeHex;
+        SelectedAnnotationStrokeThickness = annotation.Appearance.StrokeThickness;
+    }
+
+    private void NotifyAnnotationAppearanceSelectionChanged()
+    {
+        OnPropertyChanged(nameof(IsAnnotationColorRedSelected));
+        OnPropertyChanged(nameof(IsAnnotationColorYellowSelected));
+        OnPropertyChanged(nameof(IsAnnotationColorGreenSelected));
+        OnPropertyChanged(nameof(IsAnnotationColorCyanSelected));
+        OnPropertyChanged(nameof(IsAnnotationColorPurpleSelected));
+        OnPropertyChanged(nameof(IsAnnotationColorPinkSelected));
+        OnPropertyChanged(nameof(IsAnnotationThicknessTwoSelected));
+        OnPropertyChanged(nameof(IsAnnotationThicknessFourSelected));
+        OnPropertyChanged(nameof(IsAnnotationThicknessEightSelected));
     }
 
     private void SelectAnnotationAt(NormalizedPoint point)
@@ -744,6 +943,7 @@ public partial class MainWindowViewModel
             .Reverse()
             .FirstOrDefault(annotation => AnnotationContains(annotation.Annotation, point));
         _selectedAnnotationId = candidate?.Id;
+        SyncAnnotationAppearanceControls(candidate?.Annotation);
         StatusText = candidate is null
             ? L("status.annotation.none_selected")
             : L("status.annotation.selected", candidate.KindLabel);
@@ -999,6 +1199,14 @@ public partial class MainWindowViewModel
     partial void OnSelectedAnnotationToolChanged(AnnotationTool value)
     {
         OnPropertyChanged(nameof(ShowAnnotationTextEditor));
+        OnPropertyChanged(nameof(ShowSignatureControls));
+        OnPropertyChanged(nameof(IsSelectAnnotationToolSelected));
+        OnPropertyChanged(nameof(IsInkAnnotationToolSelected));
+        OnPropertyChanged(nameof(IsRectangleAnnotationToolSelected));
+        OnPropertyChanged(nameof(IsTextAnnotationToolSelected));
+        OnPropertyChanged(nameof(IsNoteAnnotationToolSelected));
+        OnPropertyChanged(nameof(IsStampAnnotationToolSelected));
+        OnPropertyChanged(nameof(IsSignatureAnnotationToolSelected));
     }
 
     partial void OnSelectedSignatureAssetIdChanged(string? value)
@@ -1012,6 +1220,16 @@ public partial class MainWindowViewModel
     {
         OnPropertyChanged(nameof(CanSaveSignatureCapture));
         SaveDrawnSignatureAssetCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnSelectedAnnotationColorHexChanged(string value)
+    {
+        NotifyAnnotationAppearanceSelectionChanged();
+    }
+
+    partial void OnSelectedAnnotationStrokeThicknessChanged(double value)
+    {
+        NotifyAnnotationAppearanceSelectionChanged();
     }
 
     partial void OnIsAnnotationsPanelVisibleChanged(bool value)

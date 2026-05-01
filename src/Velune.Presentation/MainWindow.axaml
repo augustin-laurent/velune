@@ -1202,7 +1202,7 @@
               IsHitTestVisible="{Binding IsSearchPanelInteractive}"
               Margin="0,24,24,24"
               Padding="0"
-              Classes="card info-panel"
+              Classes="card info-panel annotation-panel"
               Background="{DynamicResource Brush.Surface}"
               ClipToBounds="True"
               IsVisible="{Binding IsSearchPanelOpen}">
@@ -1542,196 +1542,464 @@
         </Border.Transitions>
         <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto">
-          <StackPanel Spacing="16">
-            <StackPanel Spacing="4">
+          <StackPanel Classes="annotation-panel-content"
+                      Spacing="12">
+            <StackPanel Spacing="3">
               <TextBlock Text="{loc:Loc panel.annotations.title}"
-                         Classes="title" />
+                         Classes="title annotation-panel-title" />
               <TextBlock Text="{loc:Loc panel.annotations.description}"
-                         Classes="muted"
+                         Classes="muted annotation-panel-description"
                          TextWrapping="Wrap" />
             </StackPanel>
 
-            <Border Classes="banner"
-                    Padding="10,8"
+            <Border Classes="annotation-tabs">
+              <Grid ColumnDefinitions="*,*,*">
+                <Border Grid.Column="0"
+                        Classes="annotation-tab selected">
+                  <TextBlock Text="{loc:Loc panel.annotations.tab.tools}"
+                             TextAlignment="Center" />
+                </Border>
+                <Border Grid.Column="1"
+                        Classes="annotation-tab">
+                  <TextBlock Text="{loc:Loc panel.annotations.tab.style}"
+                             TextAlignment="Center" />
+                </Border>
+                <Border Grid.Column="2"
+                        Classes="annotation-tab">
+                  <TextBlock Text="{loc:Loc panel.annotations.tab.comments}"
+                             TextAlignment="Center" />
+                </Border>
+              </Grid>
+            </Border>
+
+            <Border Classes="annotation-notice"
                     IsVisible="{Binding HasAnnotationsPanelNotice}">
               <TextBlock Text="{Binding AnnotationsPanelNotice}"
                          Classes="muted"
                          TextWrapping="Wrap" />
             </Border>
 
-            <WrapPanel Classes="annotation-tools-wrap"
-                       ItemWidth="128"
-                       ItemHeight="40">
-              <Button Classes="annotation-tool-button"
-                      Command="{Binding SelectAnnotationToolCommand}"
-                      CommandParameter="Select"
-                      Content="{loc:Loc annotation.tool.select}" />
-              <Button Classes="annotation-tool-button"
-                      Command="{Binding AddHighlightAnnotationFromSelectionCommand}"
-                      IsEnabled="{Binding CanCreateHighlightAnnotation}"
-                      Content="{loc:Loc annotation.tool.highlight}" />
-              <Button Classes="annotation-tool-button"
-                      Command="{Binding SelectAnnotationToolCommand}"
-                      CommandParameter="Ink"
-                      Content="{loc:Loc annotation.tool.ink}" />
-              <Button Classes="annotation-tool-button"
-                      Command="{Binding SelectAnnotationToolCommand}"
-                      CommandParameter="Rectangle"
-                      Content="{loc:Loc annotation.tool.rectangle}" />
-              <Button Classes="annotation-tool-button"
-                      Command="{Binding SelectAnnotationToolCommand}"
-                      CommandParameter="Text"
-                      Content="{loc:Loc annotation.tool.text}" />
-              <Button Classes="annotation-tool-button"
-                      Command="{Binding SelectAnnotationToolCommand}"
-                      CommandParameter="Note"
-                      Content="{loc:Loc annotation.tool.note}" />
-              <Button Classes="annotation-tool-button"
-                      Command="{Binding SelectAnnotationToolCommand}"
-                      CommandParameter="Stamp"
-                      Content="{loc:Loc annotation.tool.stamp}" />
-              <Button Classes="annotation-tool-button"
-                      Command="{Binding SelectAnnotationToolCommand}"
-                      CommandParameter="Signature"
-                      Content="{loc:Loc annotation.tool.signature}" />
-            </WrapPanel>
+            <Border Classes="annotation-section-card">
+              <StackPanel Spacing="10">
+                <TextBlock Text="{loc:Loc panel.annotations.section.add}"
+                           Classes="annotation-section-title" />
 
-            <StackPanel Spacing="8"
-                        IsVisible="{Binding ShowAnnotationTextEditor}">
-              <TextBlock Text="{loc:Loc panel.annotations.text}"
-                         Classes="metadata-label" />
-              <TextBox Classes="toolbar-input"
-                       Text="{Binding AnnotationTextDraft}"
-                       Watermark="{loc:Loc panel.annotations.text.placeholder}" />
-            </StackPanel>
+                <Grid Classes="annotation-tools-grid"
+                      ColumnDefinitions="*,*"
+                      RowDefinitions="Auto,Auto,Auto,Auto">
+                  <Button Grid.Row="0"
+                          Grid.Column="0"
+                          Classes="annotation-tool-button"
+                          Classes.selected="{Binding IsSelectAnnotationToolSelected}"
+                          Command="{Binding SelectAnnotationToolCommand}"
+                          CommandParameter="Select">
+                    <Grid ColumnDefinitions="Auto,*"
+                          ColumnSpacing="8">
+                      <materialIcons:MaterialIcon Grid.Column="0"
+                                                  Kind="CursorDefaultClickOutline"
+                                                  Width="17"
+                                                  Height="17" />
+                      <TextBlock Grid.Column="1"
+                                 Text="{loc:Loc annotation.tool.select}"
+                                 VerticalAlignment="Center" />
+                    </Grid>
+                  </Button>
 
-            <StackPanel Spacing="8">
-              <Grid ColumnDefinitions="*,Auto,Auto"
-                    ColumnSpacing="8">
-                <TextBlock Grid.Column="0"
-                           Text="{loc:Loc panel.annotations.signature_library}"
-                           Classes="metadata-label"
-                           VerticalAlignment="Center" />
-                <Button Grid.Column="1"
-                        Content="{loc:Loc panel.annotations.import_image}"
-                        Command="{Binding ImportSignatureAssetCommand}" />
-                <Button Grid.Column="2"
-                        Classes="annotation-list-delete-button"
-                        CommandParameter="{Binding SelectedSignatureAssetId}"
-                        Command="{Binding DeleteSelectedSignatureAssetCommand}"
-                        ToolTip.Tip="{loc:Loc panel.annotations.delete_signature}">
-                  <materialIcons:MaterialIcon Classes="toolbar-icon"
-                                              Kind="TrashCanOutline"
-                                              Width="16"
-                                              Height="16" />
-                </Button>
-              </Grid>
+                  <Button Grid.Row="0"
+                          Grid.Column="1"
+                          Classes="annotation-tool-button annotation-tool-highlight"
+                          Command="{Binding AddHighlightAnnotationFromSelectionCommand}"
+                          IsEnabled="{Binding CanCreateHighlightAnnotation}">
+                    <Grid ColumnDefinitions="Auto,*"
+                          ColumnSpacing="8">
+                      <materialIcons:MaterialIcon Grid.Column="0"
+                                                  Kind="FormatColorHighlight"
+                                                  Width="17"
+                                                  Height="17" />
+                      <TextBlock Grid.Column="1"
+                                 Text="{loc:Loc annotation.tool.highlight}"
+                                 VerticalAlignment="Center" />
+                    </Grid>
+                  </Button>
 
-              <ItemsControl ItemsSource="{Binding SignatureAssets}"
-                            IsVisible="{Binding HasSignatureAssets}">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate>
-                    <Border Classes="annotation-list-item">
-                      <Grid ColumnDefinitions="*,Auto"
-                            ColumnSpacing="8">
-                        <Button Grid.Column="0"
-                                Classes="annotation-list-button"
-                                Command="{Binding $parent[Window].DataContext.SelectSignatureAssetCommand}"
-                                CommandParameter="{Binding Id}"
-                                HorizontalContentAlignment="Stretch">
-                          <StackPanel Spacing="2">
-                            <TextBlock Text="{Binding DisplayName}"
-                                       FontWeight="SemiBold" />
-                            <TextBlock Text="{Binding FilePath}"
-                                       Classes="muted"
-                                       TextTrimming="CharacterEllipsis" />
-                          </StackPanel>
-                        </Button>
+                  <Button Grid.Row="1"
+                          Grid.Column="0"
+                          Classes="annotation-tool-button"
+                          Classes.selected="{Binding IsInkAnnotationToolSelected}"
+                          Command="{Binding SelectAnnotationToolCommand}"
+                          CommandParameter="Ink">
+                    <Grid ColumnDefinitions="Auto,*"
+                          ColumnSpacing="8">
+                      <materialIcons:MaterialIcon Grid.Column="0"
+                                                  Kind="DrawPen"
+                                                  Width="17"
+                                                  Height="17" />
+                      <TextBlock Grid.Column="1"
+                                 Text="{loc:Loc annotation.tool.ink}"
+                                 VerticalAlignment="Center" />
+                    </Grid>
+                  </Button>
 
-                        <Button Grid.Column="1"
-                                Classes="annotation-list-delete-button"
-                                Command="{Binding $parent[Window].DataContext.DeleteSelectedSignatureAssetCommand}"
-                                CommandParameter="{Binding Id}"
-                                ToolTip.Tip="{loc:Loc panel.annotations.delete_signature}">
-                          <materialIcons:MaterialIcon Classes="toolbar-icon"
-                                                      Kind="TrashCanOutline"
-                                                      Width="16"
-                                                      Height="16" />
-                        </Button>
-                      </Grid>
-                    </Border>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
+                  <Button Grid.Row="1"
+                          Grid.Column="1"
+                          Classes="annotation-tool-button"
+                          Classes.selected="{Binding IsTextAnnotationToolSelected}"
+                          Command="{Binding SelectAnnotationToolCommand}"
+                          CommandParameter="Text">
+                    <Grid ColumnDefinitions="Auto,*"
+                          ColumnSpacing="8">
+                      <materialIcons:MaterialIcon Grid.Column="0"
+                                                  Kind="FormatColorText"
+                                                  Width="17"
+                                                  Height="17" />
+                      <TextBlock Grid.Column="1"
+                                 Text="{loc:Loc annotation.tool.text}"
+                                 VerticalAlignment="Center" />
+                    </Grid>
+                  </Button>
 
-              <StackPanel Spacing="8">
-                <TextBlock Text="{loc:Loc panel.annotations.draw_signature}"
-                           Classes="metadata-label" />
-                <TextBox Classes="toolbar-input"
-                         Text="{Binding SignatureAssetNameInput}"
-                         Watermark="{loc:Loc panel.annotations.signature_name.placeholder}" />
+                  <Button Grid.Row="2"
+                          Grid.Column="0"
+                          Classes="annotation-tool-button"
+                          Classes.selected="{Binding IsNoteAnnotationToolSelected}"
+                          Command="{Binding SelectAnnotationToolCommand}"
+                          CommandParameter="Note">
+                    <Grid ColumnDefinitions="Auto,*"
+                          ColumnSpacing="8">
+                      <materialIcons:MaterialIcon Grid.Column="0"
+                                                  Kind="StickyNoteTextOutline"
+                                                  Width="17"
+                                                  Height="17" />
+                      <TextBlock Grid.Column="1"
+                                 Text="{loc:Loc annotation.tool.note}"
+                                 VerticalAlignment="Center" />
+                    </Grid>
+                  </Button>
 
-                <Grid>
-                  <Image Source="{Binding SignaturePadPreviewBitmap}"
-                         Width="248"
-                         Height="124"
-                         Stretch="Fill" />
-                  <Border x:Name="SignaturePadInteractionLayer"
-                          Width="248"
-                          Height="124"
-                          Background="Transparent"
-                          PointerPressed="OnSignaturePadPointerPressed"
-                          PointerMoved="OnSignaturePadPointerMoved"
-                          PointerReleased="OnSignaturePadPointerReleased"
-                          PointerCaptureLost="OnSignaturePadPointerCaptureLost" />
+                  <Button Grid.Row="2"
+                          Grid.Column="1"
+                          Classes="annotation-tool-button"
+                          Classes.selected="{Binding IsRectangleAnnotationToolSelected}"
+                          Command="{Binding SelectAnnotationToolCommand}"
+                          CommandParameter="Rectangle">
+                    <Grid ColumnDefinitions="Auto,*"
+                          ColumnSpacing="8">
+                      <materialIcons:MaterialIcon Grid.Column="0"
+                                                  Kind="VectorRectangle"
+                                                  Width="17"
+                                                  Height="17" />
+                      <TextBlock Grid.Column="1"
+                                 Text="{loc:Loc annotation.tool.rectangle}"
+                                 VerticalAlignment="Center" />
+                    </Grid>
+                  </Button>
+
+                  <Button Grid.Row="3"
+                          Grid.Column="0"
+                          Classes="annotation-tool-button"
+                          Classes.selected="{Binding IsSignatureAnnotationToolSelected}"
+                          Command="{Binding SelectAnnotationToolCommand}"
+                          CommandParameter="Signature">
+                    <Grid ColumnDefinitions="Auto,*"
+                          ColumnSpacing="8">
+                      <materialIcons:MaterialIcon Grid.Column="0"
+                                                  Kind="SignatureFreehand"
+                                                  Width="17"
+                                                  Height="17" />
+                      <TextBlock Grid.Column="1"
+                                 Text="{loc:Loc annotation.tool.signature}"
+                                 VerticalAlignment="Center" />
+                    </Grid>
+                  </Button>
+
+                  <Button Grid.Row="3"
+                          Grid.Column="1"
+                          Classes="annotation-tool-button"
+                          Classes.selected="{Binding IsStampAnnotationToolSelected}"
+                          Command="{Binding SelectAnnotationToolCommand}"
+                          CommandParameter="Stamp">
+                    <Grid ColumnDefinitions="Auto,*"
+                          ColumnSpacing="8">
+                      <materialIcons:MaterialIcon Grid.Column="0"
+                                                  Kind="Stamper"
+                                                  Width="17"
+                                                  Height="17" />
+                      <TextBlock Grid.Column="1"
+                                 Text="{loc:Loc annotation.tool.stamp}"
+                                 VerticalAlignment="Center" />
+                    </Grid>
+                  </Button>
+                </Grid>
+              </StackPanel>
+            </Border>
+
+            <Border Classes="annotation-section-card">
+              <StackPanel Spacing="10">
+                <TextBlock Text="{loc:Loc panel.annotations.section.properties}"
+                           Classes="annotation-section-title" />
+
+                <Grid ColumnDefinitions="Auto,*"
+                      ColumnSpacing="12">
+                  <TextBlock Grid.Column="0"
+                             Text="{loc:Loc panel.annotations.color}"
+                             Classes="metadata-label"
+                             VerticalAlignment="Center" />
+                  <WrapPanel Grid.Column="1"
+                             Classes="annotation-color-row">
+                    <Button Classes="annotation-color-button"
+                            Classes.selected="{Binding IsAnnotationColorRedSelected}"
+                            Background="#E95058"
+                            Command="{Binding SelectAnnotationColorCommand}"
+                            CommandParameter="#E95058" />
+                    <Button Classes="annotation-color-button"
+                            Classes.selected="{Binding IsAnnotationColorYellowSelected}"
+                            Background="#F2C94C"
+                            Command="{Binding SelectAnnotationColorCommand}"
+                            CommandParameter="#F2C94C" />
+                    <Button Classes="annotation-color-button"
+                            Classes.selected="{Binding IsAnnotationColorGreenSelected}"
+                            Background="#58C874"
+                            Command="{Binding SelectAnnotationColorCommand}"
+                            CommandParameter="#58C874" />
+                    <Button Classes="annotation-color-button"
+                            Classes.selected="{Binding IsAnnotationColorCyanSelected}"
+                            Background="#1CB6D8"
+                            Command="{Binding SelectAnnotationColorCommand}"
+                            CommandParameter="#1CB6D8" />
+                    <Button Classes="annotation-color-button"
+                            Classes.selected="{Binding IsAnnotationColorPurpleSelected}"
+                            Background="#7B61FF"
+                            Command="{Binding SelectAnnotationColorCommand}"
+                            CommandParameter="#7B61FF" />
+                    <Button Classes="annotation-color-button"
+                            Classes.selected="{Binding IsAnnotationColorPinkSelected}"
+                            Background="#E04DA5"
+                            Command="{Binding SelectAnnotationColorCommand}"
+                            CommandParameter="#E04DA5" />
+                  </WrapPanel>
                 </Grid>
 
-                <StackPanel Orientation="Horizontal"
-                            Spacing="8">
-                  <Button Content="{loc:Loc panel.annotations.clear_drawing}"
-                          Command="{Binding ClearSignatureCaptureCommand}" />
-                  <Button Content="{loc:Loc panel.annotations.save_signature}"
-                          Command="{Binding SaveDrawnSignatureAssetCommand}" />
+                <Grid ColumnDefinitions="Auto,*"
+                      ColumnSpacing="12">
+                  <TextBlock Grid.Column="0"
+                             Text="{loc:Loc panel.annotations.thickness}"
+                             Classes="metadata-label"
+                             VerticalAlignment="Center" />
+                  <StackPanel Grid.Column="1"
+                              Orientation="Horizontal"
+                              Spacing="6">
+                    <Button Classes="annotation-stroke-button"
+                            Classes.selected="{Binding IsAnnotationThicknessTwoSelected}"
+                            Content="2 px"
+                            Command="{Binding SelectAnnotationThicknessCommand}"
+                            CommandParameter="2" />
+                    <Button Classes="annotation-stroke-button"
+                            Classes.selected="{Binding IsAnnotationThicknessFourSelected}"
+                            Content="4 px"
+                            Command="{Binding SelectAnnotationThicknessCommand}"
+                            CommandParameter="4" />
+                    <Button Classes="annotation-stroke-button"
+                            Classes.selected="{Binding IsAnnotationThicknessEightSelected}"
+                            Content="8 px"
+                            Command="{Binding SelectAnnotationThicknessCommand}"
+                            CommandParameter="8" />
+                  </StackPanel>
+                </Grid>
+
+                <StackPanel Spacing="8"
+                            IsVisible="{Binding ShowAnnotationTextEditor}">
+                  <TextBlock Text="{loc:Loc panel.annotations.text}"
+                             Classes="metadata-label" />
+                  <TextBox Classes="toolbar-input annotation-input"
+                           Text="{Binding AnnotationTextDraft}"
+                           Watermark="{loc:Loc panel.annotations.text.placeholder}" />
+                </StackPanel>
+
+                <StackPanel Spacing="10"
+                            IsVisible="{Binding ShowSignatureControls}">
+                  <Grid ColumnDefinitions="*,Auto,Auto"
+                        ColumnSpacing="8">
+                    <TextBlock Grid.Column="0"
+                               Text="{loc:Loc panel.annotations.signature_library}"
+                               Classes="metadata-label"
+                               VerticalAlignment="Center" />
+                    <Button Grid.Column="1"
+                            Classes="annotation-compact-button"
+                            Content="{loc:Loc panel.annotations.import_image}"
+                            Command="{Binding ImportSignatureAssetCommand}" />
+                    <Button Grid.Column="2"
+                            Classes="annotation-list-delete-button"
+                            CommandParameter="{Binding SelectedSignatureAssetId}"
+                            Command="{Binding DeleteSelectedSignatureAssetCommand}"
+                            ToolTip.Tip="{loc:Loc panel.annotations.delete_signature}">
+                      <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                                  Kind="TrashCanOutline"
+                                                  Width="16"
+                                                  Height="16" />
+                    </Button>
+                  </Grid>
+
+                  <ItemsControl ItemsSource="{Binding SignatureAssets}"
+                                IsVisible="{Binding HasSignatureAssets}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Border Classes="annotation-list-item compact">
+                          <Grid ColumnDefinitions="*,Auto"
+                                ColumnSpacing="8">
+                            <Button Grid.Column="0"
+                                    Classes="annotation-list-button"
+                                    Command="{Binding $parent[Window].DataContext.SelectSignatureAssetCommand}"
+                                    CommandParameter="{Binding Id}"
+                                    HorizontalContentAlignment="Stretch">
+                              <StackPanel Spacing="2">
+                                <TextBlock Text="{Binding DisplayName}"
+                                           FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding FilePath}"
+                                           Classes="muted"
+                                           TextTrimming="CharacterEllipsis" />
+                              </StackPanel>
+                            </Button>
+
+                            <Button Grid.Column="1"
+                                    Classes="annotation-list-delete-button"
+                                    Command="{Binding $parent[Window].DataContext.DeleteSelectedSignatureAssetCommand}"
+                                    CommandParameter="{Binding Id}"
+                                    ToolTip.Tip="{loc:Loc panel.annotations.delete_signature}">
+                              <materialIcons:MaterialIcon Classes="toolbar-icon"
+                                                          Kind="TrashCanOutline"
+                                                          Width="16"
+                                                          Height="16" />
+                            </Button>
+                          </Grid>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+
+                  <TextBlock Text="{loc:Loc panel.annotations.draw_signature}"
+                             Classes="metadata-label" />
+                  <TextBox Classes="toolbar-input annotation-input"
+                           Text="{Binding SignatureAssetNameInput}"
+                           Watermark="{loc:Loc panel.annotations.signature_name.placeholder}" />
+
+                  <Border Classes="signature-pad-card">
+                    <Grid HorizontalAlignment="Center">
+                      <Image Source="{Binding SignaturePadPreviewBitmap}"
+                             Width="248"
+                             Height="124"
+                             Stretch="Fill" />
+                      <Border x:Name="SignaturePadInteractionLayer"
+                              Width="248"
+                              Height="124"
+                              Background="Transparent"
+                              PointerPressed="OnSignaturePadPointerPressed"
+                              PointerMoved="OnSignaturePadPointerMoved"
+                              PointerReleased="OnSignaturePadPointerReleased"
+                              PointerCaptureLost="OnSignaturePadPointerCaptureLost" />
+                    </Grid>
+                  </Border>
+
+                  <StackPanel Orientation="Horizontal"
+                              HorizontalAlignment="Right"
+                              Spacing="8">
+                    <Button Classes="annotation-compact-button"
+                            Content="{loc:Loc panel.annotations.clear_drawing}"
+                            Command="{Binding ClearSignatureCaptureCommand}" />
+                    <Button Classes="annotation-compact-button primary"
+                            Content="{loc:Loc panel.annotations.save_signature}"
+                            Command="{Binding SaveDrawnSignatureAssetCommand}" />
+                  </StackPanel>
                 </StackPanel>
               </StackPanel>
-            </StackPanel>
+            </Border>
 
-            <StackPanel Orientation="Horizontal"
-                        Spacing="8">
-              <Button Content="{loc:Loc panel.annotations.undo}"
-                      Command="{Binding UndoAnnotationsCommand}" />
-              <Button Content="{loc:Loc panel.annotations.redo}"
-                      Command="{Binding RedoAnnotationsCommand}" />
-              <Button Content="{loc:Loc panel.annotations.delete_selected}"
-                      Command="{Binding DeleteSelectedAnnotationCommand}" />
-            </StackPanel>
-
-            <StackPanel Spacing="8">
-              <TextBlock Text="{loc:Loc panel.annotations.current_page}"
-                         Classes="metadata-label" />
-
-              <ItemsControl ItemsSource="{Binding CurrentPageAnnotations}"
-                            IsVisible="{Binding HasCurrentPageAnnotations}">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate>
-                    <Button Classes="annotation-list-button"
-                            Command="{Binding $parent[Window].DataContext.SelectCurrentPageAnnotationCommand}"
-                            CommandParameter="{Binding}"
-                            HorizontalContentAlignment="Stretch">
-                      <Border Classes="annotation-list-item">
-                        <StackPanel Spacing="4">
-                          <TextBlock Text="{Binding KindLabel}"
-                                     FontWeight="SemiBold" />
-                          <TextBlock Text="{Binding Text}"
-                                     Classes="muted"
-                                     TextWrapping="Wrap" />
-                        </StackPanel>
-                      </Border>
+            <Border Classes="annotation-section-card">
+              <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="*,Auto"
+                      ColumnSpacing="8">
+                  <TextBlock Grid.Column="0"
+                             Text="{loc:Loc panel.annotations.section.page}"
+                             Classes="annotation-section-title"
+                             VerticalAlignment="Center" />
+                  <StackPanel Grid.Column="1"
+                              Orientation="Horizontal"
+                              Spacing="6">
+                    <Button Classes="annotation-icon-action-button"
+                            Command="{Binding UndoAnnotationsCommand}"
+                            ToolTip.Tip="{loc:Loc panel.annotations.undo}">
+                      <materialIcons:MaterialIcon Kind="UndoVariant"
+                                                  Width="15"
+                                                  Height="15" />
                     </Button>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-            </StackPanel>
+                    <Button Classes="annotation-icon-action-button"
+                            Command="{Binding RedoAnnotationsCommand}"
+                            ToolTip.Tip="{loc:Loc panel.annotations.redo}">
+                      <materialIcons:MaterialIcon Kind="Redo"
+                                                  Width="15"
+                                                  Height="15" />
+                    </Button>
+                    <Button Classes="annotation-icon-action-button danger"
+                            Command="{Binding DeleteSelectedAnnotationCommand}"
+                            ToolTip.Tip="{loc:Loc panel.annotations.delete_selected}">
+                      <materialIcons:MaterialIcon Kind="TrashCanOutline"
+                                                  Width="15"
+                                                  Height="15" />
+                    </Button>
+                  </StackPanel>
+                </Grid>
+
+                <TextBlock Text="{loc:Loc panel.annotations.empty_page}"
+                           Classes="muted"
+                           TextWrapping="Wrap"
+                           IsVisible="{Binding HasNoCurrentPageAnnotations}" />
+
+                <ItemsControl ItemsSource="{Binding CurrentPageAnnotations}"
+                              IsVisible="{Binding HasCurrentPageAnnotations}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Border Classes="annotation-list-item">
+                        <Grid ColumnDefinitions="*,Auto"
+                              ColumnSpacing="8">
+                          <Button Grid.Column="0"
+                                  Classes="annotation-list-button"
+                                  Command="{Binding $parent[Window].DataContext.SelectCurrentPageAnnotationCommand}"
+                                  CommandParameter="{Binding}"
+                                  HorizontalContentAlignment="Stretch">
+                            <Grid ColumnDefinitions="Auto,*"
+                                  ColumnSpacing="10">
+                              <Border Grid.Column="0"
+                                      Classes="annotation-list-avatar">
+                                <materialIcons:MaterialIcon Kind="PencilOutline"
+                                                            Width="15"
+                                                            Height="15" />
+                              </Border>
+                              <StackPanel Grid.Column="1"
+                                          Spacing="3">
+                                <TextBlock Text="{Binding KindLabel}"
+                                           FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding Text}"
+                                           Classes="muted"
+                                           TextWrapping="Wrap" />
+                              </StackPanel>
+                            </Grid>
+                          </Button>
+
+                          <Button Grid.Column="1"
+                                  Classes="annotation-list-delete-button"
+                                  Command="{Binding $parent[Window].DataContext.DeleteCurrentPageAnnotationCommand}"
+                                  CommandParameter="{Binding}"
+                                  ToolTip.Tip="{loc:Loc panel.annotations.delete_selected}">
+                            <materialIcons:MaterialIcon Kind="TrashCanOutline"
+                                                        Width="15"
+                                                        Height="15" />
+                          </Button>
+                        </Grid>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
           </StackPanel>
         </ScrollViewer>
       </Border>

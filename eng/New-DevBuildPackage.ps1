@@ -133,7 +133,7 @@ function Copy-BundledNativeTools {
 
     if (-not (Test-Path -LiteralPath $sourceToolsDirectory)) {
         if ($RequireBundledNativeTools) {
-            throw "Bundled native tools directory not found for $RuntimeIdentifier: $sourceToolsDirectory"
+            throw "Bundled native tools directory not found for ${RuntimeIdentifier}: $sourceToolsDirectory"
         }
 
         return

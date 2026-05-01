@@ -12,5 +12,8 @@
         <CodeAnalysisTreatWarningsAsErrors>true</CodeAnalysisTreatWarningsAsErrors>
 
         <Deterministic>true</Deterministic>
+        <VersionPrefix>0.1.0</VersionPrefix>
+        <Product>Velune</Product>
+        <Authors>Velune</Authors>
     </PropertyGroup>
 </Project>

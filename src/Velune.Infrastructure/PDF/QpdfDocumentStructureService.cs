@@ -6,13 +6,14 @@ using Velune.Application.Configuration;
 using Velune.Application.Documents;
 using Velune.Application.Results;
 using Velune.Domain.ValueObjects;
+using Velune.Infrastructure.FileSystem;
 
 namespace Velune.Infrastructure.Pdf;
 
 public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
 {
     private readonly PdfiumInitializer _pdfiumInitializer;
-    private readonly string _qpdfExecutablePath;
+    private readonly BundledTool _qpdfTool;
     private bool? _isAvailable;
 
     public QpdfDocumentStructureService(
@@ -23,9 +24,10 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
         ArgumentNullException.ThrowIfNull(pdfiumInitializer);
 
         _pdfiumInitializer = pdfiumInitializer;
-        _qpdfExecutablePath = string.IsNullOrWhiteSpace(appOptions.Value.QpdfExecutablePath)
-            ? "qpdf"
-            : appOptions.Value.QpdfExecutablePath;
+        _qpdfTool = BundledToolResolver.Resolve(
+            appOptions.Value.QpdfExecutablePath,
+            "qpdf",
+            "qpdf");
     }
 
     public bool IsAvailable()
@@ -37,12 +39,7 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
 
         try
         {
-            var startInfo = new ProcessStartInfo(_qpdfExecutablePath)
-            {
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false
-            };
+            var startInfo = BundledToolResolver.CreateStartInfo(_qpdfTool);
             startInfo.ArgumentList.Add("--version");
 
             using var process = Process.Start(startInfo);
@@ -445,12 +442,7 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
     {
         try
         {
-            var startInfo = new ProcessStartInfo(_qpdfExecutablePath)
-            {
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false
-            };
+            var startInfo = BundledToolResolver.CreateStartInfo(_qpdfTool);
 
             foreach (var argument in arguments)
             {
@@ -627,5 +619,5 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
     private static AppError CreateUnavailableError() =>
         AppError.Infrastructure(
             "pdf.structure.tool.missing",
-            "PDF structural editing requires qpdf to be installed.");
+            "The bundled PDF structure tool is missing or unavailable.");
 }

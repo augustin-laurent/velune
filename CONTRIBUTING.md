@@ -1,45 +1,45 @@
 # Contributing
 
-## Principes
+## Architecture
 
-Le projet suit une architecture en couches :
+Velune uses a layered architecture:
 
 - `Velune.Presentation -> Velune.Application`
 - `Velune.Application -> Velune.Domain`
 - `Velune.Infrastructure -> Velune.Application + Velune.Domain`
-- `Velune.App` compose les dépendances
+- `Velune.App` composes dependencies
 
-Le domaine ne dépend d’aucune technologie UI ou bibliothèque externe.
+The domain layer must not depend on UI, filesystem, native tooling or infrastructure packages.
 
-## Règles de code
+## Code Rules
 
-- `nullable` doit rester activé
-- les warnings sont traités comme des erreurs
-- toute opération longue doit accepter un `CancellationToken`
-- aucune logique métier dans les Views
-- aucune librairie externe ne doit remonter dans `Presentation`
-- préférer des types immuables quand c’est pertinent
-- éviter les méthodes longues et les ViewModels trop volumineux
+- Keep `nullable` enabled.
+- Treat warnings as errors.
+- Long-running or IO-bound operations must accept a `CancellationToken`.
+- Do not put business logic in views.
+- Do not let external infrastructure libraries leak into `Presentation`.
+- Prefer immutable types when data crosses boundaries.
+- Keep names explicit and business-oriented.
+- Avoid large methods and oversized ViewModels.
 
 ## Style
 
-- indentation : 4 espaces
-- fins de ligne : LF
-- accolades obligatoires
-- `var` seulement quand le type est évident
-- noms explicites et orientés métier
+- 4-space indentation
+- LF line endings
+- mandatory braces
+- `var` only when the type is obvious
 
 ## Tests
 
-- `Velune.Tests.Unit` : domaine et application
-- `Velune.Tests.Integration` : infrastructure
-- `Velune.Tests.Render` : rendu et snapshots
+- `Velune.Tests.Unit`: domain and application behavior
+- `Velune.Tests.Integration`: infrastructure behavior
+- `Velune.Tests.Render`: render snapshots
 
-## Pull requests
+Before opening a PR:
 
-Avant d’ouvrir une PR :
+```bash
+dotnet build Velune.slnx --configuration Release
+dotnet test tests/Velune.Tests.Unit/Velune.Tests.Unit.csproj --configuration Release
+```
 
-- lancer `dotnet build`
-- lancer `dotnet test`
-- vérifier le formatage
-- vérifier que les dépendances entre couches restent propres
+Run integration or render tests when touching infrastructure, rendering, OCR, PDF/image handling or UI layout-sensitive behavior.

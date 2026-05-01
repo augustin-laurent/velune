@@ -9,24 +9,24 @@ using Velune.Application.DTOs;
 using Velune.Application.Results;
 using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
+using Velune.Infrastructure.FileSystem;
 
 namespace Velune.Infrastructure.Text;
 
 public sealed class TesseractOcrEngine : IOcrEngine
 {
-    private readonly string _tesseractExecutablePath;
+    private readonly BundledTool _tesseractTool;
     private readonly string? _tesseractDataPath;
 
     public TesseractOcrEngine(IOptions<AppOptions> options)
     {
         ArgumentNullException.ThrowIfNull(options);
 
-        _tesseractExecutablePath = string.IsNullOrWhiteSpace(options.Value.TesseractExecutablePath)
-            ? "tesseract"
-            : options.Value.TesseractExecutablePath;
-        _tesseractDataPath = string.IsNullOrWhiteSpace(options.Value.TesseractDataPath)
-            ? null
-            : options.Value.TesseractDataPath;
+        _tesseractTool = BundledToolResolver.Resolve(
+            options.Value.TesseractExecutablePath,
+            "tesseract",
+            "tesseract");
+        _tesseractDataPath = BundledToolResolver.ResolveTesseractDataPath(options.Value.TesseractDataPath);
     }
 
     public async Task<Result<OcrEngineInfo>> GetInfoAsync(CancellationToken cancellationToken = default)
@@ -146,12 +146,7 @@ public sealed class TesseractOcrEngine : IOcrEngine
     {
         try
         {
-            var startInfo = new ProcessStartInfo(_tesseractExecutablePath)
-            {
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false
-            };
+            var startInfo = BundledToolResolver.CreateStartInfo(_tesseractTool);
 
             foreach (var argument in arguments)
             {
@@ -199,7 +194,7 @@ public sealed class TesseractOcrEngine : IOcrEngine
             return ResultFactory.Failure<string>(
                 AppError.Unsupported(
                     "ocr.tesseract.missing",
-                    "Tesseract is not installed or is not available in the configured path."));
+                    "The bundled OCR engine is missing or unavailable."));
         }
         catch (InvalidOperationException ex)
         {

@@ -73,6 +73,7 @@ jobs:
         shell: pwsh
         run: |
           choco install qpdf tesseract --yes --no-progress
+          choco install innosetup --yes --no-progress
           Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
           refreshenv
           $tessdata = Join-Path $env:ProgramFiles "Tesseract-OCR\tessdata"
@@ -108,10 +109,17 @@ jobs:
         id: package
         shell: pwsh
         run: |
-          $packageInfo = ./eng/New-DevBuildPackage.ps1 `
-            -RuntimeIdentifier "${{ matrix.rid }}" `
-            -Version "${{ steps.version.outputs.version }}" `
-            -InformationalVersion "${{ steps.version.outputs.informational_version }}" | ConvertFrom-Json
+          if ("${{ matrix.rid }}" -eq "win-x64") {
+            $packageInfo = ./eng/New-WindowsInstaller.ps1 `
+              -RuntimeIdentifier "${{ matrix.rid }}" `
+              -Version "${{ steps.version.outputs.version }}" `
+              -InformationalVersion "${{ steps.version.outputs.informational_version }}" | ConvertFrom-Json
+          } else {
+            $packageInfo = ./eng/New-DevBuildPackage.ps1 `
+              -RuntimeIdentifier "${{ matrix.rid }}" `
+              -Version "${{ steps.version.outputs.version }}" `
+              -InformationalVersion "${{ steps.version.outputs.informational_version }}" | ConvertFrom-Json
+          }
 
           "package_path=$($packageInfo.PackagePath)" >> $env:GITHUB_OUTPUT
           "checksum_path=$($packageInfo.ChecksumPath)" >> $env:GITHUB_OUTPUT

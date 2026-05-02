@@ -113,6 +113,50 @@ public sealed class RenderOrchestratorTests
     }
 
     [Fact]
+    public async Task Submit_ShouldBypassThumbnailDiskCache_WhenRequestDisablesIt()
+    {
+        var store = CreateStoreWithSession();
+        var renderService = new ControlledRenderService();
+        var diskCache = new StubThumbnailDiskCache(CreatePage(pageIndex: 0));
+        using var orchestrator = new RenderOrchestrator(NoOpPerformanceMetrics.Instance, CreateCache(), diskCache, store, renderService);
+
+        var handle = orchestrator.Submit(
+            new RenderRequest("thumbnail:0", new PageIndex(0), 0.20, Rotation.Deg0, 170, 150, RenderPriority.Thumbnail, UseThumbnailDiskCache: false));
+
+        var result = await handle.Completion.WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Page);
+        Assert.Equal(1, renderService.InvocationCount);
+        Assert.Equal(0, diskCache.HitCount);
+        Assert.Equal(0, diskCache.StoreCount);
+    }
+
+    [Fact]
+    public async Task Submit_ShouldBypassDiskDerivedMemoryEntry_WhenRequestDisablesThumbnailDiskCache()
+    {
+        var store = CreateStoreWithSession();
+        var renderService = new ControlledRenderService();
+        var diskCache = new StubThumbnailDiskCache(CreatePage(pageIndex: 0));
+        using var orchestrator = new RenderOrchestrator(NoOpPerformanceMetrics.Instance, CreateCache(), diskCache, store, renderService);
+
+        var cachedHandle = orchestrator.Submit(
+            new RenderRequest("thumbnail:0", new PageIndex(0), 0.20, Rotation.Deg0, 170, 150, RenderPriority.Thumbnail));
+
+        var cachedResult = await cachedHandle.Completion.WaitAsync(TimeSpan.FromSeconds(1));
+
+        var bypassHandle = orchestrator.Submit(
+            new RenderRequest("thumbnail:0:bypass", new PageIndex(0), 0.20, Rotation.Deg0, 170, 150, RenderPriority.Thumbnail, UseThumbnailDiskCache: false));
+
+        var bypassResult = await bypassHandle.Completion.WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.True(cachedResult.IsSuccess);
+        Assert.True(bypassResult.IsSuccess);
+        Assert.Equal(1, diskCache.HitCount);
+        Assert.Equal(1, renderService.InvocationCount);
+    }
+
+    [Fact]
     public async Task Submit_ShouldLogFirstPageRenderMetric_WhenViewerJobCompletes()
     {
         var logger = new ListLogger<DevelopmentPerformanceMetrics>();
@@ -160,11 +204,11 @@ public sealed class RenderOrchestratorTests
     }
 
     [Fact]
-    public async Task Submit_ShouldCancelThumbnailWorkWhenViewerRequestArrives()
+    public async Task Submit_ShouldKeepThumbnailWorkWhenViewerRequestArrives()
     {
         var store = CreateStoreWithSession();
         var renderService = new ControlledRenderService();
-        renderService.EnqueueGate();
+        var thumbnailGate = renderService.EnqueueGate();
         using var orchestrator = new RenderOrchestrator(NoOpPerformanceMetrics.Instance, CreateCache(), new NullThumbnailDiskCache(), store, renderService);
 
         var thumbnail = orchestrator.Submit(
@@ -175,11 +219,16 @@ public sealed class RenderOrchestratorTests
         var viewer = orchestrator.Submit(
             new RenderRequest("viewer", new PageIndex(0), 1.0, Rotation.Deg0, Priority: RenderPriority.Viewer));
 
+        Assert.False(thumbnail.Completion.IsCompleted);
+        Assert.False(viewer.Completion.IsCompleted);
+
+        thumbnailGate.SetResult(true);
+
         var thumbnailResult = await thumbnail.Completion;
         var viewerResult = await viewer.Completion.WaitAsync(TimeSpan.FromSeconds(1));
 
-        Assert.True(thumbnailResult.IsCanceled);
-        Assert.True(thumbnailResult.IsObsolete);
+        Assert.True(thumbnailResult.IsSuccess);
+        Assert.False(thumbnailResult.IsObsolete);
         Assert.True(viewerResult.IsSuccess);
         Assert.Equal(2, renderService.InvocationCount);
     }
@@ -272,7 +321,10 @@ public sealed class RenderOrchestratorTests
             Current = UserPreferences.CreateDefault(memoryCacheEntryLimit);
         }
 
-        public UserPreferences Current { get; private set; }
+        public UserPreferences Current
+        {
+            get; private set;
+        }
 
         public event EventHandler? PreferencesChanged;
 
@@ -300,6 +352,12 @@ public sealed class RenderOrchestratorTests
             private set;
         }
 
+        public int StoreCount
+        {
+            get;
+            private set;
+        }
+
         public bool TryGet(
             IDocumentSession session,
             RenderRequest request,
@@ -318,6 +376,7 @@ public sealed class RenderOrchestratorTests
             RenderRequest request,
             RenderedPage renderedPage)
         {
+            StoreCount++;
         }
     }
 }

@@ -1,5 +1,5 @@
-using System.Globalization;
 using System.ComponentModel;
+using System.Globalization;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Velune.Application.Abstractions;
@@ -220,7 +220,10 @@ public sealed class FileLocalizationServiceTests
             Current = current;
         }
 
-        public UserPreferences Current { get; private set; }
+        public UserPreferences Current
+        {
+            get; private set;
+        }
 
         public event EventHandler? PreferencesChanged;
 
@@ -242,7 +245,10 @@ public sealed class FileLocalizationServiceTests
             Directory.CreateDirectory(Path);
         }
 
-        public string Path { get; }
+        public string Path
+        {
+            get;
+        }
 
         public void Dispose()
         {

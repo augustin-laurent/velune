@@ -135,7 +135,7 @@ public sealed class DocumentTextSelectionIntegrationTests
             new DocumentTextDiskCache(NullLogger<DocumentTextDiskCache>.Instance, options),
             new TesseractOcrEngine(options),
             new DispatchingRenderService(
-                new PdfiumRenderService(IntegrationPdfium.Initializer),
+                new PdfiumRenderService(IntegrationPdfium.Initializer, IntegrationPdfium.ExecutionGate),
                 new ImageRenderService()),
             options);
     }
@@ -144,7 +144,7 @@ public sealed class DocumentTextSelectionIntegrationTests
     {
         if (string.Equals(Path.GetExtension(filePath), ".pdf", StringComparison.OrdinalIgnoreCase))
         {
-            return new PdfiumDocumentOpener(IntegrationPdfium.Initializer).Open(filePath);
+            return new PdfiumDocumentOpener(IntegrationPdfium.Initializer, IntegrationPdfium.ExecutionGate).Open(filePath);
         }
 
         var fileInfo = new FileInfo(filePath);

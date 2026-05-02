@@ -1,5 +1,5 @@
-using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Velune.Application.Abstractions;
 using Velune.Application.Configuration;
 using Velune.Application.DTOs;
@@ -100,6 +100,117 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public async Task OpenDocument_OnWindows_ShouldCreateTabsAndFocusExistingPath()
+    {
+        var previousWindowsDetector = PresentationPlatform.IsWindowsDetector;
+        var previousMacOsDetector = PresentationPlatform.IsMacOSDetector;
+        PresentationPlatform.IsWindowsDetector = static () => true;
+        PresentationPlatform.IsMacOSDetector = static () => false;
+
+        try
+        {
+            using var viewModel = CreateViewModel(documentOpener: new PathAwareStubDocumentOpener());
+
+            await viewModel.HandleHomeFilesDroppedAsync(["/tmp/a.pdf"]);
+            await viewModel.HandleHomeFilesDroppedAsync(["/tmp/b.pdf"]);
+            await viewModel.HandleHomeFilesDroppedAsync(["/tmp/a.pdf"]);
+
+            Assert.True(viewModel.IsWindowsShellVisible);
+            Assert.False(viewModel.IsClassicShellVisible);
+            Assert.Equal(2, viewModel.DocumentTabs.Count);
+            Assert.Equal("/tmp/a.pdf", viewModel.DocumentTabs[0].FilePath);
+            Assert.Equal("/tmp/b.pdf", viewModel.DocumentTabs[1].FilePath);
+            Assert.True(viewModel.DocumentTabs[0].IsActive);
+            Assert.False(viewModel.DocumentTabs[1].IsActive);
+            Assert.Equal("/tmp/a.pdf", viewModel.ActiveDocumentTab?.FilePath);
+            Assert.True(viewModel.IsSidebarVisible);
+            Assert.False(viewModel.IsAnnotationsPanelOpen);
+        }
+        finally
+        {
+            PresentationPlatform.IsWindowsDetector = previousWindowsDetector;
+            PresentationPlatform.IsMacOSDetector = previousMacOsDetector;
+        }
+    }
+
+    [Fact]
+    public async Task SwitchingWindowsTabs_ShouldKeepDocumentsRenderable()
+    {
+        var previousWindowsDetector = PresentationPlatform.IsWindowsDetector;
+        var previousMacOsDetector = PresentationPlatform.IsMacOSDetector;
+        PresentationPlatform.IsWindowsDetector = static () => true;
+        PresentationPlatform.IsMacOSDetector = static () => false;
+
+        try
+        {
+            using var renderOrchestrator = new StubRenderOrchestrator();
+            using var viewModel = CreateViewModel(
+                documentOpener: new PathAwareStubDocumentOpener(),
+                renderOrchestrator: renderOrchestrator);
+
+            await viewModel.HandleHomeFilesDroppedAsync(["/tmp/a.pdf"]);
+            await viewModel.HandleHomeFilesDroppedAsync(["/tmp/b.pdf"]);
+            var renderRequestsAfterOpen = renderOrchestrator.SubmitRequests.Count;
+
+            Assert.Equal(2, viewModel.DocumentTabs.Count);
+            Assert.Equal("/tmp/a.pdf", viewModel.DocumentTabs[0].FilePath);
+            Assert.Equal("/tmp/b.pdf", viewModel.DocumentTabs[1].FilePath);
+            Assert.Equal("/tmp/b.pdf", viewModel.ActiveDocumentTab?.FilePath);
+            Assert.Equal("/tmp/b.pdf", viewModel.CurrentDocumentPath);
+            Assert.True(viewModel.ActivateDocumentTabCommand.CanExecute(viewModel.DocumentTabs[0]));
+
+            viewModel.ActivateDocumentTabCommand.Execute(viewModel.DocumentTabs[0]);
+            if (viewModel.ActivateDocumentTabCommand.ExecutionTask is { } firstActivation)
+            {
+                await firstActivation;
+            }
+
+            Assert.Equal("/tmp/a.pdf", viewModel.ActiveDocumentTab?.FilePath);
+            Assert.Equal("/tmp/a.pdf", viewModel.CurrentDocumentPath);
+            Assert.True(viewModel.HasOpenDocument);
+            Assert.True(renderOrchestrator.SubmitRequests.Count > renderRequestsAfterOpen);
+
+            viewModel.ActivateDocumentTabCommand.Execute(viewModel.DocumentTabs[1]);
+            if (viewModel.ActivateDocumentTabCommand.ExecutionTask is { } secondActivation)
+            {
+                await secondActivation;
+            }
+
+            Assert.Equal("/tmp/b.pdf", viewModel.CurrentDocumentPath);
+            Assert.True(viewModel.HasOpenDocument);
+        }
+        finally
+        {
+            PresentationPlatform.IsWindowsDetector = previousWindowsDetector;
+            PresentationPlatform.IsMacOSDetector = previousMacOsDetector;
+        }
+    }
+
+    [Fact]
+    public async Task OpenDocument_OutsideWindows_ShouldKeepClassicSingleDocumentShell()
+    {
+        var previousWindowsDetector = PresentationPlatform.IsWindowsDetector;
+        PresentationPlatform.IsWindowsDetector = static () => false;
+
+        try
+        {
+            using var viewModel = CreateViewModel(documentOpener: new PathAwareStubDocumentOpener());
+
+            await viewModel.HandleHomeFilesDroppedAsync(["/tmp/a.pdf"]);
+            await viewModel.HandleHomeFilesDroppedAsync(["/tmp/b.pdf"]);
+
+            Assert.False(viewModel.IsWindowsShellVisible);
+            Assert.True(viewModel.IsClassicShellVisible);
+            Assert.Empty(viewModel.DocumentTabs);
+            Assert.Equal("b.pdf", viewModel.CurrentDocumentName);
+        }
+        finally
+        {
+            PresentationPlatform.IsWindowsDetector = previousWindowsDetector;
+        }
+    }
+
+    [Fact]
     public async Task OpenCommand_ShouldPopulateDocumentInfoAndShowFriendlyMetadataWarning()
     {
         using var viewModel = CreateViewModel(
@@ -132,6 +243,23 @@ public sealed class MainWindowViewModelTests
         Assert.Contains(viewModel.DocumentInfoItems, item => item.Label == "Author" && item.Value == "Ada Lovelace");
         Assert.Contains(viewModel.DocumentInfoItems, item => item.Label == "Title" && item.Value == "Quarterly Report");
         Assert.Contains(viewModel.DocumentInfoItems, item => item.Label == "Pages" && item.Value == "3");
+    }
+
+    [Fact]
+    public async Task CloseSearchPanelCommand_ShouldCloseSearchEvenWhenUsingDedicatedCloseButton()
+    {
+        using var viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService("/tmp/document.pdf"));
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        await viewModel.ToggleSearchPanelCommand.ExecuteAsync(null);
+
+        Assert.True(viewModel.IsSearchPanelOpen);
+
+        viewModel.CloseSearchPanelCommand.Execute(null);
+
+        Assert.False(viewModel.IsSearchPanelOpen);
+        Assert.Equal("Search hidden", viewModel.StatusText);
     }
 
     [Fact]
@@ -363,6 +491,36 @@ public sealed class MainWindowViewModelTests
         Assert.False(viewModel.IsPageNavigationVisible);
         Assert.False(viewModel.IsPdfStructureActionsVisible);
         Assert.Single(viewModel.Thumbnails);
+    }
+
+    [Fact]
+    public async Task SelectAnnotationToolCommand_ShouldOpenAnnotationsPanel()
+    {
+        using var viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService("/tmp/image.png"),
+            documentOpener: new StubDocumentOpener(
+                new StubImageDocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata(
+                        "image.png",
+                        "/tmp/image.png",
+                        DocumentType.Image,
+                        2048,
+                        1,
+                        pixelWidth: 1200,
+                        pixelHeight: 800,
+                        formatLabel: "PNG image"),
+                    ViewportState.Default,
+                    new ImageMetadata(1200, 800))));
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+
+        Assert.False(viewModel.IsAnnotationsPanelOpen);
+
+        viewModel.SelectAnnotationToolCommand.Execute("Text");
+
+        Assert.True(viewModel.IsAnnotationsPanelOpen);
+        Assert.True(viewModel.IsTextAnnotationToolSelected);
     }
 
     [Fact]
@@ -1344,11 +1502,20 @@ public sealed class MainWindowViewModelTests
                 (string.IsNullOrWhiteSpace(openPath) ? [] : [openPath]);
         }
 
-        public string? LastOpenMergeSourcesTitle { get; private set; }
+        public string? LastOpenMergeSourcesTitle
+        {
+            get; private set;
+        }
 
-        public string? LastSaveTitle { get; private set; }
+        public string? LastSaveTitle
+        {
+            get; private set;
+        }
 
-        public string? LastSuggestedFileName { get; private set; }
+        public string? LastSuggestedFileName
+        {
+            get; private set;
+        }
 
         public Task<string?> PickOpenFileAsync(CancellationToken cancellationToken = default)
         {
@@ -1469,9 +1636,13 @@ public sealed class MainWindowViewModelTests
             _isCanceled = isCanceled;
         }
 
+        public List<RenderRequest> SubmitRequests { get; } = [];
+
         public RenderJobHandle Submit(RenderRequest request)
         {
             ArgumentNullException.ThrowIfNull(request);
+
+            SubmitRequests.Add(request);
 
             var jobId = Guid.NewGuid();
 
@@ -1642,7 +1813,10 @@ public sealed class MainWindowViewModelTests
             };
         }
 
-        public UserPreferences Current { get; private set; }
+        public UserPreferences Current
+        {
+            get; private set;
+        }
 
         public event EventHandler? PreferencesChanged;
 
@@ -1672,13 +1846,25 @@ public sealed class MainWindowViewModelTests
             _systemDialogResult = systemDialogResult ?? ResultFactory.Success();
         }
 
-        public bool SupportsSystemPrintDialog { get; }
+        public bool SupportsSystemPrintDialog
+        {
+            get;
+        }
 
-        public int GetAvailablePrintersCallCount { get; private set; }
+        public int GetAvailablePrintersCallCount
+        {
+            get; private set;
+        }
 
-        public PrintDocumentRequest? LastRequest { get; private set; }
+        public PrintDocumentRequest? LastRequest
+        {
+            get; private set;
+        }
 
-        public string? LastSystemDialogFilePath { get; private set; }
+        public string? LastSystemDialogFilePath
+        {
+            get; private set;
+        }
 
         public Task<AppResult> ShowSystemPrintDialogAsync(string filePath, CancellationToken cancellationToken = default)
         {
@@ -1707,7 +1893,10 @@ public sealed class MainWindowViewModelTests
             File.WriteAllText(Path, "temporary");
         }
 
-        public string Path { get; }
+        public string Path
+        {
+            get;
+        }
 
         public void Dispose()
         {
@@ -1731,11 +1920,20 @@ public sealed class MainWindowViewModelTests
 
         public List<(string SourcePath, string OutputPath, IReadOnlyList<int> Pages)> ExtractCalls { get; } = [];
 
-        public IReadOnlyList<int>? LastDeletedPages { get; private set; }
+        public IReadOnlyList<int>? LastDeletedPages
+        {
+            get; private set;
+        }
 
-        public IReadOnlyList<string>? LastMergedSourcePaths { get; private set; }
+        public IReadOnlyList<string>? LastMergedSourcePaths
+        {
+            get; private set;
+        }
 
-        public string? LastOutputPath { get; private set; }
+        public string? LastOutputPath
+        {
+            get; private set;
+        }
 
         public bool IsAvailable() => true;
 

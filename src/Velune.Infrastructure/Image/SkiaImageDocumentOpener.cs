@@ -1,4 +1,3 @@
-using Avalonia.Media.Imaging;
 using SkiaSharp;
 using Velune.Application.Documents;
 using Velune.Domain.Abstractions;
@@ -7,7 +6,7 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Infrastructure.Image;
 
-public sealed class AvaloniaImageDocumentOpener
+public sealed class SkiaImageDocumentOpener
 {
     public IDocumentSession Open(string filePath)
     {
@@ -27,12 +26,14 @@ public sealed class AvaloniaImageDocumentOpener
 
         var fileBytes = File.ReadAllBytes(filePath);
 
-        using var sourceStream = new MemoryStream(fileBytes);
-        var bitmap = new Bitmap(sourceStream);
         using var decodedBitmap = SKBitmap.Decode(fileBytes);
+        if (decodedBitmap is null)
+        {
+            throw new InvalidOperationException("Unable to decode the image file.");
+        }
 
-        var pixelWidth = decodedBitmap?.Width ?? bitmap.PixelSize.Width;
-        var pixelHeight = decodedBitmap?.Height ?? bitmap.PixelSize.Height;
+        var pixelWidth = decodedBitmap.Width;
+        var pixelHeight = decodedBitmap.Height;
 
         var fileInfo = new FileInfo(filePath);
         var imageMetadata = new ImageMetadata(pixelWidth, pixelHeight);
@@ -49,7 +50,7 @@ public sealed class AvaloniaImageDocumentOpener
             createdAt: fileInfo.CreationTimeUtc,
             modifiedAt: fileInfo.LastWriteTimeUtc);
 
-        var resource = new ImageDocumentResource(fileBytes, bitmap);
+        var resource = new ImageDocumentResource(fileBytes);
 
         return new ImageDocumentSession(
             id: DocumentId.New(),

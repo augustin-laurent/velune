@@ -188,7 +188,10 @@ public sealed class RenderMemoryCacheTests
             Current = UserPreferences.CreateDefault(entryLimit);
         }
 
-        public UserPreferences Current { get; private set; }
+        public UserPreferences Current
+        {
+            get; private set;
+        }
 
         public event EventHandler? PreferencesChanged;
 
@@ -201,7 +204,10 @@ public sealed class RenderMemoryCacheTests
 
         public void UpdateEntryLimit(int entryLimit)
         {
-            Current = Current with { MemoryCacheEntryLimit = entryLimit };
+            Current = Current with
+            {
+                MemoryCacheEntryLimit = entryLimit
+            };
             PreferencesChanged?.Invoke(this, EventArgs.Empty);
         }
     }

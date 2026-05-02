@@ -51,7 +51,7 @@ public sealed class OpenDocumentUseCase
             var session = await _documentOpener.OpenAsync(request.FilePath, cancellationToken);
             var previousSession = _sessionStore.Current;
 
-            if (previousSession is not null)
+            if (previousSession is not null && request.OpenMode is DocumentOpenMode.ReplaceCurrent)
             {
                 await _renderOrchestrator.CancelDocumentJobsAsync(previousSession.Id, cancellationToken);
                 _performanceMetrics.Clear(previousSession.Id);
@@ -62,7 +62,13 @@ public sealed class OpenDocumentUseCase
                 }
             }
 
-            _sessionStore.SetCurrent(session);
+            if (request.OpenMode is DocumentOpenMode.ReplaceCurrent && previousSession is not null)
+            {
+                _sessionStore.Remove(previousSession.Id);
+            }
+
+            _sessionStore.Add(session, makeActive: true);
+
             _performanceMetrics.RecordDocumentOpened(session, stopwatch.Elapsed);
 
             return ResultFactory.Success(session);

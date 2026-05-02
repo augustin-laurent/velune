@@ -117,7 +117,10 @@ public sealed class DocumentTextDiskCacheTests
             Directory.CreateDirectory(Path);
         }
 
-        public string Path { get; }
+        public string Path
+        {
+            get;
+        }
 
         public void Dispose()
         {
@@ -142,7 +145,10 @@ public sealed class DocumentTextDiskCacheTests
             File.WriteAllText(Path, "seed");
         }
 
-        public string Path { get; }
+        public string Path
+        {
+            get;
+        }
 
         public void Dispose()
         {

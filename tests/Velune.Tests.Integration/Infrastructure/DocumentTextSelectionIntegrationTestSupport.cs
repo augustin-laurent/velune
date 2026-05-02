@@ -10,7 +10,10 @@ internal sealed class TemporaryDirectory : IDisposable
         Directory.CreateDirectory(Path);
     }
 
-    public string Path { get; }
+    public string Path
+    {
+        get;
+    }
 
     public void Dispose()
     {

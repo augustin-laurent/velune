@@ -1,6 +1,4 @@
 using System.Text.Json;
-using Avalonia;
-using Avalonia.Headless;
 using Velune.Application.Abstractions;
 using Velune.Application.DTOs;
 using Velune.Application.UseCases;
@@ -35,26 +33,7 @@ internal static class Program
             ? args[3]
             : null;
 
-        var session = HeadlessUnitTestSession.StartNew(typeof(TestAvaloniaApp));
-
-        try
-        {
-            return await session.Dispatch(
-                () => RunScenarioAsync(filePath, rotation, zoomFactor, outputPngPath),
-                CancellationToken.None);
-        }
-        finally
-        {
-            try
-            {
-                session.Dispose();
-            }
-            catch (NullReferenceException)
-            {
-                // Avalonia.Headless can throw during shutdown even after a successful render.
-                // The host is short-lived, so we ignore this framework cleanup issue.
-            }
-        }
+        return await RunScenarioAsync(filePath, rotation, zoomFactor, outputPngPath);
     }
 
     private static async Task<int> RunScenarioAsync(
@@ -66,19 +45,20 @@ internal static class Program
         try
         {
             using var initializer = new PdfiumInitializer();
+            using var pdfiumGate = new PdfiumExecutionGate();
             var sessionStore = new InMemoryDocumentSessionStore();
             using var renderOrchestrator = new NoOpRenderOrchestrator();
             var openDocumentUseCase = new OpenDocumentUseCase(
                 new DispatchingDocumentOpener(
-                    new PdfiumDocumentOpener(initializer),
-                    new AvaloniaImageDocumentOpener()),
+                    new PdfiumDocumentOpener(initializer, pdfiumGate),
+                    new SkiaImageDocumentOpener()),
                 sessionStore,
                 NoOpPerformanceMetrics.Instance,
                 renderOrchestrator);
             var renderUseCase = new RenderVisiblePageUseCase(
                 sessionStore,
                 new DispatchingRenderService(
-                    new PdfiumRenderService(initializer),
+                    new PdfiumRenderService(initializer, pdfiumGate),
                     new ImageRenderService()));
 
             var openResult = await openDocumentUseCase.ExecuteAsync(new OpenDocumentRequest(filePath));
@@ -153,18 +133,6 @@ internal static class Program
     private static void WriteResult(HostResult result)
     {
         Console.Out.Write(JsonSerializer.Serialize(result));
-    }
-
-    private sealed class TestAvaloniaApp : Avalonia.Application
-    {
-        public static AppBuilder BuildAvaloniaApp()
-        {
-            return AppBuilder.Configure<TestAvaloniaApp>()
-                .UseHeadless(new AvaloniaHeadlessPlatformOptions
-                {
-                    UseHeadlessDrawing = true
-                });
-        }
     }
 
     private sealed class NoOpPerformanceMetrics : IPerformanceMetrics

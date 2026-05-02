@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
-using Avalonia.Threading;
 using Velune.Application.Abstractions;
 using Velune.Application.DTOs;
 using Velune.Application.Results;
@@ -12,13 +11,18 @@ namespace Velune.Infrastructure.FileSystem;
 
 public sealed partial class SystemPrintService : IPrintService
 {
-    public bool SupportsSystemPrintDialog => OperatingSystem.IsMacOS();
+    public bool SupportsSystemPrintDialog => OperatingSystem.IsMacOS() || OperatingSystem.IsWindows();
 
     public async Task<Result> ShowSystemPrintDialogAsync(
         string filePath,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+
+        if (OperatingSystem.IsWindows())
+        {
+            return ShowWindowsSystemPrintDialog(filePath);
+        }
 
         if (!OperatingSystem.IsMacOS())
         {
@@ -70,9 +74,41 @@ public sealed partial class SystemPrintService : IPrintService
     [SupportedOSPlatform("macos")]
     private static Task<PrintDialogOutcome> ShowMacOsSystemPrintDialogAsync(string filePath)
     {
-        return Dispatcher.UIThread.InvokeAsync(
-            () => MacOsPrintDialog.Show(filePath),
-            DispatcherPriority.Send).GetTask();
+        return Task.FromResult(MacOsPrintDialog.Show(filePath));
+    }
+
+    private static Result ShowWindowsSystemPrintDialog(string filePath)
+    {
+        try
+        {
+            using var process = Process.Start(new ProcessStartInfo(filePath)
+            {
+                UseShellExecute = true,
+                Verb = "print",
+                CreateNoWindow = true
+            });
+
+            return process is null
+                ? ResultFactory.Failure(
+                    AppError.Infrastructure(
+                        "print.dialog.failed",
+                        "The system print dialog could not be opened."))
+                : ResultFactory.Success();
+        }
+        catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
+        {
+            return ResultFactory.Failure(
+                AppError.Validation(
+                    "print.cancelled",
+                    "Printing was cancelled."));
+        }
+        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException)
+        {
+            return ResultFactory.Failure(
+                AppError.Infrastructure(
+                    "print.dialog.failed",
+                    "The system print dialog could not be opened."));
+        }
     }
 
     public async Task<Result<IReadOnlyList<PrintDestinationInfo>>> GetAvailablePrintersAsync(

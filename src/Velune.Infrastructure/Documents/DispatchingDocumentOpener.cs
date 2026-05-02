@@ -8,11 +8,11 @@ namespace Velune.Infrastructure.Documents;
 public sealed class DispatchingDocumentOpener : IDocumentOpener
 {
     private readonly PdfiumDocumentOpener _pdfiumDocumentOpener;
-    private readonly AvaloniaImageDocumentOpener _imageDocumentOpener;
+    private readonly SkiaImageDocumentOpener _imageDocumentOpener;
 
     public DispatchingDocumentOpener(
         PdfiumDocumentOpener pdfiumDocumentOpener,
-        AvaloniaImageDocumentOpener imageDocumentOpener)
+        SkiaImageDocumentOpener imageDocumentOpener)
     {
         ArgumentNullException.ThrowIfNull(pdfiumDocumentOpener);
         ArgumentNullException.ThrowIfNull(imageDocumentOpener);
@@ -29,13 +29,19 @@ public sealed class DispatchingDocumentOpener : IDocumentOpener
 
         var extension = Path.GetExtension(filePath);
 
-        IDocumentSession session = extension switch
+        return Task.Run(() =>
         {
-            var value when SupportedDocumentFormats.IsPdf(value) => _pdfiumDocumentOpener.Open(filePath),
-            var value when SupportedDocumentFormats.IsImage(value) => _imageDocumentOpener.Open(filePath),
-            _ => throw new NotSupportedException($"Unsupported document file type: {extension}")
-        };
+            cancellationToken.ThrowIfCancellationRequested();
 
-        return Task.FromResult(session);
+            IDocumentSession session = extension switch
+            {
+                var value when SupportedDocumentFormats.IsPdf(value) => _pdfiumDocumentOpener.Open(filePath),
+                var value when SupportedDocumentFormats.IsImage(value) => _imageDocumentOpener.Open(filePath),
+                _ => throw new NotSupportedException($"Unsupported document file type: {extension}")
+            };
+
+            cancellationToken.ThrowIfCancellationRequested();
+            return session;
+        }, cancellationToken);
     }
 }

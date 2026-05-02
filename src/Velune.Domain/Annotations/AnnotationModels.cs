@@ -114,7 +114,8 @@ public sealed record DocumentAnnotation
         NormalizedTextRegion? bounds = null,
         IReadOnlyList<NormalizedPoint>? points = null,
         string? text = null,
-        string? assetId = null)
+        string? assetId = null,
+        DateTimeOffset? createdAt = null)
     {
         ArgumentNullException.ThrowIfNull(appearance);
 
@@ -143,6 +144,7 @@ public sealed record DocumentAnnotation
         _points = normalizedPoints;
         Text = text;
         AssetId = assetId;
+        CreatedAt = createdAt ?? DateTimeOffset.UtcNow;
     }
 
     public Guid Id
@@ -182,6 +184,11 @@ public sealed record DocumentAnnotation
         get;
     }
 
+    public DateTimeOffset CreatedAt
+    {
+        get;
+    }
+
     public DocumentAnnotation DeepCopy()
     {
         return new DocumentAnnotation(
@@ -202,7 +209,8 @@ public sealed record DocumentAnnotation
                     Bounds.Height),
             [.. Points.Select(point => new NormalizedPoint(point.X, point.Y))],
             Text,
-            AssetId);
+            AssetId,
+            CreatedAt);
     }
 }
 

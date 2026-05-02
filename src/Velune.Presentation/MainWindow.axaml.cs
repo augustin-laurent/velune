@@ -8,6 +8,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Microsoft.Extensions.DependencyInjection;
 using Velune.Presentation.Localization;
+using Velune.Presentation.Platform;
 using Velune.Presentation.ViewModels;
 
 namespace Velune.Presentation.Views;
@@ -41,15 +42,30 @@ public partial class MainWindow : Window
     private bool _isCapturingSignaturePad;
     private bool _isAnnotating;
     private bool _isSelectingDocumentText;
+    private bool _allowWindowsClose;
     private PageThumbnailItemViewModel? _thumbnailContextTarget;
 
     public MainWindow()
     {
         InitializeComponent();
+        ConfigureWindowsChrome();
         _thumbnailAutoScrollTimer.Tick += OnThumbnailAutoScrollTick;
         Opened += OnWindowOpened;
+        Closing += OnWindowClosing;
         Closed += OnWindowClosed;
         AttachLocalization(LocalizationServiceLocator.Current);
+    }
+
+    private void ConfigureWindowsChrome()
+    {
+        if (!PresentationPlatform.IsWindows)
+        {
+            return;
+        }
+
+        ExtendClientAreaToDecorationsHint = true;
+        ExtendClientAreaChromeHints = global::Avalonia.Platform.ExtendClientAreaChromeHints.NoChrome;
+        SystemDecorations = SystemDecorations.None;
     }
 
     [ActivatorUtilitiesConstructor]
@@ -99,7 +115,66 @@ public partial class MainWindow : Window
         _nativeMenuLocalizationBinding = null;
         _localizationService = null;
         Opened -= OnWindowOpened;
+        Closing -= OnWindowClosing;
         Closed -= OnWindowClosed;
+    }
+
+    private async void OnWindowClosing(object? sender, WindowClosingEventArgs e)
+    {
+        if (_allowWindowsClose ||
+            DataContext is not MainWindowViewModel viewModel ||
+            !viewModel.IsWindowsShellVisible)
+        {
+            return;
+        }
+
+        e.Cancel = true;
+        if (!await viewModel.TryCloseAllDocumentTabsAsync())
+        {
+            return;
+        }
+
+        _allowWindowsClose = true;
+        Close();
+    }
+
+    private void OnWindowsTitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!PresentationPlatform.IsWindows ||
+            !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        if (e.ClickCount == 2)
+        {
+            ToggleWindowsMaximizeRestore();
+            return;
+        }
+
+        BeginMoveDrag(e);
+    }
+
+    private void OnWindowsMinimizeClicked(object? sender, RoutedEventArgs e)
+    {
+        WindowState = WindowState.Minimized;
+    }
+
+    private void OnWindowsMaximizeRestoreClicked(object? sender, RoutedEventArgs e)
+    {
+        ToggleWindowsMaximizeRestore();
+    }
+
+    private void OnWindowsCloseClicked(object? sender, RoutedEventArgs e)
+    {
+        Close();
+    }
+
+    private void ToggleWindowsMaximizeRestore()
+    {
+        WindowState = WindowState == WindowState.Maximized
+            ? WindowState.Normal
+            : WindowState.Maximized;
     }
 
     private void OnThumbnailExternalDragOver(object? sender, DragEventArgs e)

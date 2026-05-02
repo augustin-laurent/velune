@@ -1,6 +1,6 @@
 # Beta Releases
 
-Beta releases are public validation builds, not final V1 installers.
+Beta releases are public validation builds, not final V1 packages.
 
 ## Tag Format
 
@@ -17,7 +17,7 @@ Pushing a matching tag starts `.github/workflows/beta-release.yml`.
 
 The workflow creates a GitHub pre-release and uploads:
 
-- Windows x64 `.zip`
+- Windows x64 `.exe` installer
 - Linux x64 `.tar.gz`
 - macOS arm64 `.tar.gz` containing `Velune.app`
 - SHA-256 checksum files for each package
@@ -26,7 +26,7 @@ Packages are self-contained and include `.NET`, `qpdf`, `tesseract`, English OCR
 
 ## Limits
 
-- Windows beta packages are unsigned archives.
+- Windows beta packages are unsigned installers.
 - macOS beta packages are unsigned and not notarized.
 - Linux beta packages are archives, not AppImages.
 - Stable V1 requires signing, notarization and license notice review.

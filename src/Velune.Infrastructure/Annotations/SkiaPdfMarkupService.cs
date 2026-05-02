@@ -341,7 +341,7 @@ public sealed class SkiaPdfMarkupService : IPdfMarkupService
     private sealed class PdfiumFileWriter : IDisposable
     {
         private static readonly Dictionary<nint, PdfiumFileWriter> Writers = [];
-        private static readonly Lock WritersGate = new();
+        private static readonly object WritersGate = new();
         private static readonly PdfiumWriteBlockCallback WriteBlockCallbackInstance = WriteBlock;
 
         private readonly Stream _stream;

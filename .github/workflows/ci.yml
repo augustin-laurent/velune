@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches:
@@ -94,6 +95,7 @@ jobs:
     name: Render snapshots (macos-latest)
     runs-on: macos-latest
     needs: build
+    if: github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout
@@ -113,10 +115,13 @@ jobs:
             ${{ runner.os }}-nuget-
 
       - name: Restore
-        run: dotnet restore Velune.slnx
+        run: dotnet restore tests/Velune.Tests.Render/Velune.Tests.Render.csproj
+
+      - name: Build render tests
+        run: dotnet build tests/Velune.Tests.Render/Velune.Tests.Render.csproj --configuration Release --no-restore
 
       - name: Render tests
-        run: dotnet test tests/Velune.Tests.Render/Velune.Tests.Render.csproj --configuration Release --no-restore --logger "trx;LogFileName=render-tests.trx" --results-directory artifacts/test-results/render
+        run: dotnet test tests/Velune.Tests.Render/Velune.Tests.Render.csproj --configuration Release --no-build --logger "trx;LogFileName=render-tests.trx" --results-directory artifacts/test-results/render
 
       - name: Upload render test results
         if: always()

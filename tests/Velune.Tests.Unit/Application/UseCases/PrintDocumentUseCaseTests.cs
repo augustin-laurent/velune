@@ -59,7 +59,10 @@ public sealed class PrintDocumentUseCaseTests
             _result = result;
         }
 
-        public PrintDocumentRequest? LastRequest { get; private set; }
+        public PrintDocumentRequest? LastRequest
+        {
+            get; private set;
+        }
 
         public bool SupportsSystemPrintDialog => false;
 

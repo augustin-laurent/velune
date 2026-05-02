@@ -1,0 +1,449 @@
+<Window
+    x:Class="Velune.Windows.WelcomeWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:services="using:Velune.Windows.Services">
+
+  <Window.SystemBackdrop>
+    <MicaBackdrop Kind="BaseAlt" />
+  </Window.SystemBackdrop>
+
+  <Grid x:Name="Root"
+        Background="{ThemeResource WelcomeBackgroundBrush}">
+
+    <Grid.Resources>
+      <ResourceDictionary>
+
+        <services:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+        <services:RecentFilePdfVisibilityConverter x:Key="RecentFilePdfVisibility" />
+        <services:RecentFileImageVisibilityConverter x:Key="RecentFileImageVisibility" />
+        <services:RecentFileBrushConverter x:Key="RecentFileBrush" />
+        <services:RecentFileOpenedAtConverter x:Key="RecentFileOpenedAt" />
+
+        <Style x:Key="WelcomeButtonStyle" TargetType="Button">
+          <Setter Property="Height" Value="34" />
+          <Setter Property="MinWidth" Value="34" />
+          <Setter Property="Padding" Value="13,0" />
+          <Setter Property="Background" Value="{ThemeResource WelcomeButtonBgBrush}" />
+          <Setter Property="BorderBrush" Value="{ThemeResource WelcomeButtonBorderBrush}" />
+          <Setter Property="BorderThickness" Value="1" />
+          <Setter Property="CornerRadius" Value="5" />
+          <Setter Property="Foreground" Value="{ThemeResource WelcomeButtonFgBrush}" />
+          <Setter Property="FontSize" Value="13" />
+          <Setter Property="HorizontalContentAlignment" Value="Center" />
+          <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="PrimaryWelcomeButtonStyle" TargetType="Button" BasedOn="{StaticResource WelcomeButtonStyle}">
+          <Setter Property="Width" Value="173" />
+          <Setter Property="Background" Value="{ThemeResource WelcomePrimaryBgBrush}" />
+          <Setter Property="BorderBrush" Value="{ThemeResource WelcomePrimaryBorderBrush}" />
+          <Setter Property="Foreground" Value="{ThemeResource WelcomePrimaryFgBrush}" />
+        </Style>
+
+        <Style x:Key="SecondaryWelcomeButtonStyle" TargetType="Button" BasedOn="{StaticResource WelcomeButtonStyle}">
+          <Setter Property="Width" Value="179" />
+        </Style>
+
+        <Style x:Key="TopBarButtonStyle" TargetType="Button" BasedOn="{StaticResource WelcomeButtonStyle}">
+          <Setter Property="Height" Value="35" />
+          <Setter Property="Padding" Value="14,0" />
+        </Style>
+
+        <Style x:Key="IconButtonStyle" TargetType="Button" BasedOn="{StaticResource WelcomeButtonStyle}">
+          <Setter Property="Width" Value="39" />
+          <Setter Property="Height" Value="35" />
+          <Setter Property="Padding" Value="0" />
+        </Style>
+
+        <Style x:Key="RecentListViewItemStyle" TargetType="ListViewItem">
+          <Setter Property="MinHeight" Value="0" />
+          <Setter Property="Padding" Value="0" />
+          <Setter Property="Margin" Value="0" />
+          <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+          <Setter Property="VerticalContentAlignment" Value="Stretch" />
+          <Setter Property="UseSystemFocusVisuals" Value="False" />
+        </Style>
+
+        <Style x:Key="ClearRecentButtonStyle" TargetType="Button">
+          <Setter Property="Height" Value="26" />
+          <Setter Property="Padding" Value="5,0" />
+          <Setter Property="Background" Value="Transparent" />
+          <Setter Property="BorderBrush" Value="Transparent" />
+          <Setter Property="BorderThickness" Value="1" />
+          <Setter Property="Foreground" Value="{ThemeResource WelcomeClearButtonFgBrush}" />
+          <Setter Property="FontSize" Value="11" />
+        </Style>
+      </ResourceDictionary>
+    </Grid.Resources>
+
+    <Grid.RowDefinitions>
+      <RowDefinition Height="45" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <Grid x:Name="TitleBarDragRegion"
+          Grid.Row="0"
+          Padding="18,0,120,0"
+          Background="{ThemeResource WelcomeTitleBarBrush}"
+          BorderBrush="{ThemeResource WelcomeTitleBarBorderBrush}"
+          BorderThickness="0,0,0,1">
+      <StackPanel Orientation="Horizontal"
+                  Spacing="10"
+                  VerticalAlignment="Center">
+        <Image Source="Assets/Brand/velune-app-icon.png"
+               Width="26"
+               Height="26" />
+        <TextBlock Text="{Binding Labels.AppName}"
+                   Foreground="{ThemeResource WelcomeTextPrimaryBrush}"
+                   FontSize="13"
+                   VerticalAlignment="Center" />
+      </StackPanel>
+    </Grid>
+
+    <Grid Grid.Row="1"
+          Width="1104"
+          HorizontalAlignment="Center"
+          Padding="0,19,0,26">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="75" />
+        <RowDefinition Height="14" />
+        <RowDefinition Height="261" />
+        <RowDefinition Height="21" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+
+      <Grid Grid.Row="0">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="90" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <Image Source="Assets/Brand/velune-app-icon.png"
+               Width="74"
+               Height="74"
+               HorizontalAlignment="Left"
+               VerticalAlignment="Center" />
+
+        <StackPanel Grid.Column="1"
+                    VerticalAlignment="Center"
+                    Spacing="5">
+          <TextBlock Text="{Binding Labels.AppName}"
+                     Foreground="{ThemeResource WelcomeTextPrimaryBrush}"
+                     FontSize="20"
+                     FontWeight="SemiBold" />
+          <TextBlock Text="{Binding Labels.WindowSubtitle}"
+                     Foreground="{ThemeResource WelcomeTextSecondaryBrush}"
+                     FontSize="15" />
+        </StackPanel>
+
+        <StackPanel Grid.Column="2"
+                    Orientation="Horizontal"
+                    Spacing="11"
+                    VerticalAlignment="Center">
+          <Grid Height="35"
+                Width="133">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="36" />
+            </Grid.ColumnDefinitions>
+
+            <Button Grid.Column="0"
+                    Click="OnOpenFilesClicked"
+                    Style="{StaticResource TopBarButtonStyle}"
+                    CornerRadius="5,0,0,5"
+                    BorderThickness="1,1,0,1">
+              <StackPanel Orientation="Horizontal"
+                          Spacing="10"
+                          VerticalAlignment="Center">
+                <FontIcon Glyph="&#xE8E5;"
+                          FontFamily="Segoe Fluent Icons"
+                          FontSize="17" />
+                <TextBlock Text="{Binding Labels.Open}"
+                           FontSize="13"
+                           VerticalAlignment="Center" />
+              </StackPanel>
+            </Button>
+
+            <Button Grid.Column="1"
+                    Style="{StaticResource IconButtonStyle}"
+                    CornerRadius="0,5,5,0">
+              <FontIcon Glyph="&#xE70D;"
+                        FontFamily="Segoe Fluent Icons"
+                        FontSize="10" />
+              <Button.Flyout>
+                <MenuFlyout>
+                  <MenuFlyoutItem Text="{Binding Labels.Open}" Click="OnOpenFilesMenuClicked" />
+                </MenuFlyout>
+              </Button.Flyout>
+            </Button>
+          </Grid>
+
+          <Button Width="118"
+                  Command="{Binding MergeCommand}"
+                  Style="{StaticResource TopBarButtonStyle}">
+            <StackPanel Orientation="Horizontal"
+                        Spacing="10"
+                        VerticalAlignment="Center">
+              <FontIcon Glyph="&#xE8B7;"
+                        FontFamily="Segoe Fluent Icons"
+                        FontSize="17" />
+              <TextBlock Text="{Binding Labels.Merge}"
+                         FontSize="13"
+                         VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+
+          <Button Style="{StaticResource IconButtonStyle}">
+            <FontIcon Glyph="&#xE713;"
+                      FontFamily="Segoe Fluent Icons"
+                      FontSize="17" />
+          </Button>
+        </StackPanel>
+      </Grid>
+
+      <Grid Grid.Row="2"
+            Background="Transparent"
+            AllowDrop="True"
+            DragOver="OnHomeDropZoneDragOver"
+            Drop="OnHomeDropZoneDrop">
+        <Rectangle RadiusX="6"
+                   RadiusY="6"
+                   Fill="#00FFFFFF"
+                   Stroke="{ThemeResource WelcomeDropZoneStrokeBrush}"
+                   StrokeDashArray="4,4"
+                   StrokeThickness="1" />
+
+        <StackPanel Width="376"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Spacing="9">
+          <Canvas Width="56"
+                  Height="70"
+                  HorizontalAlignment="Center"
+                  Margin="0,0,0,3">
+            <Canvas.RenderTransform>
+              <ScaleTransform ScaleX="0.8" ScaleY="0.8" />
+            </Canvas.RenderTransform>
+            <Path Data="M13,4 H43 L63,24 V82 H13 Z M43,4 V24 H63"
+                  Stroke="{ThemeResource WelcomeDropIconBrush}"
+                  StrokeThickness="3"
+                  StrokeLineJoin="Round"
+                  Fill="Transparent" />
+            <Ellipse Canvas.Left="25"
+                     Canvas.Top="37"
+                     Width="9"
+                     Height="9"
+                     Stroke="{ThemeResource WelcomeDropIconBrush}"
+                     StrokeThickness="3" />
+            <Path Data="M16,67 L34,49 L45,60 L52,54 L64,67"
+                  Stroke="{ThemeResource WelcomeDropIconBrush}"
+                     StrokeThickness="3"
+                  StrokeLineJoin="Round"
+                  StrokeStartLineCap="Round"
+                     StrokeEndLineCap="Round"
+                     Fill="Transparent" />
+          </Canvas>
+
+          <TextBlock Text="{Binding Labels.WelcomeDropTitle}"
+                     Foreground="{ThemeResource WelcomeTextPrimaryBrush}"
+                     FontSize="21"
+                     FontWeight="SemiBold"
+                     HorizontalAlignment="Center"
+                     TextAlignment="Center" />
+
+          <TextBlock Text="{Binding Labels.WelcomeSupportedFormats}"
+                     Foreground="{ThemeResource WelcomeTextSubtleBrush}"
+                     FontSize="13"
+                     HorizontalAlignment="Center"
+                     TextAlignment="Center" />
+
+          <StackPanel Orientation="Horizontal"
+                      HorizontalAlignment="Center"
+                      Spacing="11"
+                      Margin="0,6,0,0">
+            <Button Click="OnOpenFilesClicked"
+                    Style="{StaticResource PrimaryWelcomeButtonStyle}">
+              <StackPanel Orientation="Horizontal"
+                          Spacing="10"
+                          VerticalAlignment="Center">
+                <FontIcon Glyph="&#xE8E5;"
+                          FontFamily="Segoe Fluent Icons"
+                          FontSize="17" />
+                <TextBlock Text="{Binding Labels.WelcomeOpenFiles}"
+                           FontSize="13"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center" />
+              </StackPanel>
+            </Button>
+
+            <Button Command="{Binding MergeCommand}"
+                    Style="{StaticResource SecondaryWelcomeButtonStyle}">
+              <StackPanel Orientation="Horizontal"
+                          Spacing="10"
+                          VerticalAlignment="Center">
+                <FontIcon Glyph="&#xE8B7;"
+                          FontFamily="Segoe Fluent Icons"
+                          FontSize="17" />
+                <TextBlock Text="{Binding Labels.WelcomeMergePdf}"
+                           FontSize="13"
+                           VerticalAlignment="Center" />
+              </StackPanel>
+            </Button>
+          </StackPanel>
+
+          <Button Click="OnOpenFilesClicked"
+                  Margin="0,4,0,0"
+                  Padding="3,2"
+                  Background="Transparent"
+                  BorderThickness="0"
+                  Foreground="{ThemeResource WelcomeAccentTextBrush}">
+            <TextBlock Text="{Binding Labels.WelcomeBrowseDevice}"
+                       FontSize="13"
+                       FontWeight="SemiBold" />
+          </Button>
+        </StackPanel>
+      </Grid>
+
+      <Grid Grid.Row="4"
+            Visibility="{Binding ShowRecentFilesFooter, Converter={StaticResource BoolToVisibility}}">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="30" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="{Binding Labels.RecentTitle}"
+                   Foreground="{ThemeResource WelcomeTextPrimaryBrush}"
+                   FontSize="14"
+                   FontWeight="SemiBold"
+                   VerticalAlignment="Center" />
+
+        <Button Grid.Row="0"
+                Style="{StaticResource ClearRecentButtonStyle}"
+                HorizontalAlignment="Right"
+                Command="{Binding ClearRecentFilesCommand}">
+          <StackPanel Orientation="Horizontal"
+                      Spacing="6"
+                      VerticalAlignment="Center">
+            <FontIcon Glyph="&#xE74D;"
+                      FontFamily="Segoe Fluent Icons"
+                      FontSize="15" />
+            <TextBlock Text="{Binding Labels.RecentClear}"
+                       FontSize="11"
+                       VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+
+        <ListView Grid.Row="1"
+                  ItemsSource="{Binding RecentFiles}"
+                  ItemContainerStyle="{StaticResource RecentListViewItemStyle}"
+                  IsItemClickEnabled="True"
+                  ItemClick="OnRecentFileItemClick"
+                  SelectionMode="None"
+                  Background="Transparent"
+                  BorderThickness="0"
+                  Padding="0">
+          <ListView.ItemTemplate>
+            <DataTemplate>
+              <Grid Height="58"
+                    Margin="0,0,0,8"
+                    IsHitTestVisible="False">
+                <Border Background="{ThemeResource WelcomeCardBgBrush}"
+                        BorderBrush="{ThemeResource WelcomeCardBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="6" />
+
+                <Grid Padding="19,0,14,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="34" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="176" />
+                    <ColumnDefinition Width="34" />
+                  </Grid.ColumnDefinitions>
+
+                  <Grid Grid.Column="0"
+                        Width="28"
+                        Height="26"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center">
+                    <Grid Visibility="{Binding FileName, Converter={StaticResource RecentFilePdfVisibility}}">
+                      <Path Data="M5,1 H17 L24,8 V31 H5 Z M17,1 V8 H24"
+                            Stroke="#E8232E"
+                            StrokeThickness="1.2"
+                            StrokeLineJoin="Round"
+                            Fill="Transparent" />
+                      <Border Width="22"
+                              Height="10"
+                              Background="#E8232E"
+                              CornerRadius="2"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Bottom"
+                              Margin="0,0,0,2">
+                        <TextBlock Text="PDF"
+                                   Foreground="#FFFFFF"
+                                   FontSize="6"
+                                   FontWeight="Bold"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                      </Border>
+                    </Grid>
+
+                    <FontIcon Glyph="&#xEB9F;"
+                              FontFamily="Segoe Fluent Icons"
+                              Foreground="{Binding FileName, Converter={StaticResource RecentFileBrush}}"
+                              FontSize="22"
+                              Width="22"
+                              Height="22"
+                              HorizontalAlignment="Left"
+                              VerticalAlignment="Center"
+                              Visibility="{Binding FileName, Converter={StaticResource RecentFileImageVisibility}}" />
+                  </Grid>
+
+                  <StackPanel Grid.Column="1"
+                              VerticalAlignment="Center"
+                              Spacing="2">
+                    <TextBlock Text="{Binding FileName}"
+                               Foreground="{ThemeResource WelcomeTextPrimaryBrush}"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis"
+                               TextWrapping="NoWrap" />
+                    <TextBlock Text="{Binding DocumentType}"
+                               Foreground="{ThemeResource WelcomeTextSecondaryBrush}"
+                               FontSize="12"
+                               TextTrimming="CharacterEllipsis"
+                               TextWrapping="NoWrap" />
+                  </StackPanel>
+
+                  <TextBlock Grid.Column="2"
+                             Text="{Binding OpenedAt, Converter={StaticResource RecentFileOpenedAt}}"
+                             Foreground="{ThemeResource WelcomeTextSecondaryBrush}"
+                             FontSize="12"
+                             HorizontalAlignment="Right"
+                             VerticalAlignment="Center" />
+
+                  <FontIcon Grid.Column="3"
+                            Glyph="&#xE712;"
+                            FontFamily="Segoe Fluent Icons"
+                            Foreground="{ThemeResource WelcomeTextPrimaryBrush}"
+                            FontSize="15"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center" />
+                </Grid>
+              </Grid>
+            </DataTemplate>
+          </ListView.ItemTemplate>
+        </ListView>
+      </Grid>
+
+      <TextBlock Grid.Row="4"
+                 Text="{Binding StatusText}"
+                 Foreground="{ThemeResource WelcomeTextSecondaryBrush}"
+                 FontSize="12"
+                 VerticalAlignment="Top"
+                 Visibility="{Binding ShowStatusFooter, Converter={StaticResource BoolToVisibility}}" />
+    </Grid>
+  </Grid>
+</Window>

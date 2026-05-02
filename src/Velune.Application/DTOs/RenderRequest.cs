@@ -9,4 +9,5 @@ public sealed record RenderRequest(
     Rotation Rotation,
     int? RequestedWidth = null,
     int? RequestedHeight = null,
-    RenderPriority Priority = RenderPriority.Viewer);
+    RenderPriority Priority = RenderPriority.Viewer,
+    bool UseThumbnailDiskCache = true);

@@ -1,10 +1,11 @@
 # Velune
 
-Velune is a cross-platform desktop app inspired by macOS Preview, built with .NET and Avalonia.
+Velune is a local-first desktop app inspired by macOS Preview, built with .NET. macOS and Linux use Avalonia; Windows uses a dedicated WinUI 3 frontend.
 
 ## Project Layout
 
 - `Velune.App`: app bootstrap and dependency composition
+- `Velune.Windows`: Windows WinUI 3 app and installer entrypoint
 - `Velune.Presentation`: Avalonia views, ViewModels, localization and UI behavior
 - `Velune.Application`: use cases, DTOs and application services
 - `Velune.Domain`: document models, value objects and business contracts
@@ -18,7 +19,7 @@ Dependency direction:
 ```text
 Presentation -> Application -> Domain
 Infrastructure -> Application + Domain
-App -> composition root
+App / Windows -> composition root
 ```
 
 The domain layer must stay independent from UI frameworks and infrastructure libraries.

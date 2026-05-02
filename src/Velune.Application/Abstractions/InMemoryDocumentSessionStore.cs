@@ -1,12 +1,36 @@
 using Velune.Domain.Abstractions;
 using Velune.Domain.Documents;
+using Velune.Domain.ValueObjects;
 
 namespace Velune.Application.Abstractions;
 
 public sealed class InMemoryDocumentSessionStore : IDocumentSessionStore
 {
     private readonly object _gate = new();
-    private IDocumentSession? _current;
+    private readonly Dictionary<DocumentId, IDocumentSession> _sessions = [];
+    private DocumentId? _activeSessionId;
+
+    public IReadOnlyList<IDocumentSession> Sessions
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return [.. _sessions.Values];
+            }
+        }
+    }
+
+    public DocumentId? ActiveSessionId
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _activeSessionId;
+            }
+        }
+    }
 
     public IDocumentSession? Current
     {
@@ -14,7 +38,10 @@ public sealed class InMemoryDocumentSessionStore : IDocumentSessionStore
         {
             lock (_gate)
             {
-                return _current;
+                return _activeSessionId is { } activeSessionId &&
+                       _sessions.TryGetValue(activeSessionId, out var session)
+                    ? session
+                    : null;
             }
         }
     }
@@ -31,7 +58,57 @@ public sealed class InMemoryDocumentSessionStore : IDocumentSessionStore
 
         lock (_gate)
         {
-            _current = session;
+            _sessions.Clear();
+            _sessions[session.Id] = session;
+            _activeSessionId = session.Id;
+        }
+    }
+
+    public void Add(IDocumentSession session, bool makeActive)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+
+        lock (_gate)
+        {
+            _sessions[session.Id] = session;
+            if (makeActive || _activeSessionId is null)
+            {
+                _activeSessionId = session.Id;
+            }
+        }
+    }
+
+    public bool TryActivate(DocumentId documentId)
+    {
+        lock (_gate)
+        {
+            if (!_sessions.ContainsKey(documentId))
+            {
+                return false;
+            }
+
+            _activeSessionId = documentId;
+            return true;
+        }
+    }
+
+    public bool Remove(DocumentId documentId)
+    {
+        lock (_gate)
+        {
+            if (!_sessions.Remove(documentId))
+            {
+                return false;
+            }
+
+            if (_activeSessionId == documentId)
+            {
+                _activeSessionId = _sessions.Count > 0
+                    ? _sessions.Keys.First()
+                    : null;
+            }
+
+            return true;
         }
     }
 
@@ -39,19 +116,27 @@ public sealed class InMemoryDocumentSessionStore : IDocumentSessionStore
     {
         ArgumentNullException.ThrowIfNull(viewport);
 
-        if (Current is null)
+        var activeSessionId = ActiveSessionId;
+        if (activeSessionId is null)
         {
             throw new InvalidOperationException("No active document session.");
         }
 
+        UpdateViewport(activeSessionId.Value, viewport);
+    }
+
+    public void UpdateViewport(DocumentId documentId, ViewportState viewport)
+    {
+        ArgumentNullException.ThrowIfNull(viewport);
+
         lock (_gate)
         {
-            if (_current is null)
+            if (!_sessions.TryGetValue(documentId, out var session))
             {
-                throw new InvalidOperationException("No active document session.");
+                throw new InvalidOperationException("The requested document session is not open.");
             }
 
-            _current = _current.WithViewport(viewport);
+            _sessions[documentId] = session.WithViewport(viewport);
         }
     }
 
@@ -59,7 +144,8 @@ public sealed class InMemoryDocumentSessionStore : IDocumentSessionStore
     {
         lock (_gate)
         {
-            _current = null;
+            _sessions.Clear();
+            _activeSessionId = null;
         }
     }
 }

@@ -1,4 +1,5 @@
 using Velune.Application.Abstractions;
+using Velune.Application.DTOs;
 using Velune.Application.Results;
 
 namespace Velune.Application.UseCases;
@@ -22,19 +23,39 @@ public sealed class CloseDocumentUseCase
         _renderOrchestrator = renderOrchestrator;
     }
 
-    public async Task<Result<bool>> ExecuteAsync(CancellationToken cancellationToken = default)
+    public Task<Result<bool>> ExecuteAsync(CancellationToken cancellationToken = default)
     {
-        var currentSession = _sessionStore.Current;
-        if (currentSession is null)
+        return ExecuteAsync(new CloseDocumentRequest(), cancellationToken);
+    }
+
+    public async Task<Result<bool>> ExecuteAsync(
+        CloseDocumentRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var session = request.DocumentId is { } documentId
+            ? _sessionStore.Sessions.FirstOrDefault(item => item.Id == documentId)
+            : _sessionStore.Current;
+
+        if (session is null)
         {
             return ResultFactory.Success(true);
         }
 
-        await _renderOrchestrator.CancelDocumentJobsAsync(currentSession.Id, cancellationToken);
-        _performanceMetrics.Clear(currentSession.Id);
-        _sessionStore.Clear();
+        await _renderOrchestrator.CancelDocumentJobsAsync(session.Id, cancellationToken);
+        _performanceMetrics.Clear(session.Id);
 
-        if (currentSession is IReleasableDocumentSession releasableSession)
+        if (request.DocumentId is null)
+        {
+            _sessionStore.Clear();
+        }
+        else
+        {
+            _sessionStore.Remove(session.Id);
+        }
+
+        if (session is IReleasableDocumentSession releasableSession)
         {
             releasableSession.ReleaseResources();
         }

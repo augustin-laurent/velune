@@ -99,7 +99,6 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
         }
 
         List<QueuedRenderJob> obsoleteJobs = [];
-        List<QueuedRenderJob> supersededThumbnailJobs = [];
 
         lock (_gate)
         {
@@ -108,35 +107,15 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
                 obsoleteJobs.Add(existingJob);
             }
 
-            if (request.Priority == RenderPriority.Viewer)
-            {
-                foreach (var existingThumbnailJob in _jobs.Values.Where(existingJob =>
-                             existingJob.Session.Id == session.Id &&
-                             existingJob.Request.Priority == RenderPriority.Thumbnail))
-                {
-                    supersededThumbnailJobs.Add(existingThumbnailJob);
-                }
-            }
-
             foreach (var obsoleteJob in obsoleteJobs.Where(obsoleteJob => !obsoleteJob.IsRunning))
             {
                 _jobs.Remove(obsoleteJob.Id);
-            }
-
-            foreach (var supersededThumbnailJob in supersededThumbnailJobs.Where(job => !job.IsRunning))
-            {
-                _jobs.Remove(supersededThumbnailJob.Id);
             }
         }
 
         foreach (var obsoleteJob in obsoleteJobs)
         {
             CancelJob(obsoleteJob, isObsolete: true);
-        }
-
-        foreach (var supersededThumbnailJob in supersededThumbnailJobs)
-        {
-            CancelJob(supersededThumbnailJob, isObsolete: true);
         }
 
         if (_renderMemoryCache.TryGet(session.Id, request, out var cachedPage) &&
@@ -375,7 +354,7 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
 
         try
         {
-            if (IsThumbnailRequest(job.Request) &&
+            if (ShouldUseThumbnailDiskCache(job.Request) &&
                 _thumbnailDiskCache.TryGet(job.Session, job.Request, out var cachedThumbnail) &&
                 cachedThumbnail is not null)
             {
@@ -416,7 +395,7 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
                     job.Request,
                     renderedPage);
 
-                if (IsThumbnailRequest(job.Request))
+                if (ShouldUseThumbnailDiskCache(job.Request))
                 {
                     _thumbnailDiskCache.Store(
                         job.Session,
@@ -509,6 +488,12 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
         ArgumentNullException.ThrowIfNull(request);
         return request.Priority == RenderPriority.Thumbnail ||
                (request.RequestedWidth.HasValue && request.RequestedHeight.HasValue);
+    }
+
+    private static bool ShouldUseThumbnailDiskCache(RenderRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return request.UseThumbnailDiskCache && IsThumbnailRequest(request);
     }
 
     private void RecordPerformanceMetric(

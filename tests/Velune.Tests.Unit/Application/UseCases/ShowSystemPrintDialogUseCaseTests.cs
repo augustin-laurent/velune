@@ -61,7 +61,10 @@ public sealed class ShowSystemPrintDialogUseCaseTests
 
         public bool SupportsSystemPrintDialog => true;
 
-        public string? LastSystemDialogFilePath { get; private set; }
+        public string? LastSystemDialogFilePath
+        {
+            get; private set;
+        }
 
         public Task<AppResult> ShowSystemPrintDialogAsync(string filePath, CancellationToken cancellationToken = default)
         {

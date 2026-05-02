@@ -1038,4 +1038,151 @@
       <Setter Property="Background" Value="{DynamicResource Brush.Surface}" />
       <Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}" />
     </Style>
+
+    <Style Selector="Border.windows-titlebar">
+      <Setter Property="Height" Value="44" />
+      <Setter Property="Background" Value="#10131D" />
+      <Setter Property="BorderBrush" Value="#293043" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+    </Style>
+
+    <Style Selector="Button.windows-tab">
+      <Setter Property="Height" Value="36" />
+      <Setter Property="MinHeight" Value="36" />
+      <Setter Property="Margin" Value="0,6,4,0" />
+      <Setter Property="Padding" Value="10,0" />
+      <Setter Property="Background" Value="#1B2030" />
+      <Setter Property="BorderBrush" Value="#242B3D" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8,8,0,0" />
+    </Style>
+
+    <Style Selector="Button.windows-tab.active">
+      <Setter Property="Background" Value="#252B3B" />
+      <Setter Property="BorderBrush" Value="#34415E" />
+    </Style>
+
+    <Style Selector="Button.windows-tab:pointerover">
+      <Setter Property="Background" Value="#283044" />
+    </Style>
+
+    <Style Selector="TextBlock.windows-tab-dirty">
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Accent}" />
+      <Setter Property="FontSize" Value="18" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="Button.windows-tab-close">
+      <Setter Property="Width" Value="24" />
+      <Setter Property="Height" Value="24" />
+      <Setter Property="MinWidth" Value="24" />
+      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+
+    <Style Selector="Button.windows-new-tab">
+      <Setter Property="Width" Value="34" />
+      <Setter Property="Height" Value="34" />
+      <Setter Property="MinWidth" Value="34" />
+      <Setter Property="MinHeight" Value="34" />
+      <Setter Property="Margin" Value="0,5,0,0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+
+    <Style Selector="Button.windows-window-button">
+      <Setter Property="Width" Value="48" />
+      <Setter Property="Height" Value="44" />
+      <Setter Property="MinWidth" Value="48" />
+      <Setter Property="MinHeight" Value="44" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="0" />
+    </Style>
+
+    <Style Selector="Button.windows-window-button:pointerover">
+      <Setter Property="Background" Value="#273044" />
+    </Style>
+
+    <Style Selector="Button.windows-window-button.close:pointerover">
+      <Setter Property="Background" Value="#C42B1C" />
+    </Style>
+
+    <Style Selector="Border.windows-ribbon">
+      <Setter Property="Background" Value="#1A1F2D" />
+      <Setter Property="BorderBrush" Value="#30384B" />
+      <Setter Property="BorderThickness" Value="0,0,0,1" />
+    </Style>
+
+    <Style Selector="Button.windows-ribbon-tab">
+      <Setter Property="MinHeight" Value="30" />
+      <Setter Property="Padding" Value="12,5" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="0" />
+    </Style>
+
+    <Style Selector="Button.windows-ribbon-tab.active">
+      <Setter Property="Foreground" Value="{DynamicResource Brush.Accent}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
+      <Setter Property="BorderThickness" Value="0,0,0,2" />
+    </Style>
+
+    <Style Selector="StackPanel.windows-ribbon-group">
+      <Setter Property="Background" Value="#202637" />
+    </Style>
+
+    <Style Selector="Button.windows-command-button">
+      <Setter Property="MinHeight" Value="34" />
+      <Setter Property="Padding" Value="10,6" />
+      <Setter Property="Background" Value="#252C3F" />
+      <Setter Property="BorderBrush" Value="#343D52" />
+      <Setter Property="CornerRadius" Value="7" />
+    </Style>
+
+    <Style Selector="Button.windows-icon-button">
+      <Setter Property="Width" Value="36" />
+      <Setter Property="Height" Value="34" />
+      <Setter Property="MinWidth" Value="36" />
+      <Setter Property="MinHeight" Value="34" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="#252C3F" />
+      <Setter Property="BorderBrush" Value="#343D52" />
+      <Setter Property="CornerRadius" Value="7" />
+    </Style>
+
+    <Style Selector="Button.windows-icon-button.accent">
+      <Setter Property="Background" Value="{DynamicResource Brush.Accent}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Brush.Accent}" />
+    </Style>
+
+    <Style Selector="TextBox.windows-page-input">
+      <Setter Property="Width" Value="52" />
+      <Setter Property="MinHeight" Value="34" />
+      <Setter Property="Padding" Value="6,5" />
+      <Setter Property="Background" Value="#171C29" />
+      <Setter Property="BorderBrush" Value="#30384B" />
+      <Setter Property="CornerRadius" Value="7" />
+    </Style>
+
+    <Style Selector="TextBlock.windows-page-indicator">
+      <Setter Property="Foreground" Value="{DynamicResource Brush.ForegroundMuted}" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+
+    <Style Selector="TextBox.windows-search">
+      <Setter Property="MinWidth" Value="260" />
+      <Setter Property="MaxWidth" Value="380" />
+      <Setter Property="MinHeight" Value="34" />
+      <Setter Property="Padding" Value="10,5" />
+      <Setter Property="Background" Value="#171C29" />
+      <Setter Property="BorderBrush" Value="#30384B" />
+      <Setter Property="CornerRadius" Value="7" />
+    </Style>
 </Styles>

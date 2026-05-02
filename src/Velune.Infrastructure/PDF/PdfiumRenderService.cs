@@ -8,11 +8,15 @@ namespace Velune.Infrastructure.Pdf;
 public sealed class PdfiumRenderService : IRenderService
 {
     private readonly PdfiumInitializer _initializer;
+    private readonly PdfiumExecutionGate _executionGate;
 
-    public PdfiumRenderService(PdfiumInitializer initializer)
+    public PdfiumRenderService(PdfiumInitializer initializer, PdfiumExecutionGate executionGate)
     {
         ArgumentNullException.ThrowIfNull(initializer);
+        ArgumentNullException.ThrowIfNull(executionGate);
+
         _initializer = initializer;
+        _executionGate = executionGate;
     }
 
     public Task<RenderedPage> RenderPageAsync(
@@ -28,6 +32,7 @@ public sealed class PdfiumRenderService : IRenderService
         return Task.Run(() =>
         {
             cancellationToken.ThrowIfCancellationRequested();
+            using var pdfiumAccess = _executionGate.Enter(cancellationToken);
 
             if (session is not PdfiumDocumentSession pdfSession)
             {
@@ -66,16 +71,13 @@ public sealed class PdfiumRenderService : IRenderService
                     throw new InvalidOperationException("Unable to create PDFium bitmap.");
                 }
 
-                var hasTransparency = PdfiumNative.FPDFPage_HasTransparency(pageHandle) != 0;
-                var background = hasTransparency ? 0x00000000u : 0xFFFFFFFFu;
-
                 PdfiumNative.FPDFBitmap_FillRect(
                     bitmapHandle,
                     0,
                     0,
                     targetWidth,
                     targetHeight,
-                    background);
+                    0xFFFFFFFFu);
 
                 PdfiumNative.FPDF_RenderPageBitmap(
                     bitmapHandle,

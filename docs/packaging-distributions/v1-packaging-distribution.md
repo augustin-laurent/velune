@@ -14,25 +14,32 @@ Velune needs a clear packaging and distribution strategy for each supported desk
 
 V1 packages must be self-contained and must bundle required native tooling. Users install Velune once and do not install `.NET`, `qpdf`, `tesseract` or OCR data separately.
 
-Primary targets:
+V1 beta targets:
+
+- Windows: unsigned Inno Setup `.exe` installer for Windows 11 24H2+ x64
+- macOS: unsigned `.tar.gz` containing `Velune.app`
+- Linux: `.tar.gz`
+
+Stable V1 targets:
 
 - Windows: signed MSIX/MSIXBundle
 - macOS: signed and notarized `.dmg` containing `Velune.app`
 - Linux: AppImage first, Flatpak/Flathub after validation
 
-Development builds may use archives until final installers are ready:
+Development builds may use simpler packages until stable release packaging is ready:
 
-- Windows `.zip`
+- Windows Inno Setup `.exe`
 - Linux `.tar.gz`
 - macOS `.tar.gz` containing `Velune.app`
 
-Beta releases use the same archive formats and must be published as GitHub pre-releases.
+Beta releases use the same formats and must be published as GitHub pre-releases.
 
 ## Platform Notes
 
 ### Windows
 
-- Main V1 channel: signed MSIX/MSIXBundle.
+- V1 beta channel: unsigned Inno Setup installer.
+- Main stable V1 channel: signed MSIX/MSIXBundle.
 - Microsoft Store is preferred when validation and timing allow it.
 - `winget` can be added once a stable signed package URL exists.
 - File associations and shell verbs must be handled in packaging.
@@ -100,3 +107,4 @@ The app must resolve bundled tools before falling back to system paths.
 - Choose the macOS packaging/signing implementation.
 - Audit bundled native binary licenses and notices.
 - Decide OCR languages beyond English and French.
+- Decide whether Inno remains a beta-only channel or stays as the direct download channel after V1.

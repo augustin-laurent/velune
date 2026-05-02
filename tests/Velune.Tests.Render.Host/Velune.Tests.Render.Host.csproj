@@ -8,10 +8,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Avalonia.Headless" Version="11.3.12"/>
-    </ItemGroup>
-
-    <ItemGroup>
         <ProjectReference Include="..\..\src\Velune.Infrastructure\Velune.Infrastructure.csproj"/>
         <ProjectReference Include="..\..\src\Velune.Application\Velune.Application.csproj"/>
     </ItemGroup>

@@ -1,5 +1,5 @@
-using System.Text;
 using System.IO.Compression;
+using System.Text;
 using Microsoft.Extensions.Options;
 using Velune.Application.Abstractions;
 using Velune.Application.Configuration;
@@ -14,7 +14,7 @@ namespace Velune.Infrastructure.Text;
 
 public sealed class DocumentTextService : IDocumentTextService
 {
-    private const string EmbeddedPdfFingerprint = "pdfium-text-v1";
+    private const string EmbeddedPdfFingerprint = "pdfium-text-v2";
     private const double OcrPdfRenderZoomFactor = 2.0;
     private readonly string[] _configuredDefaultLanguages;
     private readonly IDocumentTextCache _cache;
@@ -202,6 +202,7 @@ public sealed class DocumentTextService : IDocumentTextService
         var characterRegions = new Dictionary<int, NormalizedTextRegion>();
         var currentToken = new StringBuilder();
         var currentRegions = new List<NormalizedTextRegion>();
+        var currentCharacterRegions = new List<TokenCharacterRegion>();
         var lastWasWhitespace = false;
 
         void FlushToken()
@@ -219,8 +220,17 @@ public sealed class DocumentTextService : IDocumentTextService
                 startIndex,
                 tokenText.Length,
                 currentRegions.Count == 0 ? [] : MergeRegions(currentRegions)));
+            foreach (var characterRegion in currentCharacterRegions)
+            {
+                for (var offset = 0; offset < characterRegion.Length; offset++)
+                {
+                    characterRegions[startIndex + characterRegion.Offset + offset] = characterRegion.Region;
+                }
+            }
+
             currentToken.Clear();
             currentRegions.Clear();
+            currentCharacterRegions.Clear();
             lastWasWhitespace = false;
         }
 
@@ -265,6 +275,7 @@ public sealed class DocumentTextService : IDocumentTextService
                 builder.Append(' ');
             }
 
+            var tokenOffset = currentToken.Length;
             currentToken.Append(textUnit);
 
             if (PdfiumNative.FPDFText_GetCharBox(textPageHandle, index, out var left, out var right, out var bottom, out var top))
@@ -284,7 +295,7 @@ public sealed class DocumentTextService : IDocumentTextService
                         width / pageWidth,
                         height / pageHeight);
                     currentRegions.Add(region);
-                    characterRegions[index] = region;
+                    currentCharacterRegions.Add(new TokenCharacterRegion(tokenOffset, textUnit.Length, region));
                 }
             }
 
@@ -527,6 +538,8 @@ public sealed class DocumentTextService : IDocumentTextService
 
         return [new NormalizedTextRegion(left, top, right - left, bottom - top)];
     }
+
+    private sealed record TokenCharacterRegion(int Offset, int Length, NormalizedTextRegion Region);
 
     private static class BgraPngWriter
     {

@@ -18,8 +18,8 @@ public sealed class PdfAnnotationIntegrationTests
         await using var workspace = await PdfAnnotationWorkspace.CreateAsync();
 
         var initializer = IntegrationPdfium.Initializer;
-        var opener = new PdfiumDocumentOpener(initializer);
-        var renderer = new PdfiumRenderService(initializer);
+        var opener = new PdfiumDocumentOpener(initializer, IntegrationPdfium.ExecutionGate);
+        var renderer = new PdfiumRenderService(initializer, IntegrationPdfium.ExecutionGate);
         var session = opener.Open(workspace.SourcePdfPath) as PdfiumDocumentSession;
         var annotatedSession = default(PdfiumDocumentSession);
 
@@ -99,7 +99,10 @@ public sealed class PdfAnnotationIntegrationTests
 
         public string OutputPdfPath => Path.Combine(_workspacePath, "annotated.pdf");
 
-        public SkiaPdfMarkupService MarkupService { get; }
+        public SkiaPdfMarkupService MarkupService
+        {
+            get;
+        }
 
         public static async Task<PdfAnnotationWorkspace> CreateAsync()
         {

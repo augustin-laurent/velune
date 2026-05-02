@@ -66,7 +66,7 @@ public sealed class ImageRenderService : IRenderService
 
     private static byte[] RenderBitmapPixels(SKBitmap sourceBitmap, int width, int height)
     {
-        using var scaledBitmap = new SKBitmap(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Unpremul));
+        using var scaledBitmap = new SKBitmap(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul));
         if (!sourceBitmap.ScalePixels(scaledBitmap, SKFilterQuality.High))
         {
             throw new InvalidOperationException("Unable to scale the image.");

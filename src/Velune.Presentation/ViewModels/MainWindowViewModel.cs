@@ -227,6 +227,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         SearchResults = [];
         SearchHighlights = [];
         TextSelectionHighlights = [];
+        SelectWindowsRibbonSectionCommand = new RelayCommand<string?>(SelectWindowsRibbonSection);
+        ActivateDocumentTabCommand = new AsyncRelayCommand<DocumentTabViewModel?>(ActivateDocumentTabAsync);
+        CloseDocumentTabCommand = new AsyncRelayCommand<DocumentTabViewModel?>(CloseDocumentTabAsync);
         MemoryCacheEntryLimitOptions = new ObservableCollection<int> { 0, 32, 64, 128, 256 };
         RebuildLocalizedOptions();
         ApplyLocalizedShellText();
@@ -449,7 +452,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public bool IsPdfDocument => HasOpenDocument && !IsCurrentImageDocument;
     public bool IsImageAutoFitActive => HasOpenDocument && IsCurrentImageDocument && _isImageAutoFitEnabled;
     public bool IsScrollableViewerVisible => !IsImageAutoFitActive;
-    public bool ShowWindowMenuBar => !OperatingSystem.IsMacOS();
+    public bool ShowWindowMenuBar => !PresentationPlatform.IsMacOS && IsClassicShellVisible;
     public double HeaderTitleMaxWidth => WindowWidth >= InlineHeaderSearchMinWidth
         ? 280
         : WindowWidth >= HeaderTitleCompactThreshold
@@ -563,6 +566,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsEmptyStateVisible));
         OnPropertyChanged(nameof(ShowRecentFilesFooter));
         OnPropertyChanged(nameof(ShowStatusFooter));
+        OnPropertyChanged(nameof(ShowClassicHeader));
         OnPropertyChanged(nameof(HeaderSubtitle));
         OnPropertyChanged(nameof(ShouldEmphasizeOpenAction));
         OnPropertyChanged(nameof(CanGoToPage));
@@ -581,6 +585,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(UseInlineHeaderSearch));
         OnPropertyChanged(nameof(UseCollapsedHeaderSearchButton));
         OnPropertyChanged(nameof(IsPageNavigationVisible));
+        NotifyWindowsRibbonSectionChanged();
         OnPropertyChanged(nameof(IsPdfStructureActionsVisible));
         OnPropertyChanged(nameof(CanPersistCurrentPageRotation));
         OnPropertyChanged(nameof(CanSaveDocument));
@@ -617,6 +622,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OpenSearchCommand.NotifyCanExecuteChanged();
         TogglePreferencesPanelCommand.NotifyCanExecuteChanged();
         ToggleAnnotationsPanelCommand.NotifyCanExecuteChanged();
+        SelectAnnotationToolCommand.NotifyCanExecuteChanged();
         ToggleSidebarCommand.NotifyCanExecuteChanged();
         NotifySearchStateChanged();
         PreviousPageCommand.NotifyCanExecuteChanged();
@@ -656,6 +662,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(UseInlineHeaderSearch));
         OnPropertyChanged(nameof(UseCollapsedHeaderSearchButton));
         OnPropertyChanged(nameof(IsPageNavigationVisible));
+        NotifyWindowsRibbonSectionChanged();
         OnPropertyChanged(nameof(IsPdfStructureActionsVisible));
         OnPropertyChanged(nameof(CanPersistCurrentPageRotation));
         OnPropertyChanged(nameof(CanSaveDocument));
@@ -678,6 +685,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         OnPropertyChanged(nameof(CanSaveDocument));
         OnPropertyChanged(nameof(CanAcceptThumbnailDocumentDrop));
+        UpdateActiveDocumentTabSummary();
         SaveDocumentCommand.NotifyCanExecuteChanged();
     }
 
@@ -786,12 +794,14 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     partial void OnCurrentDocumentNameChanged(string? value)
     {
         OnPropertyChanged(nameof(HeaderTitle));
+        UpdateActiveDocumentTabSummary();
     }
 
     partial void OnEditableDocumentNameChanged(string value)
     {
         OnPropertyChanged(nameof(HeaderTitle));
         OnPropertyChanged(nameof(CanSaveDocument));
+        UpdateActiveDocumentTabSummary();
         SaveDocumentCommand.NotifyCanExecuteChanged();
     }
 
@@ -884,6 +894,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         OnPropertyChanged(nameof(CanSaveDocument));
         OnPropertyChanged(nameof(IsSidebarActionStripVisible));
+        UpdateActiveDocumentTabSummary();
         SaveDocumentCommand.NotifyCanExecuteChanged();
         SaveReorderedPdfCommand.NotifyCanExecuteChanged();
         MoveCurrentPageEarlierCommand.NotifyCanExecuteChanged();
@@ -1028,6 +1039,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(HasOpenDocument))]
     private async Task CloseAsync()
     {
+        if (IsWindowsShellVisible)
+        {
+            await CloseDocumentTabAsync(ActiveDocumentTab);
+            return;
+        }
+
         await CloseCurrentDocumentStateAsync(clearNotifications: true);
         StatusText = L("status.document.closed");
     }
@@ -1673,7 +1690,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             await OpenDocumentFromPathAsync(
                 previewPath,
                 addToRecentFiles: false,
-                displayFileName: suggestedFileName);
+                displayFileName: suggestedFileName,
+                openMode: DocumentOpenMode.ReplaceCurrent);
 
             if (string.IsNullOrWhiteSpace(CurrentDocumentPath) ||
                 !PathsEqual(CurrentDocumentPath, previewPath))
@@ -1789,7 +1807,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
             var previewDirectory = _pendingMergedDocumentTemporaryDirectory;
             ClearPendingMergedDocumentSave(deleteTemporaryDirectory: false);
-            await OpenDocumentFromPathAsync(outputPath);
+            await OpenDocumentFromPathAsync(outputPath, openMode: DocumentOpenMode.ReplaceCurrent);
 
             if (!string.IsNullOrWhiteSpace(CurrentDocumentPath) &&
                 PathsEqual(CurrentDocumentPath, outputPath))
@@ -2071,6 +2089,18 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             StatusText = L("status.search.shown");
         }
+    }
+
+    [RelayCommand]
+    private void CloseSearchPanel()
+    {
+        if (!IsSearchPanelVisible)
+        {
+            return;
+        }
+
+        IsSearchPanelVisible = false;
+        StatusText = L("status.search.hidden");
     }
 
     [RelayCommand(CanExecute = nameof(CanSearchText))]
@@ -2396,8 +2426,29 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     private async Task OpenDocumentFromPathAsync(
         string filePath,
         bool addToRecentFiles = true,
-        string? displayFileName = null)
+        string? displayFileName = null,
+        DocumentOpenMode? openMode = null)
     {
+        var effectiveOpenMode = openMode ?? DefaultOpenMode;
+        var previousActiveTab = ActiveDocumentTab;
+
+        if (IsWindowsShellVisible && effectiveOpenMode is DocumentOpenMode.AddToTabs)
+        {
+            if (await TryActivateExistingDocumentTabAsync(filePath))
+            {
+                return;
+            }
+
+            if (!CanOpenAdditionalDocumentTab())
+            {
+                return;
+            }
+
+            await SaveActiveDocumentTabStateForSwitchAsync();
+            ActiveDocumentTab = null;
+            UpdateDocumentTabSelection(null);
+        }
+
         if (_hasPendingMergedDocumentSave &&
             !string.IsNullOrWhiteSpace(CurrentDocumentPath) &&
             !PathsEqual(CurrentDocumentPath, filePath))
@@ -2417,10 +2468,17 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         ClearSearchHighlights();
         IsSearchPanelVisible = false;
 
-        var result = await _openDocumentUseCase.ExecuteAsync(new OpenDocumentRequest(filePath));
+        var result = await _openDocumentUseCase.ExecuteAsync(new OpenDocumentRequest(filePath, effectiveOpenMode));
 
         if (result.IsFailure)
         {
+            if (IsWindowsShellVisible &&
+                effectiveOpenMode is DocumentOpenMode.AddToTabs &&
+                previousActiveTab is not null)
+            {
+                await TryRestoreOrReopenDocumentTabAsync(previousActiveTab);
+            }
+
             EnqueueLocalizedError(result.Error, "error.open.failed.title", "error.open.failed.message");
             StatusText = L("status.open.failed");
             return;
@@ -2430,6 +2488,19 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         if (!string.IsNullOrWhiteSpace(displayFileName))
         {
             ApplyCurrentDocumentDisplayName(displayFileName);
+        }
+
+        if (IsWindowsShellVisible && effectiveOpenMode is DocumentOpenMode.AddToTabs)
+        {
+            var wasApplyingPreferences = _isApplyingPreferencesState;
+            _isApplyingPreferencesState = true;
+            ShowThumbnailsPanelPreference = true;
+            _isApplyingPreferencesState = wasApplyingPreferences;
+            IsInfoPanelVisible = false;
+            IsSearchPanelVisible = false;
+            IsPreferencesPanelVisible = false;
+            IsPrintPanelVisible = false;
+            IsAnnotationsPanelVisible = false;
         }
 
         HasPendingPageReorder = false;
@@ -2454,6 +2525,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         StatusText = L("status.opened", CurrentDocumentName ?? string.Empty);
+        RegisterOpenedDocumentTab(effectiveOpenMode, filePath);
 
         await ApplyPreferredDefaultZoomAsync();
 
@@ -3232,6 +3304,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
                 try
                 {
+                    thumbnailItem.IsLoading = true;
+
                     var renderJob = _renderOrchestrator.Submit(
                         CreateThumbnailRenderRequest(thumbnailPageIndex, _pageViewportStore.GetRotation(thumbnailPageIndex)));
 
@@ -3443,6 +3517,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(CanPersistCurrentPageRotation));
         OnPropertyChanged(nameof(CanSaveDocument));
         OnPropertyChanged(nameof(IsSidebarActionStripVisible));
+        UpdateActiveDocumentTabSummary();
         SaveDocumentCommand.NotifyCanExecuteChanged();
         PersistCurrentPageRotationCommand.NotifyCanExecuteChanged();
     }
@@ -3804,7 +3879,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 return;
             }
 
-            await OpenDocumentFromPathAsync(result.Value ?? outputPath);
+            await OpenDocumentFromPathAsync(result.Value ?? outputPath, openMode: DocumentOpenMode.ReplaceCurrent);
             StatusText = successStatus;
         }
         finally
@@ -3957,7 +4032,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 return;
             }
 
-            await OpenDocumentFromPathAsync(targetDocumentPath);
+            await OpenDocumentFromPathAsync(targetDocumentPath, openMode: DocumentOpenMode.ReplaceCurrent);
             StatusText = successStatus;
         }
         finally
@@ -4119,7 +4194,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             await OpenDocumentFromPathAsync(
                 previewPath,
                 addToRecentFiles: false,
-                displayFileName: displayFileName);
+                displayFileName: displayFileName,
+                openMode: DocumentOpenMode.ReplaceCurrent);
 
             if (string.IsNullOrWhiteSpace(CurrentDocumentPath) ||
                 !PathsEqual(CurrentDocumentPath, previewPath))
@@ -4305,7 +4381,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         CancelCurrentTextAnalysis();
         CancelThumbnailGeneration();
 
-        await _closeDocumentUseCase.ExecuteAsync();
+        if (IsWindowsShellVisible && ActiveDocumentTab is not null)
+        {
+            await _closeDocumentUseCase.ExecuteAsync(new CloseDocumentRequest(ActiveDocumentTab.SessionId));
+        }
+        else
+        {
+            await _closeDocumentUseCase.ExecuteAsync();
+        }
+
         _pageViewportStore.Clear();
         ClearThumbnails();
         ResetDocumentState();

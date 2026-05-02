@@ -124,6 +124,29 @@ public sealed class DocumentTextSelectionServiceTests
         Assert.InRange(result.Value.Regions[0].Width, 0.26, 0.27);
     }
 
+    [Fact]
+    public void Select_ShouldUseNormalizedPdfTextOrderForEmbeddedPdfCharacters()
+    {
+        var service = new DocumentTextSelectionService();
+        var pageContent = CreateEmbeddedPdfPageContent();
+        var request = new DocumentTextSelectionRequest(
+            new StubDocumentSession(
+                new DocumentMetadata("text.pdf", "/tmp/text.pdf", DocumentType.Pdf, 1024, 1),
+                ViewportState.Default),
+            new DocumentTextIndex("/tmp/text.pdf", DocumentType.Pdf, [pageContent], []),
+            pageContent.PageIndex,
+            new DocumentTextSelectionPoint(105, 170),
+            new DocumentTextSelectionPoint(318, 170));
+
+        var result = service.Resolve(request);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value);
+        Assert.Equal("TEST MASTER", result.Value!.SelectedText);
+        Assert.Single(result.Value.Regions);
+        Assert.Equal(TextSourceKind.EmbeddedPdfText, result.Value.SourceKind);
+    }
+
     private static PageTextContent CreateOcrPageContent()
     {
         const string text = "alpha beta\ngamma";
@@ -188,6 +211,38 @@ public sealed class DocumentTextSelectionServiceTests
             ],
             1000,
             1400);
+    }
+
+    private static PageTextContent CreateEmbeddedPdfPageContent()
+    {
+        const string text = "TEST MASTER";
+        var characterRegions = new Dictionary<int, NormalizedTextRegion>();
+
+        for (var index = 0; index < text.Length; index++)
+        {
+            if (text[index] == ' ')
+            {
+                continue;
+            }
+
+            characterRegions[index] = new NormalizedTextRegion(
+                0.10 + (index * 0.022),
+                0.10,
+                0.018,
+                0.05);
+        }
+
+        return new PageTextContent(
+            new PageIndex(0),
+            TextSourceKind.EmbeddedPdfText,
+            text,
+            [
+                new TextRun("TEST", 0, 4, [new NormalizedTextRegion(0.10, 0.10, 0.085, 0.05)]),
+                new TextRun("MASTER", 5, 6, [new NormalizedTextRegion(0.21, 0.10, 0.13, 0.05)])
+            ],
+            1000,
+            1400,
+            characterRegions);
     }
 
     private sealed record StubDocumentSession(

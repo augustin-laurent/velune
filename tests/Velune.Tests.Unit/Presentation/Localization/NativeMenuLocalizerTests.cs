@@ -155,8 +155,12 @@ public sealed class NativeMenuLocalizerTests
 
         public event EventHandler? LanguageChanged
         {
-            add { }
-            remove { }
+            add
+            {
+            }
+            remove
+            {
+            }
         }
 
         public string GetString(string key)

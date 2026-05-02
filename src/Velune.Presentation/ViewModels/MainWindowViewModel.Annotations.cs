@@ -1,5 +1,5 @@
-using System.Globalization;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -229,6 +229,7 @@ public partial class MainWindowViewModel
         SearchTextCommand.NotifyCanExecuteChanged();
         RunSearchOcrCommand.NotifyCanExecuteChanged();
         CancelDocumentTextAnalysisCommand.NotifyCanExecuteChanged();
+        UpdateActiveDocumentTabSummary();
     }
 
     private void RefreshCurrentPageAnnotations()
@@ -334,15 +335,29 @@ public partial class MainWindowViewModel
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanAnnotateCurrentDocument))]
     private void SelectAnnotationTool(string? toolValue)
     {
+        if (!CanAnnotateCurrentDocument)
+        {
+            return;
+        }
+
         if (!Enum.TryParse<AnnotationTool>(toolValue, ignoreCase: true, out var tool))
         {
             return;
         }
 
         SelectedAnnotationTool = tool;
+        if (tool is not AnnotationTool.Select)
+        {
+            IsInfoPanelVisible = false;
+            IsSearchPanelVisible = false;
+            IsPreferencesPanelVisible = false;
+            IsPrintPanelVisible = false;
+            IsAnnotationsPanelVisible = true;
+        }
+
         StatusText = tool is AnnotationTool.Select
             ? L("status.annotation.tool.select")
             : L("status.annotation.tool.active", GetAnnotationToolLabel(tool));

@@ -1,33 +1,19 @@
-using Avalonia.Media.Imaging;
-
 namespace Velune.Infrastructure.Image;
 
 internal sealed class ImageDocumentResource : IDisposable
 {
     private bool _disposed;
-    private Bitmap? _bitmap;
 
-    public ImageDocumentResource(byte[] fileBytes, Bitmap bitmap)
+    public ImageDocumentResource(byte[] fileBytes)
     {
         ArgumentNullException.ThrowIfNull(fileBytes);
-        ArgumentNullException.ThrowIfNull(bitmap);
 
         FileBytes = fileBytes;
-        _bitmap = bitmap;
     }
 
     public byte[] FileBytes
     {
         get;
-    }
-
-    public Bitmap Bitmap
-    {
-        get
-        {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            return _bitmap ?? throw new ObjectDisposedException(nameof(ImageDocumentResource));
-        }
     }
 
     public void Dispose()
@@ -45,8 +31,6 @@ internal sealed class ImageDocumentResource : IDisposable
 
         if (disposing)
         {
-            _bitmap?.Dispose();
-            _bitmap = null;
         }
 
         _disposed = true;

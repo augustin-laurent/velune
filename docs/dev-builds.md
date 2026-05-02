@@ -1,12 +1,12 @@
 # Development Builds
 
-Development builds provide shareable executable artifacts for the target platforms. They are not final signed installers.
+Development builds provide shareable executable artifacts for the target platforms. They are not final signed release packages.
 
 Public beta releases use `.github/workflows/beta-release.yml`; see `docs/beta-releases.md`.
 
 ## Artifacts
 
-- Windows: self-contained `win-x64` `.zip`
+- Windows: self-contained `win-x64` Inno Setup `.exe`
 - Linux: self-contained `linux-x64` `.tar.gz`
 - macOS: self-contained `osx-arm64` `.tar.gz` containing `Velune.app`
 
@@ -45,6 +45,9 @@ The workflow:
 4. publishes the app self-contained;
 5. copies native tools into the package;
 6. uploads the package and `.sha256` checksum.
+
+Windows builds publish `src/Velune.Windows` and package it with Inno Setup.
+macOS and Linux builds publish `src/Velune.App`.
 
 Packaging fails if `qpdf`, `tesseract`, `eng.traineddata` or `fra.traineddata` are missing.
 
@@ -85,17 +88,27 @@ pwsh -NoProfile -File ./eng/New-DevBuildPackage.ps1 `
   -InformationalVersion 0.1.0-dev.local+local
 ```
 
-Packages are written to:
+Create a Windows installer on a Windows runner with Inno Setup installed:
+
+```powershell
+pwsh -NoProfile -File ./eng/New-WindowsInstaller.ps1 `
+  -Version 0.1.0-dev.local `
+  -InformationalVersion 0.1.0-dev.local+local
+```
+
+Non-Windows packages are written to:
 
 ```text
 artifacts/dev-builds/packages/
 ```
 
+Windows installers are written to the `packages` folder under the selected installer output root.
+
 ## Notes
 
 - Dev artifacts are not signed.
 - macOS dev artifacts are not notarized.
-- Windows dev artifacts are not MSIX yet.
+- Windows dev installers are unsigned.
 - Linux dev artifacts are not AppImage yet.
 - Initial bundled OCR languages are English and French.
 - Native binary licenses and notices must be audited before public release.

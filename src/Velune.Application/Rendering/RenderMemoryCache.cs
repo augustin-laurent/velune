@@ -199,7 +199,8 @@ public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
         int ZoomFactorTimes10000,
         Rotation Rotation,
         int RequestedWidth,
-        int RequestedHeight)
+        int RequestedHeight,
+        bool UseThumbnailDiskCache)
     {
         public static RenderCacheKey Create(
             DocumentId documentId,
@@ -213,7 +214,8 @@ public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
                 (int)Math.Round(request.ZoomFactor * 10000, 0, MidpointRounding.AwayFromZero),
                 request.Rotation,
                 request.RequestedWidth ?? 0,
-                request.RequestedHeight ?? 0);
+                request.RequestedHeight ?? 0,
+                request.UseThumbnailDiskCache);
         }
     }
 }

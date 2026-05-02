@@ -5,10 +5,10 @@ using Velune.Infrastructure.Annotations;
 using Velune.Infrastructure.Documents;
 using Velune.Infrastructure.FileSystem;
 using Velune.Infrastructure.Image;
-using Velune.Infrastructure.Preferences;
 using Velune.Infrastructure.Pdf;
-using Velune.Infrastructure.Text;
+using Velune.Infrastructure.Preferences;
 using Velune.Infrastructure.State;
+using Velune.Infrastructure.Text;
 
 namespace Velune.Infrastructure.DependencyInjection;
 
@@ -27,9 +27,10 @@ public static class ServiceCollectionExtensions
         services.AddTransient<IDocumentTextSelectionService, DocumentTextSelectionService>();
 
         services.AddSingleton<PdfiumInitializer>();
+        services.AddSingleton<PdfiumExecutionGate>();
 
         services.AddTransient<PdfiumDocumentOpener>();
-        services.AddTransient<AvaloniaImageDocumentOpener>();
+        services.AddTransient<SkiaImageDocumentOpener>();
 
         services.AddTransient<DispatchingDocumentOpener>();
         services.AddTransient<IDocumentOpener>(sp =>

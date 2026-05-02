@@ -8,11 +8,15 @@ namespace Velune.Infrastructure.Pdf;
 public sealed class PdfiumDocumentOpener
 {
     private readonly PdfiumInitializer _initializer;
+    private readonly PdfiumExecutionGate _executionGate;
 
-    public PdfiumDocumentOpener(PdfiumInitializer initializer)
+    public PdfiumDocumentOpener(PdfiumInitializer initializer, PdfiumExecutionGate executionGate)
     {
         ArgumentNullException.ThrowIfNull(initializer);
+        ArgumentNullException.ThrowIfNull(executionGate);
+
         _initializer = initializer;
+        _executionGate = executionGate;
     }
 
     public IDocumentSession Open(string filePath)
@@ -24,6 +28,7 @@ public sealed class PdfiumDocumentOpener
             throw new FileNotFoundException("The PDF file does not exist.", filePath);
         }
 
+        using var pdfiumAccess = _executionGate.Enter();
         _initializer.EnsureInitialized();
 
         var handle = PdfiumNative.FPDF_LoadDocument(filePath, null);

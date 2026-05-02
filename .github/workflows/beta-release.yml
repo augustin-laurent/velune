@@ -122,10 +122,13 @@ jobs:
             ${{ runner.os }}-nuget-
 
       - name: Restore
-        run: dotnet restore Velune.slnx
+        run: dotnet restore tests/Velune.Tests.Render/Velune.Tests.Render.csproj
+
+      - name: Build render tests
+        run: dotnet build tests/Velune.Tests.Render/Velune.Tests.Render.csproj --configuration Release --no-restore
 
       - name: Render tests
-        run: dotnet test tests/Velune.Tests.Render/Velune.Tests.Render.csproj --configuration Release --no-restore
+        run: dotnet test tests/Velune.Tests.Render/Velune.Tests.Render.csproj --configuration Release --no-build
 
   package:
     name: Package (${{ matrix.label }})
@@ -183,6 +186,7 @@ jobs:
         shell: pwsh
         run: |
           choco install qpdf tesseract --yes --no-progress
+          choco install innosetup --yes --no-progress
           Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
           refreshenv
           $tessdata = Join-Path $env:ProgramFiles "Tesseract-OCR\tessdata"
@@ -216,11 +220,19 @@ jobs:
         id: package
         shell: pwsh
         run: |
-          $packageInfo = ./eng/New-DevBuildPackage.ps1 `
-            -RuntimeIdentifier "${{ matrix.rid }}" `
-            -Version "${{ steps.version.outputs.version }}" `
-            -InformationalVersion "${{ steps.version.outputs.informational_version }}" `
-            -OutputRoot "artifacts/beta-release" | ConvertFrom-Json
+          if ("${{ matrix.rid }}" -eq "win-x64") {
+            $packageInfo = ./eng/New-WindowsInstaller.ps1 `
+              -RuntimeIdentifier "${{ matrix.rid }}" `
+              -Version "${{ steps.version.outputs.version }}" `
+              -InformationalVersion "${{ steps.version.outputs.informational_version }}" `
+              -OutputRoot "artifacts/beta-release" | ConvertFrom-Json
+          } else {
+            $packageInfo = ./eng/New-DevBuildPackage.ps1 `
+              -RuntimeIdentifier "${{ matrix.rid }}" `
+              -Version "${{ steps.version.outputs.version }}" `
+              -InformationalVersion "${{ steps.version.outputs.informational_version }}" `
+              -OutputRoot "artifacts/beta-release" | ConvertFrom-Json
+          }
 
           "package_path=$($packageInfo.PackagePath)" >> $env:GITHUB_OUTPUT
           "checksum_path=$($packageInfo.ChecksumPath)" >> $env:GITHUB_OUTPUT
@@ -273,13 +285,13 @@ jobs:
           First beta release for public validation. This is not the final V1 stable release.
 
           Downloads:
-          - Windows x64: `Velune-${{ steps.version.outputs.version }}-win-x64.zip`
+          - Windows x64: `Velune-${{ steps.version.outputs.version }}-win-x64-setup.exe`
           - Linux x64: `Velune-${{ steps.version.outputs.version }}-linux-x64.tar.gz`
           - macOS Apple Silicon: `Velune-${{ steps.version.outputs.version }}-osx-arm64.tar.gz`
 
           Notes:
           - Packages are self-contained and include `.NET`, `qpdf`, `tesseract`, English OCR data and French OCR data.
-          - Windows is distributed as an unsigned archive for this beta.
+          - Windows is distributed as an unsigned installer for this beta.
           - macOS is distributed as an unsigned and non-notarized `.app` archive for this beta.
           - Linux is distributed as a `.tar.gz` archive for this beta.
           - Checksums are attached next to each package.

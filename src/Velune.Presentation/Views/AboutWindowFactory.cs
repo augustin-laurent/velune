@@ -8,10 +8,18 @@ using Velune.Presentation.Localization;
 
 namespace Velune.Presentation.Views;
 
+/// <summary>
+/// Factory for creating the About window with application branding and version info.
+/// </summary>
 public static class AboutWindowFactory
 {
     private static readonly Uri AppIconUri = new("avares://Velune.Presentation/Assets/Brand/velune-app-icon.png");
 
+    /// <summary>
+    /// Creates and returns a new About window instance.
+    /// </summary>
+    /// <param name="localizationService">Optional localization service for translated labels.</param>
+    /// <returns>The configured About window.</returns>
     public static Window Create(ILocalizationService? localizationService = null)
     {
         var version = typeof(AboutWindowFactory).Assembly.GetName().Version?.ToString(3) ?? "Development";

@@ -9,6 +9,7 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Application.Rendering;
 
+/// <summary>Queues, prioritizes, and executes render jobs with caching support.</summary>
 public sealed class RenderOrchestrator : IRenderOrchestrator
 {
     private readonly object _gate = new();
@@ -25,6 +26,12 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
     private readonly Task _worker;
     private bool _disposed;
 
+    /// <summary>Initializes a new instance of the <see cref="RenderOrchestrator"/> class.</summary>
+    /// <param name="performanceMetrics">The performance metrics recorder.</param>
+    /// <param name="renderMemoryCache">The in-memory render cache.</param>
+    /// <param name="thumbnailDiskCache">The on-disk thumbnail cache.</param>
+    /// <param name="sessionStore">The document session store.</param>
+    /// <param name="renderService">The render service implementation.</param>
     public RenderOrchestrator(
         IPerformanceMetrics performanceMetrics,
         IRenderMemoryCache renderMemoryCache,
@@ -46,6 +53,7 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
         _worker = Task.Run(ProcessQueueAsync);
     }
 
+    /// <inheritdoc />
     public RenderJobHandle Submit(RenderRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -164,6 +172,7 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
         return new RenderJobHandle(job.Id, job.CompletionSource.Task);
     }
 
+    /// <inheritdoc />
     public bool Cancel(Guid jobId)
     {
         ThrowIfDisposed();
@@ -186,6 +195,7 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
         return CancelJob(job, isObsolete: false);
     }
 
+    /// <inheritdoc />
     public async Task CancelDocumentJobsAsync(
         DocumentId documentId,
         CancellationToken cancellationToken = default)
@@ -217,6 +227,7 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
         await Task.WhenAll(jobsToCancel.Select(job => job.CompletionSource.Task)).WaitAsync(cancellationToken);
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         if (_disposed)

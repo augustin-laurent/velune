@@ -2,10 +2,17 @@ using Velune.Application.Results;
 
 namespace Velune.Presentation.Localization;
 
+/// <summary>
+/// Formats application errors into localized title/message pairs using the active catalog.
+/// </summary>
 public sealed class LocalizedErrorFormatter : ILocalizedErrorFormatter
 {
     private readonly ILocalizationService _localizationService;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="LocalizedErrorFormatter"/> class.
+    /// </summary>
+    /// <param name="localizationService">The localization service for string lookups.</param>
     public LocalizedErrorFormatter(ILocalizationService localizationService)
     {
         ArgumentNullException.ThrowIfNull(localizationService);
@@ -13,6 +20,7 @@ public sealed class LocalizedErrorFormatter : ILocalizedErrorFormatter
         _localizationService = localizationService;
     }
 
+    /// <inheritdoc />
     public LocalizedErrorPresentation Format(
         AppError? appError,
         string fallbackTitleKey,

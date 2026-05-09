@@ -118,7 +118,7 @@
           <SolidColorBrush x:Key="CardBrush" Color="#FFFFFFFF" />
           <SolidColorBrush x:Key="CardBorderBrush" Color="#1A000000" />
           <SolidColorBrush x:Key="ActiveToolBrush" Color="#14000000" />
-          <SolidColorBrush x:Key="ActiveToolBgBrush" Color="#0D000000" />
+          <SolidColorBrush x:Key="ActiveToolBgBrush" Color="#E8EDF3" />
           <SolidColorBrush x:Key="ActiveToolBorderBrush" Color="#20000000" />
           <SolidColorBrush x:Key="AnnotationSeparatorBrush" Color="#18000000" />
           <SolidColorBrush x:Key="EmptyStateIconBrush" Color="#A1A8B3" />

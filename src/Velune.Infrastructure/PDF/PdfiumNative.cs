@@ -2,6 +2,9 @@ using System.Runtime.InteropServices;
 
 namespace Velune.Infrastructure.Pdf;
 
+/// <summary>
+/// P/Invoke declarations for the PDFium native library.
+/// </summary>
 internal static partial class PdfiumNative
 {
     private const string LibraryName = "pdfium";
@@ -187,4 +190,39 @@ internal static partial class PdfiumNative
         nint document,
         nint fileWrite,
         uint flags);
+
+    [LibraryImport(LibraryName, EntryPoint = "FPDFDoc_GetAttachmentCount")]
+    internal static partial int FPDFDoc_GetAttachmentCount(nint document);
+
+    [LibraryImport(LibraryName, EntryPoint = "FPDFDoc_GetAttachment")]
+    internal static partial nint FPDFDoc_GetAttachment(nint document, int index);
+
+    [LibraryImport(LibraryName, EntryPoint = "FPDFDoc_AddAttachment", StringMarshalling = StringMarshalling.Utf16)]
+    internal static partial nint FPDFDoc_AddAttachment(nint document, string name);
+
+    [LibraryImport(LibraryName, EntryPoint = "FPDFDoc_DeleteAttachment")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool FPDFDoc_DeleteAttachment(nint document, int index);
+
+    [LibraryImport(LibraryName, EntryPoint = "FPDFAttachment_GetName")]
+    internal static partial uint FPDFAttachment_GetName(
+        nint attachment,
+        [Out] byte[]? buffer,
+        uint buflen);
+
+    [LibraryImport(LibraryName, EntryPoint = "FPDFAttachment_SetFile")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool FPDFAttachment_SetFile(
+        nint attachment,
+        nint document,
+        byte[] contents,
+        uint len);
+
+    [LibraryImport(LibraryName, EntryPoint = "FPDFAttachment_GetFile")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool FPDFAttachment_GetFile(
+        nint attachment,
+        [Out] byte[]? buffer,
+        uint buflen,
+        out uint outBuflen);
 }

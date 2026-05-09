@@ -1,4 +1,5 @@
 using Velune.Windows.ViewModels;
+using Velune.Domain.ValueObjects;
 
 namespace Velune.Tests.Windows.Unit.ViewModels;
 
@@ -40,5 +41,15 @@ public sealed class WindowsPageThumbnailViewModelTests
         Assert.True(thumbnail.IsLoading);
         Assert.False(thumbnail.HasPlaceholder);
         Assert.Equal(string.Empty, thumbnail.PlaceholderText);
+    }
+
+    [Fact]
+    public void RotationAngle_FollowsRotation()
+    {
+        var thumbnail = new WindowsPageThumbnailViewModel(1, "Page 1", "Loading");
+
+        thumbnail.Rotation = Rotation.Deg90;
+
+        Assert.Equal(90, thumbnail.RotationAngle);
     }
 }

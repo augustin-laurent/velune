@@ -99,12 +99,37 @@ tools/
 
 The app must resolve bundled tools before falling back to system paths.
 
+## Native Tool Acquisition (Windows)
+
+Windows builds use `eng/Download-WindowsNativeTools.ps1` to download pinned releases directly from GitHub:
+
+- **qpdf**: Downloaded from `github.com/qpdf/qpdf/releases` (MSVC64 zip)
+- **Tesseract**: Downloaded from `github.com/UB-Mannheim/tesseract/releases` (Inno Setup installer, silent extracted)
+- **tessdata**: Downloaded from `github.com/tesseract-ocr/tessdata_fast` (eng, fra, osd)
+
+Versions are pinned in the script parameters for reproducibility. The script is idempotent — skips download if tools already present (use `-Force` to re-download).
+
+CI no longer uses Chocolatey for native tools on Windows — direct downloads are faster and ensure consistent versions across builds.
+
+macOS and Linux still use `eng/Collect-DevNativeTools.ps1` which finds system-installed tools (via brew/apt) and bundles them.
+
+## Third-Party Notices
+
+`eng/windows-installer/THIRD-PARTY-NOTICES.txt` is bundled in the installer and installed to `{app}/THIRD-PARTY-NOTICES.txt`. Covers: qpdf (Apache 2.0), Tesseract (Apache 2.0), PDFium (BSD 3-Clause), SkiaSharp (MIT), .NET Runtime (MIT).
+
+## File Associations
+
+The Windows installer registers:
+- `.pdf` — OpenWithProgids for Velune.PDF
+- `.png`, `.jpg`, `.jpeg`, `.webp`, `.bmp` — OpenWithProgids for Velune.Image
+
+Velune does not set itself as default handler. Users can choose Velune from "Open with" in Explorer.
+
 ## Open Items
 
 - Confirm final package identity: publisher, bundle id, app id and channel naming.
-- Decide whether V1 includes only file associations or also Windows context menu actions.
-- Choose the Windows signing path.
+- Decide whether V1 includes Windows context menu actions beyond file associations.
+- Choose the Windows signing path (code signing certificate).
 - Choose the macOS packaging/signing implementation.
-- Audit bundled native binary licenses and notices.
 - Decide OCR languages beyond English and French.
 - Decide whether Inno remains a beta-only channel or stays as the direct download channel after V1.

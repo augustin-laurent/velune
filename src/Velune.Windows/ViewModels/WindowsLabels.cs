@@ -2,8 +2,15 @@ using Velune.Windows.Services;
 
 namespace Velune.Windows.ViewModels;
 
+/// <summary>
+/// Provides all localized UI label strings used by the Windows presentation layer.
+/// </summary>
 public sealed class WindowsLabels
 {
+    /// <summary>
+    /// Initializes all labels from the text catalog.
+    /// </summary>
+    /// <param name="text">The text catalog providing localized strings.</param>
     public WindowsLabels(IWindowsTextCatalog text)
     {
         ArgumentNullException.ThrowIfNull(text);
@@ -18,6 +25,8 @@ public sealed class WindowsLabels
         Merge = text.GetString("toolbar.merge.label");
         Print = text.GetString("toolbar.print.label");
         Save = text.GetString("app.menu.save");
+        SaveAs = text.GetString("app.menu.save_as");
+        Close = text.GetString("app.close");
         CloseTab = text.GetString("tabs.close");
         Search = text.GetString("panel.search.title");
         SearchDescription = text.GetString("panel.search.description");
@@ -56,6 +65,14 @@ public sealed class WindowsLabels
         RecentClear = text.GetString("app.recent.clear");
         Loading = text.GetString("windows.thumbnail.loading");
         SearchPlaceholder = text.GetString("toolbar.search.placeholder");
+        PageOrganizer = text.GetString("windows.menu.page_organizer");
+        MenuSelection = text.GetString("windows.menu.selection");
+        PageRotateLeft = text.GetString("windows.page.rotate_left");
+        PageRotateRight = text.GetString("windows.page.rotate_right");
+        PageMoveUp = text.GetString("windows.page.move_up");
+        PageMoveDown = text.GetString("windows.page.move_down");
+        PageDelete = text.GetString("windows.page.delete");
+        Insert = text.GetString("windows.page.insert");
         ZoomActual = text.GetString("toolbar.zoom.actual_size");
         ZoomFit = text.GetString("toolbar.zoom.fit_page");
         ZoomOut = text.GetString("toolbar.zoom.out");
@@ -77,6 +94,10 @@ public sealed class WindowsLabels
         AnnotationActiveTool = text.GetString("windows.annotation.active_tool");
         AnnotationQuickTools = text.GetString("windows.annotation.quick_tools");
         AnnotationColor = text.GetString("panel.annotations.color");
+        AnnotationFill = text.GetString("panel.annotations.fill");
+        AnnotationFillColor = text.GetString("panel.annotations.fill_color");
+        AnnotationText = text.GetString("panel.annotations.text");
+        AnnotationTextPlaceholder = text.GetString("panel.annotations.text.placeholder");
         AnnotationOpacity = text.GetString("windows.annotation.opacity");
         AnnotationCurrent = text.GetString("windows.annotation.current");
         AnnotationRecent = text.GetString("windows.annotation.recent");
@@ -84,6 +105,22 @@ public sealed class WindowsLabels
         AnnotationEmptyPage = text.GetString("panel.annotations.empty_page");
         AnnotationEmptyHint = text.GetString("windows.annotation.empty_hint");
         AnnotationDeleteSelected = text.GetString("panel.annotations.delete_selected");
+        AnnotationMenuDelete = text.GetString("panel.annotations.menu.delete");
+        AnnotationMenuLock = text.GetString("panel.annotations.menu.lock");
+        AnnotationMenuUnlock = text.GetString("panel.annotations.menu.unlock");
+        AnnotationMenuHide = text.GetString("panel.annotations.menu.hide");
+        AnnotationMenuShow = text.GetString("panel.annotations.menu.show");
+        AnnotationMenuEdit = text.GetString("panel.annotations.menu.edit");
+        AnnotationCommentsCurrent = text.GetString("windows.annotation.comments_current");
+        AnnotationCommentsEmptyPage = text.GetString("windows.annotation.comments_empty_page");
+        AnnotationCommentsEmptyHint = text.GetString("windows.annotation.comments_empty_hint");
+        SignatureLibrary = text.GetString("panel.annotations.signature_library");
+        SignatureImportImage = text.GetString("panel.annotations.import_image");
+        SignatureDeleteSelected = text.GetString("panel.annotations.delete_signature");
+        SignatureDraw = text.GetString("panel.annotations.draw_signature");
+        SignatureNamePlaceholder = text.GetString("panel.annotations.signature_name.placeholder");
+        SignatureClearDrawing = text.GetString("panel.annotations.clear_drawing");
+        SignatureSave = text.GetString("panel.annotations.save_signature");
         PreferencesDescription = text.GetString("panel.preferences.description");
         PreferencesLanguage = text.GetString("panel.preferences.language");
         PreferencesTheme = text.GetString("panel.preferences.theme");
@@ -99,6 +136,7 @@ public sealed class WindowsLabels
         PreferencesFitPage = text.GetString("preferences.zoom.fit_page");
         PreferencesFitWidth = text.GetString("preferences.zoom.fit_width");
         PreferencesActualSize = text.GetString("preferences.zoom.actual_size");
+        InfoDescription = text.GetString("panel.info.description");
         InfoFileSize = text.GetString("info.file_size");
         InfoDimensions = text.GetString("info.dimensions");
         InfoPages = text.GetString("info.pages");
@@ -145,6 +183,14 @@ public sealed class WindowsLabels
         get;
     }
     public string Save
+    {
+        get;
+    }
+    public string SaveAs
+    {
+        get;
+    }
+    public string Close
     {
         get;
     }
@@ -300,6 +346,39 @@ public sealed class WindowsLabels
     {
         get;
     }
+    public string PageOrganizer
+    {
+        get;
+    }
+
+    public string MenuSelection
+    {
+        get;
+    }
+    public string PageRotateLeft
+    {
+        get;
+    }
+    public string PageRotateRight
+    {
+        get;
+    }
+    public string PageMoveUp
+    {
+        get;
+    }
+    public string PageMoveDown
+    {
+        get;
+    }
+    public string PageDelete
+    {
+        get;
+    }
+    public string Insert
+    {
+        get;
+    }
     public string ZoomActual
     {
         get;
@@ -384,6 +463,22 @@ public sealed class WindowsLabels
     {
         get;
     }
+    public string AnnotationFill
+    {
+        get;
+    }
+    public string AnnotationFillColor
+    {
+        get;
+    }
+    public string AnnotationText
+    {
+        get;
+    }
+    public string AnnotationTextPlaceholder
+    {
+        get;
+    }
     public string AnnotationOpacity
     {
         get;
@@ -409,6 +504,70 @@ public sealed class WindowsLabels
         get;
     }
     public string AnnotationDeleteSelected
+    {
+        get;
+    }
+    public string AnnotationMenuDelete
+    {
+        get;
+    }
+    public string AnnotationMenuLock
+    {
+        get;
+    }
+    public string AnnotationMenuUnlock
+    {
+        get;
+    }
+    public string AnnotationMenuHide
+    {
+        get;
+    }
+    public string AnnotationMenuShow
+    {
+        get;
+    }
+    public string AnnotationMenuEdit
+    {
+        get;
+    }
+    public string AnnotationCommentsCurrent
+    {
+        get;
+    }
+    public string AnnotationCommentsEmptyPage
+    {
+        get;
+    }
+    public string AnnotationCommentsEmptyHint
+    {
+        get;
+    }
+    public string SignatureLibrary
+    {
+        get;
+    }
+    public string SignatureImportImage
+    {
+        get;
+    }
+    public string SignatureDeleteSelected
+    {
+        get;
+    }
+    public string SignatureDraw
+    {
+        get;
+    }
+    public string SignatureNamePlaceholder
+    {
+        get;
+    }
+    public string SignatureClearDrawing
+    {
+        get;
+    }
+    public string SignatureSave
     {
         get;
     }
@@ -469,6 +628,10 @@ public sealed class WindowsLabels
         get;
     }
     public string PreferencesActualSize
+    {
+        get;
+    }
+    public string InfoDescription
     {
         get;
     }

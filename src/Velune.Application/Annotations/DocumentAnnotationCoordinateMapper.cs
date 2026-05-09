@@ -4,8 +4,20 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Application.Annotations;
 
+/// <summary>
+/// Maps coordinates between visual (screen) space and normalized (0-1) document space for annotations.
+/// </summary>
 public static class DocumentAnnotationCoordinateMapper
 {
+    /// <summary>
+    /// Converts a visual point to a normalized coordinate, accounting for rotation.
+    /// </summary>
+    /// <param name="visualX">X position in visual layer pixels.</param>
+    /// <param name="visualY">Y position in visual layer pixels.</param>
+    /// <param name="layerWidth">Width of the visual layer.</param>
+    /// <param name="layerHeight">Height of the visual layer.</param>
+    /// <param name="rotation">Current page rotation.</param>
+    /// <returns>A normalized point in the range [0,1].</returns>
     public static NormalizedPoint MapVisualPointToNormalized(
         double visualX,
         double visualY,

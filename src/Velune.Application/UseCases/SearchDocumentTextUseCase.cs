@@ -5,10 +5,14 @@ using Velune.Domain.Documents;
 
 namespace Velune.Application.UseCases;
 
+/// <summary>Searches for text occurrences within a document text index.</summary>
 public sealed class SearchDocumentTextUseCase
 {
     private const int ExcerptContextLength = 32;
 
+    /// <summary>Executes a case-insensitive text search across all pages.</summary>
+    /// <param name="request">The search request containing query and text index.</param>
+    /// <returns>A result containing the list of search hits or an error.</returns>
     public Result<IReadOnlyList<SearchHit>> Execute(SearchDocumentTextRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);

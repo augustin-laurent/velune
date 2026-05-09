@@ -10,12 +10,20 @@ using Velune.Infrastructure.FileSystem;
 
 namespace Velune.Infrastructure.Pdf;
 
+/// <summary>
+/// Performs PDF structural operations (rotate, delete, extract, merge, reorder) via the qpdf tool.
+/// </summary>
 public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
 {
     private readonly PdfiumInitializer _pdfiumInitializer;
     private readonly BundledTool _qpdfTool;
     private bool? _isAvailable;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="QpdfDocumentStructureService"/> class.
+    /// </summary>
+    /// <param name="appOptions">Application options with qpdf executable path configuration.</param>
+    /// <param name="pdfiumInitializer">Ensures PDFium is initialized for page count queries.</param>
     public QpdfDocumentStructureService(
         IOptions<AppOptions> appOptions,
         PdfiumInitializer pdfiumInitializer)
@@ -30,6 +38,7 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
             "qpdf");
     }
 
+    /// <inheritdoc />
     public bool IsAvailable()
     {
         if (_isAvailable.HasValue)
@@ -60,6 +69,7 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
         return _isAvailable.Value;
     }
 
+    /// <inheritdoc />
     public Task<Result<string>> RotatePagesAsync(
         string sourcePath,
         string outputPath,
@@ -83,6 +93,7 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
         return RunQpdfAsync(commandArguments, outputPath, cancellationToken);
     }
 
+    /// <inheritdoc />
     public Task<Result<string>> DeletePagesAsync(
         string sourcePath,
         string outputPath,
@@ -120,6 +131,7 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
         return RunQpdfAsync(commandArguments, outputPath, cancellationToken);
     }
 
+    /// <inheritdoc />
     public Task<Result<string>> ExtractPagesAsync(
         string sourcePath,
         string outputPath,
@@ -138,6 +150,7 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
         return RunQpdfAsync(commandArguments, outputPath, cancellationToken);
     }
 
+    /// <inheritdoc />
     public async Task<Result<string>> MergeDocumentsAsync(
         IReadOnlyList<string> sourcePaths,
         string outputPath,
@@ -239,6 +252,7 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
         }
     }
 
+    /// <inheritdoc />
     public Task<Result<string>> ReorderPagesAsync(
         string sourcePath,
         string outputPath,

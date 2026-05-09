@@ -6,8 +6,12 @@ using Velune.Domain.Documents;
 
 namespace Velune.Infrastructure.Text;
 
+/// <summary>
+/// Resolves text selections from anchor/active point pairs within a page's text content.
+/// </summary>
 public sealed class DocumentTextSelectionService : IDocumentTextSelectionService
 {
+    /// <inheritdoc />
     public Result<DocumentTextSelectionResult> Resolve(DocumentTextSelectionRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);

@@ -6,6 +6,9 @@ using Velune.Application.Configuration;
 
 namespace Velune.Infrastructure.Preferences;
 
+/// <summary>
+/// Persists user preferences as a JSON file on disk.
+/// </summary>
 public sealed partial class JsonUserPreferencesService : IUserPreferencesService, IDisposable
 {
     private static readonly JsonSerializerOptions SerializerOptions = new()
@@ -19,6 +22,11 @@ public sealed partial class JsonUserPreferencesService : IUserPreferencesService
     private readonly int _defaultMemoryCacheEntryLimit;
     private bool _disposed;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="JsonUserPreferencesService"/> class.
+    /// </summary>
+    /// <param name="logger">Logger for recording load/save failures.</param>
+    /// <param name="options">Application options containing preferences file path configuration.</param>
     public JsonUserPreferencesService(
         ILogger<JsonUserPreferencesService> logger,
         IOptions<AppOptions> options)
@@ -32,14 +40,17 @@ public sealed partial class JsonUserPreferencesService : IUserPreferencesService
         Current = Load();
     }
 
+    /// <inheritdoc />
     public UserPreferences Current
     {
         get;
         private set;
     }
 
+    /// <inheritdoc />
     public event EventHandler? PreferencesChanged;
 
+    /// <inheritdoc />
     public async Task SaveAsync(UserPreferences preferences, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(preferences);
@@ -103,6 +114,7 @@ public sealed partial class JsonUserPreferencesService : IUserPreferencesService
         }
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         if (_disposed)

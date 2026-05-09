@@ -3,16 +3,24 @@ using Velune.Application.Documents;
 
 namespace Velune.Presentation.FileSystem;
 
+/// <summary>
+/// Avalonia-based implementation of <see cref="IFilePickerService"/> using platform storage APIs.
+/// </summary>
 public sealed class AvaloniaFilePickerService : IFilePickerService
 {
     private readonly TopLevelProvider _topLevelProvider;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AvaloniaFilePickerService"/> class.
+    /// </summary>
+    /// <param name="topLevelProvider">Provider for the active top-level window.</param>
     public AvaloniaFilePickerService(TopLevelProvider topLevelProvider)
     {
         ArgumentNullException.ThrowIfNull(topLevelProvider);
         _topLevelProvider = topLevelProvider;
     }
 
+    /// <inheritdoc />
     public async Task<string?> PickOpenFileAsync(CancellationToken cancellationToken = default)
     {
         var topLevel = _topLevelProvider.GetTopLevel()
@@ -40,6 +48,7 @@ public sealed class AvaloniaFilePickerService : IFilePickerService
         return files[0].TryGetLocalPath();
     }
 
+    /// <inheritdoc />
     public async Task<IReadOnlyList<string>> PickOpenMergeSourceFilesAsync(
         string title,
         CancellationToken cancellationToken = default)
@@ -69,6 +78,7 @@ public sealed class AvaloniaFilePickerService : IFilePickerService
             .ToArray();
     }
 
+    /// <inheritdoc />
     public async Task<string?> PickSavePdfFileAsync(
         string title,
         string suggestedFileName,

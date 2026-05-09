@@ -9,8 +9,13 @@ using Velune.Application.UseCases;
 
 namespace Velune.Application.DependencyInjection;
 
+/// <summary>Provides extension methods for registering application-layer services.</summary>
 public static class ServiceCollectionExtensions
 {
+    /// <summary>Registers all application-layer services and use cases into the DI container.</summary>
+    /// <param name="services">The service collection to extend.</param>
+    /// <param name="configuration">The application configuration.</param>
+    /// <returns>The same service collection for chaining.</returns>
     public static IServiceCollection AddApplication(
         this IServiceCollection services,
         IConfiguration configuration)

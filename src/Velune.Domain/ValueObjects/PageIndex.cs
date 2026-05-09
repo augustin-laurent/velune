@@ -2,6 +2,9 @@ using System.Globalization;
 
 namespace Velune.Domain.ValueObjects;
 
+/// <summary>
+/// Zero-based page index value object (must be non-negative).
+/// </summary>
 public readonly record struct PageIndex
 {
     public int Value
@@ -9,6 +12,10 @@ public readonly record struct PageIndex
         get;
     }
 
+    /// <summary>
+    /// Creates a page index from the given value.
+    /// </summary>
+    /// <param name="value">Zero-based page number (must be non-negative).</param>
     public PageIndex(int value)
     {
         if (value < 0)

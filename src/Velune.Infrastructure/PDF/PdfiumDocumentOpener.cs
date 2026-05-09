@@ -5,11 +5,19 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Infrastructure.Pdf;
 
+/// <summary>
+/// Opens PDF documents using the PDFium native library.
+/// </summary>
 public sealed class PdfiumDocumentOpener
 {
     private readonly PdfiumInitializer _initializer;
     private readonly PdfiumExecutionGate _executionGate;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PdfiumDocumentOpener"/> class.
+    /// </summary>
+    /// <param name="initializer">Ensures PDFium is initialized before use.</param>
+    /// <param name="executionGate">Serializes access to the single-threaded PDFium library.</param>
     public PdfiumDocumentOpener(PdfiumInitializer initializer, PdfiumExecutionGate executionGate)
     {
         ArgumentNullException.ThrowIfNull(initializer);
@@ -19,6 +27,11 @@ public sealed class PdfiumDocumentOpener
         _executionGate = executionGate;
     }
 
+    /// <summary>
+    /// Opens a PDF file and returns a document session with page metadata.
+    /// </summary>
+    /// <param name="filePath">Absolute path to the PDF file.</param>
+    /// <returns>A document session backed by a PDFium document handle.</returns>
     public IDocumentSession Open(string filePath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);

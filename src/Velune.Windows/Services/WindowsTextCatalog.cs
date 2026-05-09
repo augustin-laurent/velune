@@ -1,19 +1,39 @@
-﻿using System.Globalization;
+using System.Globalization;
 
 namespace Velune.Windows.Services;
 
+/// <summary>
+/// Provides localized strings loaded from .lang files for the Windows UI layer.
+/// </summary>
 public interface IWindowsTextCatalog
 {
+    /// <summary>
+    /// Gets a localized string by key, falling back to the English catalog.
+    /// </summary>
+    /// <param name="key">The localization key.</param>
+    /// <returns>The localized string, or the key itself if not found.</returns>
     string GetString(string key);
 
+    /// <summary>
+    /// Gets a localized format string and applies the given arguments.
+    /// </summary>
+    /// <param name="key">The localization key.</param>
+    /// <param name="args">Format arguments.</param>
+    /// <returns>The formatted localized string.</returns>
     string Format(string key, params object[] args);
 }
 
+/// <summary>
+/// Loads and resolves localized strings from .lang files at application startup.
+/// </summary>
 public sealed class WindowsTextCatalog : IWindowsTextCatalog
 {
     private readonly Dictionary<string, string> _fallbackCatalog;
     private readonly Dictionary<string, string> _activeCatalog;
 
+    /// <summary>
+    /// Initializes the catalog by loading the appropriate language file based on the current UI culture.
+    /// </summary>
     public WindowsTextCatalog()
     {
         var catalogRoot = Path.Combine(AppContext.BaseDirectory, "Localization");
@@ -31,6 +51,7 @@ public sealed class WindowsTextCatalog : IWindowsTextCatalog
             : LoadCatalog(Path.Combine(catalogRoot, $"{language}.lang"));
     }
 
+    /// <inheritdoc />
     public string GetString(string key)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
@@ -42,6 +63,7 @@ public sealed class WindowsTextCatalog : IWindowsTextCatalog
                 : key;
     }
 
+    /// <inheritdoc />
     public string Format(string key, params object[] args)
     {
         return string.Format(CultureInfo.CurrentCulture, GetString(key), args);

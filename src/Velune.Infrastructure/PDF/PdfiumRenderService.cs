@@ -5,11 +5,19 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Infrastructure.Pdf;
 
+/// <summary>
+/// Renders PDF pages to BGRA pixel buffers using PDFium.
+/// </summary>
 public sealed class PdfiumRenderService : IRenderService
 {
     private readonly PdfiumInitializer _initializer;
     private readonly PdfiumExecutionGate _executionGate;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PdfiumRenderService"/> class.
+    /// </summary>
+    /// <param name="initializer">Ensures PDFium is initialized before rendering.</param>
+    /// <param name="executionGate">Serializes access to the single-threaded PDFium library.</param>
     public PdfiumRenderService(PdfiumInitializer initializer, PdfiumExecutionGate executionGate)
     {
         ArgumentNullException.ThrowIfNull(initializer);
@@ -19,6 +27,7 @@ public sealed class PdfiumRenderService : IRenderService
         _executionGate = executionGate;
     }
 
+    /// <inheritdoc />
     public Task<RenderedPage> RenderPageAsync(
         IDocumentSession session,
         PageIndex pageIndex,

@@ -6,8 +6,16 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Infrastructure.Image;
 
+/// <summary>
+/// Opens image files by decoding them with SkiaSharp and creating a session with pixel metadata.
+/// </summary>
 public sealed class SkiaImageDocumentOpener
 {
+    /// <summary>
+    /// Opens an image file and returns a fully initialized document session.
+    /// </summary>
+    /// <param name="filePath">Absolute path to the image file.</param>
+    /// <returns>A document session containing the decoded image data.</returns>
     public IDocumentSession Open(string filePath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);

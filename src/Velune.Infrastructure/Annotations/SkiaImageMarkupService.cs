@@ -8,16 +8,24 @@ using Velune.Infrastructure.Image;
 
 namespace Velune.Infrastructure.Annotations;
 
+/// <summary>
+/// Flattens annotations onto image documents using SkiaSharp rendering.
+/// </summary>
 public sealed class SkiaImageMarkupService : IImageMarkupService
 {
     private readonly ISignatureAssetStore _signatureAssetStore;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SkiaImageMarkupService"/> class.
+    /// </summary>
+    /// <param name="signatureAssetStore">Store for resolving signature image assets.</param>
     public SkiaImageMarkupService(ISignatureAssetStore signatureAssetStore)
     {
         ArgumentNullException.ThrowIfNull(signatureAssetStore);
         _signatureAssetStore = signatureAssetStore;
     }
 
+    /// <inheritdoc />
     public async Task<Result<string>> FlattenAnnotationsAsync(
         ApplyImageAnnotationsRequest request,
         CancellationToken cancellationToken = default)

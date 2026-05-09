@@ -11,12 +11,16 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Application.Instrumentation;
 
+/// <summary>Logs performance metrics for document operations in development environments.</summary>
 public sealed partial class DevelopmentPerformanceMetrics : IPerformanceMetrics
 {
     private readonly ConcurrentDictionary<DocumentId, OpenMetricState> _openedDocuments = [];
     private readonly bool _isEnabled;
     private readonly ILogger<DevelopmentPerformanceMetrics> _logger;
 
+    /// <summary>Initializes a new instance of the <see cref="DevelopmentPerformanceMetrics"/> class.</summary>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="options">The application options.</param>
     public DevelopmentPerformanceMetrics(
         ILogger<DevelopmentPerformanceMetrics> logger,
         IOptions<AppOptions> options)
@@ -31,6 +35,9 @@ public sealed partial class DevelopmentPerformanceMetrics : IPerformanceMetrics
             StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>Records a metric when a document is opened.</summary>
+    /// <param name="session">The opened document session.</param>
+    /// <param name="duration">The time taken to open the document.</param>
     public void RecordDocumentOpened(
         IDocumentSession session,
         TimeSpan duration)
@@ -59,6 +66,9 @@ public sealed partial class DevelopmentPerformanceMetrics : IPerformanceMetrics
             memorySnapshot.WorkingSetMb);
     }
 
+    /// <summary>Records a metric when the first viewer page render completes.</summary>
+    /// <param name="session">The active document session.</param>
+    /// <param name="result">The render result.</param>
     public void RecordViewerRenderCompleted(
         IDocumentSession session,
         RenderResult result)
@@ -87,6 +97,9 @@ public sealed partial class DevelopmentPerformanceMetrics : IPerformanceMetrics
             memorySnapshot.WorkingSetMb);
     }
 
+    /// <summary>Records a metric when a thumbnail render completes.</summary>
+    /// <param name="session">The active document session.</param>
+    /// <param name="result">The render result.</param>
     public void RecordThumbnailCompleted(
         IDocumentSession session,
         RenderResult result)
@@ -114,6 +127,8 @@ public sealed partial class DevelopmentPerformanceMetrics : IPerformanceMetrics
             memorySnapshot.WorkingSetMb);
     }
 
+    /// <summary>Clears any tracked metric state for the specified document.</summary>
+    /// <param name="documentId">The document identifier to clear.</param>
     public void Clear(DocumentId documentId)
     {
         if (!_isEnabled)

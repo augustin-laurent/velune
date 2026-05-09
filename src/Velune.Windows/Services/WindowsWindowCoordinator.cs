@@ -4,6 +4,9 @@ using Velune.Windows.ViewModels;
 
 namespace Velune.Windows.Services;
 
+/// <summary>
+/// Manages window lifecycle transitions between the welcome screen and workspace.
+/// </summary>
 public sealed class WindowsWindowCoordinator
 {
     private readonly IServiceProvider _services;
@@ -12,6 +15,10 @@ public sealed class WindowsWindowCoordinator
     private MainWindow? _workspaceWindow;
     private bool _isTransitioning;
 
+    /// <summary>
+    /// Initializes the coordinator with the DI container for resolving windows.
+    /// </summary>
+    /// <param name="services">The application service provider.</param>
     public WindowsWindowCoordinator(IServiceProvider services)
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -20,6 +27,10 @@ public sealed class WindowsWindowCoordinator
             ?? throw new InvalidOperationException("The Windows UI dispatcher is not available.");
     }
 
+    /// <summary>
+    /// Shows or activates the welcome window.
+    /// </summary>
+    /// <returns>The welcome window instance.</returns>
     public WelcomeWindow ShowWelcome()
     {
         if (_welcomeWindow is null)
@@ -31,6 +42,10 @@ public sealed class WindowsWindowCoordinator
         return _welcomeWindow;
     }
 
+    /// <summary>
+    /// Shows or activates the main workspace window.
+    /// </summary>
+    /// <returns>The workspace window instance.</returns>
     public MainWindow ShowWorkspace()
     {
         if (_workspaceWindow is null)
@@ -42,6 +57,10 @@ public sealed class WindowsWindowCoordinator
         return _workspaceWindow;
     }
 
+    /// <summary>
+    /// Opens the workspace window and loads the specified files into document tabs.
+    /// </summary>
+    /// <param name="paths">File paths to open.</param>
     public async Task OpenWorkspaceWithFilesAsync(IReadOnlyList<string> paths)
     {
         ArgumentNullException.ThrowIfNull(paths);
@@ -89,6 +108,10 @@ public sealed class WindowsWindowCoordinator
         }
     }
 
+    /// <summary>
+    /// Closes the workspace window and returns to the welcome screen.
+    /// </summary>
+    /// <param name="window">The workspace window to close.</param>
     public void ReturnToWelcome(MainWindow window)
     {
         ArgumentNullException.ThrowIfNull(window);
@@ -118,6 +141,10 @@ public sealed class WindowsWindowCoordinator
         }
     }
 
+    /// <summary>
+    /// Notifies the coordinator that the welcome window has been closed.
+    /// </summary>
+    /// <param name="window">The closed welcome window.</param>
     public void NotifyWelcomeClosed(WelcomeWindow window)
     {
         if (ReferenceEquals(_welcomeWindow, window))
@@ -126,6 +153,10 @@ public sealed class WindowsWindowCoordinator
         }
     }
 
+    /// <summary>
+    /// Notifies the coordinator that the workspace window has been closed.
+    /// </summary>
+    /// <param name="window">The closed workspace window.</param>
     public void NotifyWorkspaceClosed(MainWindow window)
     {
         if (ReferenceEquals(_workspaceWindow, window))

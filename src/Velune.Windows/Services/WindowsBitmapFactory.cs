@@ -4,8 +4,16 @@ using Velune.Domain.Documents;
 
 namespace Velune.Windows.Services;
 
+/// <summary>
+/// Creates WinUI <see cref="WriteableBitmap"/> instances from rendered page pixel data.
+/// </summary>
 public static class WindowsBitmapFactory
 {
+    /// <summary>
+    /// Creates a <see cref="WriteableBitmap"/> from the given rendered page.
+    /// </summary>
+    /// <param name="page">The rendered page containing pixel data and dimensions.</param>
+    /// <returns>A bitmap ready for display in the UI.</returns>
     public static WriteableBitmap Create(RenderedPage page)
     {
         ArgumentNullException.ThrowIfNull(page);

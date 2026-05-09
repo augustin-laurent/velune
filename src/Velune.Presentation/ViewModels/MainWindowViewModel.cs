@@ -24,6 +24,9 @@ using Velune.Presentation.Search;
 
 namespace Velune.Presentation.ViewModels;
 
+/// <summary>
+/// Primary view model for the main application window, coordinating document viewing, navigation, annotations, search, and printing.
+/// </summary>
 public partial class MainWindowViewModel : ObservableObject, IDisposable
 {
     private enum NotificationKind
@@ -1008,6 +1011,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         await OpenDocumentFromPathAsync(item.FilePath);
     }
 
+    /// <summary>
+    /// Handles files dropped onto the home empty-state zone by opening or merging them.
+    /// </summary>
+    /// <param name="filePaths">The dropped file paths.</param>
     public async Task HandleHomeFilesDroppedAsync(IReadOnlyList<string> filePaths)
     {
         ArgumentNullException.ThrowIfNull(filePaths);
@@ -1249,11 +1256,19 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         await ChangeToPageAsync(thumbnail.SourcePageNumber);
     }
 
+    /// <summary>
+    /// Navigates to the page represented by the given thumbnail context menu target.
+    /// </summary>
+    /// <param name="thumbnail">The target thumbnail.</param>
     public Task OpenThumbnailContextMenuActionAsync(PageThumbnailItemViewModel? thumbnail)
     {
         return SelectThumbnailAsync(thumbnail);
     }
 
+    /// <summary>
+    /// Extracts the page represented by the given thumbnail to a new file.
+    /// </summary>
+    /// <param name="thumbnail">The target thumbnail.</param>
     public Task ExtractThumbnailContextMenuActionAsync(PageThumbnailItemViewModel? thumbnail)
     {
         return CanExtractCurrentPage
@@ -1261,6 +1276,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             : Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Deletes the page represented by the given thumbnail from the document.
+    /// </summary>
+    /// <param name="thumbnail">The target thumbnail.</param>
     public Task DeleteThumbnailContextMenuActionAsync(PageThumbnailItemViewModel? thumbnail)
     {
         return CanDeleteCurrentPage
@@ -1579,6 +1598,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         await MergeDocumentSourcesAsync(sourcePaths);
     }
 
+    /// <summary>
+    /// Handles files dropped onto the thumbnail sidebar by merging them into the document.
+    /// </summary>
+    /// <param name="filePaths">The dropped file paths.</param>
+    /// <param name="insertionIndex">The page index at which to insert.</param>
     public async Task HandleThumbnailFilesDroppedAsync(IReadOnlyList<string> filePaths, int insertionIndex)
     {
         ArgumentNullException.ThrowIfNull(filePaths);
@@ -1881,31 +1905,34 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         var currentDocumentPath = sourcePaths[0];
         var droppedSourcePaths = sourcePaths.Skip(1).ToArray();
 
+        var temporaryDirectory = getTemporaryDirectory();
+        var currentSourceCopy = Path.Combine(temporaryDirectory, "source-copy.pdf");
+        File.Copy(currentDocumentPath, currentSourceCopy, overwrite: true);
+
         if (!IsPdfDocument || TotalPages <= 1)
         {
             return insertionIndex <= 0
-                ? ([.. droppedSourcePaths, currentDocumentPath], null)
-                : ([currentDocumentPath, .. droppedSourcePaths], null);
+                ? ([.. droppedSourcePaths, currentSourceCopy], null)
+                : ([currentSourceCopy, .. droppedSourcePaths], null);
         }
 
         var normalizedInsertionIndex = Math.Clamp(insertionIndex, 0, TotalPages);
         if (normalizedInsertionIndex <= 0)
         {
-            return ([.. droppedSourcePaths, currentDocumentPath], null);
+            return ([.. droppedSourcePaths, currentSourceCopy], null);
         }
 
         if (normalizedInsertionIndex >= TotalPages)
         {
-            return ([currentDocumentPath, .. droppedSourcePaths], null);
+            return ([currentSourceCopy, .. droppedSourcePaths], null);
         }
 
-        var temporaryDirectory = getTemporaryDirectory();
         var beforePath = Path.Combine(temporaryDirectory, "current-before-drop.pdf");
         var afterPath = Path.Combine(temporaryDirectory, "current-after-drop.pdf");
 
         var beforeResult = await _extractPdfPagesUseCase.ExecuteAsync(
             new ExtractPdfPagesRequest(
-                currentDocumentPath,
+                currentSourceCopy,
                 beforePath,
                 Enumerable.Range(1, normalizedInsertionIndex).ToArray()));
         if (beforeResult.IsFailure)
@@ -1915,7 +1942,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         var afterResult = await _extractPdfPagesUseCase.ExecuteAsync(
             new ExtractPdfPagesRequest(
-                currentDocumentPath,
+                currentSourceCopy,
                 afterPath,
                 Enumerable.Range(
                     normalizedInsertionIndex + 1,
@@ -2256,6 +2283,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         action?.Invoke();
     }
 
+    /// <summary>
+    /// Navigates to the previous page in response to a trackpad scroll gesture.
+    /// </summary>
     public async Task NavigateToPreviousPageFromTrackpadAsync()
     {
         if (!CanGoPreviousPage || IsRendering)
@@ -2266,6 +2296,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         await PreviousPageAsync();
     }
 
+    /// <summary>
+    /// Navigates to the next page in response to a trackpad scroll gesture.
+    /// </summary>
     public async Task NavigateToNextPageFromTrackpadAsync()
     {
         if (!CanGoNextPage || IsRendering)
@@ -2276,6 +2309,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         await NextPageAsync();
     }
 
+    /// <summary>
+    /// Handles a zoom pointer wheel event, zooming in or out based on delta direction.
+    /// </summary>
+    /// <param name="deltaY">Positive to zoom in, negative to zoom out.</param>
     public async Task HandleZoomPointerWheelAsync(double deltaY)
     {
         if (!HasOpenDocument || IsRendering || Math.Abs(deltaY) <= double.Epsilon)
@@ -2292,6 +2329,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         await ZoomOutAsync();
     }
 
+    /// <summary>
+    /// Navigates to the page corresponding to the activated thumbnail.
+    /// </summary>
+    /// <param name="sourcePageNumber">The 1-based source page number.</param>
     public async Task HandleThumbnailActivatedAsync(int sourcePageNumber)
     {
         if (!HasOpenDocument || sourcePageNumber <= 0)
@@ -2302,6 +2343,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         await ChangeToPageAsync(sourcePageNumber);
     }
 
+    /// <summary>
+    /// Moves a thumbnail from one page position to another.
+    /// </summary>
+    /// <param name="sourcePageNumber">The source page number to move.</param>
+    /// <param name="targetPageNumber">The target page number to move to.</param>
     public async Task HandleThumbnailReorderAsync(int sourcePageNumber, int targetPageNumber)
     {
         if (!IsPdfDocument ||
@@ -2333,6 +2379,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         await Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Moves a thumbnail to a specific index in the page order.
+    /// </summary>
+    /// <param name="sourcePageNumber">The source page number to move.</param>
+    /// <param name="targetIndex">The target index position.</param>
     public async Task HandleThumbnailReorderToIndexAsync(int sourcePageNumber, int targetIndex)
     {
         if (!IsPdfDocument ||
@@ -2360,6 +2411,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         await Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Finalizes a thumbnail drag-reorder and notifies the user of the page order change.
+    /// </summary>
     public void CompleteThumbnailReorderDrag()
     {
         if (!HasPendingPageReorder)
@@ -2374,6 +2428,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         StatusText = L("status.page_order.updated");
     }
 
+    /// <summary>
+    /// Updates the stored viewport dimensions and re-applies fit-to-width/page if needed.
+    /// </summary>
+    /// <param name="viewportWidth">The new viewport width.</param>
+    /// <param name="viewportHeight">The new viewport height.</param>
     public async Task UpdateDocumentViewportAsync(double viewportWidth, double viewportHeight)
     {
         if (viewportWidth <= 0 || viewportHeight <= 0)
@@ -2409,6 +2468,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         await DebounceViewportFitUpdateAsync();
     }
 
+    /// <summary>
+    /// Updates the tracked window width and refreshes layout-dependent properties.
+    /// </summary>
+    /// <param name="width">The new window width.</param>
     public void UpdateWindowWidth(double width)
     {
         if (width <= 0 || Math.Abs(_windowWidth - width) < 1)
@@ -2673,6 +2736,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// Ensures document text data is loaded for text selection, triggering analysis if needed.
+    /// </summary>
+    /// <returns>True if text data is available for selection.</returns>
     public async Task<bool> EnsureDocumentTextReadyForSelectionAsync()
     {
         if (!HasOpenDocument || !IsSearchAvailableForCurrentDocument)
@@ -2807,6 +2874,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(HasSearchHighlights));
     }
 
+    /// <summary>
+    /// Begins a document text selection at the given normalized coordinates.
+    /// </summary>
+    /// <param name="x">The X coordinate in document text space.</param>
+    /// <param name="y">The Y coordinate in document text space.</param>
+    /// <returns>True if a selection was successfully started.</returns>
     public bool BeginDocumentTextSelection(double x, double y)
     {
         var anchorPoint = new DocumentTextSelectionPoint(x, y);
@@ -2821,6 +2894,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         return true;
     }
 
+    /// <summary>
+    /// Updates the active document text selection to the given coordinates.
+    /// </summary>
+    /// <param name="x">The X coordinate in document text space.</param>
+    /// <param name="y">The Y coordinate in document text space.</param>
     public void UpdateDocumentTextSelection(double x, double y)
     {
         var anchorPoint = _documentTextSelectionAnchorPoint;
@@ -2846,6 +2924,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         ApplyDocumentTextSelection(selection);
     }
 
+    /// <summary>
+    /// Completes the text selection interaction and updates the status.
+    /// </summary>
     public void CompleteDocumentTextSelection()
     {
         if (HasSelectedDocumentText)
@@ -2854,6 +2935,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// Clears the current document text selection and highlights.
+    /// </summary>
     public void ClearDocumentTextSelection()
     {
         if (TextSelectionHighlights.Count == 0 &&
@@ -2871,6 +2955,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(HasTextSelectionHighlights));
     }
 
+    /// <summary>
+    /// Maps a visual pointer position to document text coordinate space.
+    /// </summary>
+    /// <param name="visualX">The visual X coordinate.</param>
+    /// <param name="visualY">The visual Y coordinate.</param>
+    /// <param name="layerWidth">The interaction layer width.</param>
+    /// <param name="layerHeight">The interaction layer height.</param>
+    /// <param name="point">The resulting document text space point.</param>
+    /// <returns>True if the mapping succeeded.</returns>
     public bool TryMapViewerPointToDocumentTextSpace(
         double visualX,
         double visualY,
@@ -4901,6 +4994,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         return $"{size.ToString(format, CultureInfo.CurrentCulture)} {units[unitIndex]}";
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         Dispose(true);

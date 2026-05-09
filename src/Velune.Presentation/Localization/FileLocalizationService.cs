@@ -8,6 +8,9 @@ using Velune.Application.Configuration;
 
 namespace Velune.Presentation.Localization;
 
+/// <summary>
+/// File-based localization service that loads translations from .lang catalog files.
+/// </summary>
 public sealed partial class FileLocalizationService : ILocalizationService, INotifyPropertyChanged, IDisposable
 {
     private static readonly Dictionary<AppLanguagePreference, string> LanguageCodes =
@@ -31,6 +34,12 @@ public sealed partial class FileLocalizationService : ILocalizationService, INot
     private int _version;
     private bool _disposed;
 
+    /// <summary>
+    /// Initializes the localization service and loads the initial catalog.
+    /// </summary>
+    /// <param name="logger">Logger instance.</param>
+    /// <param name="userPreferencesService">User preferences for language selection.</param>
+    /// <param name="options">Application options specifying catalog path.</param>
     public FileLocalizationService(
         ILogger<FileLocalizationService> logger,
         IUserPreferencesService userPreferencesService,
@@ -49,6 +58,7 @@ public sealed partial class FileLocalizationService : ILocalizationService, INot
         _userPreferencesService.PreferencesChanged += OnPreferencesChanged;
     }
 
+    /// <inheritdoc />
     public string CurrentLanguageCode
     {
         get
@@ -60,6 +70,7 @@ public sealed partial class FileLocalizationService : ILocalizationService, INot
         }
     }
 
+    /// <inheritdoc />
     public AppLanguagePreference CurrentLanguagePreference
     {
         get
@@ -71,6 +82,7 @@ public sealed partial class FileLocalizationService : ILocalizationService, INot
         }
     }
 
+    /// <inheritdoc />
     public int Version
     {
         get
@@ -82,10 +94,13 @@ public sealed partial class FileLocalizationService : ILocalizationService, INot
         }
     }
 
+    /// <inheritdoc />
     public event EventHandler? LanguageChanged;
 
+    /// <inheritdoc />
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    /// <inheritdoc />
     public string GetString(string key)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
@@ -103,6 +118,7 @@ public sealed partial class FileLocalizationService : ILocalizationService, INot
         return key;
     }
 
+    /// <inheritdoc />
     public string GetString(string key, params object?[] arguments)
     {
         ArgumentNullException.ThrowIfNull(arguments);
@@ -116,12 +132,14 @@ public sealed partial class FileLocalizationService : ILocalizationService, INot
         return string.Format(CultureInfo.CurrentCulture, format, arguments);
     }
 
+    /// <inheritdoc />
     public bool HasKey(string key)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
         return TryGetValue(key, out _);
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         if (_disposed)

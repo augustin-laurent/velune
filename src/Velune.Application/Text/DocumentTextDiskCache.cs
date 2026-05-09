@@ -12,6 +12,7 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Application.Text;
 
+/// <summary>Persists extracted document text indexes to disk as JSON for caching.</summary>
 public sealed partial class DocumentTextDiskCache : IDocumentTextCache
 {
     private const int CacheFileVersion = 2;
@@ -23,6 +24,9 @@ public sealed partial class DocumentTextDiskCache : IDocumentTextCache
     private readonly ILogger<DocumentTextDiskCache> _logger;
     private readonly string _rootPath;
 
+    /// <summary>Initializes a new instance of the <see cref="DocumentTextDiskCache"/> class.</summary>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="options">The application options for cache path configuration.</param>
     public DocumentTextDiskCache(
         ILogger<DocumentTextDiskCache> logger,
         IOptions<AppOptions> options)
@@ -34,6 +38,7 @@ public sealed partial class DocumentTextDiskCache : IDocumentTextCache
         _rootPath = ResolveRootPath(options.Value);
     }
 
+    /// <inheritdoc />
     public bool TryGet(
         IDocumentSession session,
         string engineFingerprint,
@@ -77,6 +82,7 @@ public sealed partial class DocumentTextDiskCache : IDocumentTextCache
         }
     }
 
+    /// <inheritdoc />
     public void Store(
         IDocumentSession session,
         string engineFingerprint,

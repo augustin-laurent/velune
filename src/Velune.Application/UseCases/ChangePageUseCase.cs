@@ -5,16 +5,22 @@ using Velune.Domain.Documents;
 
 namespace Velune.Application.UseCases;
 
+/// <summary>Navigates to a specific page in the active document session.</summary>
 public sealed class ChangePageUseCase
 {
     private readonly IDocumentSessionStore _sessionStore;
 
+    /// <summary>Initializes a new instance of the <see cref="ChangePageUseCase"/> class.</summary>
+    /// <param name="sessionStore">The store holding active document sessions.</param>
     public ChangePageUseCase(IDocumentSessionStore sessionStore)
     {
         ArgumentNullException.ThrowIfNull(sessionStore);
         _sessionStore = sessionStore;
     }
 
+    /// <summary>Changes the current page of the active document viewport.</summary>
+    /// <param name="request">The page navigation request containing the target page index.</param>
+    /// <returns>The updated viewport state, or a failure result if the page is out of range.</returns>
     public Result<ViewportState> Execute(ChangePageRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);

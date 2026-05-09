@@ -3,6 +3,7 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Application.Abstractions;
 
+/// <summary>In-memory implementation of <see cref="IPageViewportStore"/>.</summary>
 public sealed class InMemoryPageViewportStore : IPageViewportStore
 {
     private readonly Dictionary<int, Rotation> _rotations = [];

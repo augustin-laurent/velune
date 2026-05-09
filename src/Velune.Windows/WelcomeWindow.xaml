@@ -59,10 +59,11 @@
         <Style x:Key="RecentListViewItemStyle" TargetType="ListViewItem">
           <Setter Property="MinHeight" Value="0" />
           <Setter Property="Padding" Value="0" />
-          <Setter Property="Margin" Value="0" />
+          <Setter Property="Margin" Value="0,0,0,2" />
           <Setter Property="HorizontalContentAlignment" Value="Stretch" />
           <Setter Property="VerticalContentAlignment" Value="Stretch" />
           <Setter Property="UseSystemFocusVisuals" Value="False" />
+          <Setter Property="CornerRadius" Value="6" />
         </Style>
 
         <Style x:Key="ClearRecentButtonStyle" TargetType="Button">
@@ -139,69 +140,28 @@
                      FontSize="15" />
         </StackPanel>
 
-        <StackPanel Grid.Column="2"
-                    Orientation="Horizontal"
-                    Spacing="11"
-                    VerticalAlignment="Center">
-          <Grid Height="35"
-                Width="133">
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="*" />
-              <ColumnDefinition Width="36" />
-            </Grid.ColumnDefinitions>
-
-            <Button Grid.Column="0"
-                    Click="OnOpenFilesClicked"
-                    Style="{StaticResource TopBarButtonStyle}"
-                    CornerRadius="5,0,0,5"
-                    BorderThickness="1,1,0,1">
-              <StackPanel Orientation="Horizontal"
-                          Spacing="10"
-                          VerticalAlignment="Center">
-                <FontIcon Glyph="&#xE8E5;"
-                          FontFamily="Segoe Fluent Icons"
-                          FontSize="17" />
-                <TextBlock Text="{Binding Labels.Open}"
-                           FontSize="13"
-                           VerticalAlignment="Center" />
-              </StackPanel>
-            </Button>
-
-            <Button Grid.Column="1"
-                    Style="{StaticResource IconButtonStyle}"
-                    CornerRadius="0,5,5,0">
-              <FontIcon Glyph="&#xE70D;"
-                        FontFamily="Segoe Fluent Icons"
-                        FontSize="10" />
-              <Button.Flyout>
-                <MenuFlyout>
-                  <MenuFlyoutItem Text="{Binding Labels.Open}" Click="OnOpenFilesMenuClicked" />
-                </MenuFlyout>
-              </Button.Flyout>
-            </Button>
-          </Grid>
-
-          <Button Width="118"
-                  Command="{Binding MergeCommand}"
-                  Style="{StaticResource TopBarButtonStyle}">
-            <StackPanel Orientation="Horizontal"
-                        Spacing="10"
-                        VerticalAlignment="Center">
-              <FontIcon Glyph="&#xE8B7;"
-                        FontFamily="Segoe Fluent Icons"
-                        FontSize="17" />
-              <TextBlock Text="{Binding Labels.Merge}"
-                         FontSize="13"
-                         VerticalAlignment="Center" />
-            </StackPanel>
-          </Button>
-
-          <Button Style="{StaticResource IconButtonStyle}">
-            <FontIcon Glyph="&#xE713;"
-                      FontFamily="Segoe Fluent Icons"
-                      FontSize="17" />
-          </Button>
-        </StackPanel>
+        <Button Grid.Column="2"
+                Style="{StaticResource IconButtonStyle}"
+                VerticalAlignment="Center"
+                Click="OnSettingsClicked">
+          <FontIcon Glyph="&#xE713;"
+                    FontFamily="Segoe Fluent Icons"
+                    FontSize="17" />
+          <Button.Flyout>
+            <MenuFlyout>
+              <MenuFlyoutSubItem Text="{Binding Labels.PreferencesLanguage}">
+                <MenuFlyoutItem Text="{Binding Labels.PreferencesEnglish}" Click="OnLanguageClicked" Tag="en" />
+                <MenuFlyoutItem Text="{Binding Labels.PreferencesFrench}" Click="OnLanguageClicked" Tag="fr" />
+                <MenuFlyoutItem Text="{Binding Labels.PreferencesSpanish}" Click="OnLanguageClicked" Tag="es" />
+              </MenuFlyoutSubItem>
+              <MenuFlyoutSubItem Text="{Binding Labels.PreferencesTheme}">
+                <MenuFlyoutItem Text="{Binding Labels.PreferencesSystem}" Click="OnThemeClicked" Tag="System" />
+                <MenuFlyoutItem Text="{Binding Labels.PreferencesLight}" Click="OnThemeClicked" Tag="Light" />
+                <MenuFlyoutItem Text="{Binding Labels.PreferencesDark}" Click="OnThemeClicked" Tag="Dark" />
+              </MenuFlyoutSubItem>
+            </MenuFlyout>
+          </Button.Flyout>
+        </Button>
       </Grid>
 
       <Grid Grid.Row="2"
@@ -299,10 +259,19 @@
                   Padding="3,2"
                   Background="Transparent"
                   BorderThickness="0"
+                  HorizontalAlignment="Center"
                   Foreground="{ThemeResource WelcomeAccentTextBrush}">
-            <TextBlock Text="{Binding Labels.WelcomeBrowseDevice}"
-                       FontSize="13"
-                       FontWeight="SemiBold" />
+            <StackPanel Orientation="Horizontal"
+                        Spacing="8">
+              <FontIcon Glyph="&#xE838;"
+                        FontFamily="Segoe Fluent Icons"
+                        FontSize="14"
+                        Foreground="{ThemeResource WelcomeAccentTextBrush}" />
+              <TextBlock Text="{Binding Labels.WelcomeBrowseDevice}"
+                         FontSize="13"
+                         FontWeight="SemiBold"
+                         VerticalAlignment="Center" />
+            </StackPanel>
           </Button>
         </StackPanel>
       </Grid>
@@ -348,12 +317,23 @@
           <ListView.ItemTemplate>
             <DataTemplate>
               <Grid Height="58"
-                    Margin="0,0,0,8"
-                    IsHitTestVisible="False">
+                    Margin="0,0,0,4"
+                    PointerEntered="OnRecentFilePointerEntered"
+                    PointerExited="OnRecentFilePointerExited">
                 <Border Background="{ThemeResource WelcomeCardBgBrush}"
                         BorderBrush="{ThemeResource WelcomeCardBorderBrush}"
                         BorderThickness="1"
                         CornerRadius="6" />
+                <Rectangle x:Name="AccentBar"
+                           Width="3"
+                           Height="28"
+                           RadiusX="1.5"
+                           RadiusY="1.5"
+                           Fill="{ThemeResource WelcomePrimaryBgBrush}"
+                           HorizontalAlignment="Left"
+                           VerticalAlignment="Center"
+                           Margin="4,0,0,0"
+                           Opacity="0" />
 
                 <Grid Padding="19,0,14,0">
                   <Grid.ColumnDefinitions>

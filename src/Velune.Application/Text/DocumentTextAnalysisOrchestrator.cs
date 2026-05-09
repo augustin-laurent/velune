@@ -7,6 +7,7 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Application.Text;
 
+/// <summary>Queues and executes document text extraction and OCR analysis jobs.</summary>
 public sealed class DocumentTextAnalysisOrchestrator : IDocumentTextAnalysisOrchestrator
 {
     private readonly object _gate = new();
@@ -19,6 +20,9 @@ public sealed class DocumentTextAnalysisOrchestrator : IDocumentTextAnalysisOrch
     private readonly Task _worker;
     private bool _disposed;
 
+    /// <summary>Initializes a new instance of the <see cref="DocumentTextAnalysisOrchestrator"/> class.</summary>
+    /// <param name="documentTextService">The text extraction service.</param>
+    /// <param name="sessionStore">The document session store.</param>
     public DocumentTextAnalysisOrchestrator(
         IDocumentTextService documentTextService,
         IDocumentSessionStore sessionStore)
@@ -31,6 +35,7 @@ public sealed class DocumentTextAnalysisOrchestrator : IDocumentTextAnalysisOrch
         _worker = Task.Run(ProcessQueueAsync);
     }
 
+    /// <inheritdoc />
     public DocumentTextJobHandle Submit(DocumentTextAnalysisRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -95,6 +100,7 @@ public sealed class DocumentTextAnalysisOrchestrator : IDocumentTextAnalysisOrch
         return new DocumentTextJobHandle(job.Id, job.CompletionSource.Task);
     }
 
+    /// <inheritdoc />
     public bool Cancel(Guid jobId)
     {
         ThrowIfDisposed();
@@ -116,6 +122,7 @@ public sealed class DocumentTextAnalysisOrchestrator : IDocumentTextAnalysisOrch
         return CancelJob(job, isObsolete: false);
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         if (_disposed)

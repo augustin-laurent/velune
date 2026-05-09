@@ -4,6 +4,7 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Application.Abstractions;
 
+/// <summary>Thread-safe in-memory implementation of <see cref="IDocumentSessionStore"/>.</summary>
 public sealed class InMemoryDocumentSessionStore : IDocumentSessionStore
 {
     private readonly object _gate = new();

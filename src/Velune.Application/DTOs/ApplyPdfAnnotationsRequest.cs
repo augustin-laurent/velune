@@ -4,6 +4,7 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Application.DTOs;
 
+/// <summary>Request to burn annotations into a PDF and save the result.</summary>
 public sealed record ApplyPdfAnnotationsRequest(
     IDocumentSession Session,
     string InputPath,

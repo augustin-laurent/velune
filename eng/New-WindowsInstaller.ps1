@@ -139,6 +139,16 @@ $projectFullPath = Join-Path $repositoryRoot $ProjectPath
 $outputFullRoot = Join-Path $repositoryRoot $OutputRoot
 $publishDir = Join-Path $outputFullRoot "publish/$RuntimeIdentifier"
 $packageRoot = Join-Path $outputFullRoot "packages"
+
+# Auto-download native tools if not already present
+$nativeToolsPath = Join-Path (Join-Path $repositoryRoot $NativeToolsRoot) $RuntimeIdentifier
+if ($RequireBundledNativeTools -and
+    $RuntimeIdentifier.StartsWith("win-", [System.StringComparison]::Ordinal) -and
+    -not (Test-Path -LiteralPath (Join-Path $nativeToolsPath "qpdf/bin/qpdf.exe"))) {
+    Write-Host "Native tools not found. Downloading automatically..."
+    $downloadScript = Join-Path $PSScriptRoot "Download-WindowsNativeTools.ps1"
+    & $downloadScript -OutputRoot (Join-Path $NativeToolsRoot $RuntimeIdentifier)
+}
 $safeVersion = $Version -replace "[^0-9A-Za-z\.\-]+", "-"
 $outputBaseName = "Velune-$safeVersion-$RuntimeIdentifier-setup"
 $installerScriptPath = Join-Path $repositoryRoot "eng/windows-installer/Velune.iss"

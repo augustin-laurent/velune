@@ -8,6 +8,9 @@ using Velune.Domain.Annotations;
 
 namespace Velune.Infrastructure.Annotations;
 
+/// <summary>
+/// Persists signature assets as a JSON manifest on disk.
+/// </summary>
 public sealed class JsonSignatureAssetStore : ISignatureAssetStore
 {
     private static readonly JsonSerializerOptions SerializerOptions = new()
@@ -19,6 +22,10 @@ public sealed class JsonSignatureAssetStore : ISignatureAssetStore
     private readonly string _assetsDirectoryPath;
     private readonly object _gate = new();
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="JsonSignatureAssetStore"/> class.
+    /// </summary>
+    /// <param name="options">Application options containing signature library path configuration.</param>
     public JsonSignatureAssetStore(IOptions<AppOptions> options)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -28,6 +35,7 @@ public sealed class JsonSignatureAssetStore : ISignatureAssetStore
         _assetsDirectoryPath = Path.Combine(rootPath, "assets");
     }
 
+    /// <inheritdoc />
     public IReadOnlyList<SignatureAsset> GetAll()
     {
         lock (_gate)
@@ -36,6 +44,7 @@ public sealed class JsonSignatureAssetStore : ISignatureAssetStore
         }
     }
 
+    /// <inheritdoc />
     public Result<SignatureAsset> Import(string sourceImagePath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceImagePath);
@@ -86,6 +95,7 @@ public sealed class JsonSignatureAssetStore : ISignatureAssetStore
         }
     }
 
+    /// <inheritdoc />
     public Result Delete(string assetId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(assetId);
@@ -128,6 +138,7 @@ public sealed class JsonSignatureAssetStore : ISignatureAssetStore
         }
     }
 
+    /// <inheritdoc />
     public Result<SignatureAsset> SaveInkSignature(
         string displayName,
         IReadOnlyList<NormalizedPoint> points)

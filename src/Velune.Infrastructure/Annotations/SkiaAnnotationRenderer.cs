@@ -6,8 +6,20 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Infrastructure.Annotations;
 
+/// <summary>
+/// Renders document annotations onto a SkiaSharp canvas.
+/// </summary>
 internal static class SkiaAnnotationRenderer
 {
+    /// <summary>
+    /// Draws all provided annotations onto the given canvas.
+    /// </summary>
+    /// <param name="canvas">The target SkiaSharp canvas.</param>
+    /// <param name="width">Page width in pixels.</param>
+    /// <param name="height">Page height in pixels.</param>
+    /// <param name="rotation">Current page rotation.</param>
+    /// <param name="annotations">Annotations to render.</param>
+    /// <param name="signatureAssets">Available signature assets keyed by ID.</param>
     public static void DrawAnnotations(
         SKCanvas canvas,
         float width,
@@ -49,6 +61,13 @@ internal static class SkiaAnnotationRenderer
         }
     }
 
+    /// <summary>
+    /// Renders ink signature points to a transparent PNG byte array.
+    /// </summary>
+    /// <param name="points">Normalized ink points to draw.</param>
+    /// <param name="width">Output image width in pixels.</param>
+    /// <param name="height">Output image height in pixels.</param>
+    /// <returns>PNG-encoded byte array of the rendered signature.</returns>
     public static byte[] RenderInkSignaturePng(
         IReadOnlyList<NormalizedPoint> points,
         int width,

@@ -10,6 +10,7 @@ using Velune.Domain.Documents;
 
 namespace Velune.Application.Rendering;
 
+/// <summary>Persists rendered thumbnails to disk using content-addressable file paths.</summary>
 public sealed partial class ThumbnailDiskCache : IThumbnailDiskCache
 {
     private const int CacheFileVersion = 1;
@@ -17,6 +18,9 @@ public sealed partial class ThumbnailDiskCache : IThumbnailDiskCache
     private readonly string _rootPath;
     private readonly TimeSpan _maxAge;
 
+    /// <summary>Initializes a new instance of the <see cref="ThumbnailDiskCache"/> class.</summary>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="options">The application options for cache configuration.</param>
     public ThumbnailDiskCache(
         ILogger<ThumbnailDiskCache> logger,
         IOptions<AppOptions> options)
@@ -33,6 +37,7 @@ public sealed partial class ThumbnailDiskCache : IThumbnailDiskCache
         CleanupExpiredEntries();
     }
 
+    /// <inheritdoc />
     public bool TryGet(
         IDocumentSession session,
         RenderRequest request,
@@ -99,6 +104,7 @@ public sealed partial class ThumbnailDiskCache : IThumbnailDiskCache
         }
     }
 
+    /// <inheritdoc />
     public void Store(
         IDocumentSession session,
         RenderRequest request,

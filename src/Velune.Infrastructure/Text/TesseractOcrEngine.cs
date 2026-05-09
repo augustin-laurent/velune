@@ -13,11 +13,18 @@ using Velune.Infrastructure.FileSystem;
 
 namespace Velune.Infrastructure.Text;
 
+/// <summary>
+/// OCR engine implementation that invokes the Tesseract command-line tool.
+/// </summary>
 public sealed class TesseractOcrEngine : IOcrEngine
 {
     private readonly BundledTool _tesseractTool;
     private readonly string? _tesseractDataPath;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TesseractOcrEngine"/> class.
+    /// </summary>
+    /// <param name="options">Application options containing Tesseract executable and data paths.</param>
     public TesseractOcrEngine(IOptions<AppOptions> options)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -29,6 +36,7 @@ public sealed class TesseractOcrEngine : IOcrEngine
         _tesseractDataPath = BundledToolResolver.ResolveTesseractDataPath(options.Value.TesseractDataPath);
     }
 
+    /// <inheritdoc />
     public async Task<Result<OcrEngineInfo>> GetInfoAsync(CancellationToken cancellationToken = default)
     {
         var versionResult = await ExecuteProcessAsync(["--version"], cancellationToken);
@@ -52,6 +60,7 @@ public sealed class TesseractOcrEngine : IOcrEngine
             languages));
     }
 
+    /// <inheritdoc />
     public async Task<Result<OcrPageContent>> RecognizePageAsync(
         OcrPageRequest request,
         IReadOnlyList<string>? preferredLanguages,

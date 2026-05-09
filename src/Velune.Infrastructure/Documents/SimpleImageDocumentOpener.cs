@@ -4,8 +4,16 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Infrastructure.Documents;
 
+/// <summary>
+/// Opens image files as lightweight document sessions without SkiaSharp decoding.
+/// </summary>
 public sealed class SimpleImageDocumentOpener
 {
+    /// <summary>
+    /// Opens an image file and returns a document session.
+    /// </summary>
+    /// <param name="filePath">Absolute path to the image file.</param>
+    /// <returns>A document session representing the opened image.</returns>
     public IDocumentSession Open(string filePath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);

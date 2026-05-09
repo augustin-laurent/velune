@@ -9,16 +9,29 @@ using Velune.Windows.ViewModels;
 
 namespace Velune.Windows;
 
+/// <summary>
+/// WinUI application class that configures DI and manages the application lifecycle.
+/// </summary>
 public sealed partial class App : Microsoft.UI.Xaml.Application
 {
     private readonly string[] _args;
     private IHost? _host;
 
+    /// <summary>
+    /// Initializes the application with the given command-line arguments.
+    /// </summary>
+    /// <param name="args">Command-line arguments passed from the entry point.</param>
     public App(string[] args)
     {
         _args = args;
         InitializeComponent();
     }
+
+    /// <summary>
+    /// Gets the DI service provider from the built host.
+    /// </summary>
+    public IServiceProvider Services => _host?.Services
+        ?? throw new InvalidOperationException("Host not initialized.");
 
     protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
@@ -44,7 +57,8 @@ public sealed partial class App : Microsoft.UI.Xaml.Application
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
         {
             Args = args,
-            EnvironmentName = environment
+            EnvironmentName = environment,
+            ContentRootPath = AppContext.BaseDirectory
         });
 
         builder.Configuration.AddEnvironmentVariables(prefix: "VELUNE_");
@@ -58,6 +72,7 @@ public sealed partial class App : Microsoft.UI.Xaml.Application
             .AddSingleton<IWindowsFileDialogService, WindowsFileDialogService>()
             .AddSingleton<IWindowsPrintCoordinator, WindowsPrintCoordinator>()
             .AddSingleton<WindowsMainViewModel>()
+            .AddTransient<PageOrganizerViewModel>()
             .AddTransient<MainWindow>()
             .AddTransient<WelcomeWindow>();
 

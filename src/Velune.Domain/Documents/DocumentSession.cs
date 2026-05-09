@@ -3,6 +3,9 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Domain.Documents;
 
+/// <summary>
+/// Default implementation of <see cref="IDocumentSession"/> backed by immutable records.
+/// </summary>
 public sealed record DocumentSession : IDocumentSession
 {
     public DocumentSession(
@@ -31,6 +34,7 @@ public sealed record DocumentSession : IDocumentSession
         get;
     }
 
+    /// <inheritdoc />
     public IDocumentSession WithViewport(ViewportState viewport)
     {
         ArgumentNullException.ThrowIfNull(viewport);

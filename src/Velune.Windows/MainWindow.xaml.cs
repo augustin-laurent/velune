@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI;
 using Microsoft.UI.Input;
 using Microsoft.UI.Windowing;
@@ -9,12 +10,16 @@ using Velune.Domain.Annotations;
 using Velune.Windows.Services;
 using Velune.Windows.ViewModels;
 using Windows.ApplicationModel.DataTransfer;
+using Windows.Foundation;
 using Windows.Graphics;
 using Windows.System;
 using WinRT.Interop;
 
 namespace Velune.Windows;
 
+/// <summary>
+/// Main workspace window hosting document tabs, annotations, and page thumbnails.
+/// </summary>
 public sealed partial class MainWindow : Window
 {
     private readonly WindowsMainViewModel _viewModel;
@@ -24,8 +29,16 @@ public sealed partial class MainWindow : Window
     private InputNonClientPointerSource? _nonClientPointerSource;
     private bool _isAnnotationInteractionActive;
     private bool _isTextSelectionInteractionActive;
+    private bool _isMovingAnnotation;
+    private bool _isCapturingSignaturePad;
     private bool _hasPresentedDocument;
 
+    /// <summary>
+    /// Initializes the main window with its view model and window management dependencies.
+    /// </summary>
+    /// <param name="viewModel">The main view model driving this window.</param>
+    /// <param name="windowContext">Provides the active window handle and dispatcher.</param>
+    /// <param name="windowCoordinator">Coordinates window transitions between welcome and workspace.</param>
     public MainWindow(
         WindowsMainViewModel viewModel,
         WindowsWindowContext windowContext,
@@ -63,6 +76,7 @@ public sealed partial class MainWindow : Window
         var windowHandle = WindowNative.GetWindowHandle(this);
         var appWindow = ResolveAppWindow();
         appWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
+        appWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "Brand", "Velune.ico"));
         _nonClientPointerSource = InputNonClientPointerSource.GetForWindowId(
             Win32Interop.GetWindowIdFromWindow(windowHandle));
     }
@@ -180,34 +194,22 @@ public sealed partial class MainWindow : Window
             var appWindow = ResolveAppWindow();
             appWindow.TitleBar.ButtonBackgroundColor = Colors.Transparent;
             appWindow.TitleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
-            appWindow.TitleBar.ButtonForegroundColor = ResolveThemeColor(
-                "TextPrimaryBrush",
-                isLight ? "#111827" : "#FFFFFF");
-            appWindow.TitleBar.ButtonInactiveForegroundColor = ResolveThemeColor(
-                "TextSecondaryBrush",
-                isLight ? "#6B7280" : "#9E9E9E");
-            appWindow.TitleBar.ButtonHoverBackgroundColor = ResolveThemeColor(
-                "TitleBarButtonHoverBrush",
-                isLight ? "#14000000" : "#24FFFFFF");
-            appWindow.TitleBar.ButtonPressedBackgroundColor = ResolveThemeColor(
-                "TitleBarButtonPressedBrush",
-                isLight ? "#1F000000" : "#18FFFFFF");
+            appWindow.TitleBar.ButtonForegroundColor = isLight
+                ? global::Windows.UI.Color.FromArgb(255, 31, 41, 55)
+                : global::Windows.UI.Color.FromArgb(255, 255, 255, 255);
+            appWindow.TitleBar.ButtonInactiveForegroundColor = isLight
+                ? global::Windows.UI.Color.FromArgb(255, 107, 114, 128)
+                : global::Windows.UI.Color.FromArgb(255, 158, 158, 158);
+            appWindow.TitleBar.ButtonHoverBackgroundColor = isLight
+                ? global::Windows.UI.Color.FromArgb(20, 0, 0, 0)
+                : global::Windows.UI.Color.FromArgb(36, 255, 255, 255);
+            appWindow.TitleBar.ButtonPressedBackgroundColor = isLight
+                ? global::Windows.UI.Color.FromArgb(31, 0, 0, 0)
+                : global::Windows.UI.Color.FromArgb(24, 255, 255, 255);
         }
         catch
         {
-            // Window not ready.
         }
-    }
-
-    private static global::Windows.UI.Color ResolveThemeColor(string resourceKey, string fallbackHex)
-    {
-        if (Microsoft.UI.Xaml.Application.Current.Resources.TryGetValue(resourceKey, out var resource) &&
-            resource is SolidColorBrush brush)
-        {
-            return brush.Color;
-        }
-
-        return ParseColor(fallbackHex);
     }
 
     private static bool IsSystemLightTheme()
@@ -266,24 +268,7 @@ public sealed partial class MainWindow : Window
             [ToRectInt32(interactiveBounds, scale)]);
     }
 
-    private static global::Windows.UI.Color ParseColor(string hex)
-    {
-        var normalized = hex.Trim().TrimStart('#');
-        var alpha = (byte)255;
-        var channelOffset = 0;
 
-        if (normalized.Length == 8)
-        {
-            alpha = Convert.ToByte(normalized[..2], 16);
-            channelOffset = 2;
-        }
-
-        return global::Windows.UI.Color.FromArgb(
-            alpha,
-            Convert.ToByte(normalized.Substring(channelOffset, 2), 16),
-            Convert.ToByte(normalized.Substring(channelOffset + 2, 2), 16),
-            Convert.ToByte(normalized.Substring(channelOffset + 4, 2), 16));
-    }
 
     private static RectInt32 ToRectInt32(global::Windows.Foundation.Rect bounds, double scale)
     {
@@ -402,6 +387,30 @@ public sealed partial class MainWindow : Window
         args.Handled = true;
     }
 
+    private void OnSearchKeyboardAcceleratorInvoked(
+        KeyboardAccelerator sender,
+        KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (_viewModel.OpenSearchCommand.CanExecute(null))
+        {
+            _viewModel.OpenSearchCommand.Execute(null);
+        }
+
+        args.Handled = true;
+    }
+
+    private async void OnSaveKeyboardAcceleratorInvoked(
+        KeyboardAccelerator sender,
+        KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+
+        if (_viewModel.SaveDocumentCommand.CanExecute(null))
+        {
+            await _viewModel.SaveDocumentCommand.ExecuteAsync(null);
+        }
+    }
+
     private bool CopySelectedDocumentTextToClipboard()
     {
         if (string.IsNullOrWhiteSpace(_viewModel.SelectedDocumentText))
@@ -431,6 +440,26 @@ public sealed partial class MainWindow : Window
         return focusedElement is TextBox or PasswordBox or RichEditBox;
     }
 
+    private static bool IsPointerFromTextInput(object source)
+    {
+        var current = source as DependencyObject;
+        while (current is not null)
+        {
+            if (current is TextBox or PasswordBox or RichEditBox)
+            {
+                return true;
+            }
+
+            current = VisualTreeHelper.GetParent(current);
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Returns a task that completes when the root visual tree has loaded.
+    /// </summary>
+    /// <returns>A task representing the window loaded event.</returns>
     public Task WaitUntilLoadedAsync()
     {
         return _loadedCompletionSource.Task;
@@ -457,11 +486,283 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private async void OnThumbnailItemClick(object sender, ItemClickEventArgs e)
+    private const double ThumbnailDragThreshold = 6;
+    private const double ThumbnailItemHeight = 172;
+
+    private int _thumbnailDragSourceIndex = -1;
+    private bool _isDraggingThumbnail;
+    private global::Windows.Foundation.Point _thumbnailDragStartPoint;
+    private int _thumbnailDropTargetIndex = -1;
+
+    private async void OnThumbnailItemTapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
     {
-        if (e.ClickedItem is WindowsPageThumbnailViewModel thumbnail)
+        if (_isDraggingThumbnail)
+        {
+            return;
+        }
+
+        if (sender is FrameworkElement { DataContext: WindowsPageThumbnailViewModel thumbnail })
         {
             await _viewModel.ChangePageAsync(thumbnail.PageNumber);
+        }
+    }
+
+    private void OnOpenPageOrganizerClicked(object sender, RoutedEventArgs e)
+    {
+        var tab = _viewModel.ActiveDocumentTab;
+        if (tab is null)
+        {
+            return;
+        }
+
+        var app = (App)Microsoft.UI.Xaml.Application.Current;
+        var vm = app.Services.GetRequiredService<PageOrganizerViewModel>();
+        vm.Initialize(tab.SessionId, tab.FilePath, tab.TotalPages, tab.Thumbnails);
+
+        var window = new PageOrganizerWindow(vm, applied =>
+        {
+            if (applied && vm.HasChanges)
+            {
+                _ = _viewModel.ApplyPageOrganizerResultAsync(vm.GetFinalPageOrder(), vm.GetRotations());
+            }
+        });
+
+        window.Activate();
+    }
+
+    private void OnThumbnailItemRightTapped(object sender, Microsoft.UI.Xaml.Input.RightTappedRoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: WindowsPageThumbnailViewModel thumbnail })
+        {
+            _viewModel.SelectedThumbnailPageNumber = thumbnail.PageNumber;
+        }
+    }
+
+    private void OnRibbonRotateLeftClick(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel.ActiveDocumentTab is not null)
+        {
+            _viewModel.SelectedThumbnailPageNumber = _viewModel.ActiveDocumentTab.CurrentPage;
+        }
+
+        _ = _viewModel.RotateSelectedPageAsync(false);
+    }
+
+    private void OnRibbonRotateRightClick(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel.ActiveDocumentTab is not null)
+        {
+            _viewModel.SelectedThumbnailPageNumber = _viewModel.ActiveDocumentTab.CurrentPage;
+        }
+
+        _ = _viewModel.RotateSelectedPageAsync(true);
+    }
+
+    private void OnThumbnailRotateLeftClick(object sender, RoutedEventArgs e) =>
+        _ = _viewModel.RotateSelectedPageAsync(false);
+
+    private void OnThumbnailRotateRightClick(object sender, RoutedEventArgs e) =>
+        _ = _viewModel.RotateSelectedPageAsync(true);
+
+    private void OnThumbnailMoveUpClick(object sender, RoutedEventArgs e) =>
+        _ = _viewModel.MoveSelectedPageAsync(-1);
+
+    private void OnThumbnailMoveDownClick(object sender, RoutedEventArgs e) =>
+        _ = _viewModel.MoveSelectedPageAsync(1);
+
+    private void OnThumbnailDeleteClick(object sender, RoutedEventArgs e) =>
+        _ = _viewModel.DeleteSelectedPageAsync();
+
+    private void OnThumbnailItemPointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (sender is not UIElement element ||
+            element is not FrameworkElement { DataContext: WindowsPageThumbnailViewModel thumbnail })
+        {
+            return;
+        }
+
+        _thumbnailDragSourceIndex = _viewModel.ActiveDocumentTab?.Thumbnails.IndexOf(thumbnail) ?? -1;
+        _thumbnailDragStartPoint = e.GetCurrentPoint(ThumbnailScrollViewer).Position;
+        _isDraggingThumbnail = false;
+        element.CapturePointer(e.Pointer);
+        e.Handled = true;
+    }
+
+    private void OnThumbnailItemPointerMoved(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (_thumbnailDragSourceIndex < 0 || sender is not UIElement element)
+        {
+            return;
+        }
+
+        var currentPoint = e.GetCurrentPoint(ThumbnailScrollViewer).Position;
+
+        if (!_isDraggingThumbnail)
+        {
+            var dx = currentPoint.X - _thumbnailDragStartPoint.X;
+            var dy = currentPoint.Y - _thumbnailDragStartPoint.Y;
+            if (Math.Sqrt(dx * dx + dy * dy) < ThumbnailDragThreshold)
+            {
+                return;
+            }
+
+            _isDraggingThumbnail = true;
+            var tab = _viewModel.ActiveDocumentTab;
+            if (tab is not null && _thumbnailDragSourceIndex < tab.Thumbnails.Count)
+            {
+                ThumbnailDragGhost.Source = tab.Thumbnails[_thumbnailDragSourceIndex].Image;
+                ThumbnailDragGhost.Visibility = Visibility.Visible;
+            }
+        }
+
+        if (_isDraggingThumbnail)
+        {
+            ThumbnailDragGhost.Margin = new Thickness(
+                currentPoint.X - 40,
+                currentPoint.Y - 52,
+                0, 0);
+
+            UpdateThumbnailDropIndicator(currentPoint.Y);
+            AutoScrollThumbnails(currentPoint.Y);
+        }
+
+        e.Handled = true;
+    }
+
+    private async void OnThumbnailItemPointerReleased(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (sender is UIElement element)
+        {
+            element.ReleasePointerCapture(e.Pointer);
+        }
+
+        ThumbnailDragGhost.Visibility = Visibility.Collapsed;
+        ThumbnailDropIndicator.Visibility = Visibility.Collapsed;
+        ResetThumbnailDisplacement();
+
+        if (_isDraggingThumbnail && _thumbnailDragSourceIndex >= 0 && _thumbnailDropTargetIndex >= 0)
+        {
+            var sourceIndex = _thumbnailDragSourceIndex;
+            var targetIndex = _thumbnailDropTargetIndex;
+
+            if (sourceIndex != targetIndex && targetIndex != sourceIndex + 1)
+            {
+                var tab = _viewModel.ActiveDocumentTab;
+                if (tab is not null)
+                {
+                    var adjustedTarget = targetIndex > sourceIndex ? targetIndex - 1 : targetIndex;
+                    tab.Thumbnails.Move(sourceIndex, adjustedTarget);
+                    await _viewModel.HandleThumbnailReorderAsync(sourceIndex + 1, adjustedTarget);
+                }
+            }
+        }
+
+        _thumbnailDragSourceIndex = -1;
+        _thumbnailDropTargetIndex = -1;
+        _isDraggingThumbnail = false;
+        e.Handled = true;
+    }
+
+    private void UpdateThumbnailDropIndicator(double pointerY)
+    {
+        var scrollOffset = ThumbnailScrollViewer.VerticalOffset;
+        var adjustedY = pointerY + scrollOffset;
+        var index = (int)Math.Round(adjustedY / ThumbnailItemHeight);
+        var tab = _viewModel.ActiveDocumentTab;
+        if (tab is null)
+        {
+            return;
+        }
+
+        var newIndex = Math.Clamp(index, 0, tab.Thumbnails.Count);
+        if (newIndex == _thumbnailDropTargetIndex)
+        {
+            return;
+        }
+
+        _thumbnailDropTargetIndex = newIndex;
+        var indicatorY = (_thumbnailDropTargetIndex * ThumbnailItemHeight) - scrollOffset;
+        ThumbnailDropIndicator.Margin = new Thickness(8, indicatorY, 8, 0);
+        ThumbnailDropIndicator.Visibility = Visibility.Visible;
+
+        AnimateThumbnailDisplacement();
+    }
+
+    private void AnimateThumbnailDisplacement()
+    {
+        const float gapSize = 20f;
+        var panel = GetThumbnailPanel();
+        if (panel is null)
+        {
+            return;
+        }
+
+        for (var i = 0; i < panel.Children.Count; i++)
+        {
+            var templateRoot = GetTemplateRootFromContainer(panel.Children[i]);
+            if (templateRoot is null)
+            {
+                continue;
+            }
+
+            var shouldDisplace = i >= _thumbnailDropTargetIndex && i != _thumbnailDragSourceIndex;
+            templateRoot.Translation = new System.Numerics.Vector3(0, shouldDisplace ? gapSize : 0f, 0);
+        }
+    }
+
+    private void ResetThumbnailDisplacement()
+    {
+        var panel = GetThumbnailPanel();
+        if (panel is null)
+        {
+            return;
+        }
+
+        foreach (var child in panel.Children)
+        {
+            var templateRoot = GetTemplateRootFromContainer(child);
+            if (templateRoot is not null)
+            {
+                templateRoot.Translation = System.Numerics.Vector3.Zero;
+            }
+        }
+    }
+
+    private Panel? GetThumbnailPanel()
+    {
+        if (Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(ThumbnailListView) == 0)
+        {
+            return null;
+        }
+
+        var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(ThumbnailListView, 0);
+        return child as Panel;
+    }
+
+    private static UIElement? GetTemplateRootFromContainer(UIElement container)
+    {
+        var count = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(container);
+        if (count == 0)
+        {
+            return null;
+        }
+
+        return Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(container, 0) as UIElement;
+    }
+
+    private void AutoScrollThumbnails(double pointerY)
+    {
+        var viewportHeight = ThumbnailScrollViewer.ViewportHeight;
+        const double edgeZone = 30;
+        const double scrollStep = 8;
+
+        if (pointerY < edgeZone)
+        {
+            ThumbnailScrollViewer.ChangeView(null, ThumbnailScrollViewer.VerticalOffset - scrollStep, null, true);
+        }
+        else if (pointerY > viewportHeight - edgeZone)
+        {
+            ThumbnailScrollViewer.ChangeView(null, ThumbnailScrollViewer.VerticalOffset + scrollStep, null, true);
         }
     }
 
@@ -487,6 +788,160 @@ public sealed partial class MainWindow : Window
                 bar.Opacity = 0;
             }
         }
+    }
+
+    private void OnThumbnailExternalDragOver(object sender, DragEventArgs e)
+    {
+        if (!_viewModel.CanAcceptThumbnailDrop)
+        {
+            e.AcceptedOperation = DataPackageOperation.None;
+            HideThumbnailDropIndicator();
+            return;
+        }
+
+        if (e.DataView.Contains(StandardDataFormats.StorageItems))
+        {
+            e.AcceptedOperation = DataPackageOperation.Copy;
+            e.DragUIOverride.Caption = _viewModel.Labels.Insert;
+            e.DragUIOverride.IsGlyphVisible = true;
+            UpdateThumbnailExternalDropIndicator(e.GetPosition(ThumbnailDragSurface));
+        }
+        else
+        {
+            e.AcceptedOperation = DataPackageOperation.None;
+            HideThumbnailDropIndicator();
+        }
+    }
+
+    private void OnThumbnailExternalDragLeave(object sender, DragEventArgs e)
+    {
+        HideThumbnailDropIndicator();
+    }
+
+    private async void OnThumbnailExternalDrop(object sender, DragEventArgs e)
+    {
+        if (!_viewModel.CanAcceptThumbnailDrop ||
+            !e.DataView.Contains(StandardDataFormats.StorageItems))
+        {
+            HideThumbnailDropIndicator();
+            return;
+        }
+
+        var insertionIndex = ResolveThumbnailDropIndex(e.GetPosition(ThumbnailDragSurface));
+        HideThumbnailDropIndicator();
+
+        var items = await e.DataView.GetStorageItemsAsync();
+        var filePaths = items
+            .OfType<global::Windows.Storage.StorageFile>()
+            .Select(file => file.Path)
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .ToList();
+
+        if (filePaths.Count == 0)
+        {
+            return;
+        }
+
+        await _viewModel.HandleThumbnailFilesDroppedAsync(filePaths, insertionIndex);
+    }
+
+    private void UpdateThumbnailExternalDropIndicator(Point position)
+    {
+        var insertionIndex = ResolveThumbnailDropIndex(position);
+        var indicatorY = ResolveThumbnailDropIndicatorY(insertionIndex);
+        ThumbnailDropIndicator.Margin = new Thickness(8, indicatorY, 8, 0);
+        ThumbnailDropIndicator.Visibility = Visibility.Visible;
+    }
+
+    private void HideThumbnailDropIndicator()
+    {
+        ThumbnailDropIndicator.Visibility = Visibility.Collapsed;
+    }
+
+    private int ResolveThumbnailDropIndex(Point position)
+    {
+        if (_viewModel.ActiveDocumentTab is null)
+        {
+            return 0;
+        }
+
+        var tab = _viewModel.ActiveDocumentTab;
+        var panel = GetThumbnailPanel();
+        if (panel is not null)
+        {
+            var childCount = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(panel);
+            for (var i = 0; i < childCount; i++)
+            {
+                if (GetThumbnailItemBounds(panel, i) is not { } bounds)
+                {
+                    continue;
+                }
+
+                if (position.Y < bounds.Y + (bounds.Height / 2))
+                {
+                    return Math.Clamp(i, 0, tab.Thumbnails.Count);
+                }
+            }
+
+            if (childCount > 0)
+            {
+                return tab.Thumbnails.Count;
+            }
+        }
+
+        var adjustedY = position.Y + ThumbnailScrollViewer.VerticalOffset;
+        var estimatedIndex = (int)Math.Round(adjustedY / ThumbnailItemHeight);
+        return Math.Clamp(estimatedIndex, 0, tab.Thumbnails.Count);
+    }
+
+    private double ResolveThumbnailDropIndicatorY(int insertionIndex)
+    {
+        var panel = GetThumbnailPanel();
+        if (panel is null)
+        {
+            return Math.Max(0, insertionIndex * ThumbnailItemHeight - ThumbnailScrollViewer.VerticalOffset);
+        }
+
+        var childCount = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(panel);
+        if (childCount == 0)
+        {
+            return 0;
+        }
+
+        if (insertionIndex <= 0 &&
+            GetThumbnailItemBounds(panel, 0) is { } firstBounds)
+        {
+            return Math.Max(0, firstBounds.Y);
+        }
+
+        if (insertionIndex >= childCount &&
+            GetThumbnailItemBounds(panel, childCount - 1) is { } lastBounds)
+        {
+            return Math.Max(0, lastBounds.Y + lastBounds.Height);
+        }
+
+        if (GetThumbnailItemBounds(panel, insertionIndex) is { } targetBounds)
+        {
+            return Math.Max(0, targetBounds.Y);
+        }
+
+        return Math.Max(0, insertionIndex * ThumbnailItemHeight - ThumbnailScrollViewer.VerticalOffset);
+    }
+
+    private Rect? GetThumbnailItemBounds(Panel panel, int index)
+    {
+        if (index < 0 || index >= Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(panel))
+        {
+            return null;
+        }
+
+        if (Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(panel, index) is not FrameworkElement element)
+        {
+            return null;
+        }
+
+        var topLeft = element.TransformToVisual(ThumbnailDragSurface).TransformPoint(new Point(0, 0));
+        return new Rect(topLeft.X, topLeft.Y, element.ActualWidth, element.ActualHeight);
     }
 
     private static T? FindChild<T>(DependencyObject parent, string name) where T : FrameworkElement
@@ -528,14 +983,250 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void OnDeleteAnnotationTapped(object sender, TappedRoutedEventArgs e)
+    private void OnAnnotationFillColorClicked(object sender, RoutedEventArgs e)
     {
-        if (sender is FrameworkElement { DataContext: WindowsAnnotationOverlayViewModel overlay } &&
-            _viewModel.DeleteAnnotationByIdCommand.CanExecute(overlay.Id))
+        if (sender is FrameworkElement { DataContext: WindowsAnnotationColorItem color })
         {
-            _viewModel.DeleteAnnotationByIdCommand.Execute(overlay.Id);
+            _viewModel.SelectAnnotationFillColor(color);
+        }
+    }
+
+    private void OnCommentCardDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: WindowsCommentOverlayViewModel comment })
+        {
+            _viewModel.BeginCommentEdit(comment);
             e.Handled = true;
         }
+    }
+
+    private void OnCommentEditLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: WindowsCommentOverlayViewModel comment })
+        {
+            _viewModel.CommitCommentEdit(comment);
+        }
+    }
+
+    private void OnCommentEditKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: WindowsCommentOverlayViewModel comment })
+        {
+            return;
+        }
+
+        if (e.Key is VirtualKey.Escape)
+        {
+            comment.IsEditing = false;
+            e.Handled = true;
+        }
+        else if (e.Key is VirtualKey.Enter)
+        {
+            var altState = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Menu);
+            if (!altState.HasFlag(global::Windows.UI.Core.CoreVirtualKeyStates.Down))
+            {
+                _viewModel.CommitCommentEdit(comment);
+                e.Handled = true;
+            }
+        }
+    }
+
+    private void OnDeleteAnnotationTapped(object sender, TappedRoutedEventArgs e)
+    {
+        var annotationId = sender is FrameworkElement { DataContext: WindowsAnnotationOverlayViewModel overlay }
+            ? overlay.Id
+            : sender is FrameworkElement { DataContext: WindowsCommentOverlayViewModel comment }
+                ? comment.Id
+                : Guid.Empty;
+
+        if (annotationId != Guid.Empty &&
+            _viewModel.DeleteAnnotationByIdCommand.CanExecute(annotationId))
+        {
+            _viewModel.DeleteAnnotationByIdCommand.Execute(annotationId);
+            e.Handled = true;
+        }
+    }
+
+    private void OnAnnotationMenuEditClicked(object sender, RoutedEventArgs e)
+    {
+        if (ResolveAnnotationIdFromMenuContext(sender) is { } id)
+        {
+            _viewModel.BeginEditAnnotationById(id);
+        }
+    }
+
+    private void OnAnnotationMenuHideClicked(object sender, RoutedEventArgs e)
+    {
+        if (ResolveAnnotationIdFromMenuContext(sender) is { } id)
+        {
+            _viewModel.ToggleAnnotationVisibility(id);
+        }
+    }
+
+    private void OnAnnotationMenuLockClicked(object sender, RoutedEventArgs e)
+    {
+        if (ResolveAnnotationIdFromMenuContext(sender) is { } id)
+        {
+            _viewModel.ToggleAnnotationLock(id);
+        }
+    }
+
+    private void OnAnnotationMenuDeleteClicked(object sender, RoutedEventArgs e)
+    {
+        if (ResolveAnnotationIdFromMenuContext(sender) is { } id &&
+            _viewModel.DeleteAnnotationByIdCommand.CanExecute(id))
+        {
+            _viewModel.DeleteAnnotationByIdCommand.Execute(id);
+        }
+    }
+
+    private static Guid? ResolveAnnotationIdFromMenuContext(object sender)
+    {
+        if (sender is not FrameworkElement element)
+        {
+            return null;
+        }
+
+        var parent = element;
+        while (parent is not null)
+        {
+            if (parent.DataContext is WindowsAnnotationOverlayViewModel overlay)
+            {
+                return overlay.Id;
+            }
+
+            if (parent.DataContext is WindowsCommentOverlayViewModel comment)
+            {
+                return comment.Id;
+            }
+
+            parent = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(parent) as FrameworkElement;
+        }
+
+        return null;
+    }
+
+    private void OnInlineTextEditorTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (sender is not TextBox textBox)
+        {
+            return;
+        }
+
+        if (_viewModel.ActiveDocumentTab?.InlineTextEditor is { } editor)
+        {
+            editor.Text = textBox.Text;
+        }
+
+        _viewModel.UpdateInlineTextAnnotation(textBox.Text);
+    }
+
+    private void OnInlineTextEditorLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel.ActiveDocumentTab?.InlineTextEditor is null)
+        {
+            return;
+        }
+
+        _viewModel.CommitInlineTextAnnotation();
+    }
+
+    private void OnInlineTextEditorKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key is VirtualKey.Escape)
+        {
+            _viewModel.CancelInlineTextAnnotation();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key is VirtualKey.Enter)
+        {
+            var altState = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Menu);
+            if (altState.HasFlag(global::Windows.UI.Core.CoreVirtualKeyStates.Down))
+            {
+                return;
+            }
+
+            _viewModel.CommitInlineTextAnnotation();
+            e.Handled = true;
+        }
+    }
+
+    private void FocusInlineTextEditor()
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (_viewModel.ActiveDocumentTab?.HasInlineTextEditor is not true)
+            {
+                return;
+            }
+
+            InlineTextEditorBox.Focus(FocusState.Programmatic);
+            InlineTextEditorBox.SelectAll();
+        });
+    }
+
+    private void OnSignaturePadPointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement layer ||
+            sender is not UIElement element)
+        {
+            return;
+        }
+
+        var point = e.GetCurrentPoint(layer).Position;
+        _isCapturingSignaturePad = true;
+        _viewModel.BeginSignatureCapture(point.X, point.Y, layer.ActualWidth, layer.ActualHeight);
+        element.CapturePointer(e.Pointer);
+        e.Handled = true;
+    }
+
+    private void OnSignaturePadPointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_isCapturingSignaturePad ||
+            sender is not FrameworkElement layer)
+        {
+            return;
+        }
+
+        var point = e.GetCurrentPoint(layer).Position;
+        _viewModel.UpdateSignatureCapture(point.X, point.Y, layer.ActualWidth, layer.ActualHeight);
+        e.Handled = true;
+    }
+
+    private void OnSignaturePadPointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_isCapturingSignaturePad)
+        {
+            return;
+        }
+
+        if (sender is UIElement element)
+        {
+            element.ReleasePointerCapture(e.Pointer);
+        }
+
+        _viewModel.CompleteSignatureCapture();
+        _isCapturingSignaturePad = false;
+        e.Handled = true;
+    }
+
+    private void OnSignaturePadPointerCanceled(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_isCapturingSignaturePad)
+        {
+            return;
+        }
+
+        if (sender is UIElement element)
+        {
+            element.ReleasePointerCapture(e.Pointer);
+        }
+
+        _viewModel.CompleteSignatureCapture();
+        _isCapturingSignaturePad = false;
+        e.Handled = true;
     }
 
     private void OnDocumentLayerPointerPressed(object sender, PointerRoutedEventArgs e)
@@ -547,7 +1238,38 @@ public sealed partial class MainWindow : Window
         }
 
         var point = e.GetCurrentPoint(layer).Position;
+        if (IsPointerFromTextInput(e.OriginalSource))
+        {
+            return;
+        }
+
         if (_viewModel.ActiveDocumentTab?.SelectedAnnotationTool is AnnotationTool.Select)
+        {
+            if (_viewModel.BeginAnnotationMove(point.X, point.Y, layer.ActualWidth, layer.ActualHeight))
+            {
+                _isMovingAnnotation = true;
+                element.CapturePointer(e.Pointer);
+                e.Handled = true;
+                return;
+            }
+
+            _viewModel.ClearDocumentTextSelection();
+            _isTextSelectionInteractionActive = _viewModel.BeginDocumentTextSelection(
+                point.X,
+                point.Y,
+                layer.ActualWidth,
+                layer.ActualHeight);
+
+            if (_isTextSelectionInteractionActive)
+            {
+                element.CapturePointer(e.Pointer);
+                e.Handled = true;
+            }
+
+            return;
+        }
+
+        if (_viewModel.ActiveDocumentTab?.SelectedAnnotationTool is AnnotationTool.Highlight)
         {
             _viewModel.ClearDocumentTextSelection();
             _isTextSelectionInteractionActive = _viewModel.BeginDocumentTextSelection(
@@ -586,6 +1308,13 @@ public sealed partial class MainWindow : Window
         }
 
         var point = e.GetCurrentPoint(layer).Position;
+        if (_isMovingAnnotation)
+        {
+            _viewModel.UpdateAnnotationMove(point.X, point.Y, layer.ActualWidth, layer.ActualHeight);
+            e.Handled = true;
+            return;
+        }
+
         if (_isTextSelectionInteractionActive)
         {
             _viewModel.UpdateDocumentTextSelection(point.X, point.Y, layer.ActualWidth, layer.ActualHeight);
@@ -604,7 +1333,7 @@ public sealed partial class MainWindow : Window
 
     private void OnDocumentLayerPointerReleased(object sender, PointerRoutedEventArgs e)
     {
-        if ((!_isAnnotationInteractionActive && !_isTextSelectionInteractionActive) ||
+        if ((!_isAnnotationInteractionActive && !_isTextSelectionInteractionActive && !_isMovingAnnotation) ||
             sender is not FrameworkElement layer ||
             sender is not UIElement element)
         {
@@ -612,25 +1341,48 @@ public sealed partial class MainWindow : Window
         }
 
         var point = e.GetCurrentPoint(layer).Position;
+        if (_isMovingAnnotation)
+        {
+            _viewModel.CompleteAnnotationMove(point.X, point.Y, layer.ActualWidth, layer.ActualHeight);
+            element.ReleasePointerCapture(e.Pointer);
+            _isMovingAnnotation = false;
+            e.Handled = true;
+            return;
+        }
+
         if (_isTextSelectionInteractionActive)
         {
             _viewModel.UpdateDocumentTextSelection(point.X, point.Y, layer.ActualWidth, layer.ActualHeight);
-            _viewModel.CompleteDocumentTextSelection();
+            if (_viewModel.ActiveDocumentTab?.SelectedAnnotationTool is AnnotationTool.Highlight)
+            {
+                _viewModel.CreateHighlightFromTextSelection();
+            }
+            else
+            {
+                _viewModel.CompleteDocumentTextSelection();
+            }
+
             element.ReleasePointerCapture(e.Pointer);
             _isTextSelectionInteractionActive = false;
             e.Handled = true;
             return;
         }
 
+        var annotationTool = _viewModel.ActiveDocumentTab?.SelectedAnnotationTool;
         _viewModel.CompleteAnnotationInteraction(point.X, point.Y, layer.ActualWidth, layer.ActualHeight);
         element.ReleasePointerCapture(e.Pointer);
         _isAnnotationInteractionActive = false;
+        if (annotationTool is AnnotationTool.Text)
+        {
+            FocusInlineTextEditor();
+        }
+
         e.Handled = true;
     }
 
     private void OnDocumentLayerPointerCanceled(object sender, PointerRoutedEventArgs e)
     {
-        if (!_isAnnotationInteractionActive && !_isTextSelectionInteractionActive)
+        if (!_isAnnotationInteractionActive && !_isTextSelectionInteractionActive && !_isMovingAnnotation)
         {
             return;
         }
@@ -645,9 +1397,11 @@ public sealed partial class MainWindow : Window
             _viewModel.CompleteDocumentTextSelection();
         }
 
+        _viewModel.CancelAnnotationMove();
         _viewModel.CancelAnnotationInteraction();
         _isAnnotationInteractionActive = false;
         _isTextSelectionInteractionActive = false;
+        _isMovingAnnotation = false;
         e.Handled = true;
     }
 }

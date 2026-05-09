@@ -4,22 +4,35 @@ using WinRT.Interop;
 
 namespace Velune.Windows.Services;
 
+/// <summary>
+/// Tracks the currently active WinUI window and provides its handle and dispatcher queue.
+/// </summary>
 public sealed class WindowsWindowContext
 {
     private Window? _lastKnownWindow;
 
+    /// <summary>
+    /// Gets or sets the main window reference (alias for <see cref="ActiveWindow"/>).
+    /// </summary>
     public Window? MainWindow
     {
         get => ActiveWindow;
         set => ActiveWindow = value;
     }
 
+    /// <summary>
+    /// Gets the currently active window.
+    /// </summary>
     public Window? ActiveWindow
     {
         get;
         private set;
     }
 
+    /// <summary>
+    /// Sets the specified window as the currently active window.
+    /// </summary>
+    /// <param name="window">The window to mark as active.</param>
     public void SetActiveWindow(Window window)
     {
         ArgumentNullException.ThrowIfNull(window);
@@ -27,6 +40,10 @@ public sealed class WindowsWindowContext
         _lastKnownWindow = window;
     }
 
+    /// <summary>
+    /// Clears the active window reference if it matches the specified window.
+    /// </summary>
+    /// <param name="window">The window being deactivated or closed.</param>
     public void ClearActiveWindow(Window window)
     {
         ArgumentNullException.ThrowIfNull(window);
@@ -36,11 +53,19 @@ public sealed class WindowsWindowContext
         }
     }
 
+    /// <summary>
+    /// Gets the dispatcher queue from the active or last known window.
+    /// </summary>
+    /// <returns>The dispatcher queue, or null if no window is available.</returns>
     public DispatcherQueue? GetDispatcherQueue()
     {
         return (ActiveWindow ?? _lastKnownWindow)?.DispatcherQueue;
     }
 
+    /// <summary>
+    /// Gets the native window handle (HWND) for the active window.
+    /// </summary>
+    /// <returns>The native window handle.</returns>
     public nint GetWindowHandle()
     {
         var window = ActiveWindow ?? _lastKnownWindow;

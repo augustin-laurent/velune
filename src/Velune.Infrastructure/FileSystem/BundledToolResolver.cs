@@ -2,10 +2,20 @@ using System.Diagnostics;
 
 namespace Velune.Infrastructure.FileSystem;
 
+/// <summary>
+/// Locates bundled external tool executables relative to the application directory.
+/// </summary>
 internal static class BundledToolResolver
 {
     private const string ToolsDirectoryName = "tools";
 
+    /// <summary>
+    /// Resolves the path to a bundled tool executable.
+    /// </summary>
+    /// <param name="configuredExecutablePath">User-configured path override, or null.</param>
+    /// <param name="defaultExecutableName">Default executable file name.</param>
+    /// <param name="toolDirectoryName">Subdirectory name within the tools folder.</param>
+    /// <returns>A resolved <see cref="BundledTool"/> with executable and library paths.</returns>
     internal static BundledTool Resolve(
         string? configuredExecutablePath,
         string defaultExecutableName,
@@ -28,6 +38,11 @@ internal static class BundledToolResolver
         return Create(defaultExecutableName, toolDirectoryName);
     }
 
+    /// <summary>
+    /// Resolves the Tesseract tessdata directory path.
+    /// </summary>
+    /// <param name="configuredDataPath">User-configured data path override, or null.</param>
+    /// <returns>The resolved tessdata path, or null if not found.</returns>
     internal static string? ResolveTesseractDataPath(string? configuredDataPath)
     {
         if (!string.IsNullOrWhiteSpace(configuredDataPath))
@@ -52,13 +67,19 @@ internal static class BundledToolResolver
         return null;
     }
 
+    /// <summary>
+    /// Creates a <see cref="ProcessStartInfo"/> configured with native library paths for the given tool.
+    /// </summary>
+    /// <param name="tool">The bundled tool to launch.</param>
+    /// <returns>A ready-to-use <see cref="ProcessStartInfo"/>.</returns>
     internal static ProcessStartInfo CreateStartInfo(BundledTool tool)
     {
         var startInfo = new ProcessStartInfo(tool.ExecutablePath)
         {
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            UseShellExecute = false
+            UseShellExecute = false,
+            CreateNoWindow = true
         };
 
         ApplyNativeLibrarySearchPath(startInfo, tool.NativeLibraryDirectories);
@@ -194,6 +215,11 @@ internal static class BundledToolResolver
     }
 }
 
+/// <summary>
+/// Represents a resolved external tool with its executable path and native library directories.
+/// </summary>
+/// <param name="ExecutablePath">Full path to the executable.</param>
+/// <param name="NativeLibraryDirectories">Directories containing required native libraries.</param>
 internal sealed record BundledTool(
     string ExecutablePath,
     IReadOnlyList<string> NativeLibraryDirectories);

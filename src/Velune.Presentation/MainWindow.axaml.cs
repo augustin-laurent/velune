@@ -13,6 +13,9 @@ using Velune.Presentation.ViewModels;
 
 namespace Velune.Presentation.Views;
 
+/// <summary>
+/// The application's main window handling input events, drag-drop, and localization binding.
+/// </summary>
 public partial class MainWindow : Window
 {
     private const double ThumbnailDragThreshold = 6;
@@ -45,6 +48,9 @@ public partial class MainWindow : Window
     private bool _allowWindowsClose;
     private PageThumbnailItemViewModel? _thumbnailContextTarget;
 
+    /// <summary>
+    /// Initializes the main window with default configuration.
+    /// </summary>
     public MainWindow()
     {
         InitializeComponent();
@@ -68,6 +74,10 @@ public partial class MainWindow : Window
         SystemDecorations = SystemDecorations.None;
     }
 
+    /// <summary>
+    /// Initializes the main window with the injected view model.
+    /// </summary>
+    /// <param name="viewModel">The main window view model.</param>
     [ActivatorUtilitiesConstructor]
     public MainWindow(MainWindowViewModel viewModel)
         : this()

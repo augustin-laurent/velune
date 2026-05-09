@@ -6,8 +6,12 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Infrastructure.Image;
 
+/// <summary>
+/// Renders image documents by decoding, scaling, and rotating via SkiaSharp.
+/// </summary>
 public sealed class ImageRenderService : IRenderService
 {
+    /// <inheritdoc />
     public Task<RenderedPage> RenderPageAsync(
         IDocumentSession session,
         PageIndex pageIndex,

@@ -5,22 +5,36 @@ using Avalonia.Markup.Xaml;
 
 namespace Velune.Presentation.Localization;
 
+/// <summary>
+/// XAML markup extension that provides reactive localized string bindings.
+/// </summary>
 public sealed class LocExtension : MarkupExtension
 {
+    /// <summary>
+    /// Initializes a new instance with no key.
+    /// </summary>
     public LocExtension()
     {
     }
 
+    /// <summary>
+    /// Initializes a new instance with the specified translation key.
+    /// </summary>
+    /// <param name="key">The translation key.</param>
     public LocExtension(string key)
     {
         Key = key;
     }
 
+    /// <summary>
+    /// Gets or sets the translation key to resolve.
+    /// </summary>
     public string Key
     {
         get; set;
     } = string.Empty;
 
+    /// <inheritdoc />
     public override object ProvideValue(IServiceProvider serviceProvider)
     {
         if (LocalizationServiceLocator.Current is null || string.IsNullOrWhiteSpace(Key))

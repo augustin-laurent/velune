@@ -66,12 +66,18 @@ public partial class MainWindowViewModel
     [ObservableProperty]
     private Bitmap? _signaturePadPreviewBitmap;
 
+    /// <summary>
+    /// Gets the annotations visible on the current page.
+    /// </summary>
     public ObservableCollection<AnnotationListItemViewModel> CurrentPageAnnotations
     {
         get;
         private set;
     } = [];
 
+    /// <summary>
+    /// Gets the available signature assets.
+    /// </summary>
     public ObservableCollection<SignatureAsset> SignatureAssets
     {
         get;
@@ -602,6 +608,14 @@ public partial class MainWindowViewModel
         RefreshAnnotationWorkspaceState();
     }
 
+    /// <summary>
+    /// Begins an annotation interaction at the given visual coordinates.
+    /// </summary>
+    /// <param name="x">The X coordinate on the interaction layer.</param>
+    /// <param name="y">The Y coordinate on the interaction layer.</param>
+    /// <param name="layerWidth">The interaction layer width.</param>
+    /// <param name="layerHeight">The interaction layer height.</param>
+    /// <returns>True if a drawing capture was started.</returns>
     public bool BeginAnnotationInteraction(double x, double y, double layerWidth, double layerHeight)
     {
         if (!IsAnnotationModeActive)
@@ -647,6 +661,13 @@ public partial class MainWindowViewModel
         return true;
     }
 
+    /// <summary>
+    /// Updates the in-progress annotation interaction as the pointer moves.
+    /// </summary>
+    /// <param name="x">The current X coordinate.</param>
+    /// <param name="y">The current Y coordinate.</param>
+    /// <param name="layerWidth">The interaction layer width.</param>
+    /// <param name="layerHeight">The interaction layer height.</param>
     public void UpdateAnnotationInteraction(double x, double y, double layerWidth, double layerHeight)
     {
         if (!_isCapturingAnnotation || _annotationAnchorPoint is null)
@@ -670,6 +691,13 @@ public partial class MainWindowViewModel
         RefreshAnnotationOverlay();
     }
 
+    /// <summary>
+    /// Completes the annotation interaction and commits the annotation.
+    /// </summary>
+    /// <param name="x">The final X coordinate.</param>
+    /// <param name="y">The final Y coordinate.</param>
+    /// <param name="layerWidth">The interaction layer width.</param>
+    /// <param name="layerHeight">The interaction layer height.</param>
     public void CompleteAnnotationInteraction(double x, double y, double layerWidth, double layerHeight)
     {
         if (!_isCapturingAnnotation || _annotationAnchorPoint is null)
@@ -701,6 +729,9 @@ public partial class MainWindowViewModel
         RefreshAnnotationWorkspaceState();
     }
 
+    /// <summary>
+    /// Cancels the current annotation interaction without committing.
+    /// </summary>
     public void CancelAnnotationInteraction()
     {
         _annotationPreview = null;
@@ -710,12 +741,26 @@ public partial class MainWindowViewModel
         RefreshAnnotationOverlay();
     }
 
+    /// <summary>
+    /// Begins capturing a signature drawing from the signature pad.
+    /// </summary>
+    /// <param name="x">The starting X coordinate.</param>
+    /// <param name="y">The starting Y coordinate.</param>
+    /// <param name="layerWidth">The pad layer width.</param>
+    /// <param name="layerHeight">The pad layer height.</param>
     public void BeginSignatureCapture(double x, double y, double layerWidth, double layerHeight)
     {
         _signatureCapturePoints.Clear();
         UpdateSignatureCapture(x, y, layerWidth, layerHeight);
     }
 
+    /// <summary>
+    /// Adds a point to the active signature capture.
+    /// </summary>
+    /// <param name="x">The current X coordinate.</param>
+    /// <param name="y">The current Y coordinate.</param>
+    /// <param name="layerWidth">The pad layer width.</param>
+    /// <param name="layerHeight">The pad layer height.</param>
     public void UpdateSignatureCapture(double x, double y, double layerWidth, double layerHeight)
     {
         var normalizedPoint = DocumentAnnotationCoordinateMapper.MapVisualPointToNormalized(
@@ -728,6 +773,9 @@ public partial class MainWindowViewModel
         RefreshSignaturePadPreview();
     }
 
+    /// <summary>
+    /// Completes the signature capture and refreshes the preview.
+    /// </summary>
     public void CompleteSignatureCapture()
     {
         RefreshSignaturePadPreview();

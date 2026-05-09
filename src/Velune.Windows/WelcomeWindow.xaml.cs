@@ -2,6 +2,8 @@ using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Shapes;
 using Velune.Application.DTOs;
 using Velune.Windows.Services;
 using Velune.Windows.ViewModels;
@@ -12,6 +14,9 @@ using WinRT.Interop;
 
 namespace Velune.Windows;
 
+/// <summary>
+/// Landing window displayed on startup that shows recent files and a drop zone for opening documents.
+/// </summary>
 public sealed partial class WelcomeWindow : Window
 {
     private readonly WindowsMainViewModel _viewModel;
@@ -19,6 +24,13 @@ public sealed partial class WelcomeWindow : Window
     private readonly WindowsWindowCoordinator _windowCoordinator;
     private readonly IWindowsFileDialogService _fileDialogService;
 
+    /// <summary>
+    /// Initializes the welcome window with its dependencies.
+    /// </summary>
+    /// <param name="viewModel">The shared main view model.</param>
+    /// <param name="windowContext">Provides the active window handle.</param>
+    /// <param name="windowCoordinator">Coordinates transitions to the workspace window.</param>
+    /// <param name="fileDialogService">Provides native file picker dialogs.</param>
     public WelcomeWindow(
         WindowsMainViewModel viewModel,
         WindowsWindowContext windowContext,
@@ -42,6 +54,8 @@ public sealed partial class WelcomeWindow : Window
         Title = viewModel.Labels.AppName;
 
         ConfigureWindow();
+        ApplyTheme();
+        _viewModel.PropertyChanged += OnViewModelPropertyChanged;
         Activated += OnActivated;
         Closed += OnClosed;
     }
@@ -55,11 +69,7 @@ public sealed partial class WelcomeWindow : Window
         appWindow.Resize(new SizeInt32(1712, 963));
         appWindow.Move(new PointInt32(0, 0));
         appWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
-        appWindow.TitleBar.ButtonBackgroundColor = Colors.Transparent;
-        appWindow.TitleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
-        appWindow.TitleBar.ButtonForegroundColor = Colors.Black;
-        appWindow.TitleBar.ButtonHoverBackgroundColor = global::Windows.UI.Color.FromArgb(255, 235, 239, 246);
-        appWindow.TitleBar.ButtonPressedBackgroundColor = global::Windows.UI.Color.FromArgb(255, 222, 227, 235);
+        appWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "Brand", "Velune.ico"));
     }
 
     private void OnActivated(object sender, WindowActivatedEventArgs e)
@@ -72,10 +82,76 @@ public sealed partial class WelcomeWindow : Window
 
     private void OnClosed(object sender, WindowEventArgs args)
     {
+        _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
         Activated -= OnActivated;
         Closed -= OnClosed;
         _windowContext.ClearActiveWindow(this);
         _windowCoordinator.NotifyWelcomeClosed(this);
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (string.Equals(e.PropertyName, nameof(WindowsMainViewModel.SelectedPreferenceTheme), StringComparison.Ordinal))
+        {
+            DispatcherQueue.TryEnqueue(ApplyTheme);
+        }
+    }
+
+    private void ApplyTheme()
+    {
+        var isLight = IsLightTheme();
+        Root.RequestedTheme = isLight ? ElementTheme.Light : ElementTheme.Dark;
+
+        try
+        {
+            var appWindow = ResolveAppWindow();
+            appWindow.TitleBar.ButtonBackgroundColor = Colors.Transparent;
+            appWindow.TitleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
+            appWindow.TitleBar.ButtonForegroundColor = isLight
+                ? global::Windows.UI.Color.FromArgb(255, 17, 24, 39)
+                : global::Windows.UI.Color.FromArgb(255, 255, 255, 255);
+            appWindow.TitleBar.ButtonHoverBackgroundColor = isLight
+                ? global::Windows.UI.Color.FromArgb(20, 0, 0, 0)
+                : global::Windows.UI.Color.FromArgb(36, 255, 255, 255);
+            appWindow.TitleBar.ButtonPressedBackgroundColor = isLight
+                ? global::Windows.UI.Color.FromArgb(31, 0, 0, 0)
+                : global::Windows.UI.Color.FromArgb(24, 255, 255, 255);
+        }
+        catch
+        {
+        }
+    }
+
+    private bool IsLightTheme()
+    {
+        return string.Equals(
+                _viewModel.SelectedPreferenceTheme,
+                _viewModel.Labels.PreferencesLight,
+                StringComparison.Ordinal)
+            || (string.Equals(
+                    _viewModel.SelectedPreferenceTheme,
+                    _viewModel.Labels.PreferencesSystem,
+                    StringComparison.Ordinal)
+                && IsSystemLightTheme());
+    }
+
+    private static bool IsSystemLightTheme()
+    {
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
+                @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+
+            if (key?.GetValue("AppsUseLightTheme") is int intValue)
+            {
+                return intValue == 1;
+            }
+        }
+        catch
+        {
+        }
+
+        return false;
     }
 
     private void OnHomeDropZoneDragOver(object sender, DragEventArgs e)
@@ -133,6 +209,35 @@ public sealed partial class WelcomeWindow : Window
         await OpenPickedDocumentThroughDropPipelineAsync();
     }
 
+    private void OnRecentFilePointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is Grid grid && FindAccentBar(grid) is { } bar)
+        {
+            bar.Opacity = 1;
+        }
+    }
+
+    private void OnRecentFilePointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is Grid grid && FindAccentBar(grid) is { } bar)
+        {
+            bar.Opacity = 0;
+        }
+    }
+
+    private static Rectangle? FindAccentBar(Grid grid)
+    {
+        foreach (var child in grid.Children)
+        {
+            if (child is Rectangle { Name: "AccentBar" } rect)
+            {
+                return rect;
+            }
+        }
+
+        return null;
+    }
+
     private async void OnRecentFileItemClick(object sender, ItemClickEventArgs e)
     {
         if (e.ClickedItem is not RecentFileItem item ||
@@ -160,6 +265,41 @@ public sealed partial class WelcomeWindow : Window
         {
             DispatcherQueue.TryEnqueue(() => _viewModel.StatusText = exception.Message);
         }
+    }
+
+    private void OnSettingsClicked(object sender, RoutedEventArgs e)
+    {
+    }
+
+    private void OnLanguageClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuFlyoutItem { Tag: string tag })
+        {
+            return;
+        }
+
+        _viewModel.SelectedPreferenceLanguage = tag switch
+        {
+            "en" => _viewModel.Labels.PreferencesEnglish,
+            "fr" => _viewModel.Labels.PreferencesFrench,
+            "es" => _viewModel.Labels.PreferencesSpanish,
+            _ => _viewModel.Labels.PreferencesSystem
+        };
+    }
+
+    private void OnThemeClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuFlyoutItem { Tag: string tag })
+        {
+            return;
+        }
+
+        _viewModel.SelectedPreferenceTheme = tag switch
+        {
+            "Light" => _viewModel.Labels.PreferencesLight,
+            "Dark" => _viewModel.Labels.PreferencesDark,
+            _ => _viewModel.Labels.PreferencesSystem
+        };
     }
 
     private async Task OpenPathsThroughDropPipelineAsync(IReadOnlyList<string> paths)

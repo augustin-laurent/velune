@@ -106,6 +106,34 @@ public sealed class PdfDocumentStructureIntegrationTests
     }
 
     [RequiresQpdfFact]
+    public async Task MergePdfDocuments_ShouldInsertImageAndPdfBetweenSplitCurrentPages()
+    {
+        await using var workspace = await PdfStructureTestWorkspace.CreateAsync();
+        var extractUseCase = workspace.CreateExtractUseCase();
+        var mergeUseCase = workspace.CreateMergeUseCase();
+
+        var beforePath = workspace.GetOutputPath("before.pdf");
+        var afterPath = workspace.GetOutputPath("after.pdf");
+        var outputPath = workspace.GetOutputPath("inserted.pdf");
+
+        var beforeResult = await extractUseCase.ExecuteAsync(
+            new ExtractPdfPagesRequest(workspace.SourcePdfPath, beforePath, [1]));
+        var afterResult = await extractUseCase.ExecuteAsync(
+            new ExtractPdfPagesRequest(workspace.SourcePdfPath, afterPath, [2, 3]));
+        var mergeResult = await mergeUseCase.ExecuteAsync(
+            new MergePdfDocumentsRequest([beforePath, workspace.ImagePath, workspace.SecondaryPdfPath, afterPath], outputPath));
+
+        Assert.True(beforeResult.IsSuccess, beforeResult.Error?.Message);
+        Assert.True(afterResult.IsSuccess, afterResult.Error?.Message);
+        Assert.True(mergeResult.IsSuccess, mergeResult.Error?.Message);
+
+        var documentInfo = PdfInspection.Load(outputPath);
+        Assert.Equal(
+            [(100, 200), (32, 48), (60, 60), (140, 80), (200, 100), (90, 90)],
+            documentInfo.Pages.Select(page => (page.Width, page.Height)).ToArray());
+    }
+
+    [RequiresQpdfFact]
     public async Task ReorderPdfPages_ShouldPersistRequestedOrder()
     {
         await using var workspace = await PdfStructureTestWorkspace.CreateAsync();

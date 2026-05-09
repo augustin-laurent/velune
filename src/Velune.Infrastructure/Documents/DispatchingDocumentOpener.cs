@@ -5,11 +5,19 @@ using Velune.Infrastructure.Pdf;
 
 namespace Velune.Infrastructure.Documents;
 
+/// <summary>
+/// Routes document open requests to the appropriate format-specific opener.
+/// </summary>
 public sealed class DispatchingDocumentOpener : IDocumentOpener
 {
     private readonly PdfiumDocumentOpener _pdfiumDocumentOpener;
     private readonly SkiaImageDocumentOpener _imageDocumentOpener;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DispatchingDocumentOpener"/> class.
+    /// </summary>
+    /// <param name="pdfiumDocumentOpener">Opener for PDF documents.</param>
+    /// <param name="imageDocumentOpener">Opener for image documents.</param>
     public DispatchingDocumentOpener(
         PdfiumDocumentOpener pdfiumDocumentOpener,
         SkiaImageDocumentOpener imageDocumentOpener)
@@ -21,6 +29,7 @@ public sealed class DispatchingDocumentOpener : IDocumentOpener
         _imageDocumentOpener = imageDocumentOpener;
     }
 
+    /// <inheritdoc />
     public Task<IDocumentSession> OpenAsync(
         string filePath,
         CancellationToken cancellationToken = default)

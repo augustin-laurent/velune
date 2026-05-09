@@ -5,8 +5,10 @@ using Velune.Domain.Documents;
 
 namespace Velune.Application.Rendering;
 
+/// <summary>A no-op thumbnail disk cache that never caches or returns entries.</summary>
 public sealed class NullThumbnailDiskCache : IThumbnailDiskCache
 {
+    /// <inheritdoc />
     public bool TryGet(
         IDocumentSession session,
         RenderRequest request,
@@ -19,6 +21,7 @@ public sealed class NullThumbnailDiskCache : IThumbnailDiskCache
         return false;
     }
 
+    /// <inheritdoc />
     public void Store(
         IDocumentSession session,
         RenderRequest request,

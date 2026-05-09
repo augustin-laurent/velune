@@ -2,8 +2,16 @@ using Avalonia.Controls;
 
 namespace Velune.Presentation.Localization;
 
+/// <summary>
+/// Applies localized headers to native menu items based on translation keys.
+/// </summary>
 public static class NativeMenuLocalizer
 {
+    /// <summary>
+    /// Localizes the macOS application menu items.
+    /// </summary>
+    /// <param name="menu">The native menu to localize.</param>
+    /// <param name="localizationService">The localization service.</param>
     public static void LocalizeAppMenu(NativeMenu menu, ILocalizationService localizationService)
     {
         ArgumentNullException.ThrowIfNull(menu);
@@ -13,6 +21,11 @@ public static class NativeMenuLocalizer
         SetHeader(menu, localizationService, "app.menu.preferences", 1);
     }
 
+    /// <summary>
+    /// Localizes the main window native menu bar items.
+    /// </summary>
+    /// <param name="menu">The native menu to localize.</param>
+    /// <param name="localizationService">The localization service.</param>
     public static void LocalizeMainWindowMenu(NativeMenu menu, ILocalizationService localizationService)
     {
         ArgumentNullException.ThrowIfNull(menu);

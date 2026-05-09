@@ -12,6 +12,9 @@ using Velune.Infrastructure.Pdf;
 
 namespace Velune.Infrastructure.Text;
 
+/// <summary>
+/// Extracts text from documents using embedded PDF text or OCR via Tesseract.
+/// </summary>
 public sealed class DocumentTextService : IDocumentTextService
 {
     private const string EmbeddedPdfFingerprint = "pdfium-text-v2";
@@ -21,6 +24,13 @@ public sealed class DocumentTextService : IDocumentTextService
     private readonly IOcrEngine _ocrEngine;
     private readonly IRenderService _renderService;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DocumentTextService"/> class.
+    /// </summary>
+    /// <param name="cache">Cache for previously extracted text indexes.</param>
+    /// <param name="ocrEngine">OCR engine for recognizing text in rendered pages.</param>
+    /// <param name="renderService">Render service for producing page images for OCR.</param>
+    /// <param name="options">Application options containing OCR language configuration.</param>
     public DocumentTextService(
         IDocumentTextCache cache,
         IOcrEngine ocrEngine,
@@ -41,6 +51,7 @@ public sealed class DocumentTextService : IDocumentTextService
             .ToArray();
     }
 
+    /// <inheritdoc />
     public async Task<Result<DocumentTextLoadResult>> LoadAsync(
         IDocumentSession session,
         IReadOnlyList<string>? preferredLanguages,
@@ -80,6 +91,7 @@ public sealed class DocumentTextService : IDocumentTextService
             new DocumentTextLoadResult(Index: null, RequiresOcr: true, UsedCache: false));
     }
 
+    /// <inheritdoc />
     public async Task<Result<DocumentTextIndex>> RunOcrAsync(
         IDocumentSession session,
         IReadOnlyList<string>? preferredLanguages,

@@ -30,11 +30,17 @@ public partial class MainWindowViewModel
     private WindowsRibbonSection _selectedWindowsRibbonSection = WindowsRibbonSection.Home;
     private bool _isRestoringDocumentTab;
 
+    /// <summary>
+    /// Gets the collection of open document tabs.
+    /// </summary>
     public ObservableCollection<DocumentTabViewModel> DocumentTabs
     {
         get;
     } = [];
 
+    /// <summary>
+    /// Gets the currently active document tab.
+    /// </summary>
     public DocumentTabViewModel? ActiveDocumentTab
     {
         get => _activeDocumentTab;
@@ -74,16 +80,25 @@ public partial class MainWindowViewModel
         HasOpenDocument &&
         (_selectedWindowsRibbonSection is WindowsRibbonSection.Home or WindowsRibbonSection.Annotate);
 
+    /// <summary>
+    /// Command to select a Windows ribbon section by name.
+    /// </summary>
     public IRelayCommand<string?> SelectWindowsRibbonSectionCommand
     {
         get;
     }
 
+    /// <summary>
+    /// Command to activate (switch to) a document tab.
+    /// </summary>
     public IAsyncRelayCommand<DocumentTabViewModel?> ActivateDocumentTabCommand
     {
         get;
     }
 
+    /// <summary>
+    /// Command to close a document tab.
+    /// </summary>
     public IAsyncRelayCommand<DocumentTabViewModel?> CloseDocumentTabCommand
     {
         get;
@@ -138,6 +153,10 @@ public partial class MainWindowViewModel
         await CloseDocumentTabCoreAsync(tab, discardDirty: true);
     }
 
+    /// <summary>
+    /// Attempts to close all open document tabs, prompting to save dirty ones.
+    /// </summary>
+    /// <returns>True if all tabs were closed, false if the user cancelled.</returns>
     public async Task<bool> TryCloseAllDocumentTabsAsync()
     {
         if (!IsWindowsShellVisible)

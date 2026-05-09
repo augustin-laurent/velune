@@ -68,24 +68,15 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install qpdf tesseract tesseract-lang
 
-      - name: Install native tools (Windows)
+      - name: Install Inno Setup (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: |
-          choco install qpdf tesseract --yes --no-progress
-          choco install innosetup --yes --no-progress
-          Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
-          refreshenv
-          $tessdata = Join-Path $env:ProgramFiles "Tesseract-OCR\tessdata"
-          New-Item -ItemType Directory -Path $tessdata -Force | Out-Null
-          foreach ($language in @("eng", "fra", "osd")) {
-            $target = Join-Path $tessdata "$language.traineddata"
-            if (-not (Test-Path -LiteralPath $target)) {
-              Invoke-WebRequest `
-                -Uri "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/$language.traineddata" `
-                -OutFile $target
-            }
-          }
+        run: choco install innosetup --yes --no-progress
+
+      - name: Download bundled native tools (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./eng/Download-WindowsNativeTools.ps1
 
       - name: Resolve dev build version
         id: version
@@ -102,8 +93,12 @@ jobs:
       - name: Collect bundled native tools
         shell: pwsh
         run: |
-          $nativeToolsInfo = ./eng/Collect-DevNativeTools.ps1 -RuntimeIdentifier "${{ matrix.rid }}" | ConvertFrom-Json
-          "Bundled native tools: $($nativeToolsInfo.ToolsRoot)"
+          if ("${{ matrix.rid }}" -ne "win-x64") {
+            $nativeToolsInfo = ./eng/Collect-DevNativeTools.ps1 -RuntimeIdentifier "${{ matrix.rid }}" | ConvertFrom-Json
+            "Bundled native tools: $($nativeToolsInfo.ToolsRoot)"
+          } else {
+            "Windows native tools already downloaded via Download-WindowsNativeTools.ps1"
+          }
 
       - name: Build package
         id: package

@@ -9,10 +9,15 @@ using Velune.Application.Results;
 
 namespace Velune.Infrastructure.FileSystem;
 
+/// <summary>
+/// Implements printing via the operating system's native print dialogs and CUPS commands.
+/// </summary>
 public sealed partial class SystemPrintService : IPrintService
 {
+    /// <inheritdoc />
     public bool SupportsSystemPrintDialog => OperatingSystem.IsMacOS() || OperatingSystem.IsWindows();
 
+    /// <inheritdoc />
     public async Task<Result> ShowSystemPrintDialogAsync(
         string filePath,
         CancellationToken cancellationToken = default)
@@ -111,6 +116,7 @@ public sealed partial class SystemPrintService : IPrintService
         }
     }
 
+    /// <inheritdoc />
     public async Task<Result<IReadOnlyList<PrintDestinationInfo>>> GetAvailablePrintersAsync(
         CancellationToken cancellationToken = default)
     {
@@ -147,6 +153,7 @@ public sealed partial class SystemPrintService : IPrintService
         return ResultFactory.Success<IReadOnlyList<PrintDestinationInfo>>(printers);
     }
 
+    /// <inheritdoc />
     public async Task<Result> PrintAsync(
         PrintDocumentRequest request,
         CancellationToken cancellationToken = default)

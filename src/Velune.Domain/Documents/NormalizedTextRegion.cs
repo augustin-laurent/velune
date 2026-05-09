@@ -1,7 +1,17 @@
 namespace Velune.Domain.Documents;
 
+/// <summary>
+/// A rectangular region with coordinates and dimensions normalized to [0,1] relative to page size.
+/// </summary>
 public sealed record NormalizedTextRegion
 {
+    /// <summary>
+    /// Creates a normalized region with all values in [0,1] range.
+    /// </summary>
+    /// <param name="x">Left edge (0 = left of page, 1 = right).</param>
+    /// <param name="y">Top edge (0 = top of page, 1 = bottom).</param>
+    /// <param name="width">Region width as a fraction of page width.</param>
+    /// <param name="height">Region height as a fraction of page height.</param>
     public NormalizedTextRegion(double x, double y, double width, double height)
     {
         if (x < 0 || x > 1)

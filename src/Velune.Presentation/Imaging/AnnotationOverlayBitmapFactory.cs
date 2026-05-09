@@ -9,8 +9,16 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Presentation.Imaging;
 
+/// <summary>
+/// Factory that renders document annotations into a transparent overlay bitmap using SkiaSharp.
+/// </summary>
 public static class AnnotationOverlayBitmapFactory
 {
+    /// <summary>
+    /// Determines whether the exception indicates a missing native rendering dependency.
+    /// </summary>
+    /// <param name="exception">The exception to inspect.</param>
+    /// <returns>True if the exception is caused by an unavailable native library.</returns>
     public static bool IsRenderingDependencyUnavailable(Exception exception)
     {
         ArgumentNullException.ThrowIfNull(exception);
@@ -20,6 +28,16 @@ public static class AnnotationOverlayBitmapFactory
                typeInitializationException.InnerException is DllNotFoundException or EntryPointNotFoundException;
     }
 
+    /// <summary>
+    /// Creates an overlay bitmap with all annotations rendered for a given page size and rotation.
+    /// </summary>
+    /// <param name="annotations">Annotations to render.</param>
+    /// <param name="width">Target bitmap width in pixels.</param>
+    /// <param name="height">Target bitmap height in pixels.</param>
+    /// <param name="rotation">Current page rotation.</param>
+    /// <param name="selectedAnnotationId">The currently selected annotation identifier, if any.</param>
+    /// <param name="signatureAssets">Available signature assets keyed by ID.</param>
+    /// <returns>A bitmap with the rendered annotations, or null if nothing to draw.</returns>
     public static WriteableBitmap? Create(
         IReadOnlyList<DocumentAnnotation> annotations,
         int width,
@@ -63,6 +81,13 @@ public static class AnnotationOverlayBitmapFactory
         return bitmap;
     }
 
+    /// <summary>
+    /// Creates a preview bitmap of the signature pad showing drawn strokes.
+    /// </summary>
+    /// <param name="points">Normalized ink points captured from the signature pad.</param>
+    /// <param name="width">Preview width in pixels.</param>
+    /// <param name="height">Preview height in pixels.</param>
+    /// <returns>A bitmap showing the signature preview.</returns>
     public static WriteableBitmap CreateSignaturePadPreview(
         IReadOnlyList<NormalizedPoint> points,
         int width,

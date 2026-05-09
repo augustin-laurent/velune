@@ -7,6 +7,9 @@ using Velune.Application.DTOs;
 
 namespace Velune.Infrastructure.State;
 
+/// <summary>
+/// Persists the recent files list as a JSON file on disk.
+/// </summary>
 public sealed partial class JsonRecentFilesService : IRecentFilesService
 {
     private static readonly JsonSerializerOptions SerializerOptions = new()
@@ -20,6 +23,11 @@ public sealed partial class JsonRecentFilesService : IRecentFilesService
     private readonly List<RecentFileItem> _items;
     private readonly object _syncRoot = new();
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="JsonRecentFilesService"/> class.
+    /// </summary>
+    /// <param name="logger">Logger for recording load/save failures.</param>
+    /// <param name="options">Application options containing recent files path and limit.</param>
     public JsonRecentFilesService(
         ILogger<JsonRecentFilesService> logger,
         IOptions<AppOptions> options)
@@ -33,6 +41,7 @@ public sealed partial class JsonRecentFilesService : IRecentFilesService
         _items = Load();
     }
 
+    /// <inheritdoc />
     public IReadOnlyList<RecentFileItem> GetAll()
     {
         lock (_syncRoot)
@@ -41,6 +50,7 @@ public sealed partial class JsonRecentFilesService : IRecentFilesService
         }
     }
 
+    /// <inheritdoc />
     public void Add(RecentFileItem item)
     {
         ArgumentNullException.ThrowIfNull(item);
@@ -61,6 +71,7 @@ public sealed partial class JsonRecentFilesService : IRecentFilesService
         }
     }
 
+    /// <inheritdoc />
     public void Clear()
     {
         lock (_syncRoot)

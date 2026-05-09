@@ -3,8 +3,19 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Application.Text;
 
+/// <summary>Converts visual layer coordinates to document source coordinates accounting for rotation.</summary>
 public static class DocumentTextSelectionCoordinateMapper
 {
+    /// <summary>Maps visual coordinates to document source coordinates.</summary>
+    /// <param name="visualX">The X coordinate in the visual layer.</param>
+    /// <param name="visualY">The Y coordinate in the visual layer.</param>
+    /// <param name="layerWidth">The width of the visual layer.</param>
+    /// <param name="layerHeight">The height of the visual layer.</param>
+    /// <param name="sourceWidth">The width of the document source.</param>
+    /// <param name="sourceHeight">The height of the document source.</param>
+    /// <param name="rotation">The current document rotation.</param>
+    /// <param name="point">The mapped document-space point when successful.</param>
+    /// <returns><c>true</c> if mapping succeeded; <c>false</c> if dimensions are invalid.</returns>
     public static bool TryMapVisualToDocument(
         double visualX,
         double visualY,

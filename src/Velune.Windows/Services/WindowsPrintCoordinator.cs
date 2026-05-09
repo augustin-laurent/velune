@@ -17,11 +17,23 @@ using WinRT.Interop;
 
 namespace Velune.Windows.Services;
 
+/// <summary>
+/// Coordinates the Windows print workflow for document tabs.
+/// </summary>
 public interface IWindowsPrintCoordinator
 {
+    /// <summary>
+    /// Initiates printing for the specified document tab.
+    /// </summary>
+    /// <param name="tab">The document tab to print.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A result indicating success or failure of the print operation.</returns>
     Task<Result> PrintAsync(WindowsDocumentTabViewModel tab, CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// Implements printing via the Windows Print Manager and PrintDocument APIs.
+/// </summary>
 public sealed class WindowsPrintCoordinator : IWindowsPrintCoordinator
 {
     private const double PrintRenderZoomFactor = 1.5;
@@ -43,6 +55,13 @@ public sealed class WindowsPrintCoordinator : IWindowsPrintCoordinator
     private string _currentPrintTitle = "Velune";
     private bool _isPrintSessionActive;
 
+    /// <summary>
+    /// Initializes the print coordinator with rendering and window dependencies.
+    /// </summary>
+    /// <param name="windowContext">Provides the active window handle for the print dialog.</param>
+    /// <param name="documentSessionStore">Provides access to active document sessions.</param>
+    /// <param name="renderOrchestrator">Renders pages at print resolution.</param>
+    /// <param name="textCatalog">Provides localized error messages.</param>
     public WindowsPrintCoordinator(
         WindowsWindowContext windowContext,
         IDocumentSessionStore documentSessionStore,
@@ -60,6 +79,7 @@ public sealed class WindowsPrintCoordinator : IWindowsPrintCoordinator
         _textCatalog = textCatalog;
     }
 
+    /// <inheritdoc />
     public async Task<Result> PrintAsync(WindowsDocumentTabViewModel tab, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(tab);
@@ -492,7 +512,10 @@ internal static class WindowsPrintJobSnapshotFactory
             string.IsNullOrWhiteSpace(tab.Title) ? fallbackTitle : tab.Title,
             tab.TotalPages,
             tab.Rotation,
-            tab.Annotations.Select(annotation => annotation.DeepCopy()).ToArray());
+            tab.Annotations
+                .Where(annotation => annotation.Kind is not DocumentAnnotationKind.Note)
+                .Select(annotation => annotation.DeepCopy())
+                .ToArray());
     }
 }
 

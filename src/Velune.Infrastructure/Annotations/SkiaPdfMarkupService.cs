@@ -8,12 +8,20 @@ using Velune.Infrastructure.Pdf;
 
 namespace Velune.Infrastructure.Annotations;
 
+/// <summary>
+/// Applies annotation overlays to PDF documents using SkiaSharp and PDFium.
+/// </summary>
 public sealed class SkiaPdfMarkupService : IPdfMarkupService
 {
     private const float OverlayRenderScale = 2.25f;
     private readonly PdfiumInitializer _pdfiumInitializer;
     private readonly ISignatureAssetStore _signatureAssetStore;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SkiaPdfMarkupService"/> class.
+    /// </summary>
+    /// <param name="pdfiumInitializer">Ensures PDFium is initialized before use.</param>
+    /// <param name="signatureAssetStore">Store for resolving signature image assets.</param>
     public SkiaPdfMarkupService(
         PdfiumInitializer pdfiumInitializer,
         ISignatureAssetStore signatureAssetStore)
@@ -25,6 +33,7 @@ public sealed class SkiaPdfMarkupService : IPdfMarkupService
         _signatureAssetStore = signatureAssetStore;
     }
 
+    /// <inheritdoc />
     public async Task<Result<string>> ApplyAnnotationsAsync(
         ApplyPdfAnnotationsRequest request,
         CancellationToken cancellationToken = default)

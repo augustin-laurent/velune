@@ -1,10 +1,20 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Xaml.Media;
+using Velune.Domain.ValueObjects;
 
 namespace Velune.Windows.ViewModels;
 
+/// <summary>
+/// View model for a page thumbnail in the sidebar thumbnail panel.
+/// </summary>
 public sealed partial class WindowsPageThumbnailViewModel : ObservableObject
 {
+    /// <summary>
+    /// Initializes a page thumbnail view model.
+    /// </summary>
+    /// <param name="pageNumber">The 1-based page number.</param>
+    /// <param name="label">The display label (e.g. "Page 1").</param>
+    /// <param name="loadingText">Text shown while the thumbnail renders.</param>
     public WindowsPageThumbnailViewModel(int pageNumber, string label, string loadingText)
     {
         PageNumber = pageNumber;
@@ -12,6 +22,9 @@ public sealed partial class WindowsPageThumbnailViewModel : ObservableObject
         LoadingText = loadingText;
     }
 
+    /// <summary>
+    /// Gets the 1-based page number this thumbnail represents.
+    /// </summary>
     public int PageNumber
     {
         get;
@@ -36,16 +49,29 @@ public sealed partial class WindowsPageThumbnailViewModel : ObservableObject
     }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RotationAngle))]
+    public partial Rotation Rotation
+    {
+        get; set;
+    }
+
+    [ObservableProperty]
     public partial string? ErrorText
     {
         get; set;
     }
 
+    /// <summary>
+    /// Gets the display label for this thumbnail.
+    /// </summary>
     public string Label
     {
         get;
     }
 
+    /// <summary>
+    /// Gets the loading placeholder text.
+    /// </summary>
     public string LoadingText
     {
         get;
@@ -55,12 +81,21 @@ public sealed partial class WindowsPageThumbnailViewModel : ObservableObject
 
     public string PlaceholderText => ErrorText ?? string.Empty;
 
+    public int RotationAngle => (int)Rotation;
+
+    /// <summary>
+    /// Marks the thumbnail as currently rendering.
+    /// </summary>
     public void BeginRender()
     {
         ErrorText = null;
         IsLoading = true;
     }
 
+    /// <summary>
+    /// Marks the thumbnail render as failed with an error message.
+    /// </summary>
+    /// <param name="errorText">The error description to display.</param>
     public void MarkRenderFailed(string errorText)
     {
         ErrorText = errorText;

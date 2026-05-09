@@ -6,6 +6,7 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Application.Rendering;
 
+/// <summary>LRU memory cache for rendered page bitmaps with configurable size limits.</summary>
 public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
 {
     private const int MaxCachedPageBytes = 64 * 1024 * 1024;
@@ -19,6 +20,9 @@ public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
     private long _totalCachedBytes;
     private bool _disposed;
 
+    /// <summary>Initializes a new instance of the <see cref="RenderMemoryCache"/> class.</summary>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="userPreferencesService">The user preferences service for cache limits.</param>
     public RenderMemoryCache(
         ILogger<RenderMemoryCache> logger,
         IUserPreferencesService userPreferencesService)
@@ -32,6 +36,7 @@ public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
         _userPreferencesService.PreferencesChanged += OnPreferencesChanged;
     }
 
+    /// <inheritdoc />
     public bool TryGet(
         DocumentId documentId,
         RenderRequest request,
@@ -66,6 +71,7 @@ public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
         }
     }
 
+    /// <inheritdoc />
     public void Store(
         DocumentId documentId,
         RenderRequest request,
@@ -109,6 +115,7 @@ public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
         }
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         if (_disposed)

@@ -1737,19 +1737,18 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        WindowsSearchResultItemViewModel? firstResult = null;
-        await RunOnUiThreadAsync(() =>
+        WindowsSearchResultItemViewModel? firstResult = await RunOnUiThreadAsync(() =>
         {
             tab.ApplySearchResults(result.Value ?? []);
             if (!tab.HasSearchResults)
             {
                 tab.SearchPanelNotice = _textCatalog.Format("search.notice.no_match", tab.SearchQuery.Trim());
                 StatusText = _textCatalog.GetString("status.search.none");
-                return;
+                return null;
             }
 
             tab.SearchPanelNotice = null;
-            firstResult = tab.SearchResults[0];
+            return tab.SearchResults[0];
         });
 
         if (firstResult is null)
@@ -1919,18 +1918,16 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
     private async Task OpenPathCoreAsync(string path)
     {
-        WindowsDocumentTabViewModel? existingTab = null;
-        bool canOpen = true;
-        await RunOnUiThreadAsync(() =>
+        (WindowsDocumentTabViewModel? existingTab, bool canOpen) = await RunOnUiThreadAsync(() =>
         {
-            existingTab = DocumentTabs.FirstOrDefault(tab => PathsEqual(tab.FilePath, path));
-            if (existingTab is not null || DocumentTabs.Count < MaxOpenDocumentTabs)
+            WindowsDocumentTabViewModel? found = DocumentTabs.FirstOrDefault(tab => PathsEqual(tab.FilePath, path));
+            if (found is not null || DocumentTabs.Count < MaxOpenDocumentTabs)
             {
-                return;
+                return (found, true);
             }
 
             StatusText = _textCatalog.Format("notification.tabs.limit.message", MaxOpenDocumentTabs);
-            canOpen = false;
+            return (found, false);
         });
 
         if (existingTab is not null)
@@ -1955,36 +1952,31 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
                 return;
             }
 
-            WindowsDocumentTabViewModel? tab = null;
-            await RunOnUiThreadAsync(() =>
+            WindowsDocumentTabViewModel tab = await RunOnUiThreadAsync(() =>
             {
                 double initialZoom = CalculateInitialFitZoom(
                     result.Value.Metadata.PixelWidth ?? 900,
                     result.Value.Metadata.PixelHeight ?? 1200);
 
-                tab = new WindowsDocumentTabViewModel(result.Value.Id, result.Value.Metadata, _textCatalog)
+                var newTab = new WindowsDocumentTabViewModel(result.Value.Id, result.Value.Metadata, _textCatalog)
                 {
                     IsActive = true,
                     IsPagesPanelOpen = ShowThumbnails,
                     ZoomFactor = initialZoom,
                     ZoomText = $"{initialZoom * 100:0}%"
                 };
-                tab.UpdateSignatureAssets(_signatureAssetLookup);
+                newTab.UpdateSignatureAssets(_signatureAssetLookup);
 
                 foreach (WindowsDocumentTabViewModel existing in DocumentTabs)
                 {
                     existing.IsActive = false;
                 }
 
-                DocumentTabs.Add(tab);
-                ActiveDocumentTab = tab;
+                DocumentTabs.Add(newTab);
+                ActiveDocumentTab = newTab;
                 UpdateAnnotationToolSelection();
+                return newTab;
             });
-
-            if (tab is null)
-            {
-                return;
-            }
 
             await RunOnUiThreadAsync(() =>
             {
@@ -4726,6 +4718,34 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             {
                 action();
                 completion.SetResult();
+            }
+            catch (Exception exception)
+            {
+                completion.SetException(exception);
+            }
+        }))
+        {
+            completion.SetException(new InvalidOperationException("The Windows UI dispatcher is not available."));
+        }
+
+        return completion.Task;
+    }
+
+    private Task<T> RunOnUiThreadAsync<T>(Func<T> func)
+    {
+        ArgumentNullException.ThrowIfNull(func);
+
+        if (_dispatcherQueue.HasThreadAccess)
+        {
+            return Task.FromResult(func());
+        }
+
+        var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (!_dispatcherQueue.TryEnqueue(() =>
+        {
+            try
+            {
+                completion.SetResult(func());
             }
             catch (Exception exception)
             {

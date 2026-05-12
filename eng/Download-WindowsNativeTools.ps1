@@ -1,7 +1,7 @@
 param(
     [string] $OutputRoot = "artifacts/native-tools/win-x64",
     [string] $QpdfVersion = "11.9.1",
-    [string] $TesseractVersion = "5.5.0",
+    [string] $TesseractVersion = "5.5.0.20241111",
     [string[]] $TessdataLanguages = @("eng", "fra", "osd"),
     [switch] $Force
 )
@@ -9,7 +9,6 @@ param(
 $ErrorActionPreference = "Stop"
 
 $qpdfUrl = "https://github.com/qpdf/qpdf/releases/download/v$QpdfVersion/qpdf-$QpdfVersion-msvc64.zip"
-$tesseractUrl = "https://github.com/tesseract-ocr/tesseract/releases/download/$TesseractVersion/tesseract-ocr-w64-setup-$TesseractVersion.20241111.exe"
 $tessdataBaseUrl = "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main"
 
 function New-CleanDirectory {
@@ -94,49 +93,26 @@ function Install-Tesseract {
         [string] $TempDirectory
     )
 
-    $installerPath = Join-Path $TempDirectory "tesseract-setup.exe"
-    Invoke-Download -Uri $tesseractUrl -OutFile $installerPath -Description "Tesseract $TesseractVersion"
+    Write-Host "Installing Tesseract $TesseractVersion via Chocolatey..."
+    & choco install tesseract --version=$TesseractVersion --yes --no-progress
+    if ($LASTEXITCODE -ne 0) {
+        throw "Chocolatey install of Tesseract failed with exit code $LASTEXITCODE."
+    }
 
-    $extractPath = Join-Path $TempDirectory "tesseract-extract"
-    New-Item -ItemType Directory -Path $extractPath -Force | Out-Null
-
-    Write-Host "  Extracting Tesseract installer (silent extract)..."
-    $process = Start-Process -FilePath $installerPath `
-        -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/DIR=$extractPath", "/NOICONS", "/NORESTART" `
-        -Wait -PassThru -NoNewWindow
-
-    if ($process.ExitCode -ne 0) {
-        Write-Host "  Inno Setup installer returned exit code $($process.ExitCode), trying 7z extraction..."
-        $sevenZip = Get-Command "7z" -CommandType Application -ErrorAction SilentlyContinue
-        if ($null -ne $sevenZip) {
-            & 7z x $installerPath "-o$extractPath" -y | Out-Null
-        } else {
-            throw "Tesseract extraction failed and 7z is not available."
-        }
+    $chocoInstallDir = "C:\Program Files\Tesseract-OCR"
+    if (-not (Test-Path -LiteralPath $chocoInstallDir)) {
+        $chocoInstallDir = (Get-Command tesseract -CommandType Application -ErrorAction Stop).Source | Split-Path
     }
 
     $binDir = Join-Path $DestinationDirectory "tesseract/bin"
-    $libDir = Join-Path $DestinationDirectory "tesseract/lib"
     New-Item -ItemType Directory -Path $binDir -Force | Out-Null
-    New-Item -ItemType Directory -Path $libDir -Force | Out-Null
 
-    $tesseractExe = Get-ChildItem -LiteralPath $extractPath -Filter "tesseract.exe" -Recurse -File |
-        Select-Object -First 1
+    Copy-Item -Path (Join-Path $chocoInstallDir "tesseract.exe") -Destination $binDir -Force
+    Copy-Item -Path (Join-Path $chocoInstallDir "*.dll") -Destination $binDir -Force -ErrorAction SilentlyContinue
 
-    if ($null -eq $tesseractExe) {
-        throw "tesseract.exe not found in extracted content."
-    }
-
-    $tesseractBinSource = $tesseractExe.DirectoryName
-    Copy-Item -Path (Join-Path $tesseractBinSource "*.exe") -Destination $binDir -Force
-    Copy-Item -Path (Join-Path $tesseractBinSource "*.dll") -Destination $binDir -Force -ErrorAction SilentlyContinue
-
-    $dllFiles = Get-ChildItem -LiteralPath $extractPath -Filter "*.dll" -Recurse -File
-    foreach ($dll in $dllFiles) {
-        $destPath = Join-Path $binDir $dll.Name
-        if (-not (Test-Path -LiteralPath $destPath)) {
-            Copy-Item -LiteralPath $dll.FullName -Destination $destPath -Force
-        }
+    $tesseractExe = Join-Path $binDir "tesseract.exe"
+    if (-not (Test-Path -LiteralPath $tesseractExe)) {
+        throw "tesseract.exe not found after Chocolatey install at: $tesseractExe"
     }
 
     Write-Host "  Tesseract $TesseractVersion installed to: $binDir"

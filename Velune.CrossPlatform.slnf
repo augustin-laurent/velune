@@ -1,0 +1,14 @@
+{
+  "solution": {
+    "path": "Velune.slnx",
+    "projects": [
+      "src/Velune.App/Velune.App.csproj",
+      "src/Velune.Application/Velune.Application.csproj",
+      "src/Velune.Domain/Velune.Domain.csproj",
+      "src/Velune.Infrastructure/Velune.Infrastructure.csproj",
+      "src/Velune.Presentation/Velune.Presentation.csproj",
+      "tests/Velune.Tests.Integration/Velune.Tests.Integration.csproj",
+      "tests/Velune.Tests.Unit/Velune.Tests.Unit.csproj"
+    ]
+  }
+}

@@ -9,7 +9,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $qpdfUrl = "https://github.com/qpdf/qpdf/releases/download/v$QpdfVersion/qpdf-$QpdfVersion-msvc64.zip"
-$tesseractUrl = "https://github.com/UB-Mannheim/tesseract/releases/download/v$TesseractVersion/tesseract-ocr-w64-setup-$TesseractVersion.exe"
+$tesseractUrl = "https://github.com/tesseract-ocr/tesseract/releases/download/$TesseractVersion/tesseract-ocr-w64-setup-$TesseractVersion.20241111.exe"
 $tessdataBaseUrl = "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main"
 
 function New-CleanDirectory {

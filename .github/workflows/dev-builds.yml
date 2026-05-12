@@ -58,7 +58,7 @@ jobs:
             ${{ runner.os }}-nuget-
 
       - name: Restore
-        run: dotnet restore Velune.slnx
+        run: dotnet restore ${{ runner.os == 'Windows' && 'Velune.slnx' || 'Velune.CrossPlatform.slnf' }}
 
       - name: Install native tools (Linux)
         if: runner.os == 'Linux'

@@ -45,10 +45,10 @@ jobs:
             ${{ runner.os }}-nuget-
 
       - name: Restore
-        run: dotnet restore Velune.slnx
+        run: dotnet restore ${{ runner.os == 'Windows' && 'Velune.slnx' || 'Velune.CrossPlatform.slnf' }}
 
       - name: Build
-        run: dotnet build Velune.slnx --configuration Release --no-restore
+        run: dotnet build ${{ runner.os == 'Windows' && 'Velune.slnx' || 'Velune.CrossPlatform.slnf' }} --configuration Release --no-restore
 
   test:
     name: Tests (ubuntu-latest)

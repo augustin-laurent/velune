@@ -635,13 +635,11 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
     private sealed class DuplicateOperation : IPageOperation
     {
         private readonly List<(int InsertIndex, PageOrganizerItemViewModel Clone)> _insertedItems = [];
-        private readonly IReadOnlyList<PageOrganizerItemViewModel> _sourceItems;
 
         public DuplicateOperation(
             IReadOnlyList<PageOrganizerItemViewModel> selectedItems,
             ObservableCollection<PageOrganizerItemViewModel> pages)
         {
-            _sourceItems = selectedItems;
             int offset = 0;
             foreach (PageOrganizerItemViewModel? item in selectedItems.OrderBy(pages.IndexOf))
             {

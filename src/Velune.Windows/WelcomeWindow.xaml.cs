@@ -281,6 +281,7 @@ public sealed partial class WelcomeWindow
 
     private void OnSettingsClicked(object sender, RoutedEventArgs e)
     {
+        // Empty handler for settings on welcome page
     }
 
     private void OnLanguageClicked(object sender, RoutedEventArgs e)

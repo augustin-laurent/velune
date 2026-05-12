@@ -1355,15 +1355,16 @@
                                 VerticalAlignment="Top">
                     <ItemsControl.ItemsPanel>
                       <ItemsPanelTemplate>
-                        <Canvas />
+                        <Grid />
                       </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                       <DataTemplate>
                         <Canvas Width="{Binding Width}"
                                 Height="{Binding Height}"
-                                Canvas.Left="{Binding Left}"
-                                Canvas.Top="{Binding Top}"
+                                Margin="{Binding Margin}"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Top"
                                 Opacity="{Binding Opacity}"
                                 Visibility="{Binding IsHidden, Converter={StaticResource InverseBoolToVisibility}}">
                           <!-- Rotatable annotation content + selection -->
@@ -1497,15 +1498,16 @@
                                 VerticalAlignment="Top">
                     <ItemsControl.ItemsPanel>
                       <ItemsPanelTemplate>
-                        <Canvas />
+                        <Grid />
                       </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                       <DataTemplate>
                         <Border Width="{Binding Width}"
                                 Height="{Binding Height}"
-                                Canvas.Left="{Binding Left}"
-                                Canvas.Top="{Binding Top}"
+                                Margin="{Binding Margin}"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Top"
                                 Background="{ThemeResource SearchHighlightBrush}"
                                 Opacity="0.34" />
                       </DataTemplate>
@@ -1521,15 +1523,16 @@
                                 VerticalAlignment="Top">
                     <ItemsControl.ItemsPanel>
                       <ItemsPanelTemplate>
-                        <Canvas />
+                        <Grid />
                       </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                       <DataTemplate>
                         <Border Width="{Binding Width}"
                                 Height="{Binding Height}"
-                                Canvas.Left="{Binding Left}"
-                                Canvas.Top="{Binding Top}"
+                                Margin="{Binding Margin}"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Top"
                                 Background="{ThemeResource AccentBrush}"
                                 Opacity="0.28" />
                       </DataTemplate>
@@ -1557,6 +1560,7 @@
                 Visibility="{Binding ActiveDocumentTab.IsAnnotationsPanelOpen, Converter={StaticResource BoolToVisibility}}">
           <Grid Padding="20,20,20,12">
             <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
@@ -2063,7 +2067,8 @@
                       Value="{Binding AnnotationOpacity, Mode=TwoWay}" />
             </StackPanel>
 
-            <StackPanel Margin="0,10,0,0"
+            <StackPanel Grid.Row="6"
+                        Margin="0,10,0,0"
                         Spacing="8"
                         HorizontalAlignment="Stretch"
                         Visibility="{Binding ShowRectangleFillControls, Converter={StaticResource BoolToVisibility}}">
@@ -2106,7 +2111,7 @@
               </StackPanel>
             </StackPanel>
 
-            <Border Grid.Row="6"
+            <Border Grid.Row="7"
                     Margin="0,14,0,0"
                     HorizontalAlignment="Stretch"
                     BorderBrush="{ThemeResource AnnotationSeparatorBrush}"
@@ -2289,7 +2294,7 @@
               </Grid>
             </Border>
 
-            <Border Grid.Row="6"
+            <Border Grid.Row="7"
                     Margin="0,14,0,0"
                     HorizontalAlignment="Stretch"
                     BorderBrush="{ThemeResource AnnotationSeparatorBrush}"
@@ -2412,7 +2417,7 @@
               </Grid>
             </Border>
 
-            <Button Grid.Row="7"
+            <Button Grid.Row="8"
                     HorizontalAlignment="Right"
                     Width="40"
                     Height="36"

@@ -16,6 +16,9 @@
     <StartupObject>Velune.Windows.Program</StartupObject>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>..\Velune.App\Assets\Brand\Velune.ico</ApplicationIcon>
+    <WindowsAppSdkBootstrapInitialize>false</WindowsAppSdkBootstrapInitialize>
+    <WindowsAppSdkDeploymentManagerInitialize>false</WindowsAppSdkDeploymentManagerInitialize>
+    <WindowsAppSdkUndockedRegFreeWinRTInitialize>false</WindowsAppSdkUndockedRegFreeWinRTInitialize>
     <!-- CsWinRT1030: all .NET generic collections trigger this when UseWinUI=true, even if they never
          cross the WinRT ABI. Suppressed because this project does not target NativeAOT or trimming. -->
     <NoWarn>$(NoWarn);CsWinRT1030</NoWarn>
@@ -40,4 +43,14 @@
     <Content Include="..\Velune.App\Assets\Brand\*" Link="Assets\Brand\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\Velune.Presentation\Resources\Localization\*.lang" Link="Localization\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <!-- WinUI unpackaged: copy XAML resources to publish output after publish completes -->
+  <Target Name="_CopyXamlResourcesToPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <_XamlPublishFiles Include="$(OutputPath)*.xbf" />
+      <_XamlPublishFiles Include="$(OutputPath)*.pri" />
+      <_XamlPublishFiles Include="$(OutputPath)Microsoft.UI.Xaml\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_XamlPublishFiles)" DestinationFiles="@(_XamlPublishFiles->'$(PublishDir)%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
 </Project>

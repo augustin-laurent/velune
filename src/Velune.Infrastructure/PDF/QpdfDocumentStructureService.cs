@@ -48,7 +48,7 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
 
         try
         {
-            var startInfo = BundledToolResolver.CreateStartInfo(_qpdfTool);
+            ProcessStartInfo startInfo = BundledToolResolver.CreateStartInfo(_qpdfTool);
             startInfo.ArgumentList.Add("--version");
 
             using var process = Process.Start(startInfo);
@@ -79,13 +79,13 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
     {
         ArgumentNullException.ThrowIfNull(pages);
 
-        var validationResult = ValidatePageOperation(sourcePath, outputPath, pages, allowPartialSelection: true);
+        Result validationResult = ValidatePageOperation(sourcePath, outputPath, pages, allowPartialSelection: true);
         if (validationResult.IsFailure)
         {
             return Task.FromResult(ResultFactory.Failure<string>(validationResult.Error!));
         }
 
-        var commandArguments = CreateSingleSourceArguments(
+        List<string> commandArguments = CreateSingleSourceArguments(
             sourcePath,
             outputPath,
             $"--rotate={ToQpdfRotation(rotation)}:{BuildPageList(pages)}");
@@ -102,20 +102,20 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
     {
         ArgumentNullException.ThrowIfNull(pages);
 
-        var validationResult = ValidatePageOperation(sourcePath, outputPath, pages, allowPartialSelection: true);
+        Result validationResult = ValidatePageOperation(sourcePath, outputPath, pages, allowPartialSelection: true);
         if (validationResult.IsFailure)
         {
             return Task.FromResult(ResultFactory.Failure<string>(validationResult.Error!));
         }
 
-        var pageCount = GetPageCount(sourcePath);
+        Result<int> pageCount = GetPageCount(sourcePath);
         if (pageCount.IsFailure)
         {
             return Task.FromResult(ResultFactory.Failure<string>(pageCount.Error!));
         }
 
         var deletedPages = pages.ToHashSet();
-        var keptPages = Enumerable.Range(1, pageCount.Value!)
+        int[] keptPages = Enumerable.Range(1, pageCount.Value!)
             .Where(pageNumber => !deletedPages.Contains(pageNumber))
             .ToArray();
 
@@ -127,7 +127,7 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
                     "At least one page must remain in the PDF.")));
         }
 
-        var commandArguments = CreatePageSelectionArguments(sourcePath, outputPath, BuildPageList(keptPages));
+        List<string> commandArguments = CreatePageSelectionArguments(sourcePath, outputPath, BuildPageList(keptPages));
         return RunQpdfAsync(commandArguments, outputPath, cancellationToken);
     }
 
@@ -140,13 +140,13 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
     {
         ArgumentNullException.ThrowIfNull(pages);
 
-        var validationResult = ValidatePageOperation(sourcePath, outputPath, pages, allowPartialSelection: true);
+        Result validationResult = ValidatePageOperation(sourcePath, outputPath, pages, allowPartialSelection: true);
         if (validationResult.IsFailure)
         {
             return Task.FromResult(ResultFactory.Failure<string>(validationResult.Error!));
         }
 
-        var commandArguments = CreatePageSelectionArguments(sourcePath, outputPath, BuildPageList(pages));
+        List<string> commandArguments = CreatePageSelectionArguments(sourcePath, outputPath, BuildPageList(pages));
         return RunQpdfAsync(commandArguments, outputPath, cancellationToken);
     }
 
@@ -171,7 +171,7 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
                     "At least two documents are required for a merge."));
         }
 
-        foreach (var sourcePath in sourcePaths)
+        foreach (string sourcePath in sourcePaths)
         {
             if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
             {
@@ -206,7 +206,7 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
         {
             var preparedSourcePaths = new List<string>(sourcePaths.Count);
 
-            foreach (var sourcePath in sourcePaths)
+            foreach (string sourcePath in sourcePaths)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -217,10 +217,10 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
                 }
 
                 temporaryDirectory ??= CreateMergeTemporaryDirectory();
-                var convertedPdfPath = Path.Combine(
+                string convertedPdfPath = Path.Combine(
                     temporaryDirectory,
                     $"{preparedSourcePaths.Count:D4}-{Path.GetFileNameWithoutExtension(sourcePath)}.pdf");
-                var conversionResult = ConvertImageToPdf(sourcePath, convertedPdfPath);
+                Result<string> conversionResult = ConvertImageToPdf(sourcePath, convertedPdfPath);
                 if (conversionResult.IsFailure)
                 {
                     return ResultFactory.Failure<string>(conversionResult.Error!);
@@ -236,7 +236,7 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
                 "--pages"
             };
 
-            foreach (var sourcePath in preparedSourcePaths)
+            foreach (string sourcePath in preparedSourcePaths)
             {
                 commandArguments.Add(sourcePath);
             }
@@ -261,13 +261,13 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
     {
         ArgumentNullException.ThrowIfNull(orderedPages);
 
-        var validationResult = ValidatePageOperation(sourcePath, outputPath, orderedPages, allowPartialSelection: false);
+        Result validationResult = ValidatePageOperation(sourcePath, outputPath, orderedPages, allowPartialSelection: false);
         if (validationResult.IsFailure)
         {
             return Task.FromResult(ResultFactory.Failure<string>(validationResult.Error!));
         }
 
-        var pageCount = GetPageCount(sourcePath);
+        Result<int> pageCount = GetPageCount(sourcePath);
         if (pageCount.IsFailure)
         {
             return Task.FromResult(ResultFactory.Failure<string>(pageCount.Error!));
@@ -284,7 +284,7 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
                     "The reordered page list must contain each page exactly once.")));
         }
 
-        var commandArguments = CreatePageSelectionArguments(sourcePath, outputPath, BuildPageList(orderedPages));
+        List<string> commandArguments = CreatePageSelectionArguments(sourcePath, outputPath, BuildPageList(orderedPages));
         return RunQpdfAsync(commandArguments, outputPath, cancellationToken);
     }
 
@@ -339,7 +339,7 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
                     "Page selections cannot contain duplicates."));
         }
 
-        var pageCount = GetPageCount(sourcePath);
+        Result<int> pageCount = GetPageCount(sourcePath);
         if (pageCount.IsFailure)
         {
             return ResultFactory.Failure(pageCount.Error!);
@@ -371,7 +371,7 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
         {
             _pdfiumInitializer.EnsureInitialized();
 
-            var documentHandle = PdfiumNative.FPDF_LoadDocument(sourcePath, null);
+            IntPtr documentHandle = PdfiumNative.FPDF_LoadDocument(sourcePath, null);
             if (documentHandle == nint.Zero)
             {
                 return ResultFactory.Failure<int>(
@@ -456,9 +456,9 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
     {
         try
         {
-            var startInfo = BundledToolResolver.CreateStartInfo(_qpdfTool);
+            ProcessStartInfo startInfo = BundledToolResolver.CreateStartInfo(_qpdfTool);
 
-            foreach (var argument in arguments)
+            foreach (string argument in arguments)
             {
                 startInfo.ArgumentList.Add(argument);
             }
@@ -472,7 +472,7 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
                         "The PDF structure tool could not be started."));
             }
 
-            using var registration = cancellationToken.Register(() =>
+            using CancellationTokenRegistration registration = cancellationToken.Register(() =>
             {
                 try
                 {
@@ -487,8 +487,8 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
                 }
             });
 
-            var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-            var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
+            Task<string> outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+            Task<string> errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
 
             await process.WaitForExitAsync(cancellationToken);
             await Task.WhenAll(outputTask, errorTask);
@@ -498,7 +498,7 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
                 return ResultFactory.Success(outputPath);
             }
 
-            var errorDetails = string.IsNullOrWhiteSpace(errorTask.Result)
+            string errorDetails = string.IsNullOrWhiteSpace(errorTask.Result)
                 ? outputTask.Result
                 : errorTask.Result;
 
@@ -541,7 +541,7 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
             return "The PDF structure operation failed.";
         }
 
-        var sanitizedMessage = string.Join(
+        string sanitizedMessage = string.Join(
             " ",
             errorDetails
                 .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -554,7 +554,7 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
 
     private static void EnsureOutputDirectory(string outputPath)
     {
-        var directoryPath = Path.GetDirectoryName(outputPath);
+        string? directoryPath = Path.GetDirectoryName(outputPath);
         if (!string.IsNullOrWhiteSpace(directoryPath))
         {
             Directory.CreateDirectory(directoryPath);
@@ -563,14 +563,14 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
 
     private static bool IsSupportedMergeSource(string sourcePath)
     {
-        var extension = Path.GetExtension(sourcePath);
+        string extension = Path.GetExtension(sourcePath);
         return !string.IsNullOrWhiteSpace(extension) &&
             SupportedDocumentFormats.IsSupported(extension);
     }
 
     private static string CreateMergeTemporaryDirectory()
     {
-        var path = Path.Combine(
+        string path = Path.Combine(
             Path.GetTempPath(),
             "velune-merge",
             Guid.NewGuid().ToString("N"));
@@ -593,9 +593,9 @@ public sealed class QpdfDocumentStructureService : IPdfDocumentStructureService
                         "One of the image documents could not be decoded."));
             }
 
-            using var stream = File.Create(outputPath);
+            using FileStream stream = File.Create(outputPath);
             using var document = SKDocument.CreatePdf(stream);
-            var canvas = document.BeginPage(bitmap.Width, bitmap.Height);
+            SKCanvas? canvas = document.BeginPage(bitmap.Width, bitmap.Height);
             canvas.Clear(SKColors.White);
             canvas.DrawBitmap(bitmap, 0, 0);
             document.EndPage();

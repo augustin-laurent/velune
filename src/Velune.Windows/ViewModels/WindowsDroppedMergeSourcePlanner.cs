@@ -16,7 +16,7 @@ internal static class WindowsDroppedMergeSourcePlanner
         ArgumentNullException.ThrowIfNull(droppedSourcePaths);
         ArgumentException.ThrowIfNullOrWhiteSpace(temporaryDirectory);
 
-        var dropped = droppedSourcePaths
+        string[] dropped = droppedSourcePaths
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .ToArray();
 
@@ -27,7 +27,7 @@ internal static class WindowsDroppedMergeSourcePlanner
                 : new WindowsDroppedMergePlan([currentDocumentPath, .. dropped], null, null);
         }
 
-        var normalizedIndex = Math.Clamp(insertionIndex, 0, totalPages);
+        int normalizedIndex = Math.Clamp(insertionIndex, 0, totalPages);
         if (normalizedIndex <= 0)
         {
             return new WindowsDroppedMergePlan([.. dropped, currentDocumentPath], null, null);

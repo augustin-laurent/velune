@@ -40,7 +40,7 @@ internal static class Program
 
     private static HostApplicationBuilder CreateHost(string[] args)
     {
-        var environment =
+        string environment =
             Environment.GetEnvironmentVariable("VELUNE_ENVIRONMENT")
             ?? Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")
             ?? "Development";
@@ -51,7 +51,7 @@ internal static class Program
             EnvironmentName = environment
         };
 
-        var builder = Host.CreateApplicationBuilder(settings);
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder(settings);
 
         builder.Configuration.AddEnvironmentVariables(prefix: "VELUNE_");
 

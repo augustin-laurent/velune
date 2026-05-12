@@ -1,4 +1,5 @@
 using Velune.Application.DTOs;
+using Velune.Application.Results;
 using Velune.Domain.Abstractions;
 using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
@@ -12,7 +13,7 @@ public sealed class DocumentTextSelectionServiceTests
     public void Select_ShouldSnapToNearestOcrRunAndSelectContinuousRange()
     {
         var service = new DocumentTextSelectionService();
-        var pageContent = CreateOcrPageContent();
+        PageTextContent pageContent = CreateOcrPageContent();
         var request = new DocumentTextSelectionRequest(
             new StubDocumentSession(
                 new DocumentMetadata("image.png", "/tmp/image.png", DocumentType.Image, 1024, 1),
@@ -22,7 +23,7 @@ public sealed class DocumentTextSelectionServiceTests
             new DocumentTextSelectionPoint(235, 165),
             new DocumentTextSelectionPoint(150, 315));
 
-        var result = service.Resolve(request);
+        Result<DocumentTextSelectionResult> result = service.Resolve(request);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
@@ -36,7 +37,7 @@ public sealed class DocumentTextSelectionServiceTests
     public void Select_ShouldCollapseWrappedWhitespaceIntoSingleSpace()
     {
         var service = new DocumentTextSelectionService();
-        var pageContent = CreateWrappedOcrPageContent();
+        PageTextContent pageContent = CreateWrappedOcrPageContent();
         var request = new DocumentTextSelectionRequest(
             new StubDocumentSession(
                 new DocumentMetadata("image.png", "/tmp/image.png", DocumentType.Image, 1024, 1),
@@ -46,7 +47,7 @@ public sealed class DocumentTextSelectionServiceTests
             new DocumentTextSelectionPoint(235, 165),
             new DocumentTextSelectionPoint(150, 315));
 
-        var result = service.Resolve(request);
+        Result<DocumentTextSelectionResult> result = service.Resolve(request);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
@@ -57,7 +58,7 @@ public sealed class DocumentTextSelectionServiceTests
     public void Select_ShouldReturnSingleOcrWord_WhenAnchorAndActiveStayOnSameRun()
     {
         var service = new DocumentTextSelectionService();
-        var pageContent = CreateOcrPageContent();
+        PageTextContent pageContent = CreateOcrPageContent();
         var request = new DocumentTextSelectionRequest(
             new StubDocumentSession(
                 new DocumentMetadata("image.png", "/tmp/image.png", DocumentType.Image, 1024, 1),
@@ -67,7 +68,7 @@ public sealed class DocumentTextSelectionServiceTests
             new DocumentTextSelectionPoint(290, 170),
             new DocumentTextSelectionPoint(330, 180));
 
-        var result = service.Resolve(request);
+        Result<DocumentTextSelectionResult> result = service.Resolve(request);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
@@ -79,7 +80,7 @@ public sealed class DocumentTextSelectionServiceTests
     public void Select_ShouldMergeOverlappingOcrRegions()
     {
         var service = new DocumentTextSelectionService();
-        var pageContent = CreateOverlappingOcrPageContent();
+        PageTextContent pageContent = CreateOverlappingOcrPageContent();
         var request = new DocumentTextSelectionRequest(
             new StubDocumentSession(
                 new DocumentMetadata("image.png", "/tmp/image.png", DocumentType.Image, 1024, 1),
@@ -89,7 +90,7 @@ public sealed class DocumentTextSelectionServiceTests
             new DocumentTextSelectionPoint(140, 170),
             new DocumentTextSelectionPoint(280, 170));
 
-        var result = service.Resolve(request);
+        Result<DocumentTextSelectionResult> result = service.Resolve(request);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
@@ -105,7 +106,7 @@ public sealed class DocumentTextSelectionServiceTests
     public void Select_ShouldReturnSingleRegionForSameLineBoxesWithDifferentHeights()
     {
         var service = new DocumentTextSelectionService();
-        var pageContent = CreateAccentLikeLinePageContent();
+        PageTextContent pageContent = CreateAccentLikeLinePageContent();
         var request = new DocumentTextSelectionRequest(
             new StubDocumentSession(
                 new DocumentMetadata("image.png", "/tmp/image.png", DocumentType.Image, 1024, 1),
@@ -115,7 +116,7 @@ public sealed class DocumentTextSelectionServiceTests
             new DocumentTextSelectionPoint(120, 170),
             new DocumentTextSelectionPoint(280, 170));
 
-        var result = service.Resolve(request);
+        Result<DocumentTextSelectionResult> result = service.Resolve(request);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
@@ -128,7 +129,7 @@ public sealed class DocumentTextSelectionServiceTests
     public void Select_ShouldUseNormalizedPdfTextOrderForEmbeddedPdfCharacters()
     {
         var service = new DocumentTextSelectionService();
-        var pageContent = CreateEmbeddedPdfPageContent();
+        PageTextContent pageContent = CreateEmbeddedPdfPageContent();
         var request = new DocumentTextSelectionRequest(
             new StubDocumentSession(
                 new DocumentMetadata("text.pdf", "/tmp/text.pdf", DocumentType.Pdf, 1024, 1),
@@ -138,7 +139,7 @@ public sealed class DocumentTextSelectionServiceTests
             new DocumentTextSelectionPoint(105, 170),
             new DocumentTextSelectionPoint(318, 170));
 
-        var result = service.Resolve(request);
+        Result<DocumentTextSelectionResult> result = service.Resolve(request);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
@@ -218,7 +219,7 @@ public sealed class DocumentTextSelectionServiceTests
         const string text = "TEST MASTER";
         var characterRegions = new Dictionary<int, NormalizedTextRegion>();
 
-        for (var index = 0; index < text.Length; index++)
+        for (int index = 0; index < text.Length; index++)
         {
             if (text[index] == ' ')
             {

@@ -55,7 +55,7 @@ public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
 
         lock (_gate)
         {
-            if (!_entries.TryGetValue(key, out var node))
+            if (!_entries.TryGetValue(key, out LinkedListNode<RenderCacheEntry>? node))
             {
                 renderedPage = null;
                 LogCacheMiss(_logger, documentId, request.PageIndex, request.ZoomFactor, request.Rotation, request.RequestedWidth, request.RequestedHeight);
@@ -94,7 +94,7 @@ public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
 
         lock (_gate)
         {
-            if (_entries.TryGetValue(key, out var existingNode))
+            if (_entries.TryGetValue(key, out LinkedListNode<RenderCacheEntry>? existingNode))
             {
                 _totalCachedBytes -= existingNode.Value.RenderedPage.ByteCount;
                 existingNode.Value = new RenderCacheEntry(key, renderedPage);
@@ -129,7 +129,7 @@ public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
 
     private void OnPreferencesChanged(object? sender, EventArgs e)
     {
-        var updatedLimit = Math.Max(0, _userPreferencesService.Current.MemoryCacheEntryLimit);
+        int updatedLimit = Math.Max(0, _userPreferencesService.Current.MemoryCacheEntryLimit);
         _entryLimit = updatedLimit;
         TrimToLimit(updatedLimit);
     }
@@ -152,12 +152,12 @@ public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
 
     private void TrimToBudget(int? entryLimitOverride = null)
     {
-        var entryLimit = entryLimitOverride ?? _entryLimit;
+        int entryLimit = entryLimitOverride ?? _entryLimit;
 
         while ((_entries.Count > entryLimit || _totalCachedBytes > MaxTotalCacheBytes) &&
                _lru.Last is not null)
         {
-            var leastRecentlyUsed = _lru.Last;
+            LinkedListNode<RenderCacheEntry>? leastRecentlyUsed = _lru.Last;
             _lru.RemoveLast();
 
             if (leastRecentlyUsed is null)

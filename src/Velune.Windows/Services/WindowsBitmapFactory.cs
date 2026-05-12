@@ -19,7 +19,7 @@ public static class WindowsBitmapFactory
         ArgumentNullException.ThrowIfNull(page);
 
         var bitmap = new WriteableBitmap(page.Width, page.Height);
-        using (var stream = bitmap.PixelBuffer.AsStream())
+        using (Stream stream = bitmap.PixelBuffer.AsStream())
         {
             stream.Seek(0, SeekOrigin.Begin);
             stream.Write(page.PixelData.Span);

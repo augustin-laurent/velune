@@ -1,5 +1,5 @@
-using Velune.Windows.ViewModels;
 using Velune.Domain.ValueObjects;
+using Velune.Windows.ViewModels;
 
 namespace Velune.Tests.Windows.Unit.ViewModels;
 

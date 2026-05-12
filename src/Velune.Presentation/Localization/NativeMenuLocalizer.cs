@@ -22,7 +22,7 @@ public static class NativeMenuLocalizer
     }
 
     /// <summary>
-    /// Localizes the main window native menu bar items.
+    /// Localizes native menu bar items of the main window.
     /// </summary>
     /// <param name="menu">The native menu to localize.</param>
     /// <param name="localizationService">The localization service.</param>
@@ -78,7 +78,7 @@ public static class NativeMenuLocalizer
         string key,
         params int[] path)
     {
-        if (TryResolveItem(menu, path, out var item))
+        if (TryResolveItem(menu, path, out NativeMenuItem? item))
         {
             item.Header = localizationService.GetString(key);
         }
@@ -90,11 +90,11 @@ public static class NativeMenuLocalizer
         ArgumentNullException.ThrowIfNull(path);
 
         item = null!;
-        var currentMenu = rootMenu;
+        NativeMenu currentMenu = rootMenu;
 
-        for (var i = 0; i < path.Length; i++)
+        for (int i = 0; i < path.Length; i++)
         {
-            var index = path[i];
+            int index = path[i];
             if (index < 0 || index >= currentMenu.Items.Count || currentMenu.Items[index] is not NativeMenuItem currentItem)
             {
                 return false;
@@ -106,7 +106,7 @@ public static class NativeMenuLocalizer
                 return true;
             }
 
-            if (currentItem.Menu is not NativeMenu childMenu)
+            if (currentItem.Menu is not { } childMenu)
             {
                 return false;
             }

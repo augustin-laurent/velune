@@ -8,10 +8,10 @@ public sealed class WindowsWindowCoordinatorTests
     public async Task RunAfterWorkspaceLoadedAsync_DoesNotDispatchOpenUntilWorkspaceIsLoaded()
     {
         var workspaceLoaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var dispatchCount = 0;
-        var openCount = 0;
+        int dispatchCount = 0;
+        int openCount = 0;
 
-        var runTask = WindowsWindowCoordinator.RunAfterWorkspaceLoadedAsync(
+        Task runTask = WindowsWindowCoordinator.RunAfterWorkspaceLoadedAsync(
             workspaceLoaded.Task,
             operation =>
             {

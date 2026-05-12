@@ -8,7 +8,7 @@ public sealed class RenderedPageTests
     [Fact]
     public void Constructor_ShouldDefensivelyCopyPixelData()
     {
-        var originalBuffer = new byte[] { 1, 2, 3, 4 };
+        byte[] originalBuffer = new byte[] { 1, 2, 3, 4 };
         var renderedPage = new RenderedPage(new PageIndex(0), originalBuffer, 1, 1);
 
         originalBuffer[0] = 99;

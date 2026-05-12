@@ -36,17 +36,17 @@ public static class DocumentTextSelectionCoordinateMapper
             return false;
         }
 
-        var rotatedWidth = rotation is Rotation.Deg90 or Rotation.Deg270
+        double rotatedWidth = rotation is Rotation.Deg90 or Rotation.Deg270
             ? sourceHeight
             : sourceWidth;
-        var rotatedHeight = rotation is Rotation.Deg90 or Rotation.Deg270
+        double rotatedHeight = rotation is Rotation.Deg90 or Rotation.Deg270
             ? sourceWidth
             : sourceHeight;
 
-        var rotatedX = Math.Clamp(visualX / layerWidth * rotatedWidth, 0, rotatedWidth);
-        var rotatedY = Math.Clamp(visualY / layerHeight * rotatedHeight, 0, rotatedHeight);
+        double rotatedX = Math.Clamp(visualX / layerWidth * rotatedWidth, 0, rotatedWidth);
+        double rotatedY = Math.Clamp(visualY / layerHeight * rotatedHeight, 0, rotatedHeight);
 
-        var (sourceX, sourceY) = rotation switch
+        (double sourceX, double sourceY) = rotation switch
         {
             Rotation.Deg90 => (
                 rotatedY,

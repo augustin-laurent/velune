@@ -2,7 +2,9 @@ using System.Collections.ObjectModel;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.Input;
 using Velune.Application.DTOs;
+using Velune.Application.Results;
 using Velune.Application.Text;
+using Velune.Domain.Abstractions;
 using Velune.Domain.Annotations;
 using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
@@ -110,7 +112,7 @@ public partial class MainWindowViewModel
 
     private void SelectWindowsRibbonSection(string? sectionValue)
     {
-        if (!Enum.TryParse<WindowsRibbonSection>(sectionValue, ignoreCase: true, out var section) ||
+        if (!Enum.TryParse<WindowsRibbonSection>(sectionValue, ignoreCase: true, out WindowsRibbonSection section) ||
             _selectedWindowsRibbonSection == section)
         {
             return;
@@ -164,7 +166,7 @@ public partial class MainWindowViewModel
             return true;
         }
 
-        foreach (var tab in DocumentTabs.ToArray())
+        foreach (DocumentTabViewModel? tab in DocumentTabs.ToArray())
         {
             if (IsDocumentTabDirty(tab))
             {
@@ -181,7 +183,7 @@ public partial class MainWindowViewModel
 
     private async Task<bool> TryActivateExistingDocumentTabAsync(string filePath)
     {
-        var tab = DocumentTabs.FirstOrDefault(item => PathsEqual(item.FilePath, filePath));
+        DocumentTabViewModel? tab = DocumentTabs.FirstOrDefault(item => PathsEqual(item.FilePath, filePath));
         if (tab is null)
         {
             return false;
@@ -230,7 +232,7 @@ public partial class MainWindowViewModel
         _documentTabStates[ActiveDocumentTab.SessionId] = CaptureCurrentDocumentTabState();
         UpdateActiveDocumentTabSummary();
 
-        foreach (var thumbnail in Thumbnails)
+        foreach (PageThumbnailItemViewModel thumbnail in Thumbnails)
         {
             thumbnail.IsLoading = false;
         }
@@ -330,7 +332,7 @@ public partial class MainWindowViewModel
             return false;
         }
 
-        if (!_documentTabStates.TryGetValue(tab.SessionId, out var state))
+        if (!_documentTabStates.TryGetValue(tab.SessionId, out DocumentTabState? state))
         {
             ActiveDocumentTab = tab;
             UpdateDocumentTabSelection(tab);
@@ -349,7 +351,7 @@ public partial class MainWindowViewModel
             UpdateDocumentTabSelection(tab);
 
             _pageViewportStore.Initialize(Math.Max(1, state.TotalPages));
-            foreach (var rotation in state.PageRotations)
+            foreach (KeyValuePair<int, Rotation> rotation in state.PageRotations)
             {
                 _pageViewportStore.SetRotation(new PageIndex(rotation.Key - 1), rotation.Value);
             }
@@ -447,7 +449,7 @@ public partial class MainWindowViewModel
             return true;
         }
 
-        var result = await _openDocumentUseCase.ExecuteAsync(
+        Result<IDocumentSession> result = await _openDocumentUseCase.ExecuteAsync(
             new OpenDocumentRequest(tab.FilePath, DocumentOpenMode.AddToTabs));
         if (result.IsFailure || result.Value is null)
         {
@@ -502,9 +504,9 @@ public partial class MainWindowViewModel
 
     private async Task CloseDocumentTabCoreAsync(DocumentTabViewModel tab, bool discardDirty)
     {
-        var wasActive = ReferenceEquals(tab, ActiveDocumentTab);
-        var tabIndex = DocumentTabs.IndexOf(tab);
-        var nextTab = ResolveNextDocumentTab(tabIndex, tab);
+        bool wasActive = ReferenceEquals(tab, ActiveDocumentTab);
+        int tabIndex = DocumentTabs.IndexOf(tab);
+        DocumentTabViewModel? nextTab = ResolveNextDocumentTab(tabIndex, tab);
 
         if (wasActive)
         {
@@ -549,13 +551,13 @@ public partial class MainWindowViewModel
             return null;
         }
 
-        var rightIndex = closingIndex + 1;
+        int rightIndex = closingIndex + 1;
         if (rightIndex < DocumentTabs.Count)
         {
             return DocumentTabs[rightIndex];
         }
 
-        var leftIndex = closingIndex - 1;
+        int leftIndex = closingIndex - 1;
         return leftIndex >= 0 && !ReferenceEquals(DocumentTabs[leftIndex], closingTab)
             ? DocumentTabs[leftIndex]
             : null;
@@ -631,7 +633,7 @@ public partial class MainWindowViewModel
 
     private void UpdateDocumentTabSelection(DocumentTabViewModel? activeTab)
     {
-        foreach (var tab in DocumentTabs)
+        foreach (DocumentTabViewModel tab in DocumentTabs)
         {
             tab.IsActive = ReferenceEquals(tab, activeTab);
         }
@@ -639,7 +641,7 @@ public partial class MainWindowViewModel
 
     private void DisposeDocumentTabState(DocumentId sessionId, bool disposeActiveState)
     {
-        if (_documentTabStates.TryGetValue(sessionId, out var state))
+        if (_documentTabStates.TryGetValue(sessionId, out DocumentTabState? state))
         {
             state.Dispose();
         }
@@ -737,7 +739,7 @@ public partial class MainWindowViewModel
         IReadOnlyList<IReadOnlyList<DocumentAnnotation>> snapshots)
     {
         target.Clear();
-        foreach (var snapshot in snapshots.Reverse())
+        foreach (IReadOnlyList<DocumentAnnotation>? snapshot in snapshots.Reverse())
         {
             target.Push(CloneAnnotations(snapshot));
         }
@@ -746,7 +748,7 @@ public partial class MainWindowViewModel
     private static void RestoreCollection<T>(ObservableCollection<T> target, IReadOnlyList<T> source)
     {
         target.Clear();
-        foreach (var item in source)
+        foreach (T? item in source)
         {
             target.Add(item);
         }
@@ -1159,7 +1161,7 @@ public partial class MainWindowViewModel
         public void Dispose()
         {
             CurrentRenderedBitmap?.Dispose();
-            foreach (var thumbnail in Thumbnails)
+            foreach (PageThumbnailItemViewModel thumbnail in Thumbnails)
             {
                 thumbnail.Dispose();
             }

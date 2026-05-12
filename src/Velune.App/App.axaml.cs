@@ -14,7 +14,7 @@ namespace Velune.App;
 /// <summary>
 /// Avalonia application class that manages theming, menus, and the main window lifecycle.
 /// </summary>
-public partial class App : Avalonia.Application
+public class App : Avalonia.Application
 {
     private IUserPreferencesService? _userPreferencesService;
     private ILocalizationService? _localizationService;
@@ -89,7 +89,7 @@ public partial class App : Avalonia.Application
             return;
         }
 
-        var aboutWindow = AboutWindowFactory.Create(_localizationService);
+        Window aboutWindow = AboutWindowFactory.Create(_localizationService);
         await aboutWindow.ShowDialog(mainWindow);
     }
 

@@ -31,19 +31,19 @@ public sealed class SearchDocumentTextUseCase
         }
 
         var hits = new List<SearchHit>();
-        var query = request.Query.Text;
+        string query = request.Query.Text;
 
-        foreach (var page in request.Index.Pages)
+        foreach (PageTextContent page in request.Index.Pages)
         {
             if (string.IsNullOrWhiteSpace(page.Text))
             {
                 continue;
             }
 
-            var searchStart = 0;
+            int searchStart = 0;
             while (searchStart < page.Text.Length)
             {
-                var matchIndex = page.Text.IndexOf(query, searchStart, StringComparison.OrdinalIgnoreCase);
+                int matchIndex = page.Text.IndexOf(query, searchStart, StringComparison.OrdinalIgnoreCase);
                 if (matchIndex < 0)
                 {
                     break;
@@ -66,7 +66,7 @@ public sealed class SearchDocumentTextUseCase
 
     private static List<NormalizedTextRegion> CollectRegions(PageTextContent page, int matchStart, int matchLength)
     {
-        var matchEnd = matchStart + matchLength;
+        int matchEnd = matchStart + matchLength;
         var regions = page.Runs
             .Where(run => run.StartIndex < matchEnd && run.StartIndex + run.Length > matchStart)
             .SelectMany(run => run.Regions)
@@ -77,9 +77,9 @@ public sealed class SearchDocumentTextUseCase
 
     private static string BuildExcerpt(string text, int matchStart, int matchLength)
     {
-        var start = Math.Max(0, matchStart - ExcerptContextLength);
-        var end = Math.Min(text.Length, matchStart + matchLength + ExcerptContextLength);
-        var excerpt = text[start..end].ReplaceLineEndings(" ").Trim();
+        int start = Math.Max(0, matchStart - ExcerptContextLength);
+        int end = Math.Min(text.Length, matchStart + matchLength + ExcerptContextLength);
+        string excerpt = text[start..end].ReplaceLineEndings(" ").Trim();
 
         var builder = new StringBuilder();
         if (start > 0)

@@ -60,7 +60,7 @@ public static class SupportedDocumentFormats
 
     private static bool Matches(string extension, IReadOnlyCollection<string> supportedExtensions)
     {
-        var normalizedExtension = Normalize(extension);
+        string normalizedExtension = Normalize(extension);
         return supportedExtensions.Contains(normalizedExtension, StringComparer.Ordinal);
     }
 

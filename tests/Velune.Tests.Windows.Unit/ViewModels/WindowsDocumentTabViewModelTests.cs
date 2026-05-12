@@ -14,7 +14,7 @@ public sealed class WindowsDocumentTabViewModelTests
     [Fact]
     public void SetPageRotation_TracksPendingRotationAndThumbnailState()
     {
-        var tab = CreateTab(pageCount: 3);
+        WindowsDocumentTabViewModel tab = CreateTab(pageCount: 3);
 
         tab.SetPageRotation(2, Rotation.Deg90);
 
@@ -28,7 +28,7 @@ public sealed class WindowsDocumentTabViewModelTests
     [Fact]
     public void CurrentPageChange_SyncsTabRotationToPageRotation()
     {
-        var tab = CreateTab(pageCount: 2);
+        WindowsDocumentTabViewModel tab = CreateTab(pageCount: 2);
         tab.SetPageRotation(2, Rotation.Deg270);
 
         tab.CurrentPage = 2;
@@ -39,7 +39,7 @@ public sealed class WindowsDocumentTabViewModelTests
     [Fact]
     public void ClearPendingPageRotations_ResetsPendingStateAndThumbnails()
     {
-        var tab = CreateTab(pageCount: 2);
+        WindowsDocumentTabViewModel tab = CreateTab(pageCount: 2);
         tab.SetPageRotation(1, Rotation.Deg90);
         tab.SetPageRotation(2, Rotation.Deg180);
 
@@ -80,7 +80,7 @@ public sealed class WindowsDocumentTabViewModelTests
     private static ObservableCollection<WindowsPageThumbnailViewModel> CreateThumbnails(int pageCount)
     {
         var thumbnails = new ObservableCollection<WindowsPageThumbnailViewModel>();
-        for (var page = 1; page <= pageCount; page++)
+        for (int page = 1; page <= pageCount; page++)
         {
             thumbnails.Add(new WindowsPageThumbnailViewModel(page, $"Page {page}", "Loading"));
         }
@@ -90,7 +90,7 @@ public sealed class WindowsDocumentTabViewModelTests
 
     private static void SetField<T>(WindowsDocumentTabViewModel tab, string fieldName, T value)
     {
-        var field = typeof(WindowsDocumentTabViewModel).GetField(
+        FieldInfo? field = typeof(WindowsDocumentTabViewModel).GetField(
             fieldName,
             BindingFlags.Instance | BindingFlags.NonPublic);
 
@@ -100,7 +100,7 @@ public sealed class WindowsDocumentTabViewModelTests
 
     private static void SetReadOnlyProperty<T>(WindowsDocumentTabViewModel tab, string propertyName, T value)
     {
-        var backingField = typeof(WindowsDocumentTabViewModel).GetField(
+        FieldInfo? backingField = typeof(WindowsDocumentTabViewModel).GetField(
             $"<{propertyName}>k__BackingField",
             BindingFlags.Instance | BindingFlags.NonPublic);
 

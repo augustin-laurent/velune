@@ -1,5 +1,6 @@
 using Velune.Application.Abstractions;
 using Velune.Application.DTOs;
+using Velune.Application.Results;
 using Velune.Application.UseCases;
 using Velune.Domain.Abstractions;
 using Velune.Domain.Documents;
@@ -19,7 +20,7 @@ public sealed class CloseDocumentUseCaseTests
         using var renderOrchestrator = new NoOpRenderOrchestrator();
         var useCase = new CloseDocumentUseCase(store, NoOpPerformanceMetrics.Instance, renderOrchestrator);
 
-        var result = await useCase.ExecuteAsync();
+        Result<bool> result = await useCase.ExecuteAsync();
 
         Assert.True(result.IsSuccess);
         Assert.Null(store.Current);
@@ -38,7 +39,7 @@ public sealed class CloseDocumentUseCaseTests
         using var renderOrchestrator = new NoOpRenderOrchestrator();
         var useCase = new CloseDocumentUseCase(store, NoOpPerformanceMetrics.Instance, renderOrchestrator);
 
-        var result = await useCase.ExecuteAsync(new CloseDocumentRequest(inactiveSession.Id));
+        Result<bool> result = await useCase.ExecuteAsync(new CloseDocumentRequest(inactiveSession.Id));
 
         Assert.True(result.IsSuccess);
         Assert.Single(store.Sessions);

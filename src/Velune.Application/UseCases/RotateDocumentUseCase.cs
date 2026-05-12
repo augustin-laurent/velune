@@ -1,6 +1,7 @@
 using Velune.Application.Abstractions;
 using Velune.Application.DTOs;
 using Velune.Application.Results;
+using Velune.Domain.Abstractions;
 using Velune.Domain.Documents;
 
 namespace Velune.Application.UseCases;
@@ -25,7 +26,7 @@ public sealed class RotateDocumentUseCase
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var session = _sessionStore.Current;
+        IDocumentSession? session = _sessionStore.Current;
         if (session is null)
         {
             return ResultFactory.Failure<ViewportState>(
@@ -34,8 +35,8 @@ public sealed class RotateDocumentUseCase
                     "No active document session."));
         }
 
-        var updatedViewport = session.Viewport.WithRotation(request.Rotation);
-        var updatedSession = session.WithViewport(updatedViewport);
+        ViewportState updatedViewport = session.Viewport.WithRotation(request.Rotation);
+        IDocumentSession updatedSession = session.WithViewport(updatedViewport);
 
         _sessionStore.SetCurrent(updatedSession);
 

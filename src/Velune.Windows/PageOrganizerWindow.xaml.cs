@@ -7,6 +7,8 @@ using Velune.Windows.ViewModels;
 using Windows.Foundation;
 using Windows.Graphics;
 using Windows.System;
+using Microsoft.UI;
+using Microsoft.UI.Input;
 using WinRT.Interop;
 
 namespace Velune.Windows;
@@ -62,9 +64,12 @@ public sealed partial class PageOrganizerWindow : Window
 
     private void ConfigureWindow()
     {
-        var appWindow = GetAppWindow();
+        ExtendsContentIntoTitleBar = true;
+
+        AppWindow appWindow = GetAppWindow();
         appWindow.Resize(new SizeInt32(900, 650));
         appWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "Brand", "Velune.ico"));
+        appWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
 
         if (appWindow.Presenter is OverlappedPresenter presenter)
         {
@@ -74,10 +79,10 @@ public sealed partial class PageOrganizerWindow : Window
 
     private void ApplyTheme()
     {
-        var isLight = Microsoft.UI.Xaml.Application.Current.RequestedTheme == ApplicationTheme.Light;
+        bool isLight = Microsoft.UI.Xaml.Application.Current.RequestedTheme == ApplicationTheme.Light;
         Root.RequestedTheme = isLight ? ElementTheme.Light : ElementTheme.Dark;
 
-        var appWindow = GetAppWindow();
+        AppWindow appWindow = GetAppWindow();
         appWindow.TitleBar.BackgroundColor = isLight
             ? global::Windows.UI.Color.FromArgb(255, 255, 255, 255)
             : global::Windows.UI.Color.FromArgb(255, 32, 32, 32);
@@ -96,8 +101,8 @@ public sealed partial class PageOrganizerWindow : Window
 
     private AppWindow GetAppWindow()
     {
-        var handle = WindowNative.GetWindowHandle(this);
-        var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(handle);
+        IntPtr handle = WindowNative.GetWindowHandle(this);
+        WindowId windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(handle);
         return AppWindow.GetFromWindowId(windowId);
     }
 
@@ -132,7 +137,7 @@ public sealed partial class PageOrganizerWindow : Window
             return;
         }
 
-        var properties = e.GetCurrentPoint(element).Properties;
+        PointerPointProperties? properties = e.GetCurrentPoint(element).Properties;
         if (!properties.IsLeftButtonPressed)
         {
             return;
@@ -145,9 +150,9 @@ public sealed partial class PageOrganizerWindow : Window
         {
             _dragSourceIndex = _viewModel.Pages.IndexOf(item);
 
-            var isCtrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control)
+            bool isCtrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control)
                 .HasFlag(global::Windows.UI.Core.CoreVirtualKeyStates.Down);
-            var isShift = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift)
+            bool isShift = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift)
                 .HasFlag(global::Windows.UI.Core.CoreVirtualKeyStates.Down);
 
             if (!item.IsSelected && !isCtrl && !isShift)
@@ -171,9 +176,9 @@ public sealed partial class PageOrganizerWindow : Window
             return;
         }
 
-        var currentPoint = e.GetCurrentPoint(PageGridScrollViewer).Position;
-        var deltaX = Math.Abs(currentPoint.X - _dragStartPoint.X);
-        var deltaY = Math.Abs(currentPoint.Y - _dragStartPoint.Y);
+        Point currentPoint = e.GetCurrentPoint(PageGridScrollViewer).Position;
+        double deltaX = Math.Abs(currentPoint.X - _dragStartPoint.X);
+        double deltaY = Math.Abs(currentPoint.Y - _dragStartPoint.Y);
 
         if (!_isDragging && (deltaX > DragThreshold || deltaY > DragThreshold))
         {
@@ -225,7 +230,7 @@ public sealed partial class PageOrganizerWindow : Window
 
     private void BeginDrag()
     {
-        var sourceItem = _viewModel.Pages[_dragSourceIndex];
+        PageOrganizerItemViewModel sourceItem = _viewModel.Pages[_dragSourceIndex];
         if (sourceItem.Thumbnail is not null)
         {
             DragGhost.Source = sourceItem.Thumbnail;
@@ -250,7 +255,7 @@ public sealed partial class PageOrganizerWindow : Window
 
     private void UpdateDropTarget(Point position)
     {
-        var newDropIndex = GetDropIndexFromPosition(position);
+        int newDropIndex = GetDropIndexFromPosition(position);
 
         if (newDropIndex == _currentDropIndex)
         {
@@ -263,26 +268,26 @@ public sealed partial class PageOrganizerWindow : Window
 
     private int GetDropIndexFromPosition(Point position)
     {
-        var cellWidth = ItemWidth + ItemSpacing;
-        var cellHeight = ItemHeight + ItemSpacing;
-        var scrollOffset = PageGridScrollViewer.VerticalOffset;
-        var adjustedY = position.Y + scrollOffset;
+        double cellWidth = ItemWidth + ItemSpacing;
+        double cellHeight = ItemHeight + ItemSpacing;
+        double scrollOffset = PageGridScrollViewer.VerticalOffset;
+        double adjustedY = position.Y + scrollOffset;
 
-        var repeaterWidth = PageGridRepeater.ActualWidth;
-        var columns = Math.Max(1, (int)(repeaterWidth / cellWidth));
+        double repeaterWidth = PageGridRepeater.ActualWidth;
+        int columns = Math.Max(1, (int)(repeaterWidth / cellWidth));
 
-        var col = (int)(position.X / cellWidth);
-        var row = (int)(adjustedY / cellHeight);
+        int col = (int)(position.X / cellWidth);
+        int row = (int)(adjustedY / cellHeight);
 
         col = Math.Clamp(col, 0, columns - 1);
 
-        var index = (row * columns) + col;
+        int index = (row * columns) + col;
         return Math.Clamp(index, 0, _viewModel.Pages.Count);
     }
 
     private void AnimateGridDisplacement()
     {
-        for (var i = 0; i < _viewModel.Pages.Count; i++)
+        for (int i = 0; i < _viewModel.Pages.Count; i++)
         {
             var element = PageGridRepeater.TryGetElement(i) as UIElement;
             if (element is null)
@@ -290,20 +295,20 @@ public sealed partial class PageOrganizerWindow : Window
                 continue;
             }
 
-            var isSource = _viewModel.Pages[i].IsSelected || i == _dragSourceIndex;
+            bool isSource = _viewModel.Pages[i].IsSelected || i == _dragSourceIndex;
             if (isSource)
             {
                 continue;
             }
 
-            var shouldShift = i >= _currentDropIndex;
+            bool shouldShift = i >= _currentDropIndex;
             element.Translation = new System.Numerics.Vector3(shouldShift ? DisplacementX : 0f, 0, 0);
         }
     }
 
     private void ResetGridDisplacement()
     {
-        for (var i = 0; i < _viewModel.Pages.Count; i++)
+        for (int i = 0; i < _viewModel.Pages.Count; i++)
         {
             var element = PageGridRepeater.TryGetElement(i) as UIElement;
             if (element is null)
@@ -341,7 +346,7 @@ public sealed partial class PageOrganizerWindow : Window
 
     private void AutoScrollGrid(double pointerY)
     {
-        var viewportHeight = PageGridScrollViewer.ViewportHeight;
+        double viewportHeight = PageGridScrollViewer.ViewportHeight;
         const double edgeZone = 40;
         const double scrollStep = 10;
 

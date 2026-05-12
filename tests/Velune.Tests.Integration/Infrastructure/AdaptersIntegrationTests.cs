@@ -10,7 +10,7 @@ public sealed class AdaptersIntegrationTests
     [Fact]
     public async Task SamplePdf_ShouldOpenAndRenderFirstPage()
     {
-        var result = await RunHostAsync("sample.pdf");
+        HostResult result = await RunHostAsync("sample.pdf");
 
         Assert.True(result.Success, result.Error);
         Assert.Equal(nameof(DocumentType.Pdf), result.DocumentType);
@@ -23,7 +23,7 @@ public sealed class AdaptersIntegrationTests
     [Fact]
     public async Task SampleWideImage_ShouldOpenAndRenderMinimalPage()
     {
-        var result = await RunHostAsync("sample-wide.png");
+        HostResult result = await RunHostAsync("sample-wide.png");
 
         Assert.True(result.Success, result.Error);
         Assert.Equal(nameof(DocumentType.Image), result.DocumentType);
@@ -35,7 +35,7 @@ public sealed class AdaptersIntegrationTests
     [Fact]
     public async Task SamplePortraitImage_ShouldOpenAndRenderMinimalPage()
     {
-        var result = await RunHostAsync("sample-portrait.png", rotationDegrees: 90);
+        HostResult result = await RunHostAsync("sample-portrait.png", rotationDegrees: 90);
 
         Assert.True(result.Success, result.Error);
         Assert.Equal(nameof(DocumentType.Image), result.DocumentType);
@@ -46,9 +46,9 @@ public sealed class AdaptersIntegrationTests
 
     private static async Task<HostResult> RunHostAsync(string fixtureName, int rotationDegrees = 0)
     {
-        var repositoryRoot = GetRepositoryRoot();
-        var hostDllPath = GetHostDllPath(repositoryRoot);
-        var fixturePath = Path.Combine(AppContext.BaseDirectory, "Fixtures", fixtureName);
+        string repositoryRoot = GetRepositoryRoot();
+        string hostDllPath = GetHostDllPath(repositoryRoot);
+        string fixturePath = Path.Combine(AppContext.BaseDirectory, "Fixtures", fixtureName);
 
         Assert.True(File.Exists(hostDllPath), $"Host executable not found: {hostDllPath}");
         Assert.True(File.Exists(fixturePath), $"Fixture not found: {fixturePath}");
@@ -64,8 +64,8 @@ public sealed class AdaptersIntegrationTests
         using var process = Process.Start(startInfo);
         Assert.NotNull(process);
 
-        var standardOutput = await process.StandardOutput.ReadToEndAsync();
-        var standardError = await process.StandardError.ReadToEndAsync();
+        string standardOutput = await process.StandardOutput.ReadToEndAsync();
+        string standardError = await process.StandardError.ReadToEndAsync();
         await process.WaitForExitAsync();
 
         if (process.ExitCode != 0)
@@ -73,7 +73,7 @@ public sealed class AdaptersIntegrationTests
             Assert.Fail($"Host failed with exit code {process.ExitCode}:{Environment.NewLine}{standardError}{standardOutput}");
         }
 
-        var result = JsonSerializer.Deserialize<HostResult>(
+        HostResult? result = JsonSerializer.Deserialize<HostResult>(
             standardOutput,
             new JsonSerializerOptions
             {
@@ -91,15 +91,15 @@ public sealed class AdaptersIntegrationTests
 
     private static string GetHostDllPath(string repositoryRoot)
     {
-        var currentConfiguration = new DirectoryInfo(AppContext.BaseDirectory)
+        string? currentConfiguration = new DirectoryInfo(AppContext.BaseDirectory)
             .Parent?
             .Parent?
             .Name;
-        var hostBinDirectory = Path.Combine(repositoryRoot, "tests", "Velune.Tests.Render.Host", "bin");
+        string hostBinDirectory = Path.Combine(repositoryRoot, "tests", "Velune.Tests.Render.Host", "bin");
 
         if (!string.IsNullOrWhiteSpace(currentConfiguration))
         {
-            var configurationPath = Path.Combine(
+            string configurationPath = Path.Combine(
                 hostBinDirectory,
                 currentConfiguration,
                 "net10.0",
@@ -111,7 +111,7 @@ public sealed class AdaptersIntegrationTests
             }
         }
 
-        var fallbackPath = Directory
+        string? fallbackPath = Directory
             .EnumerateFiles(hostBinDirectory, "Velune.Tests.Render.Host.dll", SearchOption.AllDirectories)
             .OrderByDescending(path => path.Contains($"{Path.DirectorySeparatorChar}Release{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
             .ThenByDescending(path => path.Contains($"{Path.DirectorySeparatorChar}Debug{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))

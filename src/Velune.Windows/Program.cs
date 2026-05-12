@@ -11,7 +11,7 @@ public static class Program
     /// <summary>
     /// Initializes COM wrappers and starts the WinUI application.
     /// </summary>
-    /// <param name="args">Command-line arguments, may include file paths to open.</param>
+    /// <param name="args">Command-line arguments may include file paths to open.</param>
     [STAThread]
     public static void Main(string[] args)
     {

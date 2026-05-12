@@ -14,11 +14,8 @@ public sealed class TopLevelProvider
     /// <returns>The current top-level, or null.</returns>
     public TopLevel? GetTopLevel()
     {
-        if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-        {
-            return TopLevel.GetTopLevel(desktop.MainWindow);
-        }
-
-        return null;
+        return Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
+            ? TopLevel.GetTopLevel(desktop.MainWindow)
+            : null;
     }
 }

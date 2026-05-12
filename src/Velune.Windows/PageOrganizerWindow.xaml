@@ -5,8 +5,12 @@
     xmlns:services="using:Velune.Windows.Services"
     Title="{Binding WindowTitle}">
 
+  <Window.SystemBackdrop>
+    <MicaBackdrop />
+  </Window.SystemBackdrop>
+
   <Grid x:Name="Root"
-        Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+        Background="Transparent"
         Padding="0">
 
     <Grid.Resources>
@@ -64,6 +68,7 @@
         <StackPanel Orientation="Horizontal"
                     Spacing="2">
           <Button ToolTipService.ToolTip="{Binding RotateLeftLabel}"
+                  AutomationProperties.Name="{Binding RotateLeftLabel}"
                   Click="OnRotateLeftClick"
                   Style="{StaticResource SubtleButtonStyle}">
             <FontIcon Glyph="&#xE7AD;"
@@ -76,6 +81,7 @@
             </FontIcon>
           </Button>
           <Button ToolTipService.ToolTip="{Binding RotateRightLabel}"
+                  AutomationProperties.Name="{Binding RotateRightLabel}"
                   Click="OnRotateRightClick"
                   Style="{StaticResource SubtleButtonStyle}">
             <FontIcon Glyph="&#xE7AD;"
@@ -89,6 +95,7 @@
                      Margin="8,0" />
 
           <Button ToolTipService.ToolTip="{Binding DeleteLabel}"
+                  AutomationProperties.Name="{Binding DeleteLabel}"
                   Click="OnDeleteClick"
                   Style="{StaticResource SubtleButtonStyle}">
             <FontIcon Glyph="&#xE107;"
@@ -96,6 +103,7 @@
                       FontSize="16" />
           </Button>
           <Button ToolTipService.ToolTip="{Binding DuplicateLabel}"
+                  AutomationProperties.Name="{Binding DuplicateLabel}"
                   Click="OnDuplicateClick"
                   Style="{StaticResource SubtleButtonStyle}">
             <FontIcon Glyph="&#xE8C8;"
@@ -103,6 +111,7 @@
                       FontSize="16" />
           </Button>
           <Button ToolTipService.ToolTip="{Binding ReverseLabel}"
+                  AutomationProperties.Name="{Binding ReverseLabel}"
                   Click="OnReverseClick"
                   Style="{StaticResource SubtleButtonStyle}">
             <FontIcon Glyph="&#xE174;"
@@ -116,6 +125,7 @@
                      Margin="8,0" />
 
           <Button ToolTipService.ToolTip="{Binding UndoLabel}"
+                  AutomationProperties.Name="{Binding UndoLabel}"
                   Click="OnUndoClick"
                   IsEnabled="{Binding CanUndo, Mode=OneWay}"
                   Style="{StaticResource SubtleButtonStyle}">
@@ -124,6 +134,7 @@
                       FontSize="16" />
           </Button>
           <Button ToolTipService.ToolTip="{Binding RedoLabel}"
+                  AutomationProperties.Name="{Binding RedoLabel}"
                   Click="OnRedoClick"
                   IsEnabled="{Binding CanRedo, Mode=OneWay}"
                   Style="{StaticResource SubtleButtonStyle}">
@@ -143,18 +154,23 @@
                      Margin="0,0,2,0" />
           <Button Content="{Binding SelectAllLabel}"
                   Click="OnSelectAllClick"
+                  AutomationProperties.Name="{Binding SelectAllLabel}"
                   Style="{StaticResource ChipButtonStyle}" />
           <Button Content="{Binding SelectOddLabel}"
                   Click="OnSelectOddClick"
+                  AutomationProperties.Name="{Binding SelectOddLabel}"
                   Style="{StaticResource ChipButtonStyle}" />
           <Button Content="{Binding SelectEvenLabel}"
                   Click="OnSelectEvenClick"
+                  AutomationProperties.Name="{Binding SelectEvenLabel}"
                   Style="{StaticResource ChipButtonStyle}" />
           <Button Content="{Binding SelectInvertLabel}"
                   Click="OnInvertSelectionClick"
+                  AutomationProperties.Name="{Binding SelectInvertLabel}"
                   Style="{StaticResource ChipButtonStyle}" />
           <Button Content="{Binding SelectNoneLabel}"
                   Click="OnDeselectAllClick"
+                  AutomationProperties.Name="{Binding SelectNoneLabel}"
                   Style="{StaticResource ChipButtonStyle}" />
         </StackPanel>
       </StackPanel>
@@ -313,10 +329,12 @@
                     Spacing="8">
           <Button Content="{Binding CancelLabel}"
                   Click="OnCancelClick"
+                  AutomationProperties.Name="{Binding CancelLabel}"
                   MinWidth="88"
                   CornerRadius="6" />
           <Button Content="{Binding ApplyLabel}"
                   Click="OnApplyClick"
+                  AutomationProperties.Name="{Binding ApplyLabel}"
                   Style="{ThemeResource AccentButtonStyle}"
                   MinWidth="88"
                   CornerRadius="6" />

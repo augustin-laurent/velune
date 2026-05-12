@@ -28,7 +28,7 @@ public sealed class InMemoryDocumentSessionStoreTests
     {
         var store = new InMemoryDocumentSessionStore();
 
-        var session = CreateSession("test.pdf");
+        DocumentSession session = CreateSession("test.pdf");
 
         store.SetCurrent(session);
         store.Clear();
@@ -43,8 +43,8 @@ public sealed class InMemoryDocumentSessionStoreTests
     public void Add_ShouldKeepMultipleSessionsAndActivateRequestedSession()
     {
         var store = new InMemoryDocumentSessionStore();
-        var first = CreateSession("first.pdf");
-        var second = CreateSession("second.pdf");
+        DocumentSession first = CreateSession("first.pdf");
+        DocumentSession second = CreateSession("second.pdf");
 
         store.Add(first, makeActive: true);
         store.Add(second, makeActive: true);
@@ -58,12 +58,12 @@ public sealed class InMemoryDocumentSessionStoreTests
     public void TryActivate_ShouldSwitchCurrentSession()
     {
         var store = new InMemoryDocumentSessionStore();
-        var first = CreateSession("first.pdf");
-        var second = CreateSession("second.pdf");
+        DocumentSession first = CreateSession("first.pdf");
+        DocumentSession second = CreateSession("second.pdf");
         store.Add(first, makeActive: true);
         store.Add(second, makeActive: false);
 
-        var activated = store.TryActivate(second.Id);
+        bool activated = store.TryActivate(second.Id);
 
         Assert.True(activated);
         Assert.Same(second, store.Current);
@@ -73,12 +73,12 @@ public sealed class InMemoryDocumentSessionStoreTests
     public void Remove_ShouldActivateRemainingSession_WhenActiveSessionIsRemoved()
     {
         var store = new InMemoryDocumentSessionStore();
-        var first = CreateSession("first.pdf");
-        var second = CreateSession("second.pdf");
+        DocumentSession first = CreateSession("first.pdf");
+        DocumentSession second = CreateSession("second.pdf");
         store.Add(first, makeActive: true);
         store.Add(second, makeActive: true);
 
-        var removed = store.Remove(second.Id);
+        bool removed = store.Remove(second.Id);
 
         Assert.True(removed);
         Assert.Single(store.Sessions);
@@ -89,8 +89,8 @@ public sealed class InMemoryDocumentSessionStoreTests
     public void UpdateViewport_ByDocumentId_ShouldUpdateInactiveSession()
     {
         var store = new InMemoryDocumentSessionStore();
-        var first = CreateSession("first.pdf");
-        var second = CreateSession("second.pdf");
+        DocumentSession first = CreateSession("first.pdf");
+        DocumentSession second = CreateSession("second.pdf");
         store.Add(first, makeActive: true);
         store.Add(second, makeActive: false);
 

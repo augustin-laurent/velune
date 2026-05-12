@@ -74,6 +74,5 @@ public sealed record ImageDocumentSession : IImageDocumentSession, IReleasableDo
     /// <inheritdoc />
     public void ReleaseResources()
     {
-        Resource.Dispose();
     }
 }

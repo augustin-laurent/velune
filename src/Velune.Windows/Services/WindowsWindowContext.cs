@@ -12,15 +12,6 @@ public sealed class WindowsWindowContext
     private Window? _lastKnownWindow;
 
     /// <summary>
-    /// Gets or sets the main window reference (alias for <see cref="ActiveWindow"/>).
-    /// </summary>
-    public Window? MainWindow
-    {
-        get => ActiveWindow;
-        set => ActiveWindow = value;
-    }
-
-    /// <summary>
     /// Gets the currently active window.
     /// </summary>
     public Window? ActiveWindow
@@ -68,7 +59,7 @@ public sealed class WindowsWindowContext
     /// <returns>The native window handle.</returns>
     public nint GetWindowHandle()
     {
-        var window = ActiveWindow ?? _lastKnownWindow;
+        Window? window = ActiveWindow ?? _lastKnownWindow;
         if (window is null)
         {
             throw new InvalidOperationException("The active window is not available yet.");

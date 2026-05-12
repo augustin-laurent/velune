@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Velune.Application.Abstractions;
+using Velune.Application.Documents;
 using Velune.Domain.Annotations;
 using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
@@ -78,7 +79,7 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
     {
         _pdfiumInitializer.EnsureInitialized();
 
-        var handle = PdfiumNative.FPDF_LoadDocument(pdfFilePath, null);
+        IntPtr handle = PdfiumNative.FPDF_LoadDocument(pdfFilePath, null);
         if (handle == nint.Zero)
         {
             return [];
@@ -86,13 +87,13 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
 
         try
         {
-            var json = ReadAttachment(handle);
+            string? json = ReadAttachment(handle);
             if (json is null)
             {
                 return [];
             }
 
-            var dtos = JsonSerializer.Deserialize<AnnotationDto[]>(json, SerializerOptions);
+            AnnotationDto[]? dtos = JsonSerializer.Deserialize<AnnotationDto[]>(json, SerializerOptions);
             if (dtos is null || dtos.Length == 0)
             {
                 return [];
@@ -114,7 +115,7 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
     {
         _pdfiumInitializer.EnsureInitialized();
 
-        var handle = PdfiumNative.FPDF_LoadDocument(pdfFilePath, null);
+        IntPtr handle = PdfiumNative.FPDF_LoadDocument(pdfFilePath, null);
         if (handle == nint.Zero)
         {
             return;
@@ -124,10 +125,10 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
         {
             RemoveExistingAttachment(handle);
 
-            var dtos = annotations.Select(SerializeAnnotation).ToArray();
-            var json = JsonSerializer.SerializeToUtf8Bytes(dtos, SerializerOptions);
+            AnnotationDto[] dtos = annotations.Select(SerializeAnnotation).ToArray();
+            byte[] json = JsonSerializer.SerializeToUtf8Bytes(dtos, SerializerOptions);
 
-            var attachment = PdfiumNative.FPDFDoc_AddAttachment(handle, AttachmentName);
+            IntPtr attachment = PdfiumNative.FPDFDoc_AddAttachment(handle, AttachmentName);
             if (attachment == nint.Zero)
             {
                 return;
@@ -135,7 +136,7 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
 
             PdfiumNative.FPDFAttachment_SetFile(attachment, handle, json, (uint)json.Length);
 
-            var tempFile = Path.GetTempFileName();
+            string tempFile = VeluneTempDirectory.CreateFile();
             try
             {
                 using (var stream = new FileStream(tempFile, FileMode.Create, FileAccess.Write, FileShare.None))
@@ -173,7 +174,7 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
     {
         _pdfiumInitializer.EnsureInitialized();
 
-        var handle = PdfiumNative.FPDF_LoadDocument(pdfFilePath, null);
+        IntPtr handle = PdfiumNative.FPDF_LoadDocument(pdfFilePath, null);
         if (handle == nint.Zero)
         {
             return;
@@ -186,7 +187,7 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
                 return;
             }
 
-            var tempFile = Path.GetTempFileName();
+            string tempFile = VeluneTempDirectory.CreateFile();
             try
             {
                 using (var stream = new FileStream(tempFile, FileMode.Create, FileAccess.Write, FileShare.None))
@@ -222,27 +223,27 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
 
     private static string? ReadAttachment(nint document)
     {
-        var count = PdfiumNative.FPDFDoc_GetAttachmentCount(document);
-        for (var i = 0; i < count; i++)
+        int count = PdfiumNative.FPDFDoc_GetAttachmentCount(document);
+        for (int i = 0; i < count; i++)
         {
-            var attachment = PdfiumNative.FPDFDoc_GetAttachment(document, i);
+            IntPtr attachment = PdfiumNative.FPDFDoc_GetAttachment(document, i);
             if (attachment == nint.Zero)
             {
                 continue;
             }
 
-            var name = GetAttachmentName(attachment);
+            string? name = GetAttachmentName(attachment);
             if (!string.Equals(name, AttachmentName, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
-            if (!PdfiumNative.FPDFAttachment_GetFile(attachment, null, 0, out var fileLen) || fileLen == 0)
+            if (!PdfiumNative.FPDFAttachment_GetFile(attachment, null, 0, out uint fileLen) || fileLen == 0)
             {
                 return null;
             }
 
-            var buffer = new byte[fileLen];
+            byte[] buffer = new byte[fileLen];
             if (!PdfiumNative.FPDFAttachment_GetFile(attachment, buffer, fileLen, out _))
             {
                 return null;
@@ -256,16 +257,16 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
 
     private static bool RemoveExistingAttachment(nint document)
     {
-        var count = PdfiumNative.FPDFDoc_GetAttachmentCount(document);
-        for (var i = 0; i < count; i++)
+        int count = PdfiumNative.FPDFDoc_GetAttachmentCount(document);
+        for (int i = 0; i < count; i++)
         {
-            var attachment = PdfiumNative.FPDFDoc_GetAttachment(document, i);
+            IntPtr attachment = PdfiumNative.FPDFDoc_GetAttachment(document, i);
             if (attachment == nint.Zero)
             {
                 continue;
             }
 
-            var name = GetAttachmentName(attachment);
+            string? name = GetAttachmentName(attachment);
             if (string.Equals(name, AttachmentName, StringComparison.OrdinalIgnoreCase))
             {
                 PdfiumNative.FPDFDoc_DeleteAttachment(document, i);
@@ -278,13 +279,13 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
 
     private static string? GetAttachmentName(nint attachment)
     {
-        var nameLen = PdfiumNative.FPDFAttachment_GetName(attachment, null, 0);
+        uint nameLen = PdfiumNative.FPDFAttachment_GetName(attachment, null, 0);
         if (nameLen <= 2)
         {
             return null;
         }
 
-        var nameBuffer = new byte[nameLen];
+        byte[] nameBuffer = new byte[nameLen];
         PdfiumNative.FPDFAttachment_GetName(attachment, nameBuffer, nameLen);
         return Encoding.Unicode.GetString(nameBuffer, 0, (int)nameLen - 2);
     }
@@ -302,6 +303,7 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
             Opacity = annotation.Appearance.Opacity,
             FontSize = annotation.Appearance.FontSize,
             FontFamily = annotation.Appearance.FontFamily,
+            RotationAngle = annotation.Appearance.RotationAngle,
             BoundsX = annotation.Bounds?.X,
             BoundsY = annotation.Bounds?.Y,
             BoundsW = annotation.Bounds?.Width,
@@ -330,14 +332,15 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
                     dto.BoundsH.Value);
             }
 
-            var points = dto.Points?.Select(p => new NormalizedPoint(p.X, p.Y)).ToArray();
+            NormalizedPoint[]? points = dto.Points?.Select(p => new NormalizedPoint(p.X, p.Y)).ToArray();
             var appearance = new AnnotationAppearance(
                 dto.StrokeHex ?? "#FFE600",
                 dto.FillHex,
                 dto.StrokeThickness > 0 ? dto.StrokeThickness : 2,
                 dto.Opacity is > 0 and <= 1 ? dto.Opacity : 1.0,
                 dto.FontSize is >= 6 and <= 200 ? dto.FontSize : 14,
-                dto.FontFamily);
+                dto.FontFamily,
+                dto.RotationAngle);
 
             return new DocumentAnnotation(
                 dto.Id == Guid.Empty ? Guid.NewGuid() : dto.Id,
@@ -415,6 +418,11 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
             get; set;
         }
 
+        public double RotationAngle
+        {
+            get; set;
+        }
+
         public double? BoundsX
         {
             get; set;
@@ -480,6 +488,11 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
         private readonly System.Runtime.InteropServices.GCHandle _callbackHandle;
         private bool _disposed;
 
+        ~PdfiumFileWriter()
+        {
+            Dispose();
+        }
+
         public PdfiumFileWriter(Stream stream)
         {
             ArgumentNullException.ThrowIfNull(stream);
@@ -512,6 +525,7 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
             }
 
             _disposed = true;
+            GC.SuppressFinalize(this);
 
             lock (WritersGate)
             {
@@ -551,8 +565,8 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
             {
                 checked
                 {
-                    var length = (int)size;
-                    var buffer = new byte[length];
+                    int length = (int)size;
+                    byte[] buffer = new byte[length];
                     System.Runtime.InteropServices.Marshal.Copy(data, buffer, 0, length);
                     writer._stream.Write(buffer, 0, length);
                     return 1;

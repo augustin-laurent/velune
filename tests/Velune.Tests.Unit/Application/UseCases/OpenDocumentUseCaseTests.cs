@@ -22,7 +22,7 @@ public sealed class OpenDocumentUseCaseTests
         using var renderOrchestrator = new NoOpRenderOrchestrator();
         var useCase = new OpenDocumentUseCase(opener, store, NoOpPerformanceMetrics.Instance, renderOrchestrator);
 
-        var result = await useCase.ExecuteAsync(new OpenDocumentRequest(string.Empty));
+        Result<IDocumentSession> result = await useCase.ExecuteAsync(new OpenDocumentRequest(string.Empty));
 
         Assert.True(result.IsFailure);
         Assert.NotNull(result.Error);
@@ -38,7 +38,7 @@ public sealed class OpenDocumentUseCaseTests
         using var renderOrchestrator = new NoOpRenderOrchestrator();
         var useCase = new OpenDocumentUseCase(opener, store, NoOpPerformanceMetrics.Instance, renderOrchestrator);
 
-        var result = await useCase.ExecuteAsync(new OpenDocumentRequest("/tmp/missing.pdf"));
+        Result<IDocumentSession> result = await useCase.ExecuteAsync(new OpenDocumentRequest("/tmp/missing.pdf"));
 
         Assert.True(result.IsFailure);
         Assert.NotNull(result.Error);
@@ -54,7 +54,7 @@ public sealed class OpenDocumentUseCaseTests
         using var renderOrchestrator = new NoOpRenderOrchestrator();
         var useCase = new OpenDocumentUseCase(opener, store, NoOpPerformanceMetrics.Instance, renderOrchestrator);
 
-        var result = await useCase.ExecuteAsync(new OpenDocumentRequest("/tmp/file.xyz"));
+        Result<IDocumentSession> result = await useCase.ExecuteAsync(new OpenDocumentRequest("/tmp/file.xyz"));
 
         Assert.True(result.IsFailure);
         Assert.NotNull(result.Error);
@@ -70,7 +70,7 @@ public sealed class OpenDocumentUseCaseTests
         using var renderOrchestrator = new NoOpRenderOrchestrator();
         var useCase = new OpenDocumentUseCase(opener, store, NoOpPerformanceMetrics.Instance, renderOrchestrator);
 
-        var result = await useCase.ExecuteAsync(new OpenDocumentRequest("/tmp/file.pdf"));
+        Result<IDocumentSession> result = await useCase.ExecuteAsync(new OpenDocumentRequest("/tmp/file.pdf"));
 
         Assert.True(result.IsFailure);
         Assert.NotNull(result.Error);
@@ -94,7 +94,7 @@ public sealed class OpenDocumentUseCaseTests
         using var renderOrchestrator = new NoOpRenderOrchestrator();
         var useCase = new OpenDocumentUseCase(opener, store, metrics, renderOrchestrator);
 
-        var result = await useCase.ExecuteAsync(new OpenDocumentRequest("/tmp/test.pdf"));
+        Result<IDocumentSession> result = await useCase.ExecuteAsync(new OpenDocumentRequest("/tmp/test.pdf"));
 
         Assert.True(result.IsSuccess);
         Assert.Same(session, store.Current);
@@ -122,7 +122,7 @@ public sealed class OpenDocumentUseCaseTests
         using var renderOrchestrator = new NoOpRenderOrchestrator();
         var useCase = new OpenDocumentUseCase(opener, store, NoOpPerformanceMetrics.Instance, renderOrchestrator);
 
-        var result = await useCase.ExecuteAsync(new OpenDocumentRequest("/tmp/new.pdf"));
+        Result<IDocumentSession> result = await useCase.ExecuteAsync(new OpenDocumentRequest("/tmp/new.pdf"));
 
         Assert.True(result.IsSuccess);
         Assert.Same(nextSession, store.Current);
@@ -147,7 +147,7 @@ public sealed class OpenDocumentUseCaseTests
         using var renderOrchestrator = new NoOpRenderOrchestrator();
         var useCase = new OpenDocumentUseCase(opener, store, NoOpPerformanceMetrics.Instance, renderOrchestrator);
 
-        var result = await useCase.ExecuteAsync(new OpenDocumentRequest("/tmp/new.pdf", DocumentOpenMode.AddToTabs));
+        Result<IDocumentSession> result = await useCase.ExecuteAsync(new OpenDocumentRequest("/tmp/new.pdf", DocumentOpenMode.AddToTabs));
 
         Assert.True(result.IsSuccess);
         Assert.Equal(2, store.Sessions.Count);

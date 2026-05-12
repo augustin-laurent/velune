@@ -6,19 +6,24 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Shapes;
+using Microsoft.Win32;
 using Velune.Domain.Annotations;
 using Velune.Windows.Services;
 using Velune.Windows.ViewModels;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.Graphics;
+using Windows.Storage;
 using Windows.System;
+using Windows.UI.Core;
 using WinRT.Interop;
+using WindowActivatedEventArgs = Microsoft.UI.Xaml.WindowActivatedEventArgs;
 
 namespace Velune.Windows;
 
 /// <summary>
-/// Main workspace window hosting document tabs, annotations, and page thumbnails.
+/// The main workspace window hosting document tabs, annotations, and page thumbnails.
 /// </summary>
 public sealed partial class MainWindow : Window
 {
@@ -58,6 +63,12 @@ public sealed partial class MainWindow : Window
         Root.DataContext = viewModel;
         Title = viewModel.Labels.AppName;
 
+        ContextMenuDeleteItem.Text = viewModel.Labels.AnnotationMenuDelete;
+        ContextMenuRotate90Item.Text = viewModel.Labels.AnnotationMenuRotate90;
+        ContextMenuResetRotationItem.Text = viewModel.Labels.AnnotationMenuResetRotation;
+        ContextMenuFlipHItem.Text = viewModel.Labels.AnnotationMenuFlipH;
+        ContextMenuFlipVItem.Text = viewModel.Labels.AnnotationMenuFlipV;
+
         ConfigureTitleBar();
         ApplyTheme();
 
@@ -73,8 +84,8 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(TitleBarDragRegion);
 
-        var windowHandle = WindowNative.GetWindowHandle(this);
-        var appWindow = ResolveAppWindow();
+        IntPtr windowHandle = WindowNative.GetWindowHandle(this);
+        AppWindow appWindow = ResolveAppWindow();
         appWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
         appWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "Brand", "Velune.ico"));
         _nonClientPointerSource = InputNonClientPointerSource.GetForWindowId(
@@ -116,6 +127,11 @@ public sealed partial class MainWindow : Window
         UpdateTitleBarInteractiveRegions();
     }
 
+    private void OnDocumentScrollViewerSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        _viewModel.SetDocumentViewerSize(e.NewSize.Width, e.NewSize.Height);
+    }
+
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (string.Equals(e.PropertyName, nameof(WindowsMainViewModel.SelectedPreferenceTheme), StringComparison.Ordinal) ||
@@ -153,7 +169,7 @@ public sealed partial class MainWindow : Window
 
     private void ApplyTheme()
     {
-        var isLight = IsLightTheme();
+        bool isLight = IsLightTheme();
         Root.RequestedTheme = isLight ? ElementTheme.Light : ElementTheme.Dark;
 
         TitleBarDragRegion.Background = new SolidColorBrush(Colors.Transparent);
@@ -165,10 +181,10 @@ public sealed partial class MainWindow : Window
         }
         catch
         {
-            // Window not ready.
+            // Window is not ready.
         }
 
-        foreach (var tab in _viewModel.DocumentTabs)
+        foreach (WindowsDocumentTabViewModel tab in _viewModel.DocumentTabs)
         {
             tab.SetTheme(isLight);
         }
@@ -191,7 +207,7 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            var appWindow = ResolveAppWindow();
+            AppWindow appWindow = ResolveAppWindow();
             appWindow.TitleBar.ButtonBackgroundColor = Colors.Transparent;
             appWindow.TitleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
             appWindow.TitleBar.ButtonForegroundColor = isLight
@@ -209,6 +225,7 @@ public sealed partial class MainWindow : Window
         }
         catch
         {
+            // Do nothing
         }
     }
 
@@ -216,12 +233,12 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
+            using RegistryKey? key = Registry.CurrentUser.OpenSubKey(
                 @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
 
             if (key is not null)
             {
-                var value = key.GetValue("AppsUseLightTheme");
+                object? value = key.GetValue("AppsUseLightTheme");
                 if (value is int intValue)
                 {
                     return intValue == 1;
@@ -238,8 +255,8 @@ public sealed partial class MainWindow : Window
 
     private AppWindow ResolveAppWindow()
     {
-        var windowHandle = WindowNative.GetWindowHandle(this);
-        var windowId = Win32Interop.GetWindowIdFromWindow(windowHandle);
+        IntPtr windowHandle = WindowNative.GetWindowHandle(this);
+        WindowId windowId = Win32Interop.GetWindowIdFromWindow(windowHandle);
         return AppWindow.GetFromWindowId(windowId);
     }
 
@@ -253,10 +270,10 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var scale = Root.XamlRoot.RasterizationScale;
-        var interactiveBounds = TitleBarInteractiveRegion
+        double scale = Root.XamlRoot.RasterizationScale;
+        Rect interactiveBounds = TitleBarInteractiveRegion
             .TransformToVisual(Root)
-            .TransformBounds(new global::Windows.Foundation.Rect(
+            .TransformBounds(new Rect(
                 0,
                 0,
                 TitleBarInteractiveRegion.ActualWidth,
@@ -270,7 +287,7 @@ public sealed partial class MainWindow : Window
 
 
 
-    private static RectInt32 ToRectInt32(global::Windows.Foundation.Rect bounds, double scale)
+    private static RectInt32 ToRectInt32(Rect bounds, double scale)
     {
         return new RectInt32(
             (int)Math.Floor(bounds.X * scale),
@@ -411,6 +428,247 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private void OnUndoKeyboardAcceleratorInvoked(
+        KeyboardAccelerator sender,
+        KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (IsTextInputFocused())
+        {
+            return;
+        }
+
+        if (_viewModel.UndoActionCommand.CanExecute(null))
+        {
+            _viewModel.UndoActionCommand.Execute(null);
+        }
+
+        args.Handled = true;
+    }
+
+    private void OnRedoKeyboardAcceleratorInvoked(
+        KeyboardAccelerator sender,
+        KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (IsTextInputFocused())
+        {
+            return;
+        }
+
+        if (_viewModel.RedoActionCommand.CanExecute(null))
+        {
+            _viewModel.RedoActionCommand.Execute(null);
+        }
+
+        args.Handled = true;
+    }
+
+    private void OnDeleteAnnotationKeyboardAcceleratorInvoked(
+        KeyboardAccelerator sender,
+        KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (_viewModel.SelectedAnnotationId is not null)
+        {
+            _viewModel.DeleteSelectedAnnotation();
+            args.Handled = true;
+        }
+    }
+
+    private void OnExtendSelectionRightKeyboardAcceleratorInvoked(
+        KeyboardAccelerator sender,
+        KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (IsTextInputFocused())
+        {
+            return;
+        }
+
+        _viewModel.AdjustDocumentTextSelection(1);
+        args.Handled = true;
+    }
+
+    private void OnShrinkSelectionLeftKeyboardAcceleratorInvoked(
+        KeyboardAccelerator sender,
+        KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (IsTextInputFocused())
+        {
+            return;
+        }
+
+        _viewModel.AdjustDocumentTextSelection(-1);
+        args.Handled = true;
+    }
+
+    private void OnExtendSelectionWordRightKeyboardAcceleratorInvoked(
+        KeyboardAccelerator sender,
+        KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (IsTextInputFocused())
+        {
+            return;
+        }
+
+        _viewModel.AdjustDocumentTextSelectionByWord(1);
+        args.Handled = true;
+    }
+
+    private void OnShrinkSelectionWordLeftKeyboardAcceleratorInvoked(
+        KeyboardAccelerator sender,
+        KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (IsTextInputFocused())
+        {
+            return;
+        }
+
+        _viewModel.AdjustDocumentTextSelectionByWord(-1);
+        args.Handled = true;
+    }
+
+    private async void OnRotateRightKeyboardAcceleratorInvoked(
+        KeyboardAccelerator sender,
+        KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        await _viewModel.RotateSelectedPageAsync(clockwise: true);
+    }
+
+    private async void OnRotateLeftKeyboardAcceleratorInvoked(
+        KeyboardAccelerator sender,
+        KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        await _viewModel.RotateSelectedPageAsync(clockwise: false);
+    }
+
+    private async void OnFitPageKeyboardAcceleratorInvoked(
+        KeyboardAccelerator sender,
+        KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+
+        if (_viewModel.FitPageCommand.CanExecute(null))
+        {
+            await _viewModel.FitPageCommand.ExecuteAsync(null);
+        }
+    }
+
+    private async void OnActualSizeKeyboardAcceleratorInvoked(
+        KeyboardAccelerator sender,
+        KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+
+        if (_viewModel.ActualSizeCommand.CanExecute(null))
+        {
+            await _viewModel.ActualSizeCommand.ExecuteAsync(null);
+        }
+    }
+
+    private void OnFlipHorizontalKeyboardAcceleratorInvoked(
+        KeyboardAccelerator sender,
+        KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+
+        if (_viewModel.SelectedAnnotationId is not null)
+        {
+            _viewModel.FlipSelectedAnnotationHorizontally();
+        }
+    }
+
+    private async void OnNextPageKeyboardAcceleratorInvoked(
+        KeyboardAccelerator sender,
+        KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (IsTextInputFocused())
+        {
+            return;
+        }
+
+        args.Handled = true;
+
+        if (_viewModel.NextPageCommand.CanExecute(null))
+        {
+            await _viewModel.NextPageCommand.ExecuteAsync(null);
+        }
+    }
+
+    private async void OnPreviousPageKeyboardAcceleratorInvoked(
+        KeyboardAccelerator sender,
+        KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (IsTextInputFocused())
+        {
+            return;
+        }
+
+        args.Handled = true;
+
+        if (_viewModel.PreviousPageCommand.CanExecute(null))
+        {
+            await _viewModel.PreviousPageCommand.ExecuteAsync(null);
+        }
+    }
+
+    private async void OnZoomInKeyboardAcceleratorInvoked(
+        KeyboardAccelerator sender,
+        KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+
+        if (_viewModel.ZoomInCommand.CanExecute(null))
+        {
+            await _viewModel.ZoomInCommand.ExecuteAsync(null);
+        }
+    }
+
+    private async void OnZoomOutKeyboardAcceleratorInvoked(
+        KeyboardAccelerator sender,
+        KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+
+        if (_viewModel.ZoomOutCommand.CanExecute(null))
+        {
+            await _viewModel.ZoomOutCommand.ExecuteAsync(null);
+        }
+    }
+
+    private void OnDocumentLayerRightTapped(object sender, RightTappedRoutedEventArgs e)
+    {
+        if (_viewModel.SelectedAnnotationId is null)
+        {
+            AnnotationContextMenu.Hide();
+            e.Handled = true;
+        }
+    }
+
+    private void OnContextMenuDelete(object sender, RoutedEventArgs e)
+    {
+        _viewModel.DeleteSelectedAnnotation();
+    }
+
+    private void OnContextMenuRotate90(object sender, RoutedEventArgs e)
+    {
+        _viewModel.RotateSelectedAnnotation90();
+    }
+
+    private void OnContextMenuResetRotation(object sender, RoutedEventArgs e)
+    {
+        _viewModel.ResetSelectedAnnotationRotation();
+    }
+
+    private void OnContextMenuFlipH(object sender, RoutedEventArgs e)
+    {
+        _viewModel.FlipSelectedAnnotationHorizontally();
+    }
+
+    private void OnContextMenuFlipV(object sender, RoutedEventArgs e)
+    {
+        _viewModel.FlipSelectedAnnotationVertically();
+    }
+
     private bool CopySelectedDocumentTextToClipboard()
     {
         if (string.IsNullOrWhiteSpace(_viewModel.SelectedDocumentText))
@@ -436,7 +694,7 @@ public sealed partial class MainWindow : Window
 
     private bool IsTextInputFocused()
     {
-        var focusedElement = FocusManager.GetFocusedElement(Root.XamlRoot);
+        object? focusedElement = FocusManager.GetFocusedElement(Root.XamlRoot);
         return focusedElement is TextBox or PasswordBox or RichEditBox;
     }
 
@@ -459,7 +717,7 @@ public sealed partial class MainWindow : Window
     /// <summary>
     /// Returns a task that completes when the root visual tree has loaded.
     /// </summary>
-    /// <returns>A task representing the window loaded event.</returns>
+    /// <returns>A task representing the window-loaded event.</returns>
     public Task WaitUntilLoadedAsync()
     {
         return _loadedCompletionSource.Task;
@@ -491,10 +749,10 @@ public sealed partial class MainWindow : Window
 
     private int _thumbnailDragSourceIndex = -1;
     private bool _isDraggingThumbnail;
-    private global::Windows.Foundation.Point _thumbnailDragStartPoint;
+    private Point _thumbnailDragStartPoint;
     private int _thumbnailDropTargetIndex = -1;
 
-    private async void OnThumbnailItemTapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
+    private async void OnThumbnailItemTapped(object sender, TappedRoutedEventArgs e)
     {
         if (_isDraggingThumbnail)
         {
@@ -509,14 +767,14 @@ public sealed partial class MainWindow : Window
 
     private void OnOpenPageOrganizerClicked(object sender, RoutedEventArgs e)
     {
-        var tab = _viewModel.ActiveDocumentTab;
+        WindowsDocumentTabViewModel? tab = _viewModel.ActiveDocumentTab;
         if (tab is null)
         {
             return;
         }
 
         var app = (App)Microsoft.UI.Xaml.Application.Current;
-        var vm = app.Services.GetRequiredService<PageOrganizerViewModel>();
+        PageOrganizerViewModel vm = app.Services.GetRequiredService<PageOrganizerViewModel>();
         vm.Initialize(tab.SessionId, tab.FilePath, tab.TotalPages, tab.Thumbnails);
 
         var window = new PageOrganizerWindow(vm, applied =>
@@ -530,7 +788,7 @@ public sealed partial class MainWindow : Window
         window.Activate();
     }
 
-    private void OnThumbnailItemRightTapped(object sender, Microsoft.UI.Xaml.Input.RightTappedRoutedEventArgs e)
+    private void OnThumbnailItemRightTapped(object sender, RightTappedRoutedEventArgs e)
     {
         if (sender is FrameworkElement { DataContext: WindowsPageThumbnailViewModel thumbnail })
         {
@@ -573,7 +831,7 @@ public sealed partial class MainWindow : Window
     private void OnThumbnailDeleteClick(object sender, RoutedEventArgs e) =>
         _ = _viewModel.DeleteSelectedPageAsync();
 
-    private void OnThumbnailItemPointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    private void OnThumbnailItemPointerPressed(object sender, PointerRoutedEventArgs e)
     {
         if (sender is not UIElement element ||
             element is not FrameworkElement { DataContext: WindowsPageThumbnailViewModel thumbnail })
@@ -588,26 +846,26 @@ public sealed partial class MainWindow : Window
         e.Handled = true;
     }
 
-    private void OnThumbnailItemPointerMoved(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    private void OnThumbnailItemPointerMoved(object sender, PointerRoutedEventArgs e)
     {
         if (_thumbnailDragSourceIndex < 0 || sender is not UIElement element)
         {
             return;
         }
 
-        var currentPoint = e.GetCurrentPoint(ThumbnailScrollViewer).Position;
+        Point currentPoint = e.GetCurrentPoint(ThumbnailScrollViewer).Position;
 
         if (!_isDraggingThumbnail)
         {
-            var dx = currentPoint.X - _thumbnailDragStartPoint.X;
-            var dy = currentPoint.Y - _thumbnailDragStartPoint.Y;
+            double dx = currentPoint.X - _thumbnailDragStartPoint.X;
+            double dy = currentPoint.Y - _thumbnailDragStartPoint.Y;
             if (Math.Sqrt(dx * dx + dy * dy) < ThumbnailDragThreshold)
             {
                 return;
             }
 
             _isDraggingThumbnail = true;
-            var tab = _viewModel.ActiveDocumentTab;
+            WindowsDocumentTabViewModel? tab = _viewModel.ActiveDocumentTab;
             if (tab is not null && _thumbnailDragSourceIndex < tab.Thumbnails.Count)
             {
                 ThumbnailDragGhost.Source = tab.Thumbnails[_thumbnailDragSourceIndex].Image;
@@ -629,7 +887,7 @@ public sealed partial class MainWindow : Window
         e.Handled = true;
     }
 
-    private async void OnThumbnailItemPointerReleased(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    private async void OnThumbnailItemPointerReleased(object sender, PointerRoutedEventArgs e)
     {
         if (sender is UIElement element)
         {
@@ -642,15 +900,15 @@ public sealed partial class MainWindow : Window
 
         if (_isDraggingThumbnail && _thumbnailDragSourceIndex >= 0 && _thumbnailDropTargetIndex >= 0)
         {
-            var sourceIndex = _thumbnailDragSourceIndex;
-            var targetIndex = _thumbnailDropTargetIndex;
+            int sourceIndex = _thumbnailDragSourceIndex;
+            int targetIndex = _thumbnailDropTargetIndex;
 
             if (sourceIndex != targetIndex && targetIndex != sourceIndex + 1)
             {
-                var tab = _viewModel.ActiveDocumentTab;
+                WindowsDocumentTabViewModel? tab = _viewModel.ActiveDocumentTab;
                 if (tab is not null)
                 {
-                    var adjustedTarget = targetIndex > sourceIndex ? targetIndex - 1 : targetIndex;
+                    int adjustedTarget = targetIndex > sourceIndex ? targetIndex - 1 : targetIndex;
                     tab.Thumbnails.Move(sourceIndex, adjustedTarget);
                     await _viewModel.HandleThumbnailReorderAsync(sourceIndex + 1, adjustedTarget);
                 }
@@ -665,23 +923,23 @@ public sealed partial class MainWindow : Window
 
     private void UpdateThumbnailDropIndicator(double pointerY)
     {
-        var scrollOffset = ThumbnailScrollViewer.VerticalOffset;
-        var adjustedY = pointerY + scrollOffset;
-        var index = (int)Math.Round(adjustedY / ThumbnailItemHeight);
-        var tab = _viewModel.ActiveDocumentTab;
+        double scrollOffset = ThumbnailScrollViewer.VerticalOffset;
+        double adjustedY = pointerY + scrollOffset;
+        int index = (int)Math.Round(adjustedY / ThumbnailItemHeight);
+        WindowsDocumentTabViewModel? tab = _viewModel.ActiveDocumentTab;
         if (tab is null)
         {
             return;
         }
 
-        var newIndex = Math.Clamp(index, 0, tab.Thumbnails.Count);
+        int newIndex = Math.Clamp(index, 0, tab.Thumbnails.Count);
         if (newIndex == _thumbnailDropTargetIndex)
         {
             return;
         }
 
         _thumbnailDropTargetIndex = newIndex;
-        var indicatorY = (_thumbnailDropTargetIndex * ThumbnailItemHeight) - scrollOffset;
+        double indicatorY = (_thumbnailDropTargetIndex * ThumbnailItemHeight) - scrollOffset;
         ThumbnailDropIndicator.Margin = new Thickness(8, indicatorY, 8, 0);
         ThumbnailDropIndicator.Visibility = Visibility.Visible;
 
@@ -691,36 +949,36 @@ public sealed partial class MainWindow : Window
     private void AnimateThumbnailDisplacement()
     {
         const float gapSize = 20f;
-        var panel = GetThumbnailPanel();
+        Panel? panel = GetThumbnailPanel();
         if (panel is null)
         {
             return;
         }
 
-        for (var i = 0; i < panel.Children.Count; i++)
+        for (int i = 0; i < panel.Children.Count; i++)
         {
-            var templateRoot = GetTemplateRootFromContainer(panel.Children[i]);
+            UIElement? templateRoot = GetTemplateRootFromContainer(panel.Children[i]);
             if (templateRoot is null)
             {
                 continue;
             }
 
-            var shouldDisplace = i >= _thumbnailDropTargetIndex && i != _thumbnailDragSourceIndex;
+            bool shouldDisplace = i >= _thumbnailDropTargetIndex && i != _thumbnailDragSourceIndex;
             templateRoot.Translation = new System.Numerics.Vector3(0, shouldDisplace ? gapSize : 0f, 0);
         }
     }
 
     private void ResetThumbnailDisplacement()
     {
-        var panel = GetThumbnailPanel();
+        Panel? panel = GetThumbnailPanel();
         if (panel is null)
         {
             return;
         }
 
-        foreach (var child in panel.Children)
+        foreach (UIElement? child in panel.Children)
         {
-            var templateRoot = GetTemplateRootFromContainer(child);
+            UIElement? templateRoot = GetTemplateRootFromContainer(child);
             if (templateRoot is not null)
             {
                 templateRoot.Translation = System.Numerics.Vector3.Zero;
@@ -730,29 +988,24 @@ public sealed partial class MainWindow : Window
 
     private Panel? GetThumbnailPanel()
     {
-        if (Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(ThumbnailListView) == 0)
+        if (VisualTreeHelper.GetChildrenCount(ThumbnailListView) == 0)
         {
             return null;
         }
 
-        var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(ThumbnailListView, 0);
+        DependencyObject? child = VisualTreeHelper.GetChild(ThumbnailListView, 0);
         return child as Panel;
     }
 
     private static UIElement? GetTemplateRootFromContainer(UIElement container)
     {
-        var count = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(container);
-        if (count == 0)
-        {
-            return null;
-        }
-
-        return Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(container, 0) as UIElement;
+        int count = VisualTreeHelper.GetChildrenCount(container);
+        return count == 0 ? null : VisualTreeHelper.GetChild(container, 0) as UIElement;
     }
 
     private void AutoScrollThumbnails(double pointerY)
     {
-        var viewportHeight = ThumbnailScrollViewer.ViewportHeight;
+        double viewportHeight = ThumbnailScrollViewer.ViewportHeight;
         const double edgeZone = 30;
         const double scrollStep = 8;
 
@@ -766,28 +1019,26 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void OnThumbnailPointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    private void OnThumbnailPointerEntered(object sender, PointerRoutedEventArgs e)
     {
-        if (sender is Grid grid)
+        if (sender is not Grid grid)
         {
-            var bar = FindChild<Microsoft.UI.Xaml.Shapes.Rectangle>(grid, "HoverBar");
-            if (bar is not null)
-            {
-                bar.Opacity = 0.5;
-            }
+            return;
         }
+
+        Rectangle? bar = FindChild<Rectangle>(grid, "HoverBar");
+        bar?.Opacity = 0.5;
     }
 
-    private void OnThumbnailPointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    private void OnThumbnailPointerExited(object sender, PointerRoutedEventArgs e)
     {
-        if (sender is Grid grid)
+        if (sender is not Grid grid)
         {
-            var bar = FindChild<Microsoft.UI.Xaml.Shapes.Rectangle>(grid, "HoverBar");
-            if (bar is not null)
-            {
-                bar.Opacity = 0;
-            }
+            return;
         }
+
+        Rectangle? bar = FindChild<Rectangle>(grid, "HoverBar");
+        bar?.Opacity = 0;
     }
 
     private void OnThumbnailExternalDragOver(object sender, DragEventArgs e)
@@ -827,12 +1078,12 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var insertionIndex = ResolveThumbnailDropIndex(e.GetPosition(ThumbnailDragSurface));
+        int insertionIndex = ResolveThumbnailDropIndex(e.GetPosition(ThumbnailDragSurface));
         HideThumbnailDropIndicator();
 
-        var items = await e.DataView.GetStorageItemsAsync();
+        IReadOnlyList<IStorageItem>? items = await e.DataView.GetStorageItemsAsync();
         var filePaths = items
-            .OfType<global::Windows.Storage.StorageFile>()
+            .OfType<StorageFile>()
             .Select(file => file.Path)
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .ToList();
@@ -847,8 +1098,8 @@ public sealed partial class MainWindow : Window
 
     private void UpdateThumbnailExternalDropIndicator(Point position)
     {
-        var insertionIndex = ResolveThumbnailDropIndex(position);
-        var indicatorY = ResolveThumbnailDropIndicatorY(insertionIndex);
+        int insertionIndex = ResolveThumbnailDropIndex(position);
+        double indicatorY = ResolveThumbnailDropIndicatorY(insertionIndex);
         ThumbnailDropIndicator.Margin = new Thickness(8, indicatorY, 8, 0);
         ThumbnailDropIndicator.Visibility = Visibility.Visible;
     }
@@ -865,12 +1116,12 @@ public sealed partial class MainWindow : Window
             return 0;
         }
 
-        var tab = _viewModel.ActiveDocumentTab;
-        var panel = GetThumbnailPanel();
+        WindowsDocumentTabViewModel? tab = _viewModel.ActiveDocumentTab;
+        Panel? panel = GetThumbnailPanel();
         if (panel is not null)
         {
-            var childCount = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(panel);
-            for (var i = 0; i < childCount; i++)
+            int childCount = VisualTreeHelper.GetChildrenCount(panel);
+            for (int i = 0; i < childCount; i++)
             {
                 if (GetThumbnailItemBounds(panel, i) is not { } bounds)
                 {
@@ -889,20 +1140,20 @@ public sealed partial class MainWindow : Window
             }
         }
 
-        var adjustedY = position.Y + ThumbnailScrollViewer.VerticalOffset;
-        var estimatedIndex = (int)Math.Round(adjustedY / ThumbnailItemHeight);
+        double adjustedY = position.Y + ThumbnailScrollViewer.VerticalOffset;
+        int estimatedIndex = (int)Math.Round(adjustedY / ThumbnailItemHeight);
         return Math.Clamp(estimatedIndex, 0, tab.Thumbnails.Count);
     }
 
     private double ResolveThumbnailDropIndicatorY(int insertionIndex)
     {
-        var panel = GetThumbnailPanel();
+        Panel? panel = GetThumbnailPanel();
         if (panel is null)
         {
             return Math.Max(0, insertionIndex * ThumbnailItemHeight - ThumbnailScrollViewer.VerticalOffset);
         }
 
-        var childCount = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(panel);
+        int childCount = VisualTreeHelper.GetChildrenCount(panel);
         if (childCount == 0)
         {
             return 0;
@@ -930,32 +1181,32 @@ public sealed partial class MainWindow : Window
 
     private Rect? GetThumbnailItemBounds(Panel panel, int index)
     {
-        if (index < 0 || index >= Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(panel))
+        if (index < 0 || index >= VisualTreeHelper.GetChildrenCount(panel))
         {
             return null;
         }
 
-        if (Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(panel, index) is not FrameworkElement element)
+        if (VisualTreeHelper.GetChild(panel, index) is not FrameworkElement element)
         {
             return null;
         }
 
-        var topLeft = element.TransformToVisual(ThumbnailDragSurface).TransformPoint(new Point(0, 0));
+        Point topLeft = element.TransformToVisual(ThumbnailDragSurface).TransformPoint(new Point(0, 0));
         return new Rect(topLeft.X, topLeft.Y, element.ActualWidth, element.ActualHeight);
     }
 
     private static T? FindChild<T>(DependencyObject parent, string name) where T : FrameworkElement
     {
-        var count = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(parent);
-        for (var i = 0; i < count; i++)
+        int count = VisualTreeHelper.GetChildrenCount(parent);
+        for (int i = 0; i < count; i++)
         {
-            var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(parent, i);
+            DependencyObject? child = VisualTreeHelper.GetChild(parent, i);
             if (child is T element && element.Name == name)
             {
                 return element;
             }
 
-            var result = FindChild<T>(child, name);
+            T? result = FindChild<T>(child, name);
             if (result is not null)
             {
                 return result;
@@ -963,6 +1214,14 @@ public sealed partial class MainWindow : Window
         }
 
         return null;
+    }
+
+    private void OnAnnotationListItemTapped(object sender, TappedRoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: WindowsAnnotationOverlayViewModel overlay })
+        {
+            _viewModel.SelectedAnnotationId = overlay.Id;
+        }
     }
 
     private void OnAnnotationToolClicked(object sender, RoutedEventArgs e)
@@ -991,6 +1250,19 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private void OnAnnotationTextDraftKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key is VirtualKey.Enter)
+        {
+            CoreVirtualKeyStates shiftState = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift);
+            if (!shiftState.HasFlag(CoreVirtualKeyStates.Down))
+            {
+                DocumentPageLayer.Focus(FocusState.Programmatic);
+                e.Handled = true;
+            }
+        }
+    }
+
     private void OnCommentCardDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
         if (sender is FrameworkElement { DataContext: WindowsCommentOverlayViewModel comment })
@@ -1015,36 +1287,42 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        if (e.Key is VirtualKey.Escape)
+        switch (e.Key)
         {
-            comment.IsEditing = false;
-            e.Handled = true;
-        }
-        else if (e.Key is VirtualKey.Enter)
-        {
-            var altState = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Menu);
-            if (!altState.HasFlag(global::Windows.UI.Core.CoreVirtualKeyStates.Down))
-            {
-                _viewModel.CommitCommentEdit(comment);
+            case VirtualKey.Escape:
+                comment.IsEditing = false;
                 e.Handled = true;
-            }
+                break;
+            case VirtualKey.Enter:
+                {
+                    CoreVirtualKeyStates altState = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Menu);
+                    if (!altState.HasFlag(CoreVirtualKeyStates.Down))
+                    {
+                        _viewModel.CommitCommentEdit(comment);
+                        e.Handled = true;
+                    }
+
+                    break;
+                }
         }
     }
 
     private void OnDeleteAnnotationTapped(object sender, TappedRoutedEventArgs e)
     {
-        var annotationId = sender is FrameworkElement { DataContext: WindowsAnnotationOverlayViewModel overlay }
+        Guid annotationId = sender is FrameworkElement { DataContext: WindowsAnnotationOverlayViewModel overlay }
             ? overlay.Id
             : sender is FrameworkElement { DataContext: WindowsCommentOverlayViewModel comment }
                 ? comment.Id
                 : Guid.Empty;
 
-        if (annotationId != Guid.Empty &&
-            _viewModel.DeleteAnnotationByIdCommand.CanExecute(annotationId))
+        if (annotationId == Guid.Empty ||
+            !_viewModel.DeleteAnnotationByIdCommand.CanExecute(annotationId))
         {
-            _viewModel.DeleteAnnotationByIdCommand.Execute(annotationId);
-            e.Handled = true;
+            return;
         }
+
+        _viewModel.DeleteAnnotationByIdCommand.Execute(annotationId);
+        e.Handled = true;
     }
 
     private void OnAnnotationMenuEditClicked(object sender, RoutedEventArgs e)
@@ -1082,25 +1360,29 @@ public sealed partial class MainWindow : Window
 
     private static Guid? ResolveAnnotationIdFromMenuContext(object sender)
     {
+        if (sender is FrameworkElement { Tag: Guid tagId })
+        {
+            return tagId;
+        }
+
         if (sender is not FrameworkElement element)
         {
             return null;
         }
 
-        var parent = element;
+        FrameworkElement? parent = element;
         while (parent is not null)
         {
-            if (parent.DataContext is WindowsAnnotationOverlayViewModel overlay)
+            switch (parent.DataContext)
             {
-                return overlay.Id;
+                case WindowsAnnotationOverlayViewModel overlay:
+                    return overlay.Id;
+                case WindowsCommentOverlayViewModel comment:
+                    return comment.Id;
+                default:
+                    parent = VisualTreeHelper.GetParent(parent) as FrameworkElement;
+                    break;
             }
-
-            if (parent.DataContext is WindowsCommentOverlayViewModel comment)
-            {
-                return comment.Id;
-            }
-
-            parent = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(parent) as FrameworkElement;
         }
 
         return null;
@@ -1133,23 +1415,24 @@ public sealed partial class MainWindow : Window
 
     private void OnInlineTextEditorKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key is VirtualKey.Escape)
+        switch (e.Key)
         {
-            _viewModel.CancelInlineTextAnnotation();
-            e.Handled = true;
-            return;
-        }
-
-        if (e.Key is VirtualKey.Enter)
-        {
-            var altState = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Menu);
-            if (altState.HasFlag(global::Windows.UI.Core.CoreVirtualKeyStates.Down))
-            {
+            case VirtualKey.Escape:
+                _viewModel.CancelInlineTextAnnotation();
+                e.Handled = true;
                 return;
-            }
+            case VirtualKey.Enter:
+                {
+                    CoreVirtualKeyStates altState = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Menu);
+                    if (altState.HasFlag(CoreVirtualKeyStates.Down))
+                    {
+                        return;
+                    }
 
-            _viewModel.CommitInlineTextAnnotation();
-            e.Handled = true;
+                    _viewModel.CommitInlineTextAnnotation();
+                    e.Handled = true;
+                    break;
+                }
         }
     }
 
@@ -1175,7 +1458,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var point = e.GetCurrentPoint(layer).Position;
+        Point point = e.GetCurrentPoint(layer).Position;
         _isCapturingSignaturePad = true;
         _viewModel.BeginSignatureCapture(point.X, point.Y, layer.ActualWidth, layer.ActualHeight);
         element.CapturePointer(e.Pointer);
@@ -1190,7 +1473,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var point = e.GetCurrentPoint(layer).Position;
+        Point point = e.GetCurrentPoint(layer).Position;
         _viewModel.UpdateSignatureCapture(point.X, point.Y, layer.ActualWidth, layer.ActualHeight);
         e.Handled = true;
     }
@@ -1237,7 +1520,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var point = e.GetCurrentPoint(layer).Position;
+        Point point = e.GetCurrentPoint(layer).Position;
         if (IsPointerFromTextInput(e.OriginalSource))
         {
             return;
@@ -1307,7 +1590,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var point = e.GetCurrentPoint(layer).Position;
+        Point point = e.GetCurrentPoint(layer).Position;
         if (_isMovingAnnotation)
         {
             _viewModel.UpdateAnnotationMove(point.X, point.Y, layer.ActualWidth, layer.ActualHeight);
@@ -1340,7 +1623,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var point = e.GetCurrentPoint(layer).Position;
+        Point point = e.GetCurrentPoint(layer).Position;
         if (_isMovingAnnotation)
         {
             _viewModel.CompleteAnnotationMove(point.X, point.Y, layer.ActualWidth, layer.ActualHeight);
@@ -1368,7 +1651,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var annotationTool = _viewModel.ActiveDocumentTab?.SelectedAnnotationTool;
+        AnnotationTool? annotationTool = _viewModel.ActiveDocumentTab?.SelectedAnnotationTool;
         _viewModel.CompleteAnnotationInteraction(point.X, point.Y, layer.ActualWidth, layer.ActualHeight);
         element.ReleasePointerCapture(e.Pointer);
         _isAnnotationInteractionActive = false;

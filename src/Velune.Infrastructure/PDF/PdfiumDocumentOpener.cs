@@ -41,20 +41,26 @@ public sealed class PdfiumDocumentOpener
             throw new FileNotFoundException("The PDF file does not exist.", filePath);
         }
 
-        using var pdfiumAccess = _executionGate.Enter();
+        using IDisposable pdfiumAccess = _executionGate.Enter();
         _initializer.EnsureInitialized();
 
-        var handle = PdfiumNative.FPDF_LoadDocument(filePath, null);
+        nint handle = PdfiumNative.FPDF_LoadDocument(filePath, null);
         if (handle == nint.Zero)
         {
-            var error = PdfiumNative.FPDF_GetLastError();
+            uint error = PdfiumNative.FPDF_GetLastError();
+            if (error is 4 or 5)
+            {
+                throw new InvalidOperationException(
+                    "This PDF is password-protected. Velune does not support encrypted documents.");
+            }
+
             throw new InvalidOperationException(
                 $"PDFium failed to open the PDF document. Error code: {error}.");
         }
 
-        var pageCount = PdfiumNative.FPDF_GetPageCount(handle);
+        int pageCount = PdfiumNative.FPDF_GetPageCount(handle);
         var fileInfo = new FileInfo(filePath);
-        var pdfMetadata = TryReadPdfMetadata(handle);
+        PdfDetails pdfMetadata = TryReadPdfMetadata(handle);
 
         var metadata = new DocumentMetadata(
             fileName: fileInfo.Name,
@@ -105,7 +111,7 @@ public sealed class PdfiumDocumentOpener
     private static string? ReadMetaText(nint handle, string tag)
     {
         byte[] buffer = new byte[512];
-        var length = PdfiumNative.FPDF_GetMetaText(handle, tag, buffer, (uint)buffer.Length);
+        uint length = PdfiumNative.FPDF_GetMetaText(handle, tag, buffer, (uint)buffer.Length);
 
         if (length <= 2)
         {
@@ -123,7 +129,7 @@ public sealed class PdfiumDocumentOpener
             }
         }
 
-        var value = Encoding.Unicode.GetString(buffer, 0, (int)length - 2).Trim();
+        string value = Encoding.Unicode.GetString(buffer, 0, (int)length - 2).Trim();
         return string.IsNullOrWhiteSpace(value) ? null : value;
     }
 

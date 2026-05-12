@@ -74,16 +74,16 @@ public sealed record UserPreferences
     /// <returns>A normalized <see cref="UserPreferences"/> instance.</returns>
     public UserPreferences Normalize(int defaultMemoryCacheEntryLimit)
     {
-        var normalizedTheme = Enum.IsDefined(Theme)
+        AppThemePreference normalizedTheme = Enum.IsDefined(Theme)
             ? Theme
             : AppThemePreference.System;
-        var normalizedZoom = Enum.IsDefined(DefaultZoom)
+        DefaultZoomPreference normalizedZoom = Enum.IsDefined(DefaultZoom)
             ? DefaultZoom
             : DefaultZoomPreference.FitToPage;
-        var normalizedLanguage = Enum.IsDefined(Language)
+        AppLanguagePreference normalizedLanguage = Enum.IsDefined(Language)
             ? Language
             : AppLanguagePreference.System;
-        var normalizedCacheEntryLimit = MemoryCacheEntryLimit < 0
+        int normalizedCacheEntryLimit = MemoryCacheEntryLimit < 0
             ? Math.Max(0, defaultMemoryCacheEntryLimit)
             : MemoryCacheEntryLimit;
 

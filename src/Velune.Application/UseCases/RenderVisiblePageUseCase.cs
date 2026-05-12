@@ -38,7 +38,7 @@ public sealed class RenderVisiblePageUseCase
         ArgumentNullException.ThrowIfNull(request);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(request.ZoomFactor);
 
-        var session = _sessionStore.Current;
+        IDocumentSession? session = _sessionStore.Current;
         if (session is null)
         {
             return ResultFactory.Failure<RenderedPage>(
@@ -47,7 +47,7 @@ public sealed class RenderVisiblePageUseCase
                     "No active document session."));
         }
 
-        var pageCount = session.Metadata.PageCount;
+        int? pageCount = session.Metadata.PageCount;
         if (pageCount.HasValue &&
             (request.PageIndex.Value < 0 || request.PageIndex.Value >= pageCount.Value))
         {
@@ -59,7 +59,7 @@ public sealed class RenderVisiblePageUseCase
 
         try
         {
-            var renderedPage = await _renderService.RenderPageAsync(
+            RenderedPage renderedPage = await _renderService.RenderPageAsync(
                 session,
                 request.PageIndex,
                 request.ZoomFactor,

@@ -90,7 +90,7 @@ public sealed partial class JsonRecentFilesService : IRecentFilesService
 
         try
         {
-            var json = File.ReadAllText(_filePath);
+            string json = File.ReadAllText(_filePath);
             if (string.IsNullOrWhiteSpace(json))
             {
                 return [];
@@ -112,13 +112,13 @@ public sealed partial class JsonRecentFilesService : IRecentFilesService
     {
         try
         {
-            var directory = Path.GetDirectoryName(_filePath);
+            string? directory = Path.GetDirectoryName(_filePath);
             if (!string.IsNullOrWhiteSpace(directory))
             {
                 Directory.CreateDirectory(directory);
             }
 
-            var json = JsonSerializer.Serialize(_items, SerializerOptions);
+            string json = JsonSerializer.Serialize(_items, SerializerOptions);
             File.WriteAllText(_filePath, json);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
@@ -136,10 +136,10 @@ public sealed partial class JsonRecentFilesService : IRecentFilesService
             return options.RecentFilesPath;
         }
 
-        var applicationName = string.IsNullOrWhiteSpace(options.Name)
+        string applicationName = string.IsNullOrWhiteSpace(options.Name)
             ? "Velune"
             : options.Name;
-        var applicationDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        string applicationDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
 
         return Path.Combine(applicationDataPath, applicationName, "recent-files.json");
     }

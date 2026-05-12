@@ -31,22 +31,16 @@ internal static class NativeMenuRefreshHelper
         NativeMenu.SetMenu(owner, null!);
         NativeMenu.SetMenu(owner, menu);
     }
-
     private static bool TryRefreshThroughNativeExporter(TopLevel topLevel, NativeMenu menu)
     {
         try
         {
-            var getInfo = typeof(NativeMenu).GetMethod(
+            MethodInfo? getInfo = typeof(NativeMenu).GetMethod(
                 "GetInfo",
                 BindingFlags.Static | BindingFlags.NonPublic);
-            var nativeMenuInfo = getInfo?.Invoke(null, new object[] { topLevel });
-            if (nativeMenuInfo is null)
-            {
-                return false;
-            }
+            object? nativeMenuInfo = getInfo?.Invoke(null, [topLevel]);
 
-            var exporter = nativeMenuInfo
-                .GetType()
+            object? exporter = nativeMenuInfo?.GetType()
                 .GetProperty("Exporter", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?
                 .GetValue(nativeMenuInfo);
             if (exporter is not INativeMenuExporter nativeMenuExporter)
@@ -54,7 +48,10 @@ internal static class NativeMenuRefreshHelper
                 return false;
             }
 
+            // TODO : See alternative for INativeMenuExporter.SetNativeMenu
+#pragma warning disable CS0618 // Type or member is obsolete
             nativeMenuExporter.SetNativeMenu(menu);
+#pragma warning restore CS0618 // Type or member is obsolete
             return true;
         }
         catch

@@ -4,8 +4,12 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:services="using:Velune.Windows.Services">
 
+  <Window.SystemBackdrop>
+    <MicaBackdrop />
+  </Window.SystemBackdrop>
+
   <Grid x:Name="Root"
-        Background="{ThemeResource SolidBackgroundFillColorBaseBrush}">
+        Background="Transparent">
 
     <Grid.KeyboardAccelerators>
       <KeyboardAccelerator Key="C"
@@ -17,6 +21,55 @@
       <KeyboardAccelerator Key="S"
                            Modifiers="Control"
                            Invoked="OnSaveKeyboardAcceleratorInvoked" />
+      <KeyboardAccelerator Key="Z"
+                           Modifiers="Control"
+                           Invoked="OnUndoKeyboardAcceleratorInvoked" />
+      <KeyboardAccelerator Key="Y"
+                           Modifiers="Control"
+                           Invoked="OnRedoKeyboardAcceleratorInvoked" />
+      <KeyboardAccelerator Key="Delete"
+                           Invoked="OnDeleteAnnotationKeyboardAcceleratorInvoked" />
+      <KeyboardAccelerator Key="Right"
+                           Modifiers="Shift"
+                           Invoked="OnExtendSelectionRightKeyboardAcceleratorInvoked" />
+      <KeyboardAccelerator Key="Left"
+                           Modifiers="Shift"
+                           Invoked="OnShrinkSelectionLeftKeyboardAcceleratorInvoked" />
+      <KeyboardAccelerator Key="Right"
+                           Modifiers="Control,Shift"
+                           Invoked="OnExtendSelectionWordRightKeyboardAcceleratorInvoked" />
+      <KeyboardAccelerator Key="Left"
+                           Modifiers="Control,Shift"
+                           Invoked="OnShrinkSelectionWordLeftKeyboardAcceleratorInvoked" />
+      <KeyboardAccelerator Key="R"
+                           Modifiers="Control"
+                           Invoked="OnRotateRightKeyboardAcceleratorInvoked" />
+      <KeyboardAccelerator Key="R"
+                           Modifiers="Control,Shift"
+                           Invoked="OnRotateLeftKeyboardAcceleratorInvoked" />
+      <KeyboardAccelerator Key="Number0"
+                           Modifiers="Control"
+                           Invoked="OnFitPageKeyboardAcceleratorInvoked" />
+      <KeyboardAccelerator Key="Number1"
+                           Modifiers="Control"
+                           Invoked="OnActualSizeKeyboardAcceleratorInvoked" />
+      <KeyboardAccelerator Key="H"
+                           Modifiers="Control,Shift"
+                           Invoked="OnFlipHorizontalKeyboardAcceleratorInvoked" />
+      <KeyboardAccelerator Key="Right"
+                           Invoked="OnNextPageKeyboardAcceleratorInvoked" />
+      <KeyboardAccelerator Key="Left"
+                           Invoked="OnPreviousPageKeyboardAcceleratorInvoked" />
+      <KeyboardAccelerator Key="PageDown"
+                           Invoked="OnNextPageKeyboardAcceleratorInvoked" />
+      <KeyboardAccelerator Key="PageUp"
+                           Invoked="OnPreviousPageKeyboardAcceleratorInvoked" />
+      <KeyboardAccelerator Key="Add"
+                           Modifiers="Control"
+                           Invoked="OnZoomInKeyboardAcceleratorInvoked" />
+      <KeyboardAccelerator Key="Subtract"
+                           Modifiers="Control"
+                           Invoked="OnZoomOutKeyboardAcceleratorInvoked" />
     </Grid.KeyboardAccelerators>
 
     <Grid.Resources>
@@ -25,6 +78,7 @@
         <services:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility" />
         <services:AnnotationToolBackgroundConverter x:Key="AnnotationToolBackground" />
         <services:BoolToSelectedToolBackgroundConverter x:Key="BoolToSelectedToolBackground" />
+        <services:SubtractConverter x:Key="SubtractConverter" />
 
         <Style x:Key="TitleBarIconButtonStyle" TargetType="Button">
           <Setter Property="Width" Value="42" />
@@ -167,7 +221,7 @@
                           Opacity="0" />
 
                   <Border x:Name="DisabledLayer"
-                          Background="#10FFFFFF"
+                          Background="{ThemeResource DisabledLayerBrush}"
                           CornerRadius="{TemplateBinding CornerRadius}"
                           Opacity="0" />
 
@@ -199,10 +253,8 @@
           <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
-        <Style x:Key="PanelTitleStyle" TargetType="TextBlock">
+        <Style x:Key="PanelTitleStyle" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">
           <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
-          <Setter Property="FontSize" Value="17" />
-          <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
 
         <Style x:Key="PanelLabelStyle" TargetType="TextBlock">
@@ -345,7 +397,7 @@
                   <TextBlock Grid.Column="1"
                              Text="{Binding Title}"
                              Foreground="{ThemeResource TextPrimaryBrush}"
-                             FontSize="13"
+                             FontSize="12"
                              FontWeight="SemiBold"
                              TextTrimming="CharacterEllipsis"
                              VerticalAlignment="Center" />
@@ -418,13 +470,19 @@
 
         <Grid>
           <Button Content="{Binding Labels.RibbonHome}"
-                  Style="{StaticResource TopNavButtonStyle}" />
+                  Style="{StaticResource TopNavButtonStyle}"
+                  FontWeight="SemiBold" />
           <Rectangle Height="3"
                      Fill="{ThemeResource AccentBrush}"
                      VerticalAlignment="Bottom"
                      Margin="14,0"
                      RadiusX="1"
-                     RadiusY="1" />
+                     RadiusY="1"
+                     Opacity="0.8">
+            <Rectangle.OpacityTransition>
+              <ScalarTransition Duration="0:0:0.15" />
+            </Rectangle.OpacityTransition>
+          </Rectangle>
         </Grid>
 
         <Button Content="{Binding Labels.View}"
@@ -522,7 +580,7 @@
       <Border.Shadow>
         <ThemeShadow />
       </Border.Shadow>
-      <Grid Padding="18,8,18,7">
+      <Grid Padding="16,8,16,8">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="Auto" />
           <ColumnDefinition Width="Auto" />
@@ -927,6 +985,9 @@
               BorderThickness="1"
               CornerRadius="8"
               Visibility="{Binding DataContext.IsPagesPanelVisible, ElementName=Root, Mode=OneWay, FallbackValue=Collapsed, Converter={StaticResource BoolToVisibility}}">
+        <Border.TranslationTransition>
+          <Vector3Transition Duration="0:0:0.2" />
+        </Border.TranslationTransition>
         <Grid Padding="10,12,10,0">
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -1131,9 +1192,14 @@
               BorderThickness="1"
               CornerRadius="8">
         <Grid>
-          <ScrollViewer HorizontalScrollBarVisibility="Auto"
+          <Grid.ChildrenTransitions>
+            <EntranceThemeTransition />
+          </Grid.ChildrenTransitions>
+          <ScrollViewer x:Name="DocumentScrollViewer"
+                        HorizontalScrollBarVisibility="Auto"
                         VerticalScrollBarVisibility="Auto"
-                        ZoomMode="Enabled">
+                        ZoomMode="Enabled"
+                        SizeChanged="OnDocumentScrollViewerSizeChanged">
             <Grid MinHeight="840"
                   Padding="40,16,40,24"
                   DataContext="{Binding ActiveDocumentTab, Mode=OneWay}">
@@ -1238,7 +1304,42 @@
                       PointerPressed="OnDocumentLayerPointerPressed"
                       PointerMoved="OnDocumentLayerPointerMoved"
                       PointerReleased="OnDocumentLayerPointerReleased"
-                      PointerCanceled="OnDocumentLayerPointerCanceled">
+                      PointerCanceled="OnDocumentLayerPointerCanceled"
+                      RightTapped="OnDocumentLayerRightTapped">
+                  <Grid.ContextFlyout>
+                    <MenuFlyout x:Name="AnnotationContextMenu">
+                      <MenuFlyoutItem x:Name="ContextMenuDeleteItem" Click="OnContextMenuDelete">
+                        <MenuFlyoutItem.Icon>
+                          <FontIcon Glyph="&#xE74D;" FontFamily="Segoe Fluent Icons" />
+                        </MenuFlyoutItem.Icon>
+                        <MenuFlyoutItem.KeyboardAccelerators>
+                          <KeyboardAccelerator Key="Delete" />
+                        </MenuFlyoutItem.KeyboardAccelerators>
+                      </MenuFlyoutItem>
+                      <MenuFlyoutSeparator />
+                      <MenuFlyoutItem x:Name="ContextMenuRotate90Item" Click="OnContextMenuRotate90">
+                        <MenuFlyoutItem.Icon>
+                          <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe Fluent Icons" />
+                        </MenuFlyoutItem.Icon>
+                      </MenuFlyoutItem>
+                      <MenuFlyoutItem x:Name="ContextMenuResetRotationItem" Click="OnContextMenuResetRotation">
+                        <MenuFlyoutItem.Icon>
+                          <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe Fluent Icons" />
+                        </MenuFlyoutItem.Icon>
+                      </MenuFlyoutItem>
+                      <MenuFlyoutSeparator />
+                      <MenuFlyoutItem x:Name="ContextMenuFlipHItem" Click="OnContextMenuFlipH">
+                        <MenuFlyoutItem.Icon>
+                          <FontIcon Glyph="&#xEA4F;" FontFamily="Segoe Fluent Icons" />
+                        </MenuFlyoutItem.Icon>
+                      </MenuFlyoutItem>
+                      <MenuFlyoutItem x:Name="ContextMenuFlipVItem" Click="OnContextMenuFlipV">
+                        <MenuFlyoutItem.Icon>
+                          <FontIcon Glyph="&#xEA4E;" FontFamily="Segoe Fluent Icons" />
+                        </MenuFlyoutItem.Icon>
+                      </MenuFlyoutItem>
+                    </MenuFlyout>
+                  </Grid.ContextFlyout>
                   <Image Source="{Binding CurrentPageImage, Mode=OneWay}"
                          Width="{Binding CurrentPagePixelWidth, Mode=OneWay}"
                          Height="{Binding CurrentPagePixelHeight, Mode=OneWay}"
@@ -1259,42 +1360,110 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                       <DataTemplate>
-                        <Grid Width="{Binding Width}"
-                              Height="{Binding Height}"
-                              Margin="{Binding Margin}"
-                              Opacity="{Binding Opacity}"
-                              Visibility="{Binding IsHidden, Converter={StaticResource InverseBoolToVisibility}}">
-                          <Border Background="{Binding FillBrush}"
-                                  BorderBrush="{Binding StrokeBrush}"
-                                  BorderThickness="{Binding BorderThickness}"
-                                  CornerRadius="{Binding CornerRadius}"
-                                  Visibility="{Binding BoxVisibility}" />
-                          <Polyline Points="{Binding InkPoints}"
-                                    Stroke="{Binding StrokeBrush}"
-                                    StrokeThickness="{Binding StrokeThickness}"
-                                    Visibility="{Binding InkVisibility}" />
-                          <Image Source="{Binding SignatureImageSource}"
-                                 Margin="8"
-                                 Stretch="Uniform"
-                                 Visibility="{Binding SignatureImageVisibility}" />
-                          <StackPanel Orientation="Horizontal"
-                                      Padding="8,3"
-                                      Spacing="6"
-                                      VerticalAlignment="Center"
-                                      Visibility="{Binding TextVisibility}">
-                            <FontIcon Glyph="{Binding Glyph}"
-                                      FontFamily="Segoe Fluent Icons"
-                                      Foreground="{Binding TextBrush}"
-                                      FontSize="13"
-                                      Visibility="{Binding GlyphVisibility}" />
+                        <Canvas Width="{Binding Width}"
+                                Height="{Binding Height}"
+                                Canvas.Left="{Binding Left}"
+                                Canvas.Top="{Binding Top}"
+                                Opacity="{Binding Opacity}"
+                                Visibility="{Binding IsHidden, Converter={StaticResource InverseBoolToVisibility}}">
+                          <!-- Rotatable annotation content + selection -->
+                          <Canvas Width="{Binding Width}"
+                                  Height="{Binding Height}">
+                            <Canvas.RenderTransform>
+                              <RotateTransform Angle="{Binding RotationAngle}"
+                                               CenterX="{Binding RotationCenterX}"
+                                               CenterY="{Binding RotationCenterY}" />
+                            </Canvas.RenderTransform>
+                            <Border Width="{Binding Width}"
+                                    Height="{Binding Height}"
+                                    Background="{Binding FillBrush}"
+                                    BorderBrush="{Binding StrokeBrush}"
+                                    BorderThickness="{Binding BorderThickness}"
+                                    CornerRadius="{Binding CornerRadius}"
+                                    Visibility="{Binding BoxVisibility}" />
+                            <Polyline Points="{Binding InkPoints}"
+                                      Stroke="{Binding StrokeBrush}"
+                                      StrokeThickness="{Binding StrokeThickness}"
+                                      Visibility="{Binding InkVisibility}" />
+                            <Image Width="{Binding Width}"
+                                   Height="{Binding Height}"
+                                   Source="{Binding SignatureImageSource}"
+                                   Stretch="Uniform"
+                                   Visibility="{Binding SignatureImageVisibility}" />
                             <TextBlock Text="{Binding Text}"
                                        Foreground="{Binding TextBrush}"
                                        FontSize="{Binding TextFontSize}"
                                        FontFamily="{Binding TextFontFamily}"
+                                       Width="{Binding Width}"
+                                       Padding="4,2"
                                        TextWrapping="Wrap"
-                                       VerticalAlignment="Center" />
-                          </StackPanel>
-                        </Grid>
+                                       Visibility="{Binding TextVisibility}" />
+                            <FontIcon Glyph="{Binding Glyph}"
+                                      FontFamily="Segoe Fluent Icons"
+                                      Foreground="{Binding TextBrush}"
+                                      FontSize="16"
+                                      Visibility="{Binding GlyphVisibility}" />
+                            <!-- Selection box + rotate button (all rotate with content) -->
+                            <Canvas Width="{Binding SelectionWidth}"
+                                    Height="{Binding SelectionHeight}"
+                                    Margin="{Binding SelectionMargin}"
+                                    Visibility="{Binding SelectionVisibility}">
+                              <Rectangle Width="{Binding SelectionWidth}"
+                                         Height="{Binding SelectionHeight}"
+                                         Stroke="{ThemeResource AccentBrush}"
+                                         StrokeThickness="2"
+                                         StrokeDashArray="4,3"
+                                         Fill="Transparent" />
+                              <Ellipse Width="10" Height="10"
+                                       Canvas.Left="-5" Canvas.Top="-5"
+                                       Fill="{ThemeResource AccentBrush}" />
+                              <Ellipse Width="10" Height="10"
+                                       Canvas.Left="-5"
+                                       Fill="{ThemeResource AccentBrush}">
+                                <Canvas.Top>
+                                  <Binding Path="SelectionHeight" Converter="{StaticResource SubtractConverter}" ConverterParameter="5" />
+                                </Canvas.Top>
+                              </Ellipse>
+                              <Ellipse Width="10" Height="10"
+                                       Canvas.Top="-5"
+                                       Fill="{ThemeResource AccentBrush}">
+                                <Canvas.Left>
+                                  <Binding Path="SelectionWidth" Converter="{StaticResource SubtractConverter}" ConverterParameter="5" />
+                                </Canvas.Left>
+                              </Ellipse>
+                              <Ellipse Width="10" Height="10"
+                                       Fill="{ThemeResource AccentBrush}">
+                                <Canvas.Left>
+                                  <Binding Path="SelectionWidth" Converter="{StaticResource SubtractConverter}" ConverterParameter="5" />
+                                </Canvas.Left>
+                                <Canvas.Top>
+                                  <Binding Path="SelectionHeight" Converter="{StaticResource SubtractConverter}" ConverterParameter="5" />
+                                </Canvas.Top>
+                              </Ellipse>
+                              <!-- Rotation stem line from top-center upward -->
+                              <Line X1="0" Y1="0" X2="0" Y2="-10"
+                                    Stroke="{ThemeResource AccentBrush}"
+                                    StrokeThickness="1.5"
+                                    Canvas.Top="0">
+                                <Canvas.Left>
+                                  <Binding Path="RotateStemLeft" />
+                                </Canvas.Left>
+                              </Line>
+                              <!-- Rotation handle at top-center -->
+                              <Border Width="20" Height="20"
+                                      CornerRadius="10"
+                                      Background="{ThemeResource AccentBrush}">
+                                <FontIcon Glyph="&#xE7AD;" FontSize="11" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <Canvas.Left>
+                                  <Binding Path="RotateButtonLeft" />
+                                </Canvas.Left>
+                                <Canvas.Top>
+                                  <Binding Path="RotateButtonTop" />
+                                </Canvas.Top>
+                              </Border>
+                            </Canvas>
+                          </Canvas>
+                        </Canvas>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
@@ -1314,7 +1483,6 @@
                              FontFamily="{Binding InlineTextEditor.FontFamily, Mode=OneWay, FallbackValue='Segoe UI'}"
                              Text="{Binding InlineTextEditor.Text, Mode=OneWay}"
                              TextWrapping="Wrap"
-                             AcceptsReturn="True"
                              TextChanged="OnInlineTextEditorTextChanged"
                              LostFocus="OnInlineTextEditorLostFocus"
                              KeyDown="OnInlineTextEditorKeyDown" />
@@ -1336,8 +1504,9 @@
                       <DataTemplate>
                         <Border Width="{Binding Width}"
                                 Height="{Binding Height}"
-                                Margin="{Binding Margin}"
-                                Background="#FFE600"
+                                Canvas.Left="{Binding Left}"
+                                Canvas.Top="{Binding Top}"
+                                Background="{ThemeResource SearchHighlightBrush}"
                                 Opacity="0.34" />
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -1359,7 +1528,8 @@
                       <DataTemplate>
                         <Border Width="{Binding Width}"
                                 Height="{Binding Height}"
-                                Margin="{Binding Margin}"
+                                Canvas.Left="{Binding Left}"
+                                Canvas.Top="{Binding Top}"
                                 Background="{ThemeResource AccentBrush}"
                                 Opacity="0.28" />
                       </DataTemplate>
@@ -1374,13 +1544,17 @@
       </Border>
 
       <Grid Grid.Column="3" HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="8,0,0,0"
-            Visibility="{Binding ActiveDocumentTab.IsAnnotationsPanelOpen, Converter={StaticResource BoolToVisibility}}">
+            Visibility="{Binding ActiveDocumentTab.IsAnyRightPanelOpen, Converter={StaticResource BoolToVisibility}}">
+        <Grid.TranslationTransition>
+          <Vector3Transition Duration="0:0:0.2" />
+        </Grid.TranslationTransition>
         <Border Width="420"
                 VerticalAlignment="Stretch"
                 Background="{ThemeResource PanelDeepBrush}"
                 BorderBrush="{ThemeResource PanelLineBrush}"
                 BorderThickness="1"
-                CornerRadius="8">
+                CornerRadius="8"
+                Visibility="{Binding ActiveDocumentTab.IsAnnotationsPanelOpen, Converter={StaticResource BoolToVisibility}}">
           <Grid Padding="20,20,20,12">
             <Grid.RowDefinitions>
               <RowDefinition Height="Auto" />
@@ -1396,9 +1570,8 @@
             <Grid>
               <StackPanel Spacing="6">
                 <TextBlock Text="{Binding Labels.Annotations}"
-                           Foreground="{ThemeResource TextPrimaryBrush}"
-                           FontSize="20"
-                           FontWeight="SemiBold" />
+                           Style="{StaticResource SubtitleTextBlockStyle}"
+                           Foreground="{ThemeResource TextPrimaryBrush}" />
                 <TextBlock Text="{Binding Labels.AnnotationDescriptionShort}"
                            Foreground="{ThemeResource TextSecondaryBrush}"
                            FontSize="12"
@@ -1501,7 +1674,7 @@
             <Grid Grid.Row="2"
                   RowSpacing="8"
                   HorizontalAlignment="Stretch"
-                  Visibility="{Binding IsAnnotationToolsTabSelected, Converter={StaticResource BoolToVisibility}}">
+                  Visibility="{Binding IsAnnotationToolsAppearancePanelVisible, Converter={StaticResource BoolToVisibility}}">
               <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -1597,7 +1770,7 @@
                             Click="OnAnnotationToolClicked">
                       <FontIcon Glyph="{Binding Glyph}"
                                 FontFamily="Segoe Fluent Icons"
-                                FontSize="21" />
+                                FontSize="20" />
                     </Button>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -1618,7 +1791,7 @@
                          PlaceholderText="{Binding Labels.AnnotationTextPlaceholder}"
                          Text="{Binding AnnotationTextDraft, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                          TextWrapping="Wrap"
-                         AcceptsReturn="True" />
+                         KeyDown="OnAnnotationTextDraftKeyDown" />
               </StackPanel>
 
               <StackPanel Spacing="10"
@@ -1781,11 +1954,11 @@
                         VerticalAlignment="Center">
                     <Rectangle Width="248"
                                Height="124"
-                               Fill="#FFFDFDFD"
+                               Fill="{ThemeResource SignaturePadBgBrush}"
                                RadiusX="4"
                                RadiusY="4" />
                     <Polyline Points="{Binding SignaturePadPoints}"
-                              Stroke="#111827"
+                              Stroke="{ThemeResource SignatureInkBrush}"
                               StrokeThickness="2.2"
                               StrokeLineJoin="Round"
                               StrokeStartLineCap="Round"
@@ -1871,6 +2044,25 @@
               </ItemsControl>
             </StackPanel>
 
+            <StackPanel Grid.Row="5"
+                        Margin="0,10,0,0"
+                        Spacing="6"
+                        HorizontalAlignment="Stretch"
+                        Visibility="{Binding IsAnnotationToolsAppearancePanelVisible, Converter={StaticResource BoolToVisibility}}">
+              <Grid>
+                <TextBlock Text="{Binding Labels.AnnotationOpacity}"
+                           Foreground="{ThemeResource PanelLabelBrush}"
+                           FontSize="13" />
+                <TextBlock Text="{Binding AnnotationOpacityText}"
+                           Foreground="{ThemeResource TextPrimaryBrush}"
+                           FontSize="12"
+                           HorizontalAlignment="Right" />
+              </Grid>
+              <Slider Minimum="0"
+                      Maximum="100"
+                      Value="{Binding AnnotationOpacity, Mode=TwoWay}" />
+            </StackPanel>
+
             <StackPanel Margin="0,10,0,0"
                         Spacing="8"
                         HorizontalAlignment="Stretch"
@@ -1914,25 +2106,6 @@
               </StackPanel>
             </StackPanel>
 
-            <StackPanel Grid.Row="5"
-                        Margin="0,10,0,0"
-                        Spacing="6"
-                        HorizontalAlignment="Stretch"
-                        Visibility="{Binding IsAnnotationToolsAppearancePanelVisible, Converter={StaticResource BoolToVisibility}}">
-              <Grid>
-                <TextBlock Text="{Binding Labels.AnnotationOpacity}"
-                           Foreground="{ThemeResource PanelLabelBrush}"
-                           FontSize="13" />
-                <TextBlock Text="{Binding AnnotationOpacityText}"
-                           Foreground="{ThemeResource TextPrimaryBrush}"
-                           FontSize="12"
-                           HorizontalAlignment="Right" />
-              </Grid>
-              <Slider Minimum="0"
-                      Maximum="100"
-                      Value="{Binding AnnotationOpacity, Mode=TwoWay}" />
-            </StackPanel>
-
             <Border Grid.Row="6"
                     Margin="0,14,0,0"
                     HorizontalAlignment="Stretch"
@@ -1948,7 +2121,7 @@
                 <Grid>
                   <TextBlock Text="{Binding Labels.AnnotationCurrent}"
                              Foreground="{ThemeResource TextPrimaryBrush}"
-                             FontSize="15" />
+                             FontSize="14" />
                   <Border HorizontalAlignment="Right"
                           Padding="10,4"
                           Background="{ThemeResource CardBrush}"
@@ -1981,7 +2154,8 @@
                                   CornerRadius="6"
                                   Padding="12,10"
                                   Margin="0,0,0,8"
-                                  Opacity="{Binding ListItemOpacity}">
+                                  Opacity="{Binding ListItemOpacity}"
+                                  Tapped="OnAnnotationListItemTapped">
                             <Grid ColumnSpacing="12">
                               <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="24" />
@@ -2051,18 +2225,21 @@
                                   <Button.Flyout>
                                     <MenuFlyout>
                                       <MenuFlyoutItem Text="{Binding DataContext.Labels.AnnotationMenuEdit, ElementName=Root}"
+                                                      Tag="{Binding Id}"
                                                       Click="OnAnnotationMenuEditClicked">
                                         <MenuFlyoutItem.Icon>
                                           <FontIcon Glyph="&#xE70F;" FontFamily="Segoe Fluent Icons" />
                                         </MenuFlyoutItem.Icon>
                                       </MenuFlyoutItem>
                                       <MenuFlyoutItem Text="{Binding HideMenuText}"
+                                                      Tag="{Binding Id}"
                                                       Click="OnAnnotationMenuHideClicked">
                                         <MenuFlyoutItem.Icon>
                                           <FontIcon Glyph="&#xED1A;" FontFamily="Segoe Fluent Icons" />
                                         </MenuFlyoutItem.Icon>
                                       </MenuFlyoutItem>
                                       <MenuFlyoutItem Text="{Binding LockMenuText}"
+                                                      Tag="{Binding Id}"
                                                       Click="OnAnnotationMenuLockClicked">
                                         <MenuFlyoutItem.Icon>
                                           <FontIcon Glyph="&#xE72E;" FontFamily="Segoe Fluent Icons" />
@@ -2070,6 +2247,7 @@
                                       </MenuFlyoutItem>
                                       <MenuFlyoutSeparator />
                                       <MenuFlyoutItem Text="{Binding DataContext.Labels.AnnotationMenuDelete, ElementName=Root}"
+                                                      Tag="{Binding Id}"
                                                       Click="OnAnnotationMenuDeleteClicked">
                                         <MenuFlyoutItem.Icon>
                                           <FontIcon Glyph="&#xE74D;" FontFamily="Segoe Fluent Icons" />
@@ -2126,7 +2304,7 @@
                 <Grid>
                   <TextBlock Text="{Binding Labels.AnnotationCommentsCurrent}"
                              Foreground="{ThemeResource TextPrimaryBrush}"
-                             FontSize="15" />
+                             FontSize="14" />
                   <Border HorizontalAlignment="Right"
                           Padding="10,4"
                           Background="{ThemeResource CardBrush}"
@@ -2366,9 +2544,8 @@
             <Grid>
               <StackPanel Spacing="6">
                 <TextBlock Text="{Binding Labels.Info}"
-                           Foreground="{ThemeResource TextPrimaryBrush}"
-                           FontSize="20"
-                           FontWeight="SemiBold" />
+                           Style="{StaticResource SubtitleTextBlockStyle}"
+                           Foreground="{ThemeResource TextPrimaryBrush}" />
                 <TextBlock Text="{Binding Labels.InfoDescription}"
                            Foreground="{ThemeResource TextSecondaryBrush}"
                            FontSize="12"

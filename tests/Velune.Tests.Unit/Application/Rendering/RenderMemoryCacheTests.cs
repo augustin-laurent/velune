@@ -14,7 +14,7 @@ public sealed class RenderMemoryCacheTests
     public void Store_ShouldRespectConfiguredLruLimit()
     {
         var logger = new ListLogger<RenderMemoryCache>();
-        using var cache = CreateCache(logger, entryLimit: 2);
+        using RenderMemoryCache cache = CreateCache(logger, entryLimit: 2);
         var documentId = DocumentId.New();
 
         cache.Store(documentId, CreateRequest(pageIndex: 0), CreatePage(pageIndex: 0));
@@ -33,7 +33,7 @@ public sealed class RenderMemoryCacheTests
     public void TryGet_ShouldMiss_WhenZoomRotationOrResolutionDiffers()
     {
         var logger = new ListLogger<RenderMemoryCache>();
-        using var cache = CreateCache(logger, entryLimit: 4);
+        using RenderMemoryCache cache = CreateCache(logger, entryLimit: 4);
         var documentId = DocumentId.New();
 
         cache.Store(
@@ -51,9 +51,9 @@ public sealed class RenderMemoryCacheTests
     public void TryGet_ShouldLogHitAndMiss()
     {
         var logger = new ListLogger<RenderMemoryCache>();
-        using var cache = CreateCache(logger, entryLimit: 2);
+        using RenderMemoryCache cache = CreateCache(logger, entryLimit: 2);
         var documentId = DocumentId.New();
-        var request = CreateRequest(pageIndex: 0);
+        RenderRequest request = CreateRequest(pageIndex: 0);
 
         Assert.False(cache.TryGet(documentId, request, out _));
 
@@ -89,7 +89,7 @@ public sealed class RenderMemoryCacheTests
     public void TryGet_ShouldUseNormalizedZoomKey()
     {
         var logger = new ListLogger<RenderMemoryCache>();
-        using var cache = CreateCache(logger, entryLimit: 4);
+        using RenderMemoryCache cache = CreateCache(logger, entryLimit: 4);
         var documentId = DocumentId.New();
 
         cache.Store(
@@ -97,7 +97,7 @@ public sealed class RenderMemoryCacheTests
             CreateRequest(pageIndex: 0, zoomFactor: 1.00004),
             CreatePage(pageIndex: 0));
 
-        var reused = cache.TryGet(documentId, CreateRequest(pageIndex: 0, zoomFactor: 1.000049), out _);
+        bool reused = cache.TryGet(documentId, CreateRequest(pageIndex: 0, zoomFactor: 1.000049), out _);
 
         Assert.True(reused);
     }
@@ -106,10 +106,10 @@ public sealed class RenderMemoryCacheTests
     public void Store_ShouldSkipPagesThatExceedPerEntryBudget()
     {
         var logger = new ListLogger<RenderMemoryCache>();
-        using var cache = CreateCache(logger, entryLimit: 4);
+        using RenderMemoryCache cache = CreateCache(logger, entryLimit: 4);
         var documentId = DocumentId.New();
-        var request = CreateRequest(pageIndex: 0);
-        var oversizedPage = CreatePage(pageIndex: 0, width: 4097, height: 4096);
+        RenderRequest request = CreateRequest(pageIndex: 0);
+        RenderedPage oversizedPage = CreatePage(pageIndex: 0, width: 4097, height: 4096);
 
         cache.Store(documentId, request, oversizedPage);
 
@@ -141,7 +141,7 @@ public sealed class RenderMemoryCacheTests
 
     private static RenderedPage CreatePage(int pageIndex, int width = 1, int height = 1)
     {
-        var pixelData = new byte[width * height * 4];
+        byte[] pixelData = new byte[width * height * 4];
 
         return new RenderedPage(
             new PageIndex(pageIndex),

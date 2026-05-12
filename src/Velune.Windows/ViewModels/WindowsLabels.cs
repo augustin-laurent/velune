@@ -111,6 +111,10 @@ public sealed class WindowsLabels
         AnnotationMenuHide = text.GetString("panel.annotations.menu.hide");
         AnnotationMenuShow = text.GetString("panel.annotations.menu.show");
         AnnotationMenuEdit = text.GetString("panel.annotations.menu.edit");
+        AnnotationMenuRotate90 = text.GetString("panel.annotations.menu.rotate90");
+        AnnotationMenuResetRotation = text.GetString("panel.annotations.menu.reset_rotation");
+        AnnotationMenuFlipH = text.GetString("panel.annotations.menu.flip_h");
+        AnnotationMenuFlipV = text.GetString("panel.annotations.menu.flip_v");
         AnnotationCommentsCurrent = text.GetString("windows.annotation.comments_current");
         AnnotationCommentsEmptyPage = text.GetString("windows.annotation.comments_empty_page");
         AnnotationCommentsEmptyHint = text.GetString("windows.annotation.comments_empty_hint");
@@ -528,6 +532,22 @@ public sealed class WindowsLabels
         get;
     }
     public string AnnotationMenuEdit
+    {
+        get;
+    }
+    public string AnnotationMenuRotate90
+    {
+        get;
+    }
+    public string AnnotationMenuResetRotation
+    {
+        get;
+    }
+    public string AnnotationMenuFlipH
+    {
+        get;
+    }
+    public string AnnotationMenuFlipV
     {
         get;
     }

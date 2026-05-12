@@ -51,8 +51,13 @@
           <SolidColorBrush x:Key="ActiveToolBorderBrush" Color="#30FFFFFF" />
           <SolidColorBrush x:Key="AnnotationSeparatorBrush" Color="#22FFFFFF" />
           <SolidColorBrush x:Key="EmptyStateIconBrush" Color="#9E9E9E" />
+          <SolidColorBrush x:Key="SearchHighlightBrush" Color="#FFE600" />
+          <SolidColorBrush x:Key="SignaturePadBgBrush" Color="#FFFDFDFD" />
+          <SolidColorBrush x:Key="SignatureInkBrush" Color="#111827" />
+          <SolidColorBrush x:Key="DisabledLayerBrush" Color="#10FFFFFF" />
+          <SolidColorBrush x:Key="PdfBadgeBrush" Color="#E8232E" />
 
-          <SolidColorBrush x:Key="TextFillColorPrimaryBrush" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="TextFillColorPrimaryBrush" Color="#FFFFFFEE" />
           <SolidColorBrush x:Key="TextFillColorSecondaryBrush" Color="#C5C5C5" />
           <SolidColorBrush x:Key="LayerFillColorDefaultBrush" Color="#22FFFFFF" />
           <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush" Color="#1FFFFFFF" />
@@ -122,6 +127,11 @@
           <SolidColorBrush x:Key="ActiveToolBorderBrush" Color="#20000000" />
           <SolidColorBrush x:Key="AnnotationSeparatorBrush" Color="#18000000" />
           <SolidColorBrush x:Key="EmptyStateIconBrush" Color="#A1A8B3" />
+          <SolidColorBrush x:Key="SearchHighlightBrush" Color="#FFE600" />
+          <SolidColorBrush x:Key="SignaturePadBgBrush" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="SignatureInkBrush" Color="#111827" />
+          <SolidColorBrush x:Key="DisabledLayerBrush" Color="#10000000" />
+          <SolidColorBrush x:Key="PdfBadgeBrush" Color="#E8232E" />
 
           <SolidColorBrush x:Key="TextFillColorPrimaryBrush" Color="#1F2937" />
           <SolidColorBrush x:Key="TextFillColorSecondaryBrush" Color="#6B7280" />
@@ -188,6 +198,11 @@
           <SolidColorBrush x:Key="ActiveToolBorderBrush" Color="#FFFF00" />
           <SolidColorBrush x:Key="AnnotationSeparatorBrush" Color="#FFFFFF" />
           <SolidColorBrush x:Key="EmptyStateIconBrush" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="SearchHighlightBrush" Color="#FFFF00" />
+          <SolidColorBrush x:Key="SignaturePadBgBrush" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="SignatureInkBrush" Color="#000000" />
+          <SolidColorBrush x:Key="DisabledLayerBrush" Color="#33FFFFFF" />
+          <SolidColorBrush x:Key="PdfBadgeBrush" Color="#FFFF00" />
           <SolidColorBrush x:Key="TextFillColorPrimaryBrush" Color="#FFFFFF" />
           <SolidColorBrush x:Key="TextFillColorSecondaryBrush" Color="#FFFFFF" />
           <SolidColorBrush x:Key="LayerFillColorDefaultBrush" Color="#000000" />

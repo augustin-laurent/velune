@@ -1,3 +1,4 @@
+using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using Velune.Application.Documents;
 
@@ -23,10 +24,9 @@ public sealed class AvaloniaFilePickerService : IFilePickerService
     /// <inheritdoc />
     public async Task<string?> PickOpenFileAsync(CancellationToken cancellationToken = default)
     {
-        var topLevel = _topLevelProvider.GetTopLevel()
+        TopLevel topLevel = _topLevelProvider.GetTopLevel()
             ?? throw new InvalidOperationException("No active TopLevel is available.");
-
-        var files = await topLevel.StorageProvider.OpenFilePickerAsync(
+        IReadOnlyList<IStorageFile> files = await topLevel.StorageProvider.OpenFilePickerAsync(
             new FilePickerOpenOptions
             {
                 Title = "Open document",
@@ -55,10 +55,10 @@ public sealed class AvaloniaFilePickerService : IFilePickerService
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
 
-        var topLevel = _topLevelProvider.GetTopLevel()
+        TopLevel topLevel = _topLevelProvider.GetTopLevel()
             ?? throw new InvalidOperationException("No active TopLevel is available.");
 
-        var files = await topLevel.StorageProvider.OpenFilePickerAsync(
+        IReadOnlyList<IStorageFile> files = await topLevel.StorageProvider.OpenFilePickerAsync(
             new FilePickerOpenOptions
             {
                 Title = title,
@@ -87,10 +87,10 @@ public sealed class AvaloniaFilePickerService : IFilePickerService
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
         ArgumentException.ThrowIfNullOrWhiteSpace(suggestedFileName);
 
-        var topLevel = _topLevelProvider.GetTopLevel()
+        TopLevel topLevel = _topLevelProvider.GetTopLevel()
             ?? throw new InvalidOperationException("No active TopLevel is available.");
 
-        var file = await topLevel.StorageProvider.SaveFilePickerAsync(
+        IStorageFile? file = await topLevel.StorageProvider.SaveFilePickerAsync(
             new FilePickerSaveOptions
             {
                 Title = title,

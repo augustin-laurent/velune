@@ -22,7 +22,7 @@ public sealed class WindowsAnnotationOverlayViewModel
     /// <param name="pageWidth">The rendered page width in pixels.</param>
     /// <param name="pageHeight">The rendered page height in pixels.</param>
     /// <param name="rotation">The current page rotation.</param>
-    /// <param name="label">Display label for the annotation.</param>
+    /// <param name="label">Display a label for the annotation.</param>
     /// <param name="pageLabel">Localized page label text.</param>
     /// <param name="glyph">Icon glyph character for the annotation kind.</param>
     /// <param name="signatureAssets">Available signature image assets.</param>
@@ -55,11 +55,12 @@ public sealed class WindowsAnnotationOverlayViewModel
         TimeText = annotation.CreatedAt.ToLocalTime().ToString("HH:mm", System.Globalization.CultureInfo.CurrentCulture);
         Opacity = annotation.Appearance.Opacity;
         StrokeBrush = CreateBrush(annotation.Appearance.StrokeHex, 255);
-        FillBrush = CreateBrush(ResolveFillHex(annotation), ResolveFillAlpha(annotation.Kind));
+        FillBrush = CreateBrush(ResolveFillHex(annotation), ResolveFillAlpha(annotation));
         TextBrush = CreateBrush(annotation.Kind is DocumentAnnotationKind.Text
             ? annotation.Appearance.StrokeHex : "#111827", 255);
         TextFontSize = annotation.Appearance.FontSize;
         TextFontFamily = annotation.Appearance.FontFamily ?? "Segoe UI";
+        RotationAngle = annotation.Appearance.RotationAngle;
         InkPoints = CreateInkPoints(annotation, pageWidth, pageHeight, rotation);
         SignatureImageSource = CreateSignatureImageSource(annotation, signatureAssets);
         BorderThickness = annotation.Kind is DocumentAnnotationKind.Highlight or DocumentAnnotationKind.Text ? new Thickness(0) : new Thickness(2);
@@ -78,22 +79,64 @@ public sealed class WindowsAnnotationOverlayViewModel
         BoxVisibility = annotation.Kind is DocumentAnnotationKind.Ink ? Visibility.Collapsed : Visibility.Visible;
         StrokeThickness = Math.Max(2, annotation.Appearance.StrokeThickness);
 
-        var bounds = ResolveBounds(annotation, rotation);
+        NormalizedTextRegion bounds = ResolveBounds(annotation, rotation);
         Left = bounds.X * pageWidth;
         Top = bounds.Y * pageHeight;
         Width = Math.Max(18, bounds.Width * pageWidth);
         Height = Math.Max(18, bounds.Height * pageHeight);
 
-        if (annotation.Kind is DocumentAnnotationKind.Ink)
+        SelectionLeft = Left;
+        SelectionTop = Top;
+        SelectionWidth = Width;
+        SelectionHeight = Height;
+        RotationCenterX = Width / 2;
+        RotationCenterY = Height / 2;
+
+        if (annotation.Kind is not DocumentAnnotationKind.Ink)
         {
-            Left = 0;
-            Top = 0;
-            Width = pageWidth;
-            Height = pageHeight;
-            BorderThickness = new Thickness(Math.Max(2, annotation.Appearance.StrokeThickness));
-            FillBrush = CreateBrush("#000000", 0);
-            CornerRadius = new CornerRadius(0);
+            return;
         }
+
+        NormalizedTextRegion inkBounds = ComputeInkBounds(annotation, rotation);
+        SelectionLeft = inkBounds.X * pageWidth;
+        SelectionTop = inkBounds.Y * pageHeight;
+        SelectionWidth = Math.Max(18, inkBounds.Width * pageWidth);
+        SelectionHeight = Math.Max(18, inkBounds.Height * pageHeight);
+
+        Left = 0;
+        Top = 0;
+        Width = pageWidth;
+        Height = pageHeight;
+        RotationCenterX = SelectionLeft + SelectionWidth / 2;
+        RotationCenterY = SelectionTop + SelectionHeight / 2;
+        BorderThickness = new Thickness(Math.Max(2, annotation.Appearance.StrokeThickness));
+        FillBrush = CreateBrush("#000000", 0);
+        CornerRadius = new CornerRadius(0);
+    }
+
+    private static NormalizedTextRegion ComputeInkBounds(DocumentAnnotation annotation, Rotation rotation)
+    {
+        if (annotation.Points.Count == 0)
+        {
+            return new NormalizedTextRegion(0, 0, 1, 1);
+        }
+
+        var visualPoints = annotation.Points
+            .Select(p => DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(p, 1, 1, rotation))
+            .ToArray();
+
+        double minX = visualPoints.Min(p => p.X);
+        double maxX = visualPoints.Max(p => p.X);
+        double minY = visualPoints.Min(p => p.Y);
+        double maxY = visualPoints.Max(p => p.Y);
+
+        const double pad = 0.01;
+        double x = Math.Max(0, minX - pad);
+        double y = Math.Max(0, minY - pad);
+        double w = Math.Min(1 - x, maxX - minX + 2 * pad);
+        double h = Math.Min(1 - y, maxY - minY + 2 * pad);
+
+        return new NormalizedTextRegion(x, y, Math.Max(0.01, w), Math.Max(0.01, h));
     }
 
     public Guid Id
@@ -158,7 +201,29 @@ public sealed class WindowsAnnotationOverlayViewModel
         get;
     }
 
+    public double SelectionLeft
+    {
+        get;
+    }
+
+    public double SelectionTop
+    {
+        get;
+    }
+
+    public double SelectionWidth
+    {
+        get;
+    }
+
+    public double SelectionHeight
+    {
+        get;
+    }
+
     public Thickness Margin => new(Left, Top, 0, 0);
+
+    public Thickness SelectionMargin => new(SelectionLeft - Left, SelectionTop - Top, 0, 0);
 
     public double Opacity
     {
@@ -225,6 +290,29 @@ public sealed class WindowsAnnotationOverlayViewModel
         get;
     }
 
+    public double RotationAngle
+    {
+        get;
+    }
+
+    public double RotationCenterX
+    {
+        get;
+        private set;
+    }
+
+    public double RotationCenterY
+    {
+        get;
+        private set;
+    }
+
+    public double RotateButtonLeft => SelectionWidth / 2 - 10;
+
+    public double RotateButtonTop => -30;
+
+    public double RotateStemLeft => SelectionWidth / 2;
+
     public PointCollection InkPoints
     {
         get;
@@ -239,6 +327,13 @@ public sealed class WindowsAnnotationOverlayViewModel
     {
         get;
     }
+
+    public bool IsSelected
+    {
+        get; set;
+    }
+
+    public Visibility SelectionVisibility => IsSelected ? Visibility.Visible : Visibility.Collapsed;
 
     public bool IsHidden
     {
@@ -275,7 +370,7 @@ public sealed class WindowsAnnotationOverlayViewModel
         if (annotation.Kind is not DocumentAnnotationKind.Signature ||
             string.IsNullOrWhiteSpace(annotation.AssetId) ||
             signatureAssets is null ||
-            !signatureAssets.TryGetValue(annotation.AssetId, out var asset) ||
+            !signatureAssets.TryGetValue(annotation.AssetId, out SignatureAsset? asset) ||
             !File.Exists(asset.FilePath))
         {
             return null;
@@ -291,9 +386,9 @@ public sealed class WindowsAnnotationOverlayViewModel
         Rotation rotation)
     {
         var points = new PointCollection();
-        foreach (var point in annotation.Points)
+        foreach (NormalizedPoint point in annotation.Points)
         {
-            var mapped = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(
+            (double X, double Y) mapped = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(
                 point,
                 pageWidth,
                 pageHeight,
@@ -316,10 +411,10 @@ public sealed class WindowsAnnotationOverlayViewModel
             return new NormalizedTextRegion(0.1, 0.1, 0.2, 0.08);
         }
 
-        var left = Math.Clamp(annotation.Points.Min(point => point.X), 0, 0.98);
-        var top = Math.Clamp(annotation.Points.Min(point => point.Y), 0, 0.98);
-        var right = Math.Clamp(annotation.Points.Max(point => point.X), left, 1);
-        var bottom = Math.Clamp(annotation.Points.Max(point => point.Y), top, 1);
+        double left = Math.Clamp(annotation.Points.Min(point => point.X), 0, 0.98);
+        double top = Math.Clamp(annotation.Points.Min(point => point.Y), 0, 0.98);
+        double right = Math.Clamp(annotation.Points.Max(point => point.X), left, 1);
+        double bottom = Math.Clamp(annotation.Points.Max(point => point.Y), top, 1);
         return new NormalizedTextRegion(
             left,
             top,
@@ -329,36 +424,33 @@ public sealed class WindowsAnnotationOverlayViewModel
 
     private static string ResolveFillHex(DocumentAnnotation annotation)
     {
-        if (!string.IsNullOrWhiteSpace(annotation.Appearance.FillHex))
-        {
-            return annotation.Appearance.FillHex;
-        }
-
-        return annotation.Kind switch
-        {
-            DocumentAnnotationKind.Note => "#FFF2D7",
-            DocumentAnnotationKind.Stamp => "#FDE5F0",
-            DocumentAnnotationKind.Signature => "#FFFFFF",
-            DocumentAnnotationKind.Rectangle => "#EEF1FF",
-            DocumentAnnotationKind.Text => "#000000",
-            _ => annotation.Appearance.StrokeHex
-        };
+        return !string.IsNullOrWhiteSpace(annotation.Appearance.FillHex)
+            ? annotation.Appearance.FillHex
+            : annotation.Kind switch
+            {
+                DocumentAnnotationKind.Note => "#FFF2D7",
+                DocumentAnnotationKind.Stamp => "#FDE5F0",
+                DocumentAnnotationKind.Signature => "#FFFFFF",
+                DocumentAnnotationKind.Text => "#FFFFFF",
+                _ => "#000000"
+            };
     }
 
-    private static byte ResolveFillAlpha(DocumentAnnotationKind kind)
+    private static byte ResolveFillAlpha(DocumentAnnotation annotation)
     {
-        return kind switch
+        return annotation.Kind switch
         {
             DocumentAnnotationKind.Highlight => 115,
-            DocumentAnnotationKind.Rectangle => 70,
             DocumentAnnotationKind.Ink or DocumentAnnotationKind.Text => 0,
+            DocumentAnnotationKind.Rectangle => annotation.Appearance.FillHex is not null ? (byte)200 : (byte)0,
+            _ when annotation.Appearance.FillHex is null => 0,
             _ => 232
         };
     }
 
     private static SolidColorBrush CreateBrush(string hex, byte alpha)
     {
-        var normalized = hex.Trim().TrimStart('#');
+        string normalized = hex.Trim().TrimStart('#');
         if (normalized.Length != 6)
         {
             normalized = "EEF1FF";
@@ -407,10 +499,10 @@ public sealed partial class WindowsCommentOverlayViewModel : ObservableObject
         TimeText = annotation.CreatedAt.ToLocalTime().ToString("HH:mm", System.Globalization.CultureInfo.CurrentCulture);
         StrokeBrush = CreateBrush(annotation.Appearance.StrokeHex, 255);
 
-        var bounds = annotation.Bounds is { } annotationBounds
+        NormalizedTextRegion bounds = annotation.Bounds is { } annotationBounds
             ? DocumentAnnotationCoordinateMapper.MapRegionToVisualBounds(annotationBounds, rotation)
             : new NormalizedTextRegion(0.08, 0.08, 0.2, 0.08);
-        var top = Math.Clamp(
+        double top = Math.Clamp(
             bounds.Y * pageHeight - 18,
             0,
             Math.Max(0, pageHeight - CardHeightEstimate));
@@ -432,7 +524,7 @@ public sealed partial class WindowsCommentOverlayViewModel : ObservableObject
     public partial string EditText
     {
         get; set;
-    } = string.Empty;
+    }
 
     [ObservableProperty]
     public partial bool IsEditing
@@ -474,7 +566,7 @@ public sealed partial class WindowsCommentOverlayViewModel : ObservableObject
 
     private static SolidColorBrush CreateBrush(string hex, byte alpha)
     {
-        var normalized = hex.Trim().TrimStart('#');
+        string normalized = hex.Trim().TrimStart('#');
         if (normalized.Length != 6)
         {
             normalized = "EEF1FF";
@@ -517,7 +609,7 @@ public sealed partial class WindowsInlineTextEditorViewModel : ObservableObject
         StrokeBrush = CreateBrush(annotation.Appearance.StrokeHex, 255);
         FillBrush = CreateBrush(annotation.Appearance.FillHex ?? "#EEF1FF", 238);
 
-        var bounds = annotation.Bounds is { } annotationBounds
+        NormalizedTextRegion bounds = annotation.Bounds is { } annotationBounds
             ? DocumentAnnotationCoordinateMapper.MapRegionToVisualBounds(annotationBounds, rotation)
             : new NormalizedTextRegion(0.1, 0.1, 0.24, 0.12);
 
@@ -533,7 +625,10 @@ public sealed partial class WindowsInlineTextEditorViewModel : ObservableObject
     }
 
     [ObservableProperty]
-    public partial string Text { get; set; } = string.Empty;
+    public partial string Text
+    {
+        get; set;
+    }
 
     public double FontSize
     {
@@ -545,12 +640,12 @@ public sealed partial class WindowsInlineTextEditorViewModel : ObservableObject
         get;
     }
 
-    public double Left
+    private double Left
     {
         get;
     }
 
-    public double Top
+    private double Top
     {
         get;
     }
@@ -579,7 +674,7 @@ public sealed partial class WindowsInlineTextEditorViewModel : ObservableObject
 
     private static SolidColorBrush CreateBrush(string hex, byte alpha)
     {
-        var normalized = hex.Trim().TrimStart('#');
+        string normalized = hex.Trim().TrimStart('#');
         if (normalized.Length != 6)
         {
             normalized = "EEF1FF";

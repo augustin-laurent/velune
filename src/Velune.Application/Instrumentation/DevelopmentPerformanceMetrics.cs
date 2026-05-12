@@ -78,13 +78,13 @@ public sealed partial class DevelopmentPerformanceMetrics : IPerformanceMetrics
 
         if (!_isEnabled ||
             !result.IsSuccess ||
-            !_openedDocuments.TryRemove(session.Id, out var openMetricState))
+            !_openedDocuments.TryRemove(session.Id, out OpenMetricState openMetricState))
         {
             return;
         }
 
         var memorySnapshot = MemorySnapshot.Capture();
-        var timeToFirstPage = openMetricState.OpenDuration
+        TimeSpan timeToFirstPage = openMetricState.OpenDuration
                               + Stopwatch.GetElapsedTime(openMetricState.OpenedAtTimestamp);
 
         LogFirstPageRenderMetric(
@@ -190,12 +190,12 @@ public sealed partial class DevelopmentPerformanceMetrics : IPerformanceMetrics
     {
         public static MemorySnapshot Capture()
         {
-            var managedMemoryMb = Math.Round(
+            double managedMemoryMb = Math.Round(
                 GC.GetTotalMemory(forceFullCollection: false) / (1024d * 1024d),
                 1);
 
             using var process = Process.GetCurrentProcess();
-            var workingSetMb = Math.Round(
+            double workingSetMb = Math.Round(
                 process.WorkingSet64 / (1024d * 1024d),
                 1);
 

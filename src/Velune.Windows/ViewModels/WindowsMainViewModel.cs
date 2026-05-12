@@ -10,10 +10,12 @@ using Velune.Application.DTOs;
 using Velune.Application.Results;
 using Velune.Application.Text;
 using Velune.Application.UseCases;
+using Velune.Domain.Abstractions;
 using Velune.Domain.Annotations;
 using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
 using Velune.Windows.Services;
+using Velune.Windows.ViewModels.UndoSystem;
 
 namespace Velune.Windows.ViewModels;
 
@@ -22,8 +24,12 @@ namespace Velune.Windows.ViewModels;
 /// </summary>
 public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 {
+    private const string RenderFailed = "status.render.failed";
+
     private const int MaxOpenDocumentTabs = 8;
     private const double DefaultViewerZoom = 1.35;
+    private const double ViewerHorizontalPadding = 80;
+    private const double ViewerVerticalPadding = 40;
     private const double ThumbnailZoom = 0.20;
     private const int ThumbnailWidth = 260;
     private const int ThumbnailHeight = 340;
@@ -59,13 +65,39 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     private readonly IPdfMarkupService _pdfMarkupService;
     private readonly IPdfAnnotationStore _pdfAnnotationStore;
     private readonly SemaphoreSlim _documentOpenGate = new(1, 1);
+    private readonly UndoRedoManager _undoStack;
+    private double _documentViewerWidth;
+    private double _documentViewerHeight;
+    private bool _isUndoRedoInProgress;
     private NormalizedPoint? _activeAnnotationStartPoint;
     private Guid? _previewAnnotationId;
-    private bool _isApplyingThumbnailPreference;
+    private readonly bool _isApplyingThumbnailPreference;
     private Guid? _movingAnnotationId;
     private NormalizedPoint? _movingAnnotationStartPoint;
     private NormalizedTextRegion? _movingAnnotationOriginalBounds;
+    private IReadOnlyList<NormalizedPoint>? _movingAnnotationOriginalPoints;
     private bool _editingExistingTextAnnotation;
+    private Guid? _resizingAnnotationId;
+    private NormalizedPoint? _resizingAnnotationStartPoint;
+    private NormalizedTextRegion? _resizingAnnotationOriginalBounds;
+    private IReadOnlyList<NormalizedPoint>? _resizingAnnotationOriginalPoints;
+    private ResizeHandle _resizingHandle;
+    private bool _isRotatingAnnotation;
+    private double _rotatingAnnotationStartAngle;
+    private double _rotatingAnnotationOriginalRotation;
+    private double _rotatingAnnotationCenterX;
+    private double _rotatingAnnotationCenterY;
+    private DocumentAnnotation? _interactionAnnotationSnapshot;
+
+    private enum ResizeHandle
+    {
+        None,
+        TopLeft,
+        TopRight,
+        BottomLeft,
+        BottomRight,
+        Rotate
+    }
 
     private enum RightPanel
     {
@@ -106,6 +138,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         ISignatureAssetStore signatureAssetStore,
         IPdfMarkupService pdfMarkupService,
         IPdfAnnotationStore pdfAnnotationStore,
+        UndoRedoManager undoRedoManager,
         IWindowsTextCatalog textCatalog)
     {
         ArgumentNullException.ThrowIfNull(openDocumentUseCase);
@@ -127,6 +160,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         ArgumentNullException.ThrowIfNull(signatureAssetStore);
         ArgumentNullException.ThrowIfNull(pdfMarkupService);
         ArgumentNullException.ThrowIfNull(pdfAnnotationStore);
+        ArgumentNullException.ThrowIfNull(undoRedoManager);
         ArgumentNullException.ThrowIfNull(textCatalog);
 
         _openDocumentUseCase = openDocumentUseCase;
@@ -149,6 +183,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         _signatureAssetStore = signatureAssetStore;
         _pdfMarkupService = pdfMarkupService;
         _pdfAnnotationStore = pdfAnnotationStore;
+        _undoStack = undoRedoManager;
         _textCatalog = textCatalog;
 
         Labels = new WindowsLabels(textCatalog);
@@ -245,9 +280,10 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
     public bool IsAnnotationStyleTabSelected => string.Equals(SelectedAnnotationPanelTab, "Style", StringComparison.Ordinal);
 
-    public bool IsAnnotationAppearancePanelVisible => ActiveDocumentTab?.SelectedAnnotationTool is not null and not AnnotationTool.Select;
+    public bool IsAnnotationAppearancePanelVisible => ActiveDocumentTab?.SelectedAnnotationTool is not null;
 
-    public bool IsAnnotationToolsAppearancePanelVisible => IsAnnotationToolsTabSelected && IsAnnotationAppearancePanelVisible;
+    public bool IsAnnotationToolsAppearancePanelVisible =>
+        (IsAnnotationToolsTabSelected && IsAnnotationAppearancePanelVisible) || ShowSelectionEditPanel;
 
     public bool IsAnnotationListPanelVisible => IsAnnotationToolsTabSelected || IsAnnotationCommentsTabSelected;
 
@@ -256,16 +292,33 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         ActiveDocumentTab?.SelectedAnnotationTool is AnnotationTool.Note or AnnotationTool.Stamp;
 
     public bool ShowTextStyleControls =>
-        IsAnnotationToolsTabSelected &&
-        ActiveDocumentTab?.SelectedAnnotationTool is AnnotationTool.Text;
+        (IsAnnotationToolsTabSelected &&
+         ActiveDocumentTab?.SelectedAnnotationTool is AnnotationTool.Text) ||
+        ShowSelectedTextStyleControls;
 
     public bool ShowSignatureControls =>
         IsAnnotationToolsTabSelected &&
         ActiveDocumentTab?.SelectedAnnotationTool is AnnotationTool.Signature;
 
     public bool ShowRectangleFillControls =>
-        IsAnnotationToolsTabSelected &&
-        ActiveDocumentTab?.SelectedAnnotationTool is AnnotationTool.Rectangle;
+        (IsAnnotationToolsTabSelected &&
+         ActiveDocumentTab?.SelectedAnnotationTool is AnnotationTool.Rectangle) ||
+        (ShowSelectionEditPanel && IsSelectedAnnotationRectangle);
+
+    public bool IsSelectedAnnotationRectangle =>
+        SelectedAnnotationId is { } id &&
+        ActiveDocumentTab?.Annotations.FirstOrDefault(a => a.Id == id)?.Kind is DocumentAnnotationKind.Rectangle;
+
+    public DocumentAnnotationKind? SelectedAnnotationKind =>
+        SelectedAnnotationId is { } id
+            ? ActiveDocumentTab?.Annotations.FirstOrDefault(a => a.Id == id)?.Kind
+            : null;
+
+    public bool ShowSelectionEditPanel =>
+        SelectedAnnotationId is not null && ActiveDocumentTab?.SelectedAnnotationTool is AnnotationTool.Select;
+
+    public bool ShowSelectedTextStyleControls =>
+        ShowSelectionEditPanel && SelectedAnnotationKind is DocumentAnnotationKind.Text;
 
     public bool HasSignatureAssets => SignatureAssets.Count > 0;
 
@@ -294,7 +347,10 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     }
 
     [ObservableProperty]
-    public partial string StatusText { get; set; } = string.Empty;
+    public partial string StatusText
+    {
+        get; set;
+    }
 
     [ObservableProperty]
     public partial bool IsBusy
@@ -304,6 +360,12 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     public partial string SelectedAnnotationPanelTab { get; set; } = "Tools";
+
+    [ObservableProperty]
+    public partial Guid? SelectedAnnotationId
+    {
+        get; set;
+    }
 
     [ObservableProperty]
     public partial double AnnotationOpacity { get; set; } = 80;
@@ -342,10 +404,16 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     ];
 
     [ObservableProperty]
-    public partial string AnnotationTextDraft { get; set; } = string.Empty;
+    public partial string AnnotationTextDraft
+    {
+        get; set;
+    }
 
     [ObservableProperty]
-    public partial string SignatureAssetNameInput { get; set; } = string.Empty;
+    public partial string SignatureAssetNameInput
+    {
+        get; set;
+    }
 
     [ObservableProperty]
     public partial string? SelectedSignatureAssetId
@@ -357,16 +425,28 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     public partial PointCollection SignaturePadPoints { get; set; } = new();
 
     [ObservableProperty]
-    public partial string SelectedPreferenceLanguage { get; set; } = string.Empty;
+    public partial string SelectedPreferenceLanguage
+    {
+        get; set;
+    }
 
     [ObservableProperty]
-    public partial string SelectedPreferenceTheme { get; set; } = string.Empty;
+    public partial string SelectedPreferenceTheme
+    {
+        get; set;
+    }
 
     [ObservableProperty]
-    public partial string SelectedPreferenceZoom { get; set; } = string.Empty;
+    public partial string SelectedPreferenceZoom
+    {
+        get; set;
+    }
 
     [ObservableProperty]
-    public partial bool ShowThumbnails { get; set; } = true;
+    public partial bool ShowThumbnails
+    {
+        get; set;
+    }
 
     [ObservableProperty]
     public partial double CacheSizeMegabytes { get; set; } = 256;
@@ -431,7 +511,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     {
         try
         {
-            var path = await _fileDialogService.PickOpenDocumentAsync();
+            string? path = await _fileDialogService.PickOpenDocumentAsync();
             if (string.IsNullOrWhiteSpace(path))
             {
                 return;
@@ -450,14 +530,14 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     {
         try
         {
-            var selectedPaths = await _fileDialogService.PickMergeDocumentsAsync();
+            IReadOnlyList<string> selectedPaths = await _fileDialogService.PickMergeDocumentsAsync();
             if (selectedPaths.Count == 0)
             {
                 StatusText = _textCatalog.GetString("status.merge.cancelled");
                 return;
             }
 
-            var sourcePaths = (ActiveDocumentTab is null
+            string[] sourcePaths = (ActiveDocumentTab is null
                     ? selectedPaths
                     : new[] { ActiveDocumentTab.FilePath }.Concat(selectedPaths))
                 .Where(path => !string.IsNullOrWhiteSpace(path))
@@ -485,25 +565,25 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var tab = ActiveDocumentTab;
+        WindowsDocumentTabViewModel? tab = ActiveDocumentTab;
         try
         {
-            var hasPageEdits = tab.HasPendingPageEdits && tab.DocumentType is DocumentType.Pdf;
-            var hasAnnotations = tab.Annotations.Count > 0 && tab.DocumentType is DocumentType.Pdf;
+            bool hasPageEdits = tab.HasPendingPageEdits && tab.DocumentType is DocumentType.Pdf;
+            bool hasAnnotations = tab.Annotations.Count > 0 && tab.DocumentType is DocumentType.Pdf;
 
             if (hasPageEdits || hasAnnotations)
             {
                 await RunBusyAsync(async () =>
                 {
-                    var originalPath = tab.FilePath;
-                    var currentPath = originalPath;
+                    string originalPath = tab.FilePath;
+                    string currentPath = originalPath;
 
                     if (hasPageEdits)
                     {
-                        var tempDir = Path.Combine(Path.GetTempPath(), "velune-op", Guid.NewGuid().ToString("N"));
+                        string tempDir = Path.Combine(Path.GetTempPath(), "velune-op", Guid.NewGuid().ToString("N"));
                         Directory.CreateDirectory(tempDir);
 
-                        var editedPath = await CreateEditedPdfAsync(
+                        string? editedPath = await CreateEditedPdfAsync(
                             tab,
                             tempDir,
                             tab.Thumbnails.Select(thumbnail => thumbnail.PageNumber).ToArray(),
@@ -535,7 +615,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
                         tab.HasPendingPageReorder = false;
                         tab.ClearPendingPageRotations();
                         tab.IsDirty = false;
-                        foreach (var annotation in savedAnnotations)
+                        foreach (DocumentAnnotation annotation in savedAnnotations)
                         {
                             tab.Annotations.Add(annotation);
                         }
@@ -548,10 +628,10 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
                 return;
             }
 
-            var suggestedName = string.IsNullOrWhiteSpace(tab.Title)
+            string suggestedName = string.IsNullOrWhiteSpace(tab.Title)
                 ? "document.pdf"
                 : tab.Title;
-            var outputPath = await _fileDialogService.PickSavePdfAsync(suggestedName);
+            string? outputPath = await _fileDialogService.PickSavePdfAsync(suggestedName);
             if (string.IsNullOrWhiteSpace(outputPath))
             {
                 StatusText = _textCatalog.GetString("status.save.cancelled");
@@ -576,36 +656,36 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var tab = ActiveDocumentTab;
+        WindowsDocumentTabViewModel? tab = ActiveDocumentTab;
         try
         {
-            var suggestedName = string.IsNullOrWhiteSpace(tab.Title)
+            string suggestedName = string.IsNullOrWhiteSpace(tab.Title)
                 ? "document.pdf"
                 : tab.Title;
-            var outputPath = await _fileDialogService.PickSavePdfAsync(suggestedName);
+            string? outputPath = await _fileDialogService.PickSavePdfAsync(suggestedName);
             if (string.IsNullOrWhiteSpace(outputPath))
             {
                 StatusText = _textCatalog.GetString("status.save.cancelled");
                 return;
             }
 
-            var hasPageEdits = tab.HasPendingPageEdits && tab.DocumentType is DocumentType.Pdf;
-            var hasAnnotations = tab.Annotations.Count > 0 && tab.DocumentType is DocumentType.Pdf;
+            bool hasPageEdits = tab.HasPendingPageEdits && tab.DocumentType is DocumentType.Pdf;
+            bool hasAnnotations = tab.Annotations.Count > 0 && tab.DocumentType is DocumentType.Pdf;
 
             if (hasPageEdits || hasAnnotations)
             {
                 await RunBusyAsync(async () =>
                 {
-                    var tempDir = Path.Combine(Path.GetTempPath(), "velune-op", Guid.NewGuid().ToString("N"));
+                    string tempDir = Path.Combine(Path.GetTempPath(), "velune-op", Guid.NewGuid().ToString("N"));
                     Directory.CreateDirectory(tempDir);
 
-                    var session = _documentSessionStore.Sessions
+                    IDocumentSession? session = _documentSessionStore.Sessions
                         .FirstOrDefault(s => s.Id == tab.SessionId);
-                    var currentPath = tab.FilePath;
+                    string currentPath = tab.FilePath;
 
                     if (hasPageEdits)
                     {
-                        var editedPath = await CreateEditedPdfAsync(
+                        string? editedPath = await CreateEditedPdfAsync(
                             tab,
                             tempDir,
                             tab.Thumbnails.Select(thumbnail => thumbnail.PageNumber).ToArray(),
@@ -632,8 +712,8 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
                             await ReleaseActiveSessionAsync(tab);
                         }
 
-                        var annotatedPath = Path.Combine(tempDir, "annotated.pdf");
-                        var annotationResult = await _pdfMarkupService.ApplyAnnotationsAsync(
+                        string annotatedPath = Path.Combine(tempDir, "annotated.pdf");
+                        Result<string> annotationResult = await _pdfMarkupService.ApplyAnnotationsAsync(
                             new ApplyPdfAnnotationsRequest(
                                 session,
                                 currentPath,
@@ -716,7 +796,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
         await RunBusyAsync(async () =>
         {
-            var result = await _printCoordinator.PrintAsync(ActiveDocumentTab);
+            Result result = await _printCoordinator.PrintAsync(ActiveDocumentTab);
             await RunOnUiThreadAsync(() =>
             {
                 StatusText = result.IsSuccess
@@ -756,8 +836,8 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var wasActive = ReferenceEquals(tab, ActiveDocumentTab);
-        var tabIndex = DocumentTabs.IndexOf(tab);
+        bool wasActive = ReferenceEquals(tab, ActiveDocumentTab);
+        int tabIndex = DocumentTabs.IndexOf(tab);
 
         await _closeDocumentUseCase.ExecuteAsync(new CloseDocumentRequest(tab.SessionId));
         await _renderOrchestrator.CancelDocumentJobsAsync(tab.SessionId);
@@ -785,6 +865,53 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    private void UndoAction()
+    {
+        if (!_undoStack.CanUndo)
+        {
+            return;
+        }
+
+        _isUndoRedoInProgress = true;
+        try
+        {
+            _undoStack.Undo();
+        }
+        finally
+        {
+            _isUndoRedoInProgress = false;
+        }
+
+        OnPropertyChanged(nameof(CanUndo));
+        OnPropertyChanged(nameof(CanRedo));
+    }
+
+    [RelayCommand]
+    private void RedoAction()
+    {
+        if (!_undoStack.CanRedo)
+        {
+            return;
+        }
+
+        _isUndoRedoInProgress = true;
+        try
+        {
+            _undoStack.Redo();
+        }
+        finally
+        {
+            _isUndoRedoInProgress = false;
+        }
+        OnPropertyChanged(nameof(CanUndo));
+        OnPropertyChanged(nameof(CanRedo));
+    }
+
+    public bool CanUndo => _undoStack.CanUndo;
+
+    public bool CanRedo => _undoStack.CanRedo;
+
+    [RelayCommand]
     private async Task PreviousPageAsync()
     {
         if (ActiveDocumentTab is null || ActiveDocumentTab.CurrentPage <= 1)
@@ -792,7 +919,9 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
+        int previous = ActiveDocumentTab.CurrentPage;
         await ChangePageAsync(ActiveDocumentTab.CurrentPage - 1);
+        PushUndo(new NavigationAction(ActiveDocumentTab, previous, ActiveDocumentTab.CurrentPage, async p => await ChangePageAsync(p)));
     }
 
     [RelayCommand]
@@ -803,7 +932,9 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
+        int previous = ActiveDocumentTab.CurrentPage;
         await ChangePageAsync(ActiveDocumentTab.CurrentPage + 1);
+        PushUndo(new NavigationAction(ActiveDocumentTab, previous, ActiveDocumentTab.CurrentPage, async p => await ChangePageAsync(p)));
     }
 
     [RelayCommand]
@@ -814,9 +945,51 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        ActiveDocumentTab.ZoomFactor = DefaultViewerZoom;
+        double availableWidth = _documentViewerWidth - ViewerHorizontalPadding;
+        double availableHeight = _documentViewerHeight - ViewerVerticalPadding;
+
+        if (availableWidth > 0 && availableHeight > 0 &&
+            ActiveDocumentTab.CurrentPagePixelWidth > 0 && ActiveDocumentTab.CurrentPagePixelHeight > 0)
+        {
+            double zoom = RenderedPageViewportCalculator.CalculateFitToPageZoom(
+                (int)ActiveDocumentTab.CurrentPagePixelWidth,
+                (int)ActiveDocumentTab.CurrentPagePixelHeight,
+                ActiveDocumentTab.ZoomFactor,
+                availableWidth,
+                availableHeight);
+
+            ActiveDocumentTab.ZoomFactor = Math.Clamp(zoom, 0.2, 4.0);
+        }
+        else
+        {
+            ActiveDocumentTab.ZoomFactor = DefaultViewerZoom;
+        }
+
         ActiveDocumentTab.ZoomText = $"{ActiveDocumentTab.ZoomFactor * 100:0}%";
         await RenderActivePageAsync(ActiveDocumentTab);
+    }
+
+    public void SetDocumentViewerSize(double width, double height)
+    {
+        _documentViewerWidth = width;
+        _documentViewerHeight = height;
+    }
+
+    private double CalculateInitialFitZoom(int nativeWidth, int nativeHeight)
+    {
+        double availableWidth = _documentViewerWidth - ViewerHorizontalPadding;
+        double availableHeight = _documentViewerHeight - ViewerVerticalPadding;
+
+        if (availableWidth <= 0 || availableHeight <= 0)
+        {
+            return DefaultViewerZoom;
+        }
+
+        double zoom = Math.Min(
+            availableWidth / Math.Max(1, nativeWidth),
+            availableHeight / Math.Max(1, nativeHeight));
+
+        return Math.Clamp(zoom, 0.2, 4.0);
     }
 
     [RelayCommand]
@@ -835,13 +1008,21 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void TogglePagesPanel()
     {
-        if (ActiveDocumentTab is not null)
+        if (ActiveDocumentTab is null)
         {
-            ShowThumbnails = !ShowThumbnails;
-            StatusText = ShowThumbnails
-                ? _textCatalog.GetString("status.pages_panel.shown")
-                : _textCatalog.GetString("status.pages_panel.hidden");
+            return;
         }
+
+        PushUndo(new PanelToggleAction("Pages", TogglePagesPanelCore));
+        TogglePagesPanelCore();
+    }
+
+    private void TogglePagesPanelCore()
+    {
+        ShowThumbnails = !ShowThumbnails;
+        StatusText = ShowThumbnails
+            ? _textCatalog.GetString("status.pages_panel.shown")
+            : _textCatalog.GetString("status.pages_panel.hidden");
     }
 
     [RelayCommand]
@@ -904,6 +1085,17 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
+        PushUndo(new PanelToggleAction("Annotations", ToggleAnnotationsPanelCore));
+        ToggleAnnotationsPanelCore();
+    }
+
+    private void ToggleAnnotationsPanelCore()
+    {
+        if (ActiveDocumentTab is not { } tab)
+        {
+            return;
+        }
+
         if (tab.IsAnnotationsPanelOpen)
         {
             tab.IsAnnotationsPanelOpen = false;
@@ -957,7 +1149,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     private void SelectAnnotationTool(object? toolValue)
     {
         if (ActiveDocumentTab is null ||
-            !TryResolveAnnotationTool(toolValue, out var tool))
+            !TryResolveAnnotationTool(toolValue, out AnnotationTool tool))
         {
             return;
         }
@@ -967,6 +1159,11 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         SelectedAnnotationPanelTab = "Tools";
         SetRightPanel(ActiveDocumentTab, RightPanel.Annotations);
         PrepareAnnotationTextDraftForTool(tool);
+        if (tool is not AnnotationTool.Select)
+        {
+            SelectedAnnotationId = null;
+        }
+
         if (tool is AnnotationTool.Select or AnnotationTool.Highlight)
         {
             _ = PrepareTextSelectionAsync(ActiveDocumentTab);
@@ -987,12 +1184,51 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        foreach (var item in AnnotationColorOptions)
+        foreach (WindowsAnnotationColorItem item in AnnotationColorOptions)
         {
             item.IsSelected = ReferenceEquals(item, color);
         }
 
         OnPropertyChanged(nameof(SelectedAnnotationColorBrush));
+        ApplyColorToSelectedAnnotation(color.Hex);
+    }
+
+    private void ApplyColorToSelectedAnnotation(string hex)
+    {
+        if (SelectedAnnotationId is not { } id || ActiveDocumentTab is null)
+        {
+            return;
+        }
+
+        int index = ActiveDocumentTab.FindAnnotationIndex(id);
+        if (index < 0)
+        {
+            return;
+        }
+
+        DocumentAnnotation annotation = ActiveDocumentTab.Annotations[index];
+        AnnotationAppearance updated = new(
+            hex,
+            annotation.Appearance.FillHex,
+            annotation.Appearance.StrokeThickness,
+            annotation.Appearance.Opacity,
+            annotation.Appearance.FontSize,
+            annotation.Appearance.FontFamily,
+            annotation.Appearance.RotationAngle);
+        DocumentAnnotation newAnnotation = new(
+            annotation.Id,
+            annotation.Kind,
+            annotation.PageIndex,
+            updated,
+            annotation.Bounds,
+            annotation.Points,
+            annotation.Text,
+            annotation.AssetId,
+            annotation.CreatedAt);
+        ActiveDocumentTab.Annotations[index] = newAnnotation;
+        PushUndo(new AnnotationMutationAction(ActiveDocumentTab, annotation, newAnnotation));
+        ActiveDocumentTab.RefreshAnnotationOverlays(SelectedAnnotationId);
+        NotifySaveStateChanged();
     }
 
     /// <summary>
@@ -1006,12 +1242,343 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        foreach (var item in AnnotationFillColorOptions)
+        foreach (WindowsAnnotationColorItem item in AnnotationFillColorOptions)
         {
             item.IsSelected = ReferenceEquals(item, color);
         }
 
         AnnotationFillHex = color.Hex;
+        ApplyFillToSelectedAnnotation();
+    }
+
+    private void ApplyFillToSelectedAnnotation()
+    {
+        if (SelectedAnnotationId is not { } id || ActiveDocumentTab is null)
+        {
+            return;
+        }
+
+        int index = ActiveDocumentTab.FindAnnotationIndex(id);
+        if (index < 0)
+        {
+            return;
+        }
+
+        DocumentAnnotation annotation = ActiveDocumentTab.Annotations[index];
+        if (annotation.Kind is not DocumentAnnotationKind.Rectangle)
+        {
+            return;
+        }
+
+        string? fill = AnnotationFillEnabled ? AnnotationFillHex : null;
+        AnnotationAppearance updated = new(
+            annotation.Appearance.StrokeHex,
+            fill,
+            annotation.Appearance.StrokeThickness,
+            annotation.Appearance.Opacity,
+            annotation.Appearance.FontSize,
+            annotation.Appearance.FontFamily,
+            annotation.Appearance.RotationAngle);
+        DocumentAnnotation newAnnotation = new(
+            annotation.Id,
+            annotation.Kind,
+            annotation.PageIndex,
+            updated,
+            annotation.Bounds,
+            annotation.Points,
+            annotation.Text,
+            annotation.AssetId,
+            annotation.CreatedAt);
+        ActiveDocumentTab.Annotations[index] = newAnnotation;
+        PushUndo(new AnnotationMutationAction(ActiveDocumentTab, annotation, newAnnotation));
+        ActiveDocumentTab.RefreshAnnotationOverlays(SelectedAnnotationId);
+        NotifySaveStateChanged();
+    }
+
+    private void LoadSelectedAnnotationProperties()
+    {
+        if (SelectedAnnotationId is not { } id || ActiveDocumentTab is null)
+        {
+            return;
+        }
+
+        DocumentAnnotation? annotation = ActiveDocumentTab.Annotations.FirstOrDefault(a => a.Id == id);
+        if (annotation is null)
+        {
+            return;
+        }
+
+        AnnotationOpacity = annotation.Appearance.Opacity * 100;
+        AnnotationFontSize = annotation.Appearance.FontSize;
+        AnnotationFontFamily = annotation.Appearance.FontFamily ?? "Segoe UI";
+        AnnotationFillEnabled = annotation.Appearance.FillHex is not null;
+        AnnotationFillHex = annotation.Appearance.FillHex ?? "#EEF1FF";
+
+        string strokeHex = annotation.Appearance.StrokeHex;
+        foreach (WindowsAnnotationColorItem item in AnnotationColorOptions)
+        {
+            item.IsSelected = string.Equals(item.Hex, strokeHex, StringComparison.OrdinalIgnoreCase);
+        }
+
+        OnPropertyChanged(nameof(SelectedAnnotationColorBrush));
+
+        if (annotation.Appearance.FillHex is { } fillHex)
+        {
+            foreach (WindowsAnnotationColorItem item in AnnotationFillColorOptions)
+            {
+                item.IsSelected = string.Equals(item.Hex, fillHex, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+    }
+
+    private void ApplyOpacityToSelectedAnnotation()
+    {
+        if (SelectedAnnotationId is not { } id || ActiveDocumentTab is null)
+        {
+            return;
+        }
+
+        int index = ActiveDocumentTab.FindAnnotationIndex(id);
+        if (index < 0)
+        {
+            return;
+        }
+
+        DocumentAnnotation annotation = ActiveDocumentTab.Annotations[index];
+        double normalizedOpacity = Math.Clamp(AnnotationOpacity / 100.0, 0, 1);
+        if (Math.Abs(annotation.Appearance.Opacity - normalizedOpacity) < 0.001)
+        {
+            return;
+        }
+
+        AnnotationAppearance updated = new(
+            annotation.Appearance.StrokeHex,
+            annotation.Appearance.FillHex,
+            annotation.Appearance.StrokeThickness,
+            normalizedOpacity,
+            annotation.Appearance.FontSize,
+            annotation.Appearance.FontFamily,
+            annotation.Appearance.RotationAngle);
+        DocumentAnnotation newAnnotation = new(
+            annotation.Id,
+            annotation.Kind,
+            annotation.PageIndex,
+            updated,
+            annotation.Bounds,
+            annotation.Points,
+            annotation.Text,
+            annotation.AssetId,
+            annotation.CreatedAt);
+        ActiveDocumentTab.Annotations[index] = newAnnotation;
+        PushUndo(new AnnotationMutationAction(ActiveDocumentTab, annotation, newAnnotation));
+        ActiveDocumentTab.RefreshAnnotationOverlays(SelectedAnnotationId);
+        NotifySaveStateChanged();
+    }
+
+    private void ApplyFontToSelectedAnnotation()
+    {
+        if (SelectedAnnotationId is not { } id || ActiveDocumentTab is null)
+        {
+            return;
+        }
+
+        int index = ActiveDocumentTab.FindAnnotationIndex(id);
+        if (index < 0)
+        {
+            return;
+        }
+
+        DocumentAnnotation annotation = ActiveDocumentTab.Annotations[index];
+        if (annotation.Kind is not DocumentAnnotationKind.Text)
+        {
+            return;
+        }
+
+        AnnotationAppearance updated = new(
+            annotation.Appearance.StrokeHex,
+            annotation.Appearance.FillHex,
+            annotation.Appearance.StrokeThickness,
+            annotation.Appearance.Opacity,
+            AnnotationFontSize,
+            AnnotationFontFamily,
+            annotation.Appearance.RotationAngle);
+        DocumentAnnotation newAnnotation = new(
+            annotation.Id,
+            annotation.Kind,
+            annotation.PageIndex,
+            updated,
+            annotation.Bounds,
+            annotation.Points,
+            annotation.Text,
+            annotation.AssetId,
+            annotation.CreatedAt);
+        ActiveDocumentTab.Annotations[index] = newAnnotation;
+        PushUndo(new AnnotationMutationAction(ActiveDocumentTab, annotation, newAnnotation));
+        ActiveDocumentTab.RefreshAnnotationOverlays(SelectedAnnotationId);
+        NotifySaveStateChanged();
+    }
+
+    public void DeleteSelectedAnnotation()
+    {
+        if (SelectedAnnotationId is not { } id)
+        {
+            return;
+        }
+
+        SelectedAnnotationId = null;
+        DeleteAnnotationById(id);
+    }
+
+    public void RotateSelectedAnnotation90()
+    {
+        if (SelectedAnnotationId is not { } id || ActiveDocumentTab is null)
+        {
+            return;
+        }
+
+        int index = ActiveDocumentTab.FindAnnotationIndex(id);
+        if (index < 0)
+        {
+            return;
+        }
+
+        DocumentAnnotation annotation = ActiveDocumentTab.Annotations[index];
+        double newAngle = annotation.Appearance.RotationAngle + 90;
+        if (newAngle >= 360)
+        {
+            newAngle -= 360;
+        }
+
+        AnnotationAppearance updated = new(
+            annotation.Appearance.StrokeHex,
+            annotation.Appearance.FillHex,
+            annotation.Appearance.StrokeThickness,
+            annotation.Appearance.Opacity,
+            annotation.Appearance.FontSize,
+            annotation.Appearance.FontFamily,
+            newAngle);
+        DocumentAnnotation newAnnotation = new(
+            annotation.Id,
+            annotation.Kind,
+            annotation.PageIndex,
+            updated,
+            annotation.Bounds,
+            annotation.Points,
+            annotation.Text,
+            annotation.AssetId,
+            annotation.CreatedAt);
+        ActiveDocumentTab.Annotations[index] = newAnnotation;
+        PushUndo(new AnnotationMutationAction(ActiveDocumentTab, annotation, newAnnotation));
+        ActiveDocumentTab.RefreshAnnotationOverlays(SelectedAnnotationId);
+        NotifySaveStateChanged();
+    }
+
+    public void ResetSelectedAnnotationRotation()
+    {
+        if (SelectedAnnotationId is not { } id || ActiveDocumentTab is null)
+        {
+            return;
+        }
+
+        int index = ActiveDocumentTab.FindAnnotationIndex(id);
+        if (index < 0)
+        {
+            return;
+        }
+
+        DocumentAnnotation annotation = ActiveDocumentTab.Annotations[index];
+        double originalAngle = ActiveDocumentTab.GetOriginalRotation(id);
+        if (Math.Abs(annotation.Appearance.RotationAngle - originalAngle) < 0.01)
+        {
+            return;
+        }
+
+        AnnotationAppearance updated = new(
+            annotation.Appearance.StrokeHex,
+            annotation.Appearance.FillHex,
+            annotation.Appearance.StrokeThickness,
+            annotation.Appearance.Opacity,
+            annotation.Appearance.FontSize,
+            annotation.Appearance.FontFamily,
+            originalAngle);
+        DocumentAnnotation newAnnotation = new(
+            annotation.Id,
+            annotation.Kind,
+            annotation.PageIndex,
+            updated,
+            annotation.Bounds,
+            annotation.Points,
+            annotation.Text,
+            annotation.AssetId,
+            annotation.CreatedAt);
+        ActiveDocumentTab.Annotations[index] = newAnnotation;
+        PushUndo(new AnnotationMutationAction(ActiveDocumentTab, annotation, newAnnotation));
+        ActiveDocumentTab.RefreshAnnotationOverlays(SelectedAnnotationId);
+        NotifySaveStateChanged();
+    }
+
+    public void FlipSelectedAnnotationHorizontally()
+    {
+        if (SelectedAnnotationId is not { } id || ActiveDocumentTab is null)
+        {
+            return;
+        }
+
+        int index = ActiveDocumentTab.FindAnnotationIndex(id);
+        if (index < 0)
+        {
+            return;
+        }
+
+        DocumentAnnotation annotation = ActiveDocumentTab.Annotations[index];
+        if (annotation.Kind is DocumentAnnotationKind.Ink && annotation.Points.Count > 0)
+        {
+            double minX = annotation.Points.Min(p => p.X);
+            double maxX = annotation.Points.Max(p => p.X);
+            double cx = (minX + maxX) / 2;
+
+            var flipped = annotation.Points
+                .Select(p => new NormalizedPoint(Math.Clamp(cx + (cx - p.X), 0, 1), p.Y))
+                .ToList();
+
+            ActiveDocumentTab.Annotations[index] = new DocumentAnnotation(
+                annotation.Id, annotation.Kind, annotation.PageIndex, annotation.Appearance,
+                null, flipped, annotation.Text, annotation.AssetId, annotation.CreatedAt);
+            ActiveDocumentTab.RefreshAnnotationOverlays(SelectedAnnotationId);
+            NotifySaveStateChanged();
+        }
+    }
+
+    public void FlipSelectedAnnotationVertically()
+    {
+        if (SelectedAnnotationId is not { } id || ActiveDocumentTab is null)
+        {
+            return;
+        }
+
+        int index = ActiveDocumentTab.FindAnnotationIndex(id);
+        if (index < 0)
+        {
+            return;
+        }
+
+        DocumentAnnotation annotation = ActiveDocumentTab.Annotations[index];
+        if (annotation.Kind is DocumentAnnotationKind.Ink && annotation.Points.Count > 0)
+        {
+            double minY = annotation.Points.Min(p => p.Y);
+            double maxY = annotation.Points.Max(p => p.Y);
+            double cy = (minY + maxY) / 2;
+
+            var flipped = annotation.Points
+                .Select(p => new NormalizedPoint(p.X, Math.Clamp(cy + (cy - p.Y), 0, 1)))
+                .ToList();
+
+            ActiveDocumentTab.Annotations[index] = new DocumentAnnotation(
+                annotation.Id, annotation.Kind, annotation.PageIndex, annotation.Appearance,
+                null, flipped, annotation.Text, annotation.AssetId, annotation.CreatedAt);
+            ActiveDocumentTab.RefreshAnnotationOverlays(SelectedAnnotationId);
+            NotifySaveStateChanged();
+        }
     }
 
     [RelayCommand]
@@ -1030,7 +1597,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     {
         try
         {
-            var imagePath = await _fileDialogService.PickSignatureImageAsync();
+            string? imagePath = await _fileDialogService.PickSignatureImageAsync();
             if (string.IsNullOrWhiteSpace(imagePath))
             {
                 return;
@@ -1042,7 +1609,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
                 return;
             }
 
-            var result = _signatureAssetStore.Import(imagePath);
+            Result<SignatureAsset> result = _signatureAssetStore.Import(imagePath);
             if (result.IsFailure || result.Value is null)
             {
                 StatusText = FormatError("error.signature.import_failed.message", result.Error);
@@ -1062,7 +1629,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(CanDeleteSelectedSignatureAsset))]
     private void DeleteSelectedSignatureAsset(string? assetId)
     {
-        var targetAssetId = string.IsNullOrWhiteSpace(assetId)
+        string? targetAssetId = string.IsNullOrWhiteSpace(assetId)
             ? SelectedSignatureAssetId
             : assetId;
 
@@ -1079,7 +1646,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var result = _signatureAssetStore.Delete(targetAssetId);
+        Result result = _signatureAssetStore.Delete(targetAssetId);
         if (result.IsFailure)
         {
             StatusText = FormatError("error.signature.delete_failed.message", result.Error);
@@ -1093,7 +1660,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(CanSaveSignatureCapture))]
     private void SaveDrawnSignatureAsset()
     {
-        var result = _signatureAssetStore.SaveInkSignature(SignatureAssetNameInput.Trim(), _signatureCapturePoints);
+        Result<SignatureAsset> result = _signatureAssetStore.SaveInkSignature(SignatureAssetNameInput.Trim(), _signatureCapturePoints);
         if (result.IsFailure || result.Value is null)
         {
             StatusText = FormatError("error.signature.save_failed.message", result.Error);
@@ -1156,7 +1723,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             }
         }
 
-        var result = _searchDocumentTextUseCase.Execute(
+        Result<IReadOnlyList<SearchHit>> result = _searchDocumentTextUseCase.Execute(
             new SearchDocumentTextRequest(
                 tab.DocumentTextIndex,
                 new SearchQuery(tab.SearchQuery)));
@@ -1247,8 +1814,10 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
+        double previous = ActiveDocumentTab.ZoomFactor;
         ActiveDocumentTab.ZoomFactor = Math.Min(4.0, ActiveDocumentTab.ZoomFactor + 0.1);
         ActiveDocumentTab.ZoomText = $"{ActiveDocumentTab.ZoomFactor * 100:0}%";
+        PushUndo(new ZoomChangeAction(ActiveDocumentTab, previous, ActiveDocumentTab.ZoomFactor, tab => _ = RenderActivePageAsync(tab)));
         await RenderActivePageAsync(ActiveDocumentTab);
     }
 
@@ -1260,21 +1829,25 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
+        double previous = ActiveDocumentTab.ZoomFactor;
         ActiveDocumentTab.ZoomFactor = Math.Max(0.2, ActiveDocumentTab.ZoomFactor - 0.1);
         ActiveDocumentTab.ZoomText = $"{ActiveDocumentTab.ZoomFactor * 100:0}%";
+        PushUndo(new ZoomChangeAction(ActiveDocumentTab, previous, ActiveDocumentTab.ZoomFactor, tab => _ = RenderActivePageAsync(tab)));
         await RenderActivePageAsync(ActiveDocumentTab);
     }
 
     [RelayCommand]
     private async Task SetZoomAsync(string factor)
     {
-        if (ActiveDocumentTab is null || !double.TryParse(factor, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var zoom))
+        if (ActiveDocumentTab is null || !double.TryParse(factor, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double zoom))
         {
             return;
         }
 
+        double previous = ActiveDocumentTab.ZoomFactor;
         ActiveDocumentTab.ZoomFactor = Math.Clamp(zoom, 0.2, 4.0);
         ActiveDocumentTab.ZoomText = $"{ActiveDocumentTab.ZoomFactor * 100:0}%";
+        PushUndo(new ZoomChangeAction(ActiveDocumentTab, previous, ActiveDocumentTab.ZoomFactor, tab => _ = RenderActivePageAsync(tab)));
         await RenderActivePageAsync(ActiveDocumentTab);
     }
 
@@ -1286,7 +1859,14 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
+        int index = ActiveDocumentTab.FindAnnotationIndex(annotationId);
+        DocumentAnnotation? snapshot = index >= 0 ? ActiveDocumentTab.Annotations[index] : null;
         ActiveDocumentTab.DeleteAnnotationById(annotationId);
+        if (snapshot is not null)
+        {
+            PushUndo(new AnnotationDeleteAction(ActiveDocumentTab, snapshot));
+        }
+
         NotifySaveStateChanged();
         StatusText = _textCatalog.GetString("status.annotation.deleted");
     }
@@ -1341,15 +1921,17 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     private async Task OpenPathCoreAsync(string path)
     {
         WindowsDocumentTabViewModel? existingTab = null;
-        var canOpen = true;
+        bool canOpen = true;
         await RunOnUiThreadAsync(() =>
         {
             existingTab = DocumentTabs.FirstOrDefault(tab => PathsEqual(tab.FilePath, path));
-            if (existingTab is null && DocumentTabs.Count >= MaxOpenDocumentTabs)
+            if (existingTab is not null || DocumentTabs.Count < MaxOpenDocumentTabs)
             {
-                StatusText = _textCatalog.Format("notification.tabs.limit.message", MaxOpenDocumentTabs);
-                canOpen = false;
+                return;
             }
+
+            StatusText = _textCatalog.Format("notification.tabs.limit.message", MaxOpenDocumentTabs);
+            canOpen = false;
         });
 
         if (existingTab is not null)
@@ -1365,7 +1947,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
         await RunBusyAsync(async () =>
         {
-            var result = await _openDocumentUseCase.ExecuteAsync(
+            Result<IDocumentSession> result = await _openDocumentUseCase.ExecuteAsync(
                 new OpenDocumentRequest(path, DocumentOpenMode.AddToTabs));
 
             if (result.IsFailure || result.Value is null)
@@ -1377,16 +1959,20 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             WindowsDocumentTabViewModel? tab = null;
             await RunOnUiThreadAsync(() =>
             {
+                double initialZoom = CalculateInitialFitZoom(
+                    result.Value.Metadata.PixelWidth ?? 900,
+                    result.Value.Metadata.PixelHeight ?? 1200);
+
                 tab = new WindowsDocumentTabViewModel(result.Value.Id, result.Value.Metadata, _textCatalog)
                 {
                     IsActive = true,
                     IsPagesPanelOpen = ShowThumbnails,
-                    ZoomFactor = DefaultViewerZoom,
-                    ZoomText = $"{DefaultViewerZoom * 100:0}%"
+                    ZoomFactor = initialZoom,
+                    ZoomText = $"{initialZoom * 100:0}%"
                 };
                 tab.UpdateSignatureAssets(_signatureAssetLookup);
 
-                foreach (var existing in DocumentTabs)
+                foreach (WindowsDocumentTabViewModel existing in DocumentTabs)
                 {
                     existing.IsActive = false;
                 }
@@ -1420,7 +2006,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
         try
         {
-            var annotations = await _pdfAnnotationStore.LoadAsync(tab.FilePath);
+            IReadOnlyList<DocumentAnnotation> annotations = await _pdfAnnotationStore.LoadAsync(tab.FilePath);
             if (annotations.Count == 0)
             {
                 return;
@@ -1428,7 +2014,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
             await RunOnUiThreadAsync(() =>
             {
-                foreach (var annotation in annotations)
+                foreach (DocumentAnnotation annotation in annotations)
                 {
                     tab.Annotations.Add(annotation);
                 }
@@ -1444,31 +2030,30 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Opens or merges files that were dropped onto the home area.
+    /// Opens or merges files dropped onto the home area.
     /// </summary>
     /// <param name="filePaths">The dropped file paths.</param>
     public async Task HandleHomeFilesDroppedAsync(IReadOnlyList<string> filePaths)
     {
         ArgumentNullException.ThrowIfNull(filePaths);
 
-        var supportedPaths = filePaths
+        string[] supportedPaths = filePaths
             .Where(IsSupportedDocumentPath)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        if (supportedPaths.Length == 0)
+        switch (supportedPaths.Length)
         {
-            StatusText = _textCatalog.GetString("status.merge.drop_unsupported");
-            return;
+            case 0:
+                StatusText = _textCatalog.GetString("status.merge.drop_unsupported");
+                return;
+            case 1:
+                await OpenPathAsync(supportedPaths[0]);
+                return;
+            default:
+                await MergeDocumentSourcesAsync(supportedPaths);
+                break;
         }
-
-        if (supportedPaths.Length == 1)
-        {
-            await OpenPathAsync(supportedPaths[0]);
-            return;
-        }
-
-        await MergeDocumentSourcesAsync(supportedPaths);
     }
 
     /// <summary>
@@ -1483,7 +2068,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var tab = ActiveDocumentTab;
+        WindowsDocumentTabViewModel? tab = ActiveDocumentTab;
         await RunOnUiThreadAsync(() =>
         {
             tab.HasPendingPageReorder = true;
@@ -1504,8 +2089,8 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var tab = ActiveDocumentTab;
-        var supportedPaths = filePaths
+        WindowsDocumentTabViewModel? tab = ActiveDocumentTab;
+        string[] supportedPaths = filePaths
             .Where(IsSupportedDocumentPath)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -1525,9 +2110,9 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var tempDir = Path.Combine(Path.GetTempPath(), "velune-drop-merge", Guid.NewGuid().ToString("N"));
+        string tempDir = Path.Combine(Path.GetTempPath(), "velune-drop-merge", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDir);
-        var outputPath = Path.Combine(tempDir, $"fused-{Guid.NewGuid():N}.pdf");
+        string outputPath = Path.Combine(tempDir, $"fused-{Guid.NewGuid():N}.pdf");
 
         await RunBusyAsync(async () =>
         {
@@ -1536,7 +2121,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
                 string currentSourcePath;
                 if (tab.HasPendingPageEdits)
                 {
-                    var editedPath = await CreateEditedPdfAsync(
+                    string? editedPath = await CreateEditedPdfAsync(
                         tab,
                         tempDir,
                         tab.Thumbnails.Select(thumbnail => thumbnail.PageNumber).ToArray(),
@@ -1555,7 +2140,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
                     File.Copy(tab.FilePath, currentSourcePath, overwrite: true);
                 }
 
-                var plan = WindowsDroppedMergeSourcePlanner.Create(
+                WindowsDroppedMergePlan plan = WindowsDroppedMergeSourcePlanner.Create(
                     currentSourcePath,
                     tab.DocumentType,
                     tab.TotalPages,
@@ -1563,16 +2148,18 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
                     insertionIndex,
                     tempDir);
 
-                foreach (var extraction in new[] { plan.Before, plan.After }.OfType<WindowsDroppedMergeExtraction>())
+                foreach (WindowsDroppedMergeExtraction extraction in new[] { plan.Before, plan.After }.OfType<WindowsDroppedMergeExtraction>())
                 {
-                    var extractionResult = await _extractPdfPagesUseCase.ExecuteAsync(
+                    Result<string> extractionResult = await _extractPdfPagesUseCase.ExecuteAsync(
                         new ExtractPdfPagesRequest(currentSourcePath, extraction.OutputPath, extraction.Pages));
-                    if (extractionResult.IsFailure)
+                    if (!extractionResult.IsFailure)
                     {
-                        await RunOnUiThreadAsync(() => StatusText = FormatError("status.merge.failed", extractionResult.Error));
-                        await ReopenAfterFailureAsync(tab);
-                        return;
+                        continue;
                     }
+
+                    await RunOnUiThreadAsync(() => StatusText = FormatError(RenderFailed, extractionResult.Error));
+                    await ReopenAfterFailureAsync(tab);
+                    return;
                 }
 
                 if (plan.SourcePaths.Count < 2)
@@ -1581,44 +2168,48 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
                     return;
                 }
 
-                var mergeResult = await _mergePdfDocumentsUseCase.ExecuteAsync(
+                Result<string> mergeResult = await _mergePdfDocumentsUseCase.ExecuteAsync(
                     new MergePdfDocumentsRequest(plan.SourcePaths.ToArray(), outputPath));
 
                 if (mergeResult.IsFailure)
                 {
-                    await RunOnUiThreadAsync(() => StatusText = FormatError("status.merge.failed", mergeResult.Error));
+                    await RunOnUiThreadAsync(() => StatusText = FormatError(RenderFailed, mergeResult.Error));
                     await ReopenAfterFailureAsync(tab);
                     return;
                 }
 
-                var openResult = await _openDocumentUseCase.ExecuteAsync(
+                Result<IDocumentSession> openResult = await _openDocumentUseCase.ExecuteAsync(
                     new OpenDocumentRequest(outputPath, DocumentOpenMode.AddToTabs));
 
                 if (openResult.IsFailure || openResult.Value is null)
                 {
-                    await RunOnUiThreadAsync(() => StatusText = FormatError("status.merge.failed", openResult.Error));
+                    await RunOnUiThreadAsync(() => StatusText = FormatError(RenderFailed, openResult.Error));
                     await ReopenAfterFailureAsync(tab);
                     return;
                 }
 
-                var newSession = openResult.Value;
+                IDocumentSession? newSession = openResult.Value;
                 await RunOnUiThreadAsync(() =>
                 {
+                    double reopenZoom = CalculateInitialFitZoom(
+                        newSession.Metadata.PixelWidth ?? 900,
+                        newSession.Metadata.PixelHeight ?? 1200);
+
                     var newTab = new WindowsDocumentTabViewModel(newSession.Id, newSession.Metadata, _textCatalog)
                     {
                         IsActive = true,
                         IsPagesPanelOpen = ShowThumbnails,
-                        ZoomFactor = DefaultViewerZoom,
-                        ZoomText = $"{DefaultViewerZoom * 100:0}%",
+                        ZoomFactor = reopenZoom,
+                        ZoomText = $"{reopenZoom * 100:0}%",
                         IsDirty = true
                     };
                     newTab.UpdateSignatureAssets(_signatureAssetLookup);
 
-                    var tabIndex = DocumentTabs.IndexOf(tab);
+                    int tabIndex = DocumentTabs.IndexOf(tab);
                     DocumentTabs.Remove(tab);
                     DocumentTabs.Insert(Math.Max(0, tabIndex), newTab);
 
-                    foreach (var existing in DocumentTabs)
+                    foreach (WindowsDocumentTabViewModel existing in DocumentTabs)
                     {
                         existing.IsActive = ReferenceEquals(existing, newTab);
                     }
@@ -1646,9 +2237,9 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var tempDir = Path.Combine(Path.GetTempPath(), "velune-fuse", Guid.NewGuid().ToString("N"));
+        string tempDir = Path.Combine(Path.GetTempPath(), "velune-fuse", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDir);
-        var outputPath = Path.Combine(tempDir, $"fused-{Guid.NewGuid():N}.pdf");
+        string outputPath = Path.Combine(tempDir, $"fused-{Guid.NewGuid():N}.pdf");
 
         await RunBusyAsync(async () =>
         {
@@ -1656,13 +2247,13 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             {
                 await ReleaseActiveSessionAsync(tab);
 
-                var resolvedPaths = new string[sourcePaths.Length];
-                for (var i = 0; i < sourcePaths.Length; i++)
+                string[] resolvedPaths = new string[sourcePaths.Length];
+                for (int i = 0; i < sourcePaths.Length; i++)
                 {
                     if (string.Equals(sourcePaths[i], tab.FilePath, StringComparison.OrdinalIgnoreCase))
                     {
-                        var sourceExtension = Path.GetExtension(tab.FilePath);
-                        var copy = Path.Combine(tempDir, $"source-{i}{sourceExtension}");
+                        string sourceExtension = Path.GetExtension(tab.FilePath);
+                        string copy = Path.Combine(tempDir, $"source-{i}{sourceExtension}");
                         File.Copy(tab.FilePath, copy);
                         resolvedPaths[i] = copy;
                     }
@@ -1672,46 +2263,50 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
                     }
                 }
 
-                var mergeResult = await _mergePdfDocumentsUseCase.ExecuteAsync(
+                Result<string> mergeResult = await _mergePdfDocumentsUseCase.ExecuteAsync(
                     new MergePdfDocumentsRequest(resolvedPaths, outputPath));
 
                 if (mergeResult.IsFailure)
                 {
-                    await RunOnUiThreadAsync(() => StatusText = FormatError("status.merge.failed", mergeResult.Error));
+                    await RunOnUiThreadAsync(() => StatusText = FormatError(RenderFailed, mergeResult.Error));
                     await ReopenAfterFailureAsync(tab);
                     TryDeleteDirectory(tempDir);
                     return;
                 }
 
-                var openResult = await _openDocumentUseCase.ExecuteAsync(
+                Result<IDocumentSession> openResult = await _openDocumentUseCase.ExecuteAsync(
                     new OpenDocumentRequest(outputPath, DocumentOpenMode.AddToTabs));
 
                 if (openResult.IsFailure || openResult.Value is null)
                 {
-                    await RunOnUiThreadAsync(() => StatusText = FormatError("status.merge.failed", openResult.Error));
+                    await RunOnUiThreadAsync(() => StatusText = FormatError(RenderFailed, openResult.Error));
                     await ReopenAfterFailureAsync(tab);
                     TryDeleteDirectory(tempDir);
                     return;
                 }
 
-                var newSession = openResult.Value;
+                IDocumentSession? newSession = openResult.Value;
                 await RunOnUiThreadAsync(() =>
                 {
+                    double reopenZoom = CalculateInitialFitZoom(
+                        newSession.Metadata.PixelWidth ?? 900,
+                        newSession.Metadata.PixelHeight ?? 1200);
+
                     var newTab = new WindowsDocumentTabViewModel(newSession.Id, newSession.Metadata, _textCatalog)
                     {
                         IsActive = true,
                         IsPagesPanelOpen = ShowThumbnails,
-                        ZoomFactor = DefaultViewerZoom,
-                        ZoomText = $"{DefaultViewerZoom * 100:0}%",
+                        ZoomFactor = reopenZoom,
+                        ZoomText = $"{reopenZoom * 100:0}%",
                         IsDirty = true
                     };
                     newTab.UpdateSignatureAssets(_signatureAssetLookup);
 
-                    var tabIndex = DocumentTabs.IndexOf(tab);
+                    int tabIndex = DocumentTabs.IndexOf(tab);
                     DocumentTabs.Remove(tab);
                     DocumentTabs.Insert(Math.Max(0, tabIndex), newTab);
 
-                    foreach (var existing in DocumentTabs)
+                    foreach (WindowsDocumentTabViewModel existing in DocumentTabs)
                     {
                         existing.IsActive = ReferenceEquals(existing, newTab);
                     }
@@ -1744,6 +2339,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         }
         catch
         {
+            // Do nothing
         }
     }
 
@@ -1765,7 +2361,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var tab = ActiveDocumentTab;
+        WindowsDocumentTabViewModel? tab = ActiveDocumentTab;
         if (tab.DocumentType is not DocumentType.Pdf)
         {
             return;
@@ -1788,7 +2384,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     /// <param name="rotations">The rotation to apply per original page.</param>
     public async Task ApplyPageOrganizerResultAsync(
         IReadOnlyList<int> finalPageOrder,
-        IReadOnlyList<(int OriginalPage, Domain.ValueObjects.Rotation Rotation)> rotations)
+        IReadOnlyList<(int OriginalPage, Rotation Rotation)> rotations)
     {
         ArgumentNullException.ThrowIfNull(finalPageOrder);
         ArgumentNullException.ThrowIfNull(rotations);
@@ -1798,8 +2394,8 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var tab = ActiveDocumentTab;
-        if (tab.DocumentType is not Domain.Documents.DocumentType.Pdf)
+        WindowsDocumentTabViewModel? tab = ActiveDocumentTab;
+        if (tab.DocumentType is not DocumentType.Pdf)
         {
             return;
         }
@@ -1826,10 +2422,10 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         IReadOnlyList<(int OriginalPage, Rotation Rotation)> rotations,
         string successStatus)
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), "velune-op", Guid.NewGuid().ToString("N"));
+        string tempDir = Path.Combine(Path.GetTempPath(), "velune-op", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDir);
 
-        var outputPath = await CreateEditedPdfAsync(tab, tempDir, finalPageOrder, rotations);
+        string? outputPath = await CreateEditedPdfAsync(tab, tempDir, finalPageOrder, rotations);
         if (string.IsNullOrWhiteSpace(outputPath))
         {
             return false;
@@ -1853,7 +2449,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         IReadOnlyList<int> finalPageOrder,
         IReadOnlyList<(int OriginalPage, Rotation Rotation)> rotations)
     {
-        var sourceCopy = Path.Combine(tempDir, "source.pdf");
+        string sourceCopy = Path.Combine(tempDir, "source.pdf");
         await ReleaseActiveSessionAsync(tab);
         try
         {
@@ -1866,11 +2462,11 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return null;
         }
 
-        var currentPath = sourceCopy;
+        string currentPath = sourceCopy;
         if (RequiresPageReorder(finalPageOrder, tab.TotalPages))
         {
-            var reorderPath = Path.Combine(tempDir, "reordered.pdf");
-            var reorderResult = IsExactPagePermutation(finalPageOrder, tab.TotalPages)
+            string reorderPath = Path.Combine(tempDir, "reordered.pdf");
+            Result<string> reorderResult = IsExactPagePermutation(finalPageOrder, tab.TotalPages)
                 ? await _reorderPdfPagesUseCase.ExecuteAsync(
                     new ReorderPdfPagesRequest(sourceCopy, reorderPath, finalPageOrder))
                 : await _extractPdfPagesUseCase.ExecuteAsync(
@@ -1886,16 +2482,16 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             currentPath = reorderPath;
         }
 
-        foreach (var group in rotations.Where(item => item.Rotation != Rotation.Deg0).GroupBy(item => item.Rotation))
+        foreach (IGrouping<Rotation, (int OriginalPage, Rotation Rotation)> group in rotations.Where(item => item.Rotation != Rotation.Deg0).GroupBy(item => item.Rotation))
         {
-            var pages = ResolveRotatedOutputPages(finalPageOrder, group.Select(item => item.OriginalPage));
+            int[] pages = ResolveRotatedOutputPages(finalPageOrder, group.Select(item => item.OriginalPage));
             if (pages.Length == 0)
             {
                 continue;
             }
 
-            var rotatedPath = Path.Combine(tempDir, $"rotated-{(int)group.Key}-{Guid.NewGuid():N}.pdf");
-            var rotateResult = await _rotatePdfPagesUseCase.ExecuteAsync(
+            string rotatedPath = Path.Combine(tempDir, $"rotated-{(int)group.Key}-{Guid.NewGuid():N}.pdf");
+            Result<string> rotateResult = await _rotatePdfPagesUseCase.ExecuteAsync(
                 new RotatePdfPagesRequest(currentPath, rotatedPath, pages, group.Key));
 
             if (rotateResult.IsFailure)
@@ -1913,20 +2509,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
     private static bool RequiresPageReorder(IReadOnlyList<int> finalPageOrder, int totalPages)
     {
-        if (finalPageOrder.Count != totalPages)
-        {
-            return true;
-        }
-
-        for (var i = 0; i < finalPageOrder.Count; i++)
-        {
-            if (finalPageOrder[i] != i + 1)
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return finalPageOrder.Count != totalPages || finalPageOrder.Where((t, i) => t != i + 1).Any();
     }
 
     private static bool IsExactPagePermutation(IReadOnlyList<int> finalPageOrder, int totalPages)
@@ -1942,12 +2525,9 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         IEnumerable<int> rotatedOriginalPages)
     {
         var originals = rotatedOriginalPages.ToHashSet();
-        if (originals.Count == 0)
-        {
-            return [];
-        }
-
-        return finalPageOrder
+        return originals.Count == 0
+            ? []
+            : finalPageOrder
             .Select((originalPage, index) => originals.Contains(originalPage) ? index + 1 : 0)
             .Where(pageNumber => pageNumber > 0)
             .ToArray();
@@ -1977,21 +2557,22 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             SelectedThumbnailPageNumber = ActiveDocumentTab.CurrentPage;
         }
 
-        var tab = ActiveDocumentTab;
-        if (tab.DocumentType is not Domain.Documents.DocumentType.Pdf)
+        WindowsDocumentTabViewModel? tab = ActiveDocumentTab;
+        if (tab.DocumentType is not DocumentType.Pdf)
         {
             return;
         }
 
-        var pageNumber = SelectedThumbnailPageNumber;
+        int pageNumber = SelectedThumbnailPageNumber;
         if (pageNumber < 1 || pageNumber > tab.TotalPages)
         {
             return;
         }
 
-        var rotation = clockwise
-            ? RotateRight(tab.GetPageRotation(pageNumber))
-            : RotateLeft(tab.GetPageRotation(pageNumber));
+        Rotation previousRotation = tab.GetPageRotation(pageNumber);
+        Rotation rotation = clockwise
+            ? RotateRight(previousRotation)
+            : RotateLeft(previousRotation);
 
         WindowsPageThumbnailViewModel? thumbnail = null;
         await RunOnUiThreadAsync(() =>
@@ -2001,6 +2582,37 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             {
                 tab.IsDirty = true;
             }
+            thumbnail = tab.Thumbnails.FirstOrDefault(item => item.PageNumber == pageNumber);
+            StatusText = _textCatalog.Format("status.rotation.set", $"{(int)rotation}°");
+        });
+
+        if (tab.CurrentPage == pageNumber)
+        {
+            await RenderActivePageAsync(tab);
+        }
+
+        if (thumbnail is not null)
+        {
+            await RefreshThumbnailAsync(tab, thumbnail);
+        }
+
+        PushUndo(new PageOperationAction(
+            "Rotate page",
+            () => _ = ApplyPageRotationAsync(tab, pageNumber, rotation),
+            () => _ = ApplyPageRotationAsync(tab, pageNumber, previousRotation)));
+    }
+
+    private async Task ApplyPageRotationAsync(WindowsDocumentTabViewModel tab, int pageNumber, Rotation rotation)
+    {
+        WindowsPageThumbnailViewModel? thumbnail = null;
+        await RunOnUiThreadAsync(() =>
+        {
+            tab.SetPageRotation(pageNumber, rotation);
+            if (tab.HasPendingPageEdits)
+            {
+                tab.IsDirty = true;
+            }
+
             thumbnail = tab.Thumbnails.FirstOrDefault(item => item.PageNumber == pageNumber);
             StatusText = _textCatalog.Format("status.rotation.set", $"{(int)rotation}°");
         });
@@ -2044,7 +2656,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             thumbnail.BeginRender();
         });
 
-        var outcome = await RenderThumbnailWithRetryAsync(tab, thumbnail);
+        ThumbnailRenderOutcome outcome = await RenderThumbnailWithRetryAsync(tab, thumbnail);
         await RunOnUiThreadAsync(() =>
         {
             if (outcome == ThumbnailRenderOutcome.Failed && thumbnail.Image is null)
@@ -2073,14 +2685,14 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             SelectedThumbnailPageNumber = ActiveDocumentTab.CurrentPage;
         }
 
-        var tab = ActiveDocumentTab;
-        if (tab.DocumentType is not Domain.Documents.DocumentType.Pdf)
+        WindowsDocumentTabViewModel? tab = ActiveDocumentTab;
+        if (tab.DocumentType is not DocumentType.Pdf)
         {
             return;
         }
 
-        var pageIndex = SelectedThumbnailPageNumber - 1;
-        var targetIndex = pageIndex + direction;
+        int pageIndex = SelectedThumbnailPageNumber - 1;
+        int targetIndex = pageIndex + direction;
 
         if (targetIndex < 0 || targetIndex >= tab.TotalPages)
         {
@@ -2118,14 +2730,14 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             SelectedThumbnailPageNumber = ActiveDocumentTab.CurrentPage;
         }
 
-        var tab = ActiveDocumentTab;
-        if (tab.DocumentType is not Domain.Documents.DocumentType.Pdf || tab.TotalPages <= 1)
+        WindowsDocumentTabViewModel? tab = ActiveDocumentTab;
+        if (tab.DocumentType is not DocumentType.Pdf || tab.TotalPages <= 1)
         {
             return;
         }
 
-        var pageToDelete = SelectedThumbnailPageNumber;
-        var remainingPages = Enumerable.Range(1, tab.TotalPages)
+        int pageToDelete = SelectedThumbnailPageNumber;
+        int[] remainingPages = Enumerable.Range(1, tab.TotalPages)
             .Where(p => p != pageToDelete)
             .ToArray();
 
@@ -2156,7 +2768,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         }
 
         CommitInlineTextAnnotation();
-        var tab = ActiveDocumentTab;
+        WindowsDocumentTabViewModel? tab = ActiveDocumentTab;
         await RunOnUiThreadAsync(() =>
         {
             tab.CurrentPage = pageNumber;
@@ -2189,7 +2801,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return false;
         }
 
-        var point = DocumentAnnotationCoordinateMapper.MapVisualPointToNormalized(
+        NormalizedPoint point = DocumentAnnotationCoordinateMapper.MapVisualPointToNormalized(
             x,
             y,
             width,
@@ -2199,7 +2811,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         if (ActiveDocumentTab.SelectedAnnotationTool is AnnotationTool.Text)
         {
             CommitInlineTextAnnotation();
-            var existingText = ActiveDocumentTab.FindTextAnnotationAtPoint(point);
+            DocumentAnnotation? existingText = ActiveDocumentTab.FindTextAnnotationAtPoint(point);
             if (existingText is not null)
             {
                 ActiveDocumentTab.BeginInlineTextEdit(existingText);
@@ -2231,7 +2843,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var point = DocumentAnnotationCoordinateMapper.MapVisualPointToNormalized(
+        NormalizedPoint point = DocumentAnnotationCoordinateMapper.MapVisualPointToNormalized(
             x,
             y,
             width,
@@ -2274,7 +2886,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
         UpdateAnnotationInteraction(x, y, width, height);
         ClearPreviewAnnotation();
-        var annotation = ActiveDocumentTab.SelectedAnnotationTool is AnnotationTool.Ink
+        DocumentAnnotation? annotation = ActiveDocumentTab.SelectedAnnotationTool is AnnotationTool.Ink
             ? CreateInkAnnotation(_activeAnnotationPoints)
             : CreateBoxAnnotation(DocumentAnnotationCoordinateMapper.MapVisualPointToNormalized(
                 x,
@@ -2290,21 +2902,25 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         }
 
         ActiveDocumentTab.AddAnnotation(annotation);
+        PushUndo(new AnnotationAddAction(ActiveDocumentTab, annotation));
         NotifySaveStateChanged();
-        if (annotation.Kind is DocumentAnnotationKind.Text)
+        switch (annotation.Kind)
         {
-            ActiveDocumentTab.BeginInlineTextEdit(annotation);
-        }
+            case DocumentAnnotationKind.Text:
+                ActiveDocumentTab.BeginInlineTextEdit(annotation);
+                break;
+            case DocumentAnnotationKind.Note:
+                {
+                    SelectedAnnotationPanelTab = "Comments";
+                    WindowsCommentOverlayViewModel? commentVm = ActiveDocumentTab.CurrentPageCommentOverlays
+                        .FirstOrDefault(c => c.Id == annotation.Id);
+                    if (commentVm is not null)
+                    {
+                        BeginCommentEdit(commentVm);
+                    }
 
-        if (annotation.Kind is DocumentAnnotationKind.Note)
-        {
-            SelectedAnnotationPanelTab = "Comments";
-            var commentVm = ActiveDocumentTab.CurrentPageCommentOverlays
-                .FirstOrDefault(c => c.Id == annotation.Id);
-            if (commentVm is not null)
-            {
-                BeginCommentEdit(commentVm);
-            }
+                    break;
+                }
         }
 
         StatusText = _textCatalog.Format("status.annotation.added", GetAnnotationLabel(ActiveDocumentTab.SelectedAnnotationTool));
@@ -2336,19 +2952,179 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return false;
         }
 
-        var point = DocumentAnnotationCoordinateMapper.MapVisualPointToNormalized(
+        NormalizedPoint point = DocumentAnnotationCoordinateMapper.MapVisualPointToNormalized(
             x, y, width, height, ActiveDocumentTab.Rotation);
 
-        var annotation = ActiveDocumentTab.FindAnnotationAtPoint(point);
-        if (annotation?.Bounds is null)
+        // Check handles on currently selected annotation first (handles may be outside bounds)
+        if (SelectedAnnotationId is not null)
         {
+            DocumentAnnotation? selected = ActiveDocumentTab.Annotations
+                .FirstOrDefault(a => a.Id == SelectedAnnotationId);
+            if (selected is not null)
+            {
+                NormalizedTextRegion selectedBounds = selected.Bounds ?? ComputeInkBounds(selected);
+                NormalizedPoint selectedHandlePoint = UnrotatePoint(point, selectedBounds, selected.Appearance.RotationAngle, width, height);
+                ResizeHandle selectedHandle = DetectResizeHandle(selectedHandlePoint, selectedBounds, width, height);
+                if (selectedHandle is ResizeHandle.Rotate)
+                {
+                    double cxPixel = (selectedBounds.X + selectedBounds.Width / 2) * width;
+                    double cyPixel = (selectedBounds.Y + selectedBounds.Height / 2) * height;
+                    _rotatingAnnotationCenterX = cxPixel;
+                    _rotatingAnnotationCenterY = cyPixel;
+                    _rotatingAnnotationStartAngle = Math.Atan2(y - cyPixel, x - cxPixel) * 180 / Math.PI;
+                    _rotatingAnnotationOriginalRotation = selected.Appearance.RotationAngle;
+                    _isRotatingAnnotation = true;
+                    _resizingAnnotationId = selected.Id;
+                    _resizingAnnotationOriginalBounds = selectedBounds;
+                    _resizingHandle = ResizeHandle.Rotate;
+                    _interactionAnnotationSnapshot = selected;
+                    return true;
+                }
+
+                if (selectedHandle is not ResizeHandle.None)
+                {
+                    IReadOnlyList<NormalizedPoint>? selectedInkPoints = selected.Kind is DocumentAnnotationKind.Ink
+                        ? selected.Points.ToList()
+                        : null;
+                    _resizingAnnotationId = selected.Id;
+                    _resizingAnnotationStartPoint = point;
+                    _resizingAnnotationOriginalBounds = selectedBounds;
+                    _resizingAnnotationOriginalPoints = selectedInkPoints;
+                    _resizingHandle = selectedHandle;
+                    _interactionAnnotationSnapshot = selected;
+                    return true;
+                }
+            }
+        }
+
+        DocumentAnnotation? annotation = ActiveDocumentTab.FindAnnotationAtPoint(point, width, height);
+        if (annotation is null)
+        {
+            SelectedAnnotationId = null;
             return false;
+        }
+
+        SelectedAnnotationId = annotation.Id;
+
+        NormalizedTextRegion effectiveBounds = annotation.Bounds ?? ComputeInkBounds(annotation);
+        IReadOnlyList<NormalizedPoint>? inkPoints = annotation.Kind is DocumentAnnotationKind.Ink
+            ? annotation.Points.ToList()
+            : null;
+
+        NormalizedPoint handlePoint = UnrotatePoint(point, effectiveBounds, annotation.Appearance.RotationAngle, width, height);
+        ResizeHandle handle = DetectResizeHandle(handlePoint, effectiveBounds, width, height);
+        if (handle is ResizeHandle.Rotate)
+        {
+            double cxPixel = (effectiveBounds.X + effectiveBounds.Width / 2) * width;
+            double cyPixel = (effectiveBounds.Y + effectiveBounds.Height / 2) * height;
+            _rotatingAnnotationCenterX = cxPixel;
+            _rotatingAnnotationCenterY = cyPixel;
+            _rotatingAnnotationStartAngle = Math.Atan2(y - cyPixel, x - cxPixel) * 180 / Math.PI;
+            _rotatingAnnotationOriginalRotation = annotation.Appearance.RotationAngle;
+            _isRotatingAnnotation = true;
+            _resizingAnnotationId = annotation.Id;
+            _resizingAnnotationOriginalBounds = effectiveBounds;
+            _resizingHandle = ResizeHandle.Rotate;
+            _interactionAnnotationSnapshot = annotation;
+            return true;
+        }
+
+        if (handle is not ResizeHandle.None)
+        {
+            _resizingAnnotationId = annotation.Id;
+            _resizingAnnotationStartPoint = point;
+            _resizingAnnotationOriginalBounds = effectiveBounds;
+            _resizingAnnotationOriginalPoints = inkPoints;
+            _resizingHandle = handle;
+            _interactionAnnotationSnapshot = annotation;
+            return true;
         }
 
         _movingAnnotationId = annotation.Id;
         _movingAnnotationStartPoint = point;
-        _movingAnnotationOriginalBounds = annotation.Bounds;
+        _movingAnnotationOriginalBounds = effectiveBounds;
+        _movingAnnotationOriginalPoints = inkPoints;
+        _interactionAnnotationSnapshot = annotation;
         return true;
+    }
+
+    private static NormalizedTextRegion ComputeInkBounds(DocumentAnnotation annotation)
+    {
+        if (annotation.Points.Count == 0)
+        {
+            return new NormalizedTextRegion(0, 0, 1, 1);
+        }
+
+        double minX = annotation.Points.Min(p => p.X);
+        double maxX = annotation.Points.Max(p => p.X);
+        double minY = annotation.Points.Min(p => p.Y);
+        double maxY = annotation.Points.Max(p => p.Y);
+
+        double x = Math.Max(0, minX);
+        double y = Math.Max(0, minY);
+        double w = Math.Max(0.01, maxX - minX);
+        double h = Math.Max(0.01, maxY - minY);
+
+        return new NormalizedTextRegion(x, y, Math.Min(w, 1 - x), Math.Min(h, 1 - y));
+    }
+
+    private static NormalizedPoint UnrotatePoint(NormalizedPoint point, NormalizedTextRegion bounds, double angleDeg, double pageWidth, double pageHeight)
+    {
+        if (Math.Abs(angleDeg) < 0.01)
+        {
+            return point;
+        }
+
+        double cx = (bounds.X + bounds.Width / 2) * pageWidth;
+        double cy = (bounds.Y + bounds.Height / 2) * pageHeight;
+        double px = point.X * pageWidth;
+        double py = point.Y * pageHeight;
+        double rad = -angleDeg * Math.PI / 180;
+        double cos = Math.Cos(rad);
+        double sin = Math.Sin(rad);
+        double dx = px - cx;
+        double dy = py - cy;
+        double rx = cx + dx * cos - dy * sin;
+        double ry = cy + dx * sin + dy * cos;
+        return new NormalizedPoint(rx / pageWidth, ry / pageHeight);
+    }
+
+    private static ResizeHandle DetectResizeHandle(NormalizedPoint point, NormalizedTextRegion bounds, double pageWidth, double pageHeight)
+    {
+        double threshold = 0.015;
+        double left = bounds.X;
+        double top = bounds.Y;
+        double right = bounds.X + bounds.Width;
+        double bottom = bounds.Y + bounds.Height;
+
+        double rotateCenterX = (left + right) / 2;
+        double rotateCenterY = top - 20 / pageHeight;
+        if (Math.Abs(point.X - rotateCenterX) < threshold && Math.Abs(point.Y - rotateCenterY) < threshold)
+        {
+            return ResizeHandle.Rotate;
+        }
+
+        if (Math.Abs(point.X - left) < threshold && Math.Abs(point.Y - top) < threshold)
+        {
+            return ResizeHandle.TopLeft;
+        }
+
+        if (Math.Abs(point.X - right) < threshold && Math.Abs(point.Y - top) < threshold)
+        {
+            return ResizeHandle.TopRight;
+        }
+
+        if (Math.Abs(point.X - left) < threshold && Math.Abs(point.Y - bottom) < threshold)
+        {
+            return ResizeHandle.BottomLeft;
+        }
+
+        if (Math.Abs(point.X - right) < threshold && Math.Abs(point.Y - bottom) < threshold)
+        {
+            return ResizeHandle.BottomRight;
+        }
+
+        return ResizeHandle.None;
     }
 
     /// <summary>
@@ -2360,6 +3136,12 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     /// <param name="height">Page layer height in pixels.</param>
     public void UpdateAnnotationMove(double x, double y, double width, double height)
     {
+        if (_resizingAnnotationId is not null)
+        {
+            UpdateAnnotationResize(x, y, width, height);
+            return;
+        }
+
         if (ActiveDocumentTab is null ||
             _movingAnnotationId is null ||
             _movingAnnotationStartPoint is null ||
@@ -2369,19 +3151,25 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var point = DocumentAnnotationCoordinateMapper.MapVisualPointToNormalized(
+        NormalizedPoint point = DocumentAnnotationCoordinateMapper.MapVisualPointToNormalized(
             x, y, width, height, ActiveDocumentTab.Rotation);
 
-        var dx = point.X - _movingAnnotationStartPoint.X;
-        var dy = point.Y - _movingAnnotationStartPoint.Y;
-        var bounds = _movingAnnotationOriginalBounds;
+        double dx = point.X - _movingAnnotationStartPoint.X;
+        double dy = point.Y - _movingAnnotationStartPoint.Y;
+        NormalizedTextRegion bounds = _movingAnnotationOriginalBounds;
 
-        var newX = Math.Clamp(bounds.X + dx, 0, 1 - bounds.Width);
-        var newY = Math.Clamp(bounds.Y + dy, 0, 1 - bounds.Height);
+        double newX = Math.Clamp(bounds.X + dx, 0, 1 - bounds.Width);
+        double newY = Math.Clamp(bounds.Y + dy, 0, 1 - bounds.Height);
+        var newBounds = new NormalizedTextRegion(newX, newY, bounds.Width, bounds.Height);
 
-        ActiveDocumentTab.MoveAnnotation(
-            _movingAnnotationId.Value,
-            new NormalizedTextRegion(newX, newY, bounds.Width, bounds.Height));
+        if (_movingAnnotationOriginalPoints is not null)
+        {
+            ActiveDocumentTab.TransformInkAnnotation(_movingAnnotationId.Value, bounds, newBounds, _movingAnnotationOriginalPoints);
+        }
+        else
+        {
+            ActiveDocumentTab.MoveAnnotation(_movingAnnotationId.Value, newBounds);
+        }
     }
 
     /// <summary>
@@ -2393,10 +3181,140 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     /// <param name="height">Page layer height in pixels.</param>
     public void CompleteAnnotationMove(double x, double y, double width, double height)
     {
+        if (_resizingAnnotationId is not null)
+        {
+            Guid completedId = _resizingAnnotationId.Value;
+            UpdateAnnotationResize(x, y, width, height);
+            PushInteractionUndo(completedId);
+            _resizingAnnotationId = null;
+            _resizingAnnotationStartPoint = null;
+            _resizingAnnotationOriginalBounds = null;
+            _resizingAnnotationOriginalPoints = null;
+            _resizingHandle = ResizeHandle.None;
+            _isRotatingAnnotation = false;
+            return;
+        }
+
+        Guid movedId = _movingAnnotationId ?? Guid.Empty;
         UpdateAnnotationMove(x, y, width, height);
+        if (movedId != Guid.Empty)
+        {
+            PushInteractionUndo(movedId);
+        }
+
         _movingAnnotationId = null;
         _movingAnnotationStartPoint = null;
         _movingAnnotationOriginalBounds = null;
+        _movingAnnotationOriginalPoints = null;
+    }
+
+    public void UpdateAnnotationResize(double x, double y, double width, double height)
+    {
+        if (_isRotatingAnnotation)
+        {
+            UpdateAnnotationRotation(x, y, width, height);
+            return;
+        }
+
+        if (ActiveDocumentTab is null ||
+            _resizingAnnotationId is null ||
+            _resizingAnnotationStartPoint is null ||
+            _resizingAnnotationOriginalBounds is null ||
+            width <= 0 || height <= 0)
+        {
+            return;
+        }
+
+        NormalizedPoint point = DocumentAnnotationCoordinateMapper.MapVisualPointToNormalized(
+            x, y, width, height, ActiveDocumentTab.Rotation);
+
+        NormalizedTextRegion orig = _resizingAnnotationOriginalBounds;
+        double dx = point.X - _resizingAnnotationStartPoint.X;
+        double dy = point.Y - _resizingAnnotationStartPoint.Y;
+
+        double newX = orig.X;
+        double newY = orig.Y;
+        double newW = orig.Width;
+        double newH = orig.Height;
+
+        switch (_resizingHandle)
+        {
+            case ResizeHandle.TopLeft:
+                newX = Math.Clamp(orig.X + dx, 0, orig.X + orig.Width - 0.01);
+                newY = Math.Clamp(orig.Y + dy, 0, orig.Y + orig.Height - 0.01);
+                newW = orig.Width - (newX - orig.X);
+                newH = orig.Height - (newY - orig.Y);
+                break;
+            case ResizeHandle.TopRight:
+                newY = Math.Clamp(orig.Y + dy, 0, orig.Y + orig.Height - 0.01);
+                newW = Math.Clamp(orig.Width + dx, 0.01, 1 - orig.X);
+                newH = orig.Height - (newY - orig.Y);
+                break;
+            case ResizeHandle.BottomLeft:
+                newX = Math.Clamp(orig.X + dx, 0, orig.X + orig.Width - 0.01);
+                newW = orig.Width - (newX - orig.X);
+                newH = Math.Clamp(orig.Height + dy, 0.01, 1 - orig.Y);
+                break;
+            case ResizeHandle.BottomRight:
+                newW = Math.Clamp(orig.Width + dx, 0.01, 1 - orig.X);
+                newH = Math.Clamp(orig.Height + dy, 0.01, 1 - orig.Y);
+                break;
+        }
+
+        newW = Math.Clamp(newW, 0.01, 1 - newX);
+        newH = Math.Clamp(newH, 0.01, 1 - newY);
+        var newBounds = new NormalizedTextRegion(newX, newY, newW, newH);
+
+        if (_resizingAnnotationOriginalPoints is not null)
+        {
+            ActiveDocumentTab.TransformInkAnnotation(_resizingAnnotationId.Value, orig, newBounds, _resizingAnnotationOriginalPoints);
+        }
+        else
+        {
+            ActiveDocumentTab.MoveAnnotation(_resizingAnnotationId.Value, newBounds);
+        }
+    }
+
+    private void UpdateAnnotationRotation(double x, double y, double width, double height)
+    {
+        if (ActiveDocumentTab is null ||
+            _resizingAnnotationId is null ||
+            _resizingAnnotationOriginalBounds is null ||
+            width <= 0 || height <= 0)
+        {
+            return;
+        }
+
+        double currentAngle = Math.Atan2(y - _rotatingAnnotationCenterY, x - _rotatingAnnotationCenterX) * 180 / Math.PI;
+        double deltaAngle = currentAngle - _rotatingAnnotationStartAngle;
+        double newRotation = _rotatingAnnotationOriginalRotation + deltaAngle;
+
+        int index = ActiveDocumentTab.FindAnnotationIndex(_resizingAnnotationId.Value);
+        if (index < 0)
+        {
+            return;
+        }
+
+        DocumentAnnotation annotation = ActiveDocumentTab.Annotations[index];
+        AnnotationAppearance updated = new(
+            annotation.Appearance.StrokeHex,
+            annotation.Appearance.FillHex,
+            annotation.Appearance.StrokeThickness,
+            annotation.Appearance.Opacity,
+            annotation.Appearance.FontSize,
+            annotation.Appearance.FontFamily,
+            newRotation);
+        ActiveDocumentTab.Annotations[index] = new DocumentAnnotation(
+            annotation.Id,
+            annotation.Kind,
+            annotation.PageIndex,
+            updated,
+            annotation.Bounds,
+            annotation.Points,
+            annotation.Text,
+            annotation.AssetId,
+            annotation.CreatedAt);
+        ActiveDocumentTab.RefreshAnnotationOverlays(SelectedAnnotationId);
     }
 
     /// <summary>
@@ -2404,14 +3322,43 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     /// </summary>
     public void CancelAnnotationMove()
     {
+        if (_resizingAnnotationId is not null && _resizingAnnotationOriginalBounds is not null && ActiveDocumentTab is not null)
+        {
+            if (_resizingAnnotationOriginalPoints is not null)
+            {
+                ActiveDocumentTab.TransformInkAnnotation(
+                    _resizingAnnotationId.Value, _resizingAnnotationOriginalBounds, _resizingAnnotationOriginalBounds, _resizingAnnotationOriginalPoints);
+            }
+            else
+            {
+                ActiveDocumentTab.MoveAnnotation(_resizingAnnotationId.Value, _resizingAnnotationOriginalBounds);
+            }
+        }
+
+        _resizingAnnotationId = null;
+        _resizingAnnotationStartPoint = null;
+        _resizingAnnotationOriginalBounds = null;
+        _resizingAnnotationOriginalPoints = null;
+        _resizingHandle = ResizeHandle.None;
+        _isRotatingAnnotation = false;
+
         if (_movingAnnotationId is not null && _movingAnnotationOriginalBounds is not null && ActiveDocumentTab is not null)
         {
-            ActiveDocumentTab.MoveAnnotation(_movingAnnotationId.Value, _movingAnnotationOriginalBounds);
+            if (_movingAnnotationOriginalPoints is not null)
+            {
+                ActiveDocumentTab.TransformInkAnnotation(
+                    _movingAnnotationId.Value, _movingAnnotationOriginalBounds, _movingAnnotationOriginalBounds, _movingAnnotationOriginalPoints);
+            }
+            else
+            {
+                ActiveDocumentTab.MoveAnnotation(_movingAnnotationId.Value, _movingAnnotationOriginalBounds);
+            }
         }
 
         _movingAnnotationId = null;
         _movingAnnotationStartPoint = null;
         _movingAnnotationOriginalBounds = null;
+        _movingAnnotationOriginalPoints = null;
     }
 
     /// <summary>
@@ -2441,7 +3388,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var point = DocumentAnnotationCoordinateMapper.MapVisualPointToNormalized(
+        NormalizedPoint point = DocumentAnnotationCoordinateMapper.MapVisualPointToNormalized(
             x,
             y,
             width,
@@ -2471,7 +3418,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         }
 
         CommitInlineTextAnnotation();
-        var annotation = ActiveDocumentTab.Annotations.FirstOrDefault(a => a.Id == annotationId);
+        DocumentAnnotation? annotation = ActiveDocumentTab.Annotations.FirstOrDefault(a => a.Id == annotationId);
         if (annotation is null)
         {
             return;
@@ -2505,14 +3452,14 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         }
 
         comment.IsEditing = false;
-        var text = comment.EditText.Trim();
+        string text = comment.EditText.Trim();
         if (string.IsNullOrWhiteSpace(text))
         {
             return;
         }
 
         ActiveDocumentTab?.UpdateAnnotationText(comment.Id, text);
-        ActiveDocumentTab?.RefreshAnnotationOverlays();
+        ActiveDocumentTab?.RefreshAnnotationOverlays(SelectedAnnotationId);
     }
 
     /// <summary>
@@ -2539,8 +3486,8 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var annotation = ActiveDocumentTab.Annotations.FirstOrDefault(a => a.Id == editor.AnnotationId);
-        var text = editor.Text.Trim();
+        DocumentAnnotation? annotation = ActiveDocumentTab.Annotations.FirstOrDefault(a => a.Id == editor.AnnotationId);
+        string text = editor.Text.Trim();
 
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -2570,7 +3517,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var annotation = ActiveDocumentTab.Annotations.FirstOrDefault(a => a.Id == editor.AnnotationId);
+        DocumentAnnotation? annotation = ActiveDocumentTab.Annotations.FirstOrDefault(a => a.Id == editor.AnnotationId);
         if (annotation?.Kind is DocumentAnnotationKind.Note or DocumentAnnotationKind.Stamp)
         {
             ActiveDocumentTab.EndInlineTextEdit();
@@ -2605,7 +3552,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return false;
         }
 
-        if (!TryResolveDocumentTextPoint(x, y, width, height, out var anchorPoint))
+        if (!TryResolveDocumentTextPoint(x, y, width, height, out DocumentTextSelectionPoint anchorPoint))
         {
             ClearDocumentTextSelection();
             return false;
@@ -2628,13 +3575,13 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         if (ActiveDocumentTab is not { } tab ||
             tab.DocumentTextIndex is null ||
             tab.DocumentTextSelectionAnchorPoint is not { } anchorPoint ||
-            !TryResolveDocumentTextPoint(x, y, width, height, out var activePoint) ||
+            !TryResolveDocumentTextPoint(x, y, width, height, out DocumentTextSelectionPoint? activePoint) ||
             _documentSessionStore.Current is not { } session)
         {
             return false;
         }
 
-        var result = _resolveDocumentTextSelectionUseCase.Execute(
+        Result<DocumentTextSelectionResult> result = _resolveDocumentTextSelectionUseCase.Execute(
             new DocumentTextSelectionRequest(
                 session,
                 tab.DocumentTextIndex,
@@ -2642,13 +3589,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
                 anchorPoint,
                 activePoint));
 
-        if (result.IsFailure)
-        {
-            ClearDocumentTextSelection();
-            return false;
-        }
-
-        if (result.Value is not { } selection)
+        if (result.IsFailure || result.Value is not { } selection)
         {
             ClearDocumentTextSelection();
             return false;
@@ -2687,8 +3628,8 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var appearance = CurrentAnnotationAppearance();
-        foreach (var region in selection.Regions)
+        AnnotationAppearance appearance = CurrentAnnotationAppearance();
+        foreach (NormalizedTextRegion region in selection.Regions)
         {
             var annotation = new DocumentAnnotation(
                 Guid.NewGuid(),
@@ -2697,6 +3638,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
                 appearance,
                 region);
             ActiveDocumentTab.AddAnnotation(annotation);
+            PushUndo(new AnnotationAddAction(ActiveDocumentTab, annotation));
         }
 
         NotifySaveStateChanged();
@@ -2721,7 +3663,108 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Notifies the user that selected text was copied to the clipboard.
+    /// Adjusts the current text selection by the given character delta.
+    /// Positive delta extends selection forward, negative shrinks it.
+    /// </summary>
+    public void AdjustDocumentTextSelection(int delta)
+    {
+        if (ActiveDocumentTab is not { } tab ||
+            tab.DocumentTextIndex is null ||
+            tab.CurrentDocumentTextSelection is not { HasSelection: true } current ||
+            current.StartCharacterIndex < 0 || current.EndCharacterIndex < 0)
+        {
+            return;
+        }
+
+        int newEnd = current.EndCharacterIndex + delta;
+        if (newEnd < current.StartCharacterIndex)
+        {
+            newEnd = current.StartCharacterIndex;
+        }
+
+        Result<DocumentTextSelectionResult> result = _resolveDocumentTextSelectionUseCase.ExecuteByRange(
+            tab.DocumentTextIndex,
+            new PageIndex(Math.Max(0, tab.CurrentPage - 1)),
+            current.StartCharacterIndex,
+            newEnd);
+
+        if (result is { IsSuccess: true, Value: { HasSelection: true } selection })
+        {
+            tab.CurrentDocumentTextSelection = selection;
+            tab.RefreshDocumentTextSelectionHighlights();
+            NotifySelectedDocumentTextChanged();
+        }
+    }
+
+    /// <summary>
+    /// Adjusts the current text selection by one word boundary.
+    /// Positive direction extends to next word end, negative shrinks to previous word start.
+    /// </summary>
+    public void AdjustDocumentTextSelectionByWord(int direction)
+    {
+        if (ActiveDocumentTab is not { } tab ||
+            tab.DocumentTextIndex is null ||
+            tab.CurrentDocumentTextSelection is not { HasSelection: true } current ||
+            current.StartCharacterIndex < 0 || current.EndCharacterIndex < 0)
+        {
+            return;
+        }
+
+        PageIndex pageIndex = new(Math.Max(0, tab.CurrentPage - 1));
+        PageTextContent? pageContent = tab.DocumentTextIndex.Pages
+            .FirstOrDefault(p => p.PageIndex == pageIndex);
+        if (pageContent is null || pageContent.Text.Length == 0)
+        {
+            return;
+        }
+
+        string text = pageContent.Text;
+        int newEnd;
+
+        if (direction > 0)
+        {
+            newEnd = current.EndCharacterIndex + 1;
+            while (newEnd < text.Length && !char.IsWhiteSpace(text[newEnd]))
+            {
+                newEnd++;
+            }
+
+            while (newEnd < text.Length && char.IsWhiteSpace(text[newEnd]))
+            {
+                newEnd++;
+            }
+
+            newEnd = Math.Max(current.EndCharacterIndex, newEnd - 1);
+        }
+        else
+        {
+            newEnd = current.EndCharacterIndex - 1;
+            while (newEnd > current.StartCharacterIndex && char.IsWhiteSpace(text[newEnd]))
+            {
+                newEnd--;
+            }
+
+            while (newEnd > current.StartCharacterIndex && !char.IsWhiteSpace(text[newEnd - 1]))
+            {
+                newEnd--;
+            }
+
+            newEnd = Math.Max(current.StartCharacterIndex, newEnd);
+        }
+
+        Result<DocumentTextSelectionResult> result = _resolveDocumentTextSelectionUseCase.ExecuteByRange(
+            tab.DocumentTextIndex, pageIndex, current.StartCharacterIndex, newEnd);
+
+        if (result is { IsSuccess: true, Value: { HasSelection: true } selection })
+        {
+            tab.CurrentDocumentTextSelection = selection;
+            tab.RefreshDocumentTextSelectionHighlights();
+            NotifySelectedDocumentTextChanged();
+        }
+    }
+
+    /// <summary>
+    /// Notifies the user that the selected text was copied to the clipboard.
     /// </summary>
     public void NotifySelectedDocumentTextCopied()
     {
@@ -2732,8 +3775,8 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     {
         await _renderOrchestrator.CancelDocumentJobsAsync(tab.SessionId);
 
-        var pathToOpen = newFilePath ?? tab.FilePath;
-        var openResult = await _openDocumentUseCase.ExecuteAsync(
+        string pathToOpen = newFilePath ?? tab.FilePath;
+        Result<IDocumentSession> openResult = await _openDocumentUseCase.ExecuteAsync(
             new OpenDocumentRequest(pathToOpen, DocumentOpenMode.ReplaceCurrent));
 
         if (openResult.IsFailure || openResult.Value is null)
@@ -2741,8 +3784,8 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var newSession = openResult.Value;
-        var pageCount = newSession.Metadata.PageCount ?? tab.TotalPages;
+        IDocumentSession? newSession = openResult.Value;
+        int pageCount = newSession.Metadata.PageCount ?? tab.TotalPages;
 
         await RunOnUiThreadAsync(() =>
         {
@@ -2756,7 +3799,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             tab.CurrentPage = Math.Min(tab.CurrentPage, pageCount);
             tab.CurrentPageImage = null;
             tab.Thumbnails.Clear();
-            for (var page = 1; page <= pageCount; page++)
+            for (int page = 1; page <= pageCount; page++)
             {
                 tab.Thumbnails.Add(new WindowsPageThumbnailViewModel(
                     page,
@@ -2772,8 +3815,8 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     {
         await _renderOrchestrator.CancelDocumentJobsAsync(tab.SessionId);
 
-        var sessions = _documentSessionStore.Sessions;
-        var session = sessions.FirstOrDefault(s => s.Id == tab.SessionId);
+        IReadOnlyList<IDocumentSession> sessions = _documentSessionStore.Sessions;
+        IDocumentSession? session = sessions.FirstOrDefault(s => s.Id == tab.SessionId);
         if (session is IReleasableDocumentSession releasable)
         {
             releasable.ReleaseResources();
@@ -2784,10 +3827,10 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
     private async Task ReopenAfterFailureAsync(WindowsDocumentTabViewModel tab)
     {
-        var openResult = await _openDocumentUseCase.ExecuteAsync(
+        Result<IDocumentSession> openResult = await _openDocumentUseCase.ExecuteAsync(
             new OpenDocumentRequest(tab.FilePath, DocumentOpenMode.AddToTabs));
 
-        if (openResult.IsSuccess && openResult.Value is not null)
+        if (openResult is { IsSuccess: true, Value: not null })
         {
             await RunOnUiThreadAsync(() =>
             {
@@ -2799,7 +3842,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
     private async Task HydrateActiveTabAsync()
     {
-        var tab = ActiveDocumentTab;
+        WindowsDocumentTabViewModel? tab = ActiveDocumentTab;
         if (tab is null)
         {
             await RunOnUiThreadAsync(() =>
@@ -2841,10 +3884,10 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         await RunOnUiThreadAsync(() => tab.IsRendering = true);
         try
         {
-            for (var attempt = 0; attempt < 2; attempt++)
+            for (int attempt = 0; attempt < 2; attempt++)
             {
                 var pageIndex = new PageIndex(Math.Max(0, tab.CurrentPage - 1));
-                var handle = _renderOrchestrator.Submit(
+                RenderJobHandle handle = _renderOrchestrator.Submit(
                     new RenderRequest(
                         $"windows-viewer:{tab.SessionId.Value}",
                         pageIndex,
@@ -2852,8 +3895,8 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
                         tab.GetPageRotation(tab.CurrentPage),
                         Priority: RenderPriority.Viewer));
 
-                var result = await handle.Completion;
-                if (result.IsSuccess && result.Page is not null)
+                RenderResult result = await handle.Completion;
+                if (result is { IsSuccess: true, Page: not null })
                 {
                     await RunOnUiThreadAsync(() =>
                     {
@@ -2865,11 +3908,11 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
                 if (result.Error is not null)
                 {
-                    await RunOnUiThreadAsync(() => StatusText = FormatError("status.render.failed", result.Error));
+                    await RunOnUiThreadAsync(() => StatusText = FormatError(RenderFailed, result.Error));
                     return;
                 }
 
-                if (!result.IsCanceled && !result.IsObsolete)
+                if (result is { IsCanceled: false, IsObsolete: false })
                 {
                     return;
                 }
@@ -2890,16 +3933,16 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
                 return;
             }
 
-            var handle = _loadDocumentTextUseCase.Execute();
-            var result = await handle.Completion;
-            if (result.IsSuccess && result.Index is not null && ReferenceEquals(tab, ActiveDocumentTab))
+            DocumentTextJobHandle handle = _loadDocumentTextUseCase.Execute();
+            DocumentTextAnalysisResult result = await handle.Completion;
+            if (result is { IsSuccess: true, Index: not null } && ReferenceEquals(tab, ActiveDocumentTab))
             {
                 tab.DocumentTextIndex = result.Index;
             }
         }
         catch (Exception exception)
         {
-            await RunOnUiThreadAsync(() => StatusText = $"{_textCatalog.GetString("status.render.failed")}: {exception.Message}");
+            await RunOnUiThreadAsync(() => StatusText = $"{_textCatalog.GetString(RenderFailed)}: {exception.Message}");
         }
     }
 
@@ -2920,11 +3963,11 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
         try
         {
-            var handle = forceOcr
+            DocumentTextJobHandle handle = forceOcr
                 ? _runDocumentOcrUseCase.Execute()
                 : _loadDocumentTextUseCase.Execute();
 
-            var result = await handle.Completion;
+            DocumentTextAnalysisResult result = await handle.Completion;
             await RunOnUiThreadAsync(() =>
             {
                 if (result.IsCanceled)
@@ -3048,7 +4091,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         await RunOnUiThreadAsync(() => tab.IsGeneratingThumbnails = true);
         try
         {
-            foreach (var thumbnail in tab.Thumbnails.Where(item => item.Image is null).ToArray())
+            foreach (WindowsPageThumbnailViewModel thumbnail in tab.Thumbnails.Where(item => item.Image is null).ToArray())
             {
                 if (!SessionExists(tab.SessionId))
                 {
@@ -3056,7 +4099,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
                 }
 
                 await RunOnUiThreadAsync(() => thumbnail.BeginRender());
-                var outcome = await RenderThumbnailWithRetryAsync(tab, thumbnail);
+                ThumbnailRenderOutcome outcome = await RenderThumbnailWithRetryAsync(tab, thumbnail);
                 await RunOnUiThreadAsync(() =>
                 {
                     if (outcome == ThumbnailRenderOutcome.Failed && thumbnail.Image is null)
@@ -3071,13 +4114,13 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         }
         catch (Exception exception)
         {
-            await RunOnUiThreadAsync(() => StatusText = $"{_textCatalog.GetString("status.render.failed")}: {exception.Message}");
+            await RunOnUiThreadAsync(() => StatusText = $"{_textCatalog.GetString(RenderFailed)}: {exception.Message}");
         }
         finally
         {
             await RunOnUiThreadAsync(() =>
             {
-                foreach (var thumbnail in tab.Thumbnails)
+                foreach (WindowsPageThumbnailViewModel thumbnail in tab.Thumbnails)
                 {
                     thumbnail.IsLoading = false;
                 }
@@ -3101,7 +4144,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         }
         catch (Exception exception)
         {
-            await RunOnUiThreadAsync(() => StatusText = $"{_textCatalog.GetString("status.render.failed")}: {exception.Message}");
+            await RunOnUiThreadAsync(() => StatusText = $"{_textCatalog.GetString(RenderFailed)}: {exception.Message}");
         }
     }
 
@@ -3112,14 +4155,14 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         const int maxAttempts = 2;
         var pageIndex = new PageIndex(thumbnail.PageNumber - 1);
 
-        for (var attempt = 0; attempt < maxAttempts; attempt++)
+        for (int attempt = 0; attempt < maxAttempts; attempt++)
         {
             if (!SessionExists(tab.SessionId))
             {
                 return ThumbnailRenderOutcome.Deferred;
             }
 
-            var handle = SubmitForTab(
+            RenderJobHandle? handle = SubmitForTab(
                 tab,
                 new RenderRequest(
                     JobKey: $"windows-thumbnail:{tab.SessionId.Value}:{pageIndex.Value}",
@@ -3135,22 +4178,24 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
                 return ThumbnailRenderOutcome.Deferred;
             }
 
-            var result = await handle.Completion;
-            if (result.IsSuccess && result.Page is not null)
+            RenderResult result = await handle.Completion;
+            switch (result)
             {
-                var page = result.Page;
-                await SetThumbnailImageAsync(thumbnail, tab, page);
-                return ThumbnailRenderOutcome.Rendered;
-            }
+                case { IsSuccess: true, Page: not null }:
+                    {
+                        RenderedPage? page = result.Page;
+                        await SetThumbnailImageAsync(thumbnail, tab, page);
+                        return ThumbnailRenderOutcome.Rendered;
+                    }
+                case { IsCanceled: false, IsObsolete: false }:
+                    {
+                        if (result.Error is not null)
+                        {
+                            await RunOnUiThreadAsync(() => StatusText = FormatError(RenderFailed, result.Error));
+                        }
 
-            if (!result.IsCanceled && !result.IsObsolete)
-            {
-                if (result.Error is not null)
-                {
-                    await RunOnUiThreadAsync(() => StatusText = FormatError("status.render.failed", result.Error));
-                }
-
-                return ThumbnailRenderOutcome.Failed;
+                        return ThumbnailRenderOutcome.Failed;
+                    }
             }
         }
 
@@ -3189,13 +4234,13 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
     private RenderJobHandle? SubmitForTab(WindowsDocumentTabViewModel tab, RenderRequest request)
     {
-        var previousActiveSessionId = _documentSessionStore.ActiveSessionId;
+        DocumentId? previousActiveSessionId = _documentSessionStore.ActiveSessionId;
         if (!_documentSessionStore.TryActivate(tab.SessionId))
         {
             return null;
         }
 
-        var handle = _renderOrchestrator.Submit(request);
+        RenderJobHandle handle = _renderOrchestrator.Submit(request);
         RestoreActiveSession(previousActiveSessionId);
         return handle;
     }
@@ -3226,13 +4271,13 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return DocumentTabs[closedTabIndex];
         }
 
-        var leftIndex = Math.Min(DocumentTabs.Count - 1, Math.Max(0, closedTabIndex - 1));
+        int leftIndex = Math.Min(DocumentTabs.Count - 1, Math.Max(0, closedTabIndex - 1));
         return DocumentTabs[leftIndex];
     }
 
     private void UpdateTabSelection()
     {
-        foreach (var tab in DocumentTabs)
+        foreach (WindowsDocumentTabViewModel tab in DocumentTabs)
         {
             tab.IsActive = ReferenceEquals(tab, ActiveDocumentTab);
             tab.IsPagesPanelOpen = ShowThumbnails;
@@ -3247,7 +4292,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
     private void ApplyShowThumbnailsToTabs(bool value)
     {
-        foreach (var tab in DocumentTabs)
+        foreach (WindowsDocumentTabViewModel tab in DocumentTabs)
         {
             tab.IsPagesPanelOpen = value;
         }
@@ -3276,7 +4321,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var outputPath = await _fileDialogService.PickSavePdfAsync("Velune merged.pdf");
+        string? outputPath = await _fileDialogService.PickSavePdfAsync("Velune merged.pdf");
         if (string.IsNullOrWhiteSpace(outputPath))
         {
             StatusText = _textCatalog.GetString("status.merge.cancelled");
@@ -3285,12 +4330,12 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
         await RunBusyAsync(async () =>
         {
-            var result = await _mergePdfDocumentsUseCase.ExecuteAsync(
+            Result<string> result = await _mergePdfDocumentsUseCase.ExecuteAsync(
                 new MergePdfDocumentsRequest(sourcePaths, outputPath));
 
             if (result.IsFailure)
             {
-                await RunOnUiThreadAsync(() => StatusText = FormatError("status.merge.failed", result.Error));
+                await RunOnUiThreadAsync(() => StatusText = FormatError(RenderFailed, result.Error));
                 return;
             }
 
@@ -3319,7 +4364,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     {
         RecentFiles.Clear();
 
-        foreach (var item in _recentFilesService.GetAll())
+        foreach (RecentFileItem item in _recentFilesService.GetAll())
         {
             RecentFiles.Add(item);
         }
@@ -3358,14 +4403,14 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return false;
         }
 
-        var extension = Path.GetExtension(path);
+        string extension = Path.GetExtension(path);
         return !string.IsNullOrWhiteSpace(extension) &&
             SupportedDocumentFormats.IsSupported(extension);
     }
 
     private void UpdateSelectedThumbnail(WindowsDocumentTabViewModel tab)
     {
-        foreach (var thumbnail in tab.Thumbnails)
+        foreach (WindowsPageThumbnailViewModel thumbnail in tab.Thumbnails)
         {
             thumbnail.IsSelected = thumbnail.PageNumber == tab.CurrentPage;
         }
@@ -3373,8 +4418,8 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
     private void UpdateAnnotationToolSelection()
     {
-        var selected = ActiveDocumentTab?.SelectedAnnotationTool ?? AnnotationTool.Select;
-        foreach (var tool in AnnotationTools)
+        AnnotationTool selected = ActiveDocumentTab?.SelectedAnnotationTool ?? AnnotationTool.Select;
+        foreach (WindowsAnnotationToolItem tool in AnnotationTools)
         {
             tool.IsSelected = tool.Tool == selected;
         }
@@ -3392,6 +4437,9 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(ShowTextStyleControls));
         OnPropertyChanged(nameof(ShowSignatureControls));
         OnPropertyChanged(nameof(ShowRectangleFillControls));
+        OnPropertyChanged(nameof(ShowSelectionEditPanel));
+        OnPropertyChanged(nameof(ShowSelectedTextStyleControls));
+        OnPropertyChanged(nameof(SelectedAnnotationKind));
         OnPropertyChanged(nameof(CanUseSignaturePlacement));
     }
 
@@ -3413,8 +4461,8 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
     private DocumentAnnotation? CreateBoxAnnotation(NormalizedPoint activePoint)
     {
-        var tool = ActiveDocumentTab?.SelectedAnnotationTool ?? AnnotationTool.Rectangle;
-        var kind = tool switch
+        AnnotationTool tool = ActiveDocumentTab?.SelectedAnnotationTool ?? AnnotationTool.Rectangle;
+        DocumentAnnotationKind kind = tool switch
         {
             AnnotationTool.Highlight => DocumentAnnotationKind.Highlight,
             AnnotationTool.Text => DocumentAnnotationKind.Text,
@@ -3429,8 +4477,8 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return null;
         }
 
-        var startPoint = _activeAnnotationStartPoint ?? activePoint;
-        var bounds = BuildAnnotationBounds(kind, startPoint, activePoint);
+        NormalizedPoint startPoint = _activeAnnotationStartPoint ?? activePoint;
+        NormalizedTextRegion bounds = BuildAnnotationBounds(kind, startPoint, activePoint);
 
         return new DocumentAnnotation(
             Guid.NewGuid(),
@@ -3447,8 +4495,8 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         NormalizedPoint start,
         NormalizedPoint end)
     {
-        var bounds = DocumentAnnotationCoordinateMapper.CreateBounds(start, end);
-        var hasMeaningfulDrag = bounds.Width > 0.01 || bounds.Height > 0.01;
+        NormalizedTextRegion bounds = DocumentAnnotationCoordinateMapper.CreateBounds(start, end);
+        bool hasMeaningfulDrag = bounds.Width > 0.01 || bounds.Height > 0.01;
         if (hasMeaningfulDrag)
         {
             return bounds;
@@ -3461,8 +4509,8 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
     private AnnotationAppearance CurrentAnnotationAppearance()
     {
-        var color = AnnotationColorOptions.FirstOrDefault(item => item.IsSelected)?.Hex ?? "#FFE600";
-        var fill = AnnotationFillEnabled ? AnnotationFillHex : null;
+        string color = AnnotationColorOptions.FirstOrDefault(item => item.IsSelected)?.Hex ?? "#FFE600";
+        string? fill = AnnotationFillEnabled ? AnnotationFillHex : null;
         return new AnnotationAppearance(
             color,
             fill,
@@ -3492,7 +4540,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         }
 
         var pageIndex = new PageIndex(Math.Max(0, ActiveDocumentTab.CurrentPage - 1));
-        var page = index.Pages.FirstOrDefault(item => item.PageIndex == pageIndex);
+        PageTextContent? page = index.Pages.FirstOrDefault(item => item.PageIndex == pageIndex);
         if (page is null)
         {
             return false;
@@ -3524,7 +4572,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
         if (kind is DocumentAnnotationKind.Signature &&
             !string.IsNullOrWhiteSpace(SelectedSignatureAssetId) &&
-            _signatureAssetLookup.TryGetValue(SelectedSignatureAssetId, out var signatureAsset))
+            _signatureAssetLookup.TryGetValue(SelectedSignatureAssetId, out SignatureAsset? signatureAsset))
         {
             return signatureAsset.DisplayName;
         }
@@ -3546,7 +4594,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var defaultValues = new[]
+        string[] defaultValues = new[]
         {
             _textCatalog.GetString("annotation.default.text"),
             _textCatalog.GetString("annotation.default.note"),
@@ -3594,11 +4642,11 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
     private void LoadSignatureAssets()
     {
-        var previousSelectedAssetId = SelectedSignatureAssetId;
+        string? previousSelectedAssetId = SelectedSignatureAssetId;
         SignatureAssets.Clear();
         _signatureAssetLookup.Clear();
 
-        foreach (var asset in _signatureAssetStore.GetAll().OrderByDescending(asset => asset.CreatedAt))
+        foreach (SignatureAsset? asset in _signatureAssetStore.GetAll().OrderByDescending(asset => asset.CreatedAt))
         {
             SignatureAssets.Add(asset);
             _signatureAssetLookup[asset.Id] = asset;
@@ -3614,7 +4662,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
     private void RefreshSignatureAssetsOnTabs()
     {
-        foreach (var tab in DocumentTabs)
+        foreach (WindowsDocumentTabViewModel tab in DocumentTabs)
         {
             tab.UpdateSignatureAssets(_signatureAssetLookup);
         }
@@ -3623,7 +4671,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     private void RefreshSignaturePadPreview()
     {
         var points = new PointCollection();
-        foreach (var point in _signatureCapturePoints)
+        foreach (NormalizedPoint point in _signatureCapturePoints)
         {
             points.Add(new global::Windows.Foundation.Point(
                 point.X * SignaturePadPreviewWidth,
@@ -3694,7 +4742,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
     private string FormatError(string statusKey, AppError? error)
     {
-        var message = _textCatalog.GetString(statusKey);
+        string message = _textCatalog.GetString(statusKey);
         return error is null ? message : $"{message}: {error.Message}";
     }
 
@@ -3781,6 +4829,36 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         SaveDocumentAsCommand.NotifyCanExecuteChanged();
     }
 
+    private void PushUndo(IUndoableAction action)
+    {
+        if (_isUndoRedoInProgress)
+        {
+            return;
+        }
+
+        _undoStack.Push(action);
+        OnPropertyChanged(nameof(CanUndo));
+        OnPropertyChanged(nameof(CanRedo));
+    }
+
+    private void PushInteractionUndo(Guid annotationId)
+    {
+        if (_interactionAnnotationSnapshot is null || ActiveDocumentTab is null)
+        {
+            _interactionAnnotationSnapshot = null;
+            return;
+        }
+
+        int index = ActiveDocumentTab.FindAnnotationIndex(annotationId);
+        if (index >= 0)
+        {
+            DocumentAnnotation after = ActiveDocumentTab.Annotations[index];
+            PushUndo(new AnnotationMutationAction(ActiveDocumentTab, _interactionAnnotationSnapshot, after));
+        }
+
+        _interactionAnnotationSnapshot = null;
+    }
+
     private void NotifySaveStateChanged()
     {
         OnPropertyChanged(nameof(CanSaveDocument));
@@ -3804,6 +4882,41 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     partial void OnAnnotationOpacityChanged(double value)
     {
         OnPropertyChanged(nameof(AnnotationOpacityText));
+        ApplyOpacityToSelectedAnnotation();
+    }
+
+    partial void OnAnnotationFillEnabledChanged(bool value)
+    {
+        ApplyFillToSelectedAnnotation();
+    }
+
+    partial void OnAnnotationFontSizeChanged(double value)
+    {
+        ApplyFontToSelectedAnnotation();
+    }
+
+    partial void OnAnnotationFontFamilyChanged(string value)
+    {
+        ApplyFontToSelectedAnnotation();
+    }
+
+    partial void OnSelectedAnnotationIdChanged(Guid? value)
+    {
+        OnPropertyChanged(nameof(IsSelectedAnnotationRectangle));
+        OnPropertyChanged(nameof(ShowRectangleFillControls));
+        OnPropertyChanged(nameof(ShowSelectionEditPanel));
+        OnPropertyChanged(nameof(ShowSelectedTextStyleControls));
+        OnPropertyChanged(nameof(SelectedAnnotationKind));
+        OnPropertyChanged(nameof(ShowTextStyleControls));
+        OnPropertyChanged(nameof(IsAnnotationToolsAppearancePanelVisible));
+        ActiveDocumentTab?.RefreshAnnotationOverlays(value);
+        LoadSelectedAnnotationProperties();
+
+        if (value is not null && ActiveDocumentTab is not null)
+        {
+            SetRightPanel(ActiveDocumentTab, RightPanel.Annotations);
+            SelectedAnnotationPanelTab = "Tools";
+        }
     }
 
     partial void OnSignatureAssetNameInputChanged(string value)

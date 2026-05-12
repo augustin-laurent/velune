@@ -40,7 +40,7 @@ public sealed class InMemoryDocumentSessionStore : IDocumentSessionStore
             lock (_gate)
             {
                 return _activeSessionId is { } activeSessionId &&
-                       _sessions.TryGetValue(activeSessionId, out var session)
+                       _sessions.TryGetValue(activeSessionId, out IDocumentSession? session)
                     ? session
                     : null;
             }
@@ -117,7 +117,7 @@ public sealed class InMemoryDocumentSessionStore : IDocumentSessionStore
     {
         ArgumentNullException.ThrowIfNull(viewport);
 
-        var activeSessionId = ActiveSessionId;
+        DocumentId? activeSessionId = ActiveSessionId;
         if (activeSessionId is null)
         {
             throw new InvalidOperationException("No active document session.");
@@ -132,7 +132,7 @@ public sealed class InMemoryDocumentSessionStore : IDocumentSessionStore
 
         lock (_gate)
         {
-            if (!_sessions.TryGetValue(documentId, out var session))
+            if (!_sessions.TryGetValue(documentId, out IDocumentSession? session))
             {
                 throw new InvalidOperationException("The requested document session is not open.");
             }

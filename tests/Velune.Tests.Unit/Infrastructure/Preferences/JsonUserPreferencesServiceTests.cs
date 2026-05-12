@@ -16,9 +16,9 @@ public sealed class JsonUserPreferencesServiceTests : IDisposable
     public void Constructor_ShouldFallbackToDefaults_WhenPreferencesFileDoesNotExist()
     {
         Directory.CreateDirectory(_temporaryDirectory);
-        var filePath = Path.Combine(_temporaryDirectory, "preferences.json");
+        string filePath = Path.Combine(_temporaryDirectory, "preferences.json");
 
-        using var service = CreateService(filePath, defaultCacheLimit: 64);
+        using JsonUserPreferencesService service = CreateService(filePath, defaultCacheLimit: 64);
 
         Assert.Equal(AppThemePreference.System, service.Current.Theme);
         Assert.Equal(DefaultZoomPreference.FitToPage, service.Current.DefaultZoom);
@@ -30,8 +30,8 @@ public sealed class JsonUserPreferencesServiceTests : IDisposable
     public async Task SaveAsync_ShouldPersistPreferencesBetweenInstances()
     {
         Directory.CreateDirectory(_temporaryDirectory);
-        var filePath = Path.Combine(_temporaryDirectory, "preferences.json");
-        var preferences = UserPreferences.CreateDefault(64) with
+        string filePath = Path.Combine(_temporaryDirectory, "preferences.json");
+        UserPreferences preferences = UserPreferences.CreateDefault(64) with
         {
             Theme = AppThemePreference.Dark,
             DefaultZoom = DefaultZoomPreference.ActualSize,
@@ -39,11 +39,11 @@ public sealed class JsonUserPreferencesServiceTests : IDisposable
             MemoryCacheEntryLimit = 128
         };
 
-        using var service = CreateService(filePath, defaultCacheLimit: 64);
+        using JsonUserPreferencesService service = CreateService(filePath, defaultCacheLimit: 64);
 
         await service.SaveAsync(preferences);
 
-        using var reloadedService = CreateService(filePath, defaultCacheLimit: 64);
+        using JsonUserPreferencesService reloadedService = CreateService(filePath, defaultCacheLimit: 64);
 
         Assert.Equal(AppThemePreference.Dark, reloadedService.Current.Theme);
         Assert.Equal(DefaultZoomPreference.ActualSize, reloadedService.Current.DefaultZoom);

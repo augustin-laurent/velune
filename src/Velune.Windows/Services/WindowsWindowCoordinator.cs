@@ -33,10 +33,7 @@ public sealed class WindowsWindowCoordinator
     /// <returns>The welcome window instance.</returns>
     public WelcomeWindow ShowWelcome()
     {
-        if (_welcomeWindow is null)
-        {
-            _welcomeWindow = _services.GetRequiredService<WelcomeWindow>();
-        }
+        _welcomeWindow ??= _services.GetRequiredService<WelcomeWindow>();
 
         _welcomeWindow.Activate();
         return _welcomeWindow;
@@ -46,12 +43,9 @@ public sealed class WindowsWindowCoordinator
     /// Shows or activates the main workspace window.
     /// </summary>
     /// <returns>The workspace window instance.</returns>
-    public MainWindow ShowWorkspace()
+    MainWindow ShowWorkspace()
     {
-        if (_workspaceWindow is null)
-        {
-            _workspaceWindow = _services.GetRequiredService<MainWindow>();
-        }
+        _workspaceWindow ??= _services.GetRequiredService<MainWindow>();
 
         _workspaceWindow.Activate();
         return _workspaceWindow;
@@ -65,7 +59,7 @@ public sealed class WindowsWindowCoordinator
     {
         ArgumentNullException.ThrowIfNull(paths);
 
-        var pathsToOpen = paths
+        string[] pathsToOpen = paths
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .ToArray();
 
@@ -87,8 +81,8 @@ public sealed class WindowsWindowCoordinator
         _isTransitioning = true;
         try
         {
-            var workspace = ShowWorkspace();
-            var viewModel = _services.GetRequiredService<WindowsMainViewModel>();
+            MainWindow workspace = ShowWorkspace();
+            WindowsMainViewModel viewModel = _services.GetRequiredService<WindowsMainViewModel>();
             await RunAfterWorkspaceLoadedAsync(
                 workspace.WaitUntilLoadedAsync(),
                 RunOnCoordinatorDispatcherAsync,
@@ -132,7 +126,7 @@ public sealed class WindowsWindowCoordinator
         {
             ShowWelcome();
             window.Close();
-            var viewModel = _services.GetRequiredService<WindowsMainViewModel>();
+            WindowsMainViewModel viewModel = _services.GetRequiredService<WindowsMainViewModel>();
             viewModel.ResetForWelcome();
         }
         finally
@@ -174,26 +168,30 @@ public sealed class WindowsWindowCoordinator
             return operation();
         }
 
-        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        if (!_dispatcherQueue.TryEnqueue(async () =>
+        var completion = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        if (!_dispatcherQueue.TryEnqueue(() => _ = RunAsync()))
+        {
+            completion.SetException(
+                new InvalidOperationException("The Windows UI dispatcher is not available."));
+        }
+
+        return completion.Task;
+
+        async Task RunAsync()
         {
             try
             {
                 await operation();
-                completion.SetResult();
+                completion.TrySetResult();
             }
             catch (Exception exception)
             {
-                completion.SetException(exception);
+                completion.TrySetException(exception);
             }
-        }))
-        {
-            completion.SetException(new InvalidOperationException("The Windows UI dispatcher is not available."));
         }
-
-        return completion.Task;
     }
-
     internal static async Task RunAfterWorkspaceLoadedAsync(
         Task workspaceLoaded,
         Func<Func<Task>, Task> dispatchAsync,

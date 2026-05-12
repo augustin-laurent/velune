@@ -1,4 +1,5 @@
 using Velune.Application.DTOs;
+using Velune.Application.Results;
 using Velune.Application.UseCases;
 using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
@@ -11,9 +12,9 @@ public sealed class SearchDocumentTextUseCaseTests
     public void Execute_ShouldFindCaseInsensitiveMatchesAndReturnExcerpt()
     {
         var useCase = new SearchDocumentTextUseCase();
-        var index = CreateIndex("Velune integration sample. Another velune result.");
+        DocumentTextIndex index = CreateIndex("Velune integration sample. Another velune result.");
 
-        var result = useCase.Execute(
+        Result<IReadOnlyList<SearchHit>> result = useCase.Execute(
             new SearchDocumentTextRequest(
                 index,
                 new SearchQuery("velune")));
@@ -31,7 +32,7 @@ public sealed class SearchDocumentTextUseCaseTests
     {
         var useCase = new SearchDocumentTextUseCase();
 
-        var result = useCase.Execute(
+        Result<IReadOnlyList<SearchHit>> result = useCase.Execute(
             new SearchDocumentTextRequest(
                 CreateIndex(" "),
                 new SearchQuery("velune")));

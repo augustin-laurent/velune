@@ -8,7 +8,7 @@ public sealed class WindowsDroppedMergeSourcePlannerTests
     [Fact]
     public void Create_ForPdfPrepend_PlacesDroppedSourcesBeforeCurrentDocument()
     {
-        var plan = WindowsDroppedMergeSourcePlanner.Create(
+        WindowsDroppedMergePlan plan = WindowsDroppedMergeSourcePlanner.Create(
             "current.pdf",
             DocumentType.Pdf,
             totalPages: 3,
@@ -24,7 +24,7 @@ public sealed class WindowsDroppedMergeSourcePlannerTests
     [Fact]
     public void Create_ForPdfAppend_PlacesDroppedSourcesAfterCurrentDocument()
     {
-        var plan = WindowsDroppedMergeSourcePlanner.Create(
+        WindowsDroppedMergePlan plan = WindowsDroppedMergeSourcePlanner.Create(
             "current.pdf",
             DocumentType.Pdf,
             totalPages: 3,
@@ -40,9 +40,9 @@ public sealed class WindowsDroppedMergeSourcePlannerTests
     [Fact]
     public void Create_ForPdfMiddleInsertion_SplitsCurrentDocumentAroundDroppedSources()
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), "velune-test");
+        string tempDir = Path.Combine(Path.GetTempPath(), "velune-test");
 
-        var plan = WindowsDroppedMergeSourcePlanner.Create(
+        WindowsDroppedMergePlan plan = WindowsDroppedMergeSourcePlanner.Create(
             "current.pdf",
             DocumentType.Pdf,
             totalPages: 3,
@@ -62,7 +62,7 @@ public sealed class WindowsDroppedMergeSourcePlannerTests
     [Fact]
     public void Create_ForImageDocument_UsesSimpleBeforeOrAfterOrdering()
     {
-        var plan = WindowsDroppedMergeSourcePlanner.Create(
+        WindowsDroppedMergePlan plan = WindowsDroppedMergeSourcePlanner.Create(
             "current.png",
             DocumentType.Image,
             totalPages: 1,

@@ -25,7 +25,7 @@ public static class RenderedPageBitmapFactory
             PixelFormat.Bgra8888,
             AlphaFormat.Unpremul);
 
-        using var framebuffer = bitmap.Lock();
+        using ILockedFramebuffer framebuffer = bitmap.Lock();
 
         renderedPage.CopyPixelDataTo(framebuffer.Address);
 

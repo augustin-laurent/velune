@@ -35,11 +35,11 @@ public static class ImageViewportCalculator
             throw new ArgumentOutOfRangeException(nameof(imageMetadata), "Image height must be greater than zero.");
         }
 
-        var imageWidth = rotation is Rotation.Deg90 or Rotation.Deg270
+        int imageWidth = rotation is Rotation.Deg90 or Rotation.Deg270
             ? imageMetadata.Height
             : imageMetadata.Width;
 
-        var imageHeight = rotation is Rotation.Deg90 or Rotation.Deg270
+        int imageHeight = rotation is Rotation.Deg90 or Rotation.Deg270
             ? imageMetadata.Width
             : imageMetadata.Height;
 
@@ -71,7 +71,7 @@ public static class ImageViewportCalculator
             throw new ArgumentOutOfRangeException(nameof(imageMetadata), "Image height must be greater than zero.");
         }
 
-        var imageWidth = rotation is Rotation.Deg90 or Rotation.Deg270
+        int imageWidth = rotation is Rotation.Deg90 or Rotation.Deg270
             ? imageMetadata.Height
             : imageMetadata.Width;
 

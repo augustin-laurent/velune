@@ -30,7 +30,7 @@ public sealed class JsonSignatureAssetStore : ISignatureAssetStore
     {
         ArgumentNullException.ThrowIfNull(options);
 
-        var rootPath = ResolveRootPath(options.Value);
+        string rootPath = ResolveRootPath(options.Value);
         _manifestPath = Path.Combine(rootPath, "signatures.json");
         _assetsDirectoryPath = Path.Combine(rootPath, "assets");
     }
@@ -58,9 +58,15 @@ public sealed class JsonSignatureAssetStore : ISignatureAssetStore
         try
         {
             Directory.CreateDirectory(_assetsDirectoryPath);
-            var assetId = Guid.NewGuid().ToString("N");
-            var extension = Path.GetExtension(sourceImagePath);
-            var outputPath = Path.Combine(_assetsDirectoryPath, $"{assetId}{extension}");
+            string assetId = Guid.NewGuid().ToString("N");
+            string extension = Path.GetExtension(sourceImagePath).ToLowerInvariant();
+            if (extension is not (".png" or ".jpg" or ".jpeg" or ".bmp" or ".webp"))
+            {
+                return ResultFactory.Failure<SignatureAsset>(
+                    AppError.Validation("signature.asset.extension_invalid", $"Unsupported image extension: {extension}"));
+            }
+
+            string outputPath = Path.Combine(_assetsDirectoryPath, $"{assetId}{extension}");
             File.Copy(sourceImagePath, outputPath, overwrite: false);
 
             using var bitmap = SKBitmap.Decode(outputPath);
@@ -105,7 +111,7 @@ public sealed class JsonSignatureAssetStore : ISignatureAssetStore
             lock (_gate)
             {
                 var items = LoadManifest().ToList();
-                var asset = items.FirstOrDefault(item => string.Equals(item.Id, assetId, StringComparison.Ordinal));
+                SignatureAsset? asset = items.FirstOrDefault(item => string.Equals(item.Id, assetId, StringComparison.Ordinal));
                 if (asset is null)
                 {
                     return ResultFactory.Failure(
@@ -155,9 +161,9 @@ public sealed class JsonSignatureAssetStore : ISignatureAssetStore
         try
         {
             Directory.CreateDirectory(_assetsDirectoryPath);
-            var assetId = Guid.NewGuid().ToString("N");
-            var outputPath = Path.Combine(_assetsDirectoryPath, $"{assetId}.png");
-            var pngBytes = SkiaAnnotationRenderer.RenderInkSignaturePng(points, 420, 180);
+            string assetId = Guid.NewGuid().ToString("N");
+            string outputPath = Path.Combine(_assetsDirectoryPath, $"{assetId}.png");
+            byte[] pngBytes = SkiaAnnotationRenderer.RenderInkSignaturePng(points, 420, 180);
             File.WriteAllBytes(outputPath, pngBytes);
 
             using var bitmap = SKBitmap.Decode(outputPath);
@@ -201,7 +207,7 @@ public sealed class JsonSignatureAssetStore : ISignatureAssetStore
 
         try
         {
-            var json = File.ReadAllText(_manifestPath);
+            string json = File.ReadAllText(_manifestPath);
             return JsonSerializer.Deserialize<List<SignatureAsset>>(json, SerializerOptions) ?? [];
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
@@ -212,13 +218,13 @@ public sealed class JsonSignatureAssetStore : ISignatureAssetStore
 
     private void SaveManifest(IReadOnlyList<SignatureAsset> items)
     {
-        var directory = Path.GetDirectoryName(_manifestPath);
+        string? directory = Path.GetDirectoryName(_manifestPath);
         if (!string.IsNullOrWhiteSpace(directory))
         {
             Directory.CreateDirectory(directory);
         }
 
-        var json = JsonSerializer.Serialize(items, SerializerOptions);
+        string json = JsonSerializer.Serialize(items, SerializerOptions);
         File.WriteAllText(_manifestPath, json);
     }
 
@@ -229,7 +235,7 @@ public sealed class JsonSignatureAssetStore : ISignatureAssetStore
             return Path.GetFullPath(options.SignatureLibraryPath);
         }
 
-        var basePath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        string basePath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         return Path.Combine(basePath, string.IsNullOrWhiteSpace(options.Name) ? "Velune" : options.Name, "SignatureLibrary");
     }
 }

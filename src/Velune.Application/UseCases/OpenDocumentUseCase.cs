@@ -58,8 +58,8 @@ public sealed class OpenDocumentUseCase
 
         try
         {
-            var session = await _documentOpener.OpenAsync(request.FilePath, cancellationToken);
-            var previousSession = _sessionStore.Current;
+            IDocumentSession session = await _documentOpener.OpenAsync(request.FilePath, cancellationToken);
+            IDocumentSession? previousSession = _sessionStore.Current;
 
             if (previousSession is not null && request.OpenMode is DocumentOpenMode.ReplaceCurrent)
             {

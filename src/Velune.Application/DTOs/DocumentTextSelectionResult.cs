@@ -12,7 +12,9 @@ public sealed record DocumentTextSelectionResult(
     PageIndex PageIndex,
     string? SelectedText,
     IReadOnlyList<NormalizedTextRegion> Regions,
-    TextSourceKind SourceKind)
+    TextSourceKind SourceKind,
+    int StartCharacterIndex = -1,
+    int EndCharacterIndex = -1)
 {
     /// <summary>Gets whether the selection contains any text.</summary>
     public bool HasSelection =>

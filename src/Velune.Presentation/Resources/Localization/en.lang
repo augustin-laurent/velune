@@ -217,6 +217,10 @@ panel.annotations.menu.unlock=Unlock
 panel.annotations.menu.hide=Hide
 panel.annotations.menu.show=Show
 panel.annotations.menu.edit=Edit
+panel.annotations.menu.rotate90=Rotate 90°
+panel.annotations.menu.reset_rotation=Reset rotation
+panel.annotations.menu.flip_h=Flip horizontal
+panel.annotations.menu.flip_v=Flip vertical
 panel.annotations.current_page=Current page annotations
 panel.annotations.empty_page=No annotations on this page yet.
 

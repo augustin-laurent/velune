@@ -36,10 +36,10 @@ public sealed class WindowsTextCatalog : IWindowsTextCatalog
     /// </summary>
     public WindowsTextCatalog()
     {
-        var catalogRoot = Path.Combine(AppContext.BaseDirectory, "Localization");
+        string catalogRoot = Path.Combine(AppContext.BaseDirectory, "Localization");
         _fallbackCatalog = LoadCatalog(Path.Combine(catalogRoot, "en.lang"));
 
-        var language = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.ToLowerInvariant() switch
+        string language = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.ToLowerInvariant() switch
         {
             "fr" => "fr",
             "es" => "es",
@@ -56,9 +56,9 @@ public sealed class WindowsTextCatalog : IWindowsTextCatalog
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
 
-        return _activeCatalog.TryGetValue(key, out var activeValue)
+        return _activeCatalog.TryGetValue(key, out string? activeValue)
             ? activeValue
-            : _fallbackCatalog.TryGetValue(key, out var fallbackValue)
+            : _fallbackCatalog.TryGetValue(key, out string? fallbackValue)
                 ? fallbackValue
                 : key;
     }
@@ -77,22 +77,22 @@ public sealed class WindowsTextCatalog : IWindowsTextCatalog
             return values;
         }
 
-        foreach (var rawLine in File.ReadLines(path))
+        foreach (string rawLine in File.ReadLines(path))
         {
-            var line = rawLine.Trim();
+            string line = rawLine.Trim();
             if (line.Length == 0 || line.StartsWith('#'))
             {
                 continue;
             }
 
-            var separatorIndex = line.IndexOf('=');
+            int separatorIndex = line.IndexOf('=');
             if (separatorIndex <= 0)
             {
                 continue;
             }
 
-            var key = line[..separatorIndex].Trim();
-            var value = line[(separatorIndex + 1)..].Trim();
+            string key = line[..separatorIndex].Trim();
+            string value = line[(separatorIndex + 1)..].Trim();
             values[key] = value.Replace(@"\n", Environment.NewLine, StringComparison.Ordinal);
         }
 

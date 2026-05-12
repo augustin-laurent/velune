@@ -75,7 +75,7 @@ public sealed class WindowsFileDialogService : IWindowsFileDialogService
         AddSupportedDocumentFilters(picker.FileTypeFilter);
         InitializeWithWindow.Initialize(picker, _windowContext.GetWindowHandle());
 
-        var file = await picker.PickSingleFileAsync().AsTask(cancellationToken);
+        StorageFile? file = await picker.PickSingleFileAsync().AsTask(cancellationToken);
         return file?.Path;
     }
 
@@ -96,7 +96,7 @@ public sealed class WindowsFileDialogService : IWindowsFileDialogService
         picker.FileTypeFilter.Add(".webp");
         InitializeWithWindow.Initialize(picker, _windowContext.GetWindowHandle());
 
-        var files = await picker.PickMultipleFilesAsync().AsTask(cancellationToken);
+        IReadOnlyList<StorageFile> files = await picker.PickMultipleFilesAsync().AsTask(cancellationToken);
         return files.Select(file => file.Path).Where(path => !string.IsNullOrWhiteSpace(path)).ToArray();
     }
 
@@ -116,7 +116,7 @@ public sealed class WindowsFileDialogService : IWindowsFileDialogService
         picker.FileTypeFilter.Add(".webp");
         InitializeWithWindow.Initialize(picker, _windowContext.GetWindowHandle());
 
-        var file = await picker.PickSingleFileAsync().AsTask(cancellationToken);
+        StorageFile? file = await picker.PickSingleFileAsync().AsTask(cancellationToken);
         return file?.Path;
     }
 
@@ -139,7 +139,7 @@ public sealed class WindowsFileDialogService : IWindowsFileDialogService
 
     private static void AddSupportedDocumentFilters(IList<string> fileTypeFilter)
     {
-        foreach (var extension in SupportedDocumentFormats.AllExtensions)
+        foreach (string extension in SupportedDocumentFormats.AllExtensions)
         {
             fileTypeFilter.Add(extension);
         }

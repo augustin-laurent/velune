@@ -60,7 +60,7 @@ public sealed class DocumentTextService : IDocumentTextService
         ArgumentNullException.ThrowIfNull(session);
 
         if (session.Metadata.DocumentType is DocumentType.Pdf &&
-            _cache.TryGet(session, EmbeddedPdfFingerprint, [], forceOcr: false, out var cachedEmbeddedIndex) &&
+            _cache.TryGet(session, EmbeddedPdfFingerprint, [], forceOcr: false, out DocumentTextIndex? cachedEmbeddedIndex) &&
             cachedEmbeddedIndex is not null)
         {
             return ResultFactory.Success(
@@ -69,7 +69,7 @@ public sealed class DocumentTextService : IDocumentTextService
 
         if (session.Metadata.DocumentType is DocumentType.Pdf)
         {
-            var embeddedIndex = TryExtractEmbeddedPdfText(session);
+            DocumentTextIndex? embeddedIndex = TryExtractEmbeddedPdfText(session);
             if (embeddedIndex is { HasSearchableText: true })
             {
                 _cache.Store(session, EmbeddedPdfFingerprint, [], forceOcr: false, embeddedIndex);
@@ -78,9 +78,9 @@ public sealed class DocumentTextService : IDocumentTextService
             }
         }
 
-        var ocrFingerprint = await GetOcrFingerprintAsync(cancellationToken);
-        var languages = await ResolveLanguagesAsync(preferredLanguages, cancellationToken);
-        if (_cache.TryGet(session, ocrFingerprint, languages, forceOcr: true, out var cachedOcrIndex) &&
+        string ocrFingerprint = await GetOcrFingerprintAsync(cancellationToken);
+        IReadOnlyList<string> languages = await ResolveLanguagesAsync(preferredLanguages, cancellationToken);
+        if (_cache.TryGet(session, ocrFingerprint, languages, forceOcr: true, out DocumentTextIndex? cachedOcrIndex) &&
             cachedOcrIndex is not null)
         {
             return ResultFactory.Success(
@@ -99,16 +99,16 @@ public sealed class DocumentTextService : IDocumentTextService
     {
         ArgumentNullException.ThrowIfNull(session);
 
-        var languages = await ResolveLanguagesAsync(preferredLanguages, cancellationToken);
-        var ocrFingerprint = await GetOcrFingerprintAsync(cancellationToken);
+        IReadOnlyList<string> languages = await ResolveLanguagesAsync(preferredLanguages, cancellationToken);
+        string ocrFingerprint = await GetOcrFingerprintAsync(cancellationToken);
 
-        if (_cache.TryGet(session, ocrFingerprint, languages, forceOcr: true, out var cachedIndex) &&
+        if (_cache.TryGet(session, ocrFingerprint, languages, forceOcr: true, out DocumentTextIndex? cachedIndex) &&
             cachedIndex is not null)
         {
             return ResultFactory.Success(cachedIndex);
         }
 
-        var indexResult = session.Metadata.DocumentType switch
+        Result<DocumentTextIndex> indexResult = session.Metadata.DocumentType switch
         {
             DocumentType.Pdf => await RunPdfOcrAsync(session, languages, cancellationToken),
             DocumentType.Image => await RunImageOcrAsync(session, languages, cancellationToken),
@@ -133,18 +133,18 @@ public sealed class DocumentTextService : IDocumentTextService
             return null;
         }
 
-        var pageCount = pdfSession.Metadata.PageCount ?? 0;
+        int pageCount = pdfSession.Metadata.PageCount ?? 0;
         if (pageCount <= 0)
         {
             return null;
         }
 
         var pages = new List<PageTextContent>(pageCount);
-        var hasAnyText = false;
+        bool hasAnyText = false;
 
-        for (var pageNumber = 0; pageNumber < pageCount; pageNumber++)
+        for (int pageNumber = 0; pageNumber < pageCount; pageNumber++)
         {
-            var pageHandle = PdfiumNative.FPDF_LoadPage(pdfSession.Resource.Handle, pageNumber);
+            IntPtr pageHandle = PdfiumNative.FPDF_LoadPage(pdfSession.Resource.Handle, pageNumber);
             if (pageHandle == nint.Zero)
             {
                 continue;
@@ -152,9 +152,9 @@ public sealed class DocumentTextService : IDocumentTextService
 
             try
             {
-                var pageWidth = Math.Max(1, PdfiumNative.FPDF_GetPageWidthF(pageHandle));
-                var pageHeight = Math.Max(1, PdfiumNative.FPDF_GetPageHeightF(pageHandle));
-                var textPageHandle = PdfiumNative.FPDFText_LoadPage(pageHandle);
+                float pageWidth = Math.Max(1, PdfiumNative.FPDF_GetPageWidthF(pageHandle));
+                float pageHeight = Math.Max(1, PdfiumNative.FPDF_GetPageHeightF(pageHandle));
+                IntPtr textPageHandle = PdfiumNative.FPDFText_LoadPage(pageHandle);
                 if (textPageHandle == nint.Zero)
                 {
                     pages.Add(new PageTextContent(
@@ -169,7 +169,7 @@ public sealed class DocumentTextService : IDocumentTextService
 
                 try
                 {
-                    var pageContent = ExtractPdfPageText(
+                    PageTextContent pageContent = ExtractPdfPageText(
                         new PageIndex(pageNumber),
                         textPageHandle,
                         pageWidth,
@@ -203,7 +203,7 @@ public sealed class DocumentTextService : IDocumentTextService
         double pageWidth,
         double pageHeight)
     {
-        var charCount = PdfiumNative.FPDFText_CountChars(textPageHandle);
+        int charCount = PdfiumNative.FPDFText_CountChars(textPageHandle);
         if (charCount <= 0)
         {
             return new PageTextContent(pageIndex, TextSourceKind.EmbeddedPdfText, string.Empty, [], pageWidth, pageHeight);
@@ -215,7 +215,7 @@ public sealed class DocumentTextService : IDocumentTextService
         var currentToken = new StringBuilder();
         var currentRegions = new List<NormalizedTextRegion>();
         var currentCharacterRegions = new List<TokenCharacterRegion>();
-        var lastWasWhitespace = false;
+        bool lastWasWhitespace = false;
 
         void FlushToken()
         {
@@ -224,17 +224,17 @@ public sealed class DocumentTextService : IDocumentTextService
                 return;
             }
 
-            var startIndex = builder.Length;
-            var tokenText = currentToken.ToString();
+            int startIndex = builder.Length;
+            string tokenText = currentToken.ToString();
             builder.Append(tokenText);
             runs.Add(new TextRun(
                 tokenText,
                 startIndex,
                 tokenText.Length,
                 currentRegions.Count == 0 ? [] : MergeRegions(currentRegions)));
-            foreach (var characterRegion in currentCharacterRegions)
+            foreach (TokenCharacterRegion characterRegion in currentCharacterRegions)
             {
-                for (var offset = 0; offset < characterRegion.Length; offset++)
+                for (int offset = 0; offset < characterRegion.Length; offset++)
                 {
                     characterRegions[startIndex + characterRegion.Offset + offset] = characterRegion.Region;
                 }
@@ -246,15 +246,15 @@ public sealed class DocumentTextService : IDocumentTextService
             lastWasWhitespace = false;
         }
 
-        for (var index = 0; index < charCount; index++)
+        for (int index = 0; index < charCount; index++)
         {
-            var unicode = PdfiumNative.FPDFText_GetUnicode(textPageHandle, index);
-            if (!TryConvertPdfUnicodeToText(unicode, out var textUnit))
+            uint unicode = PdfiumNative.FPDFText_GetUnicode(textPageHandle, index);
+            if (!TryConvertPdfUnicodeToText(unicode, out string textUnit))
             {
                 continue;
             }
 
-            var isWhitespace = textUnit.Length > 0 && char.IsWhiteSpace(textUnit, 0);
+            bool isWhitespace = textUnit.Length > 0 && char.IsWhiteSpace(textUnit, 0);
 
             if (isWhitespace)
             {
@@ -287,17 +287,17 @@ public sealed class DocumentTextService : IDocumentTextService
                 builder.Append(' ');
             }
 
-            var tokenOffset = currentToken.Length;
+            int tokenOffset = currentToken.Length;
             currentToken.Append(textUnit);
 
-            if (PdfiumNative.FPDFText_GetCharBox(textPageHandle, index, out var left, out var right, out var bottom, out var top))
+            if (PdfiumNative.FPDFText_GetCharBox(textPageHandle, index, out double left, out double right, out double bottom, out double top))
             {
-                var clampedLeft = Math.Clamp(left, 0, pageWidth);
-                var clampedRight = Math.Clamp(right, 0, pageWidth);
-                var clampedBottom = Math.Clamp(bottom, 0, pageHeight);
-                var clampedTop = Math.Clamp(top, 0, pageHeight);
-                var width = Math.Max(0, clampedRight - clampedLeft);
-                var height = Math.Max(0, clampedTop - clampedBottom);
+                double clampedLeft = Math.Clamp(left, 0, pageWidth);
+                double clampedRight = Math.Clamp(right, 0, pageWidth);
+                double clampedBottom = Math.Clamp(bottom, 0, pageHeight);
+                double clampedTop = Math.Clamp(top, 0, pageHeight);
+                double width = Math.Max(0, clampedRight - clampedLeft);
+                double height = Math.Max(0, clampedTop - clampedBottom);
 
                 if (width > 0 && height > 0)
                 {
@@ -351,7 +351,7 @@ public sealed class DocumentTextService : IDocumentTextService
         IReadOnlyList<string> languages,
         CancellationToken cancellationToken)
     {
-        var pageCount = session.Metadata.PageCount ?? 0;
+        int pageCount = session.Metadata.PageCount ?? 0;
         if (pageCount <= 0)
         {
             return ResultFactory.Failure<DocumentTextIndex>(
@@ -361,7 +361,7 @@ public sealed class DocumentTextService : IDocumentTextService
         }
 
         var pages = new List<PageTextContent>(pageCount);
-        var tempDirectory = Path.Combine(
+        string tempDirectory = Path.Combine(
             Path.GetTempPath(),
             "velune-ocr-pages",
             Guid.NewGuid().ToString("N"));
@@ -369,18 +369,18 @@ public sealed class DocumentTextService : IDocumentTextService
 
         try
         {
-            for (var pageNumber = 0; pageNumber < pageCount; pageNumber++)
+            for (int pageNumber = 0; pageNumber < pageCount; pageNumber++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var render = await _renderService.RenderPageAsync(
+                RenderedPage render = await _renderService.RenderPageAsync(
                     session,
                     new PageIndex(pageNumber),
                     OcrPdfRenderZoomFactor,
                     Rotation.Deg0,
                     cancellationToken);
 
-                var imagePath = Path.Combine(tempDirectory, $"page-{pageNumber + 1}.png");
+                string imagePath = Path.Combine(tempDirectory, $"page-{pageNumber + 1}.png");
                 await BgraPngWriter.WriteAsync(
                     imagePath,
                     render.Width,
@@ -388,7 +388,7 @@ public sealed class DocumentTextService : IDocumentTextService
                     render.PixelData,
                     cancellationToken);
 
-                var ocrResult = await _ocrEngine.RecognizePageAsync(
+                Result<OcrPageContent> ocrResult = await _ocrEngine.RecognizePageAsync(
                     new OcrPageRequest(
                         new PageIndex(pageNumber),
                         imagePath,
@@ -402,7 +402,7 @@ public sealed class DocumentTextService : IDocumentTextService
                     return ResultFactory.Failure<DocumentTextIndex>(ocrResult.Error!);
                 }
 
-                var pageContent = ocrResult.Value!;
+                OcrPageContent pageContent = ocrResult.Value!;
                 pages.Add(new PageTextContent(
                     pageContent.PageIndex,
                     pageContent.SourceKind,
@@ -447,7 +447,7 @@ public sealed class DocumentTextService : IDocumentTextService
                     "The active image session does not expose OCR metadata."));
         }
 
-        var inputPath = session.Metadata.FilePath;
+        string inputPath = session.Metadata.FilePath;
         if (string.IsNullOrWhiteSpace(inputPath))
         {
             return ResultFactory.Failure<DocumentTextIndex>(
@@ -456,7 +456,7 @@ public sealed class DocumentTextService : IDocumentTextService
                     "The current document path is unavailable."));
         }
 
-        var ocrResult = await _ocrEngine.RecognizePageAsync(
+        Result<OcrPageContent> ocrResult = await _ocrEngine.RecognizePageAsync(
             new OcrPageRequest(
                 new PageIndex(0),
                 inputPath,
@@ -470,7 +470,7 @@ public sealed class DocumentTextService : IDocumentTextService
             return ResultFactory.Failure<DocumentTextIndex>(ocrResult.Error!);
         }
 
-        var pageContent = ocrResult.Value!;
+        OcrPageContent pageContent = ocrResult.Value!;
         return ResultFactory.Success(new DocumentTextIndex(
             session.Metadata.FilePath,
             session.Metadata.DocumentType,
@@ -486,7 +486,7 @@ public sealed class DocumentTextService : IDocumentTextService
 
     private async Task<string> GetOcrFingerprintAsync(CancellationToken cancellationToken)
     {
-        var infoResult = await _ocrEngine.GetInfoAsync(cancellationToken);
+        Result<OcrEngineInfo> infoResult = await _ocrEngine.GetInfoAsync(cancellationToken);
         if (infoResult.IsSuccess && infoResult.Value is not null)
         {
             return $"tesseract:{infoResult.Value.EngineVersion}";
@@ -512,10 +512,10 @@ public sealed class DocumentTextService : IDocumentTextService
             return _configuredDefaultLanguages;
         }
 
-        var infoResult = await _ocrEngine.GetInfoAsync(cancellationToken);
+        Result<OcrEngineInfo> infoResult = await _ocrEngine.GetInfoAsync(cancellationToken);
         if (infoResult.IsSuccess && infoResult.Value is not null)
         {
-            var mappedLanguage = TesseractLanguageMapper.MapCulture(System.Globalization.CultureInfo.CurrentUICulture);
+            string? mappedLanguage = TesseractLanguageMapper.MapCulture(System.Globalization.CultureInfo.CurrentUICulture);
             if (!string.IsNullOrWhiteSpace(mappedLanguage) &&
                 infoResult.Value.AvailableLanguages.Contains(mappedLanguage, StringComparer.OrdinalIgnoreCase))
             {
@@ -543,10 +543,10 @@ public sealed class DocumentTextService : IDocumentTextService
             return [];
         }
 
-        var left = regions.Min(region => region.X);
-        var top = regions.Min(region => region.Y);
-        var right = regions.Max(region => region.X + region.Width);
-        var bottom = regions.Max(region => region.Y + region.Height);
+        double left = regions.Min(region => region.X);
+        double top = regions.Min(region => region.Y);
+        double right = regions.Max(region => region.X + region.Width);
+        double bottom = regions.Max(region => region.Y + region.Height);
 
         return [new NormalizedTextRegion(left, top, right - left, bottom - top)];
     }
@@ -564,9 +564,9 @@ public sealed class DocumentTextService : IDocumentTextService
             ReadOnlyMemory<byte> bgra,
             CancellationToken cancellationToken)
         {
-            var rgba = ConvertBgraToRgba(bgra);
+            byte[] rgba = ConvertBgraToRgba(bgra);
 
-            await using var stream = File.Create(outputPath);
+            await using FileStream stream = File.Create(outputPath);
             await stream.WriteAsync(Signature, cancellationToken);
             await WriteChunkAsync(stream, "IHDR", CreateHeader(width, height), cancellationToken);
             await WriteChunkAsync(stream, "IDAT", CreateImageData(width, height, rgba), cancellationToken);
@@ -575,9 +575,9 @@ public sealed class DocumentTextService : IDocumentTextService
 
         private static byte[] ConvertBgraToRgba(ReadOnlyMemory<byte> bgra)
         {
-            var bgraSpan = bgra.Span;
-            var rgba = new byte[bgraSpan.Length];
-            for (var index = 0; index < bgraSpan.Length; index += 4)
+            ReadOnlySpan<byte> bgraSpan = bgra.Span;
+            byte[] rgba = new byte[bgraSpan.Length];
+            for (int index = 0; index < bgraSpan.Length; index += 4)
             {
                 rgba[index] = bgraSpan[index + 2];
                 rgba[index + 1] = bgraSpan[index + 1];
@@ -604,9 +604,9 @@ public sealed class DocumentTextService : IDocumentTextService
         private static byte[] CreateImageData(int width, int height, byte[] rgba)
         {
             using var raw = new MemoryStream((width * 4 + 1) * height);
-            var stride = width * 4;
+            int stride = width * 4;
 
-            for (var row = 0; row < height; row++)
+            for (int row = 0; row < height; row++)
             {
                 raw.WriteByte(0);
                 raw.Write(rgba, row * stride, stride);
@@ -628,8 +628,8 @@ public sealed class DocumentTextService : IDocumentTextService
             byte[] data,
             CancellationToken cancellationToken)
         {
-            var typeBytes = Encoding.ASCII.GetBytes(type);
-            var crc = ComputeCrc32(typeBytes, data);
+            byte[] typeBytes = Encoding.ASCII.GetBytes(type);
+            uint crc = ComputeCrc32(typeBytes, data);
 
             WriteInt32BigEndian(stream, data.Length);
             await stream.WriteAsync(typeBytes, cancellationToken);
@@ -649,7 +649,7 @@ public sealed class DocumentTextService : IDocumentTextService
 
         private static uint ComputeCrc32(byte[] typeBytes, byte[] data)
         {
-            var crc = 0xFFFFFFFFu;
+            uint crc = 0xFFFFFFFFu;
 
             crc = UpdateCrc(crc, typeBytes);
             crc = UpdateCrc(crc, data);
@@ -659,10 +659,10 @@ public sealed class DocumentTextService : IDocumentTextService
 
         private static uint UpdateCrc(uint crc, byte[] data)
         {
-            foreach (var current in data)
+            foreach (byte current in data)
             {
                 crc ^= current;
-                for (var bit = 0; bit < 8; bit++)
+                for (int bit = 0; bit < 8; bit++)
                 {
                     crc = (crc & 1) != 0
                         ? (crc >> 1) ^ 0xEDB88320u

@@ -1,6 +1,6 @@
 # Velune
 
-Velune is a local-first desktop document viewer inspired by macOS Preview, built with .NET 10. macOS and Linux use Avalonia; Windows uses a dedicated WinUI 3 frontend.
+Velune is a local-first desktop document viewer inspired by macOS Preview, built with .NET 10. macOS and Linux use Avalonia (deprecated will migrate on native UI for both system); Windows uses a dedicated WinUI 3 frontend.
 
 ## Features
 
@@ -28,7 +28,7 @@ src/
 ├── Velune.Infrastructure/    PDF (Pdfium), images (SkiaSharp), OCR (Tesseract), qpdf
 ├── Velune.Presentation/      Avalonia UI — views, ViewModels, localization
 ├── Velune.Windows/           WinUI 3 UI — XAML, Windows-specific services
-└── Velune.App/               Avalonia entry point (macOS/Linux)
+└── Velune.App/               Avalonia entry point (macOS/Linux) [Depecrated]
 
 tests/
 ├── Velune.Tests.Unit/        Domain + Application tests
@@ -78,6 +78,53 @@ dotnet run --project src/Velune.Windows/Velune.Windows.csproj
 # macOS/Linux (Avalonia)
 dotnet run --project src/Velune.App/Velune.App.csproj
 ```
+
+## Keyboard Shortcuts
+
+### File & Navigation
+
+| Action | Windows | macOS |
+|--------|---------|-------|
+| Open file | `Ctrl+O` | `Cmd+O` |
+| Save | `Ctrl+S` | `Cmd+S` |
+| Print | `Ctrl+P` | `Cmd+P` |
+| Next page | `→` / `PageDown` | `→` / `PageDown` |
+| Previous page | `←` / `PageUp` | `←` / `PageUp` |
+| Search | `Ctrl+F` | `Cmd+F` |
+
+### Zoom & View
+
+| Action | Windows | macOS |
+|--------|---------|-------|
+| Zoom in | `Ctrl++` | `Cmd++` |
+| Zoom out | `Ctrl+-` | `Cmd+-` |
+| Fit to page | `Ctrl+0` | `Cmd+0` |
+| Fit to width / Actual size | `Ctrl+1` | `Cmd+1` |
+
+### Rotation & Transform
+
+| Action | Windows | macOS |
+|--------|---------|-------|
+| Rotate clockwise | `Ctrl+R` | `Cmd+R` |
+| Rotate counter-clockwise | `Ctrl+Shift+R` | `Cmd+Shift+R` |
+| Flip horizontal (annotation) | `Ctrl+Shift+H` | — |
+
+### Editing
+
+| Action | Windows | macOS |
+|--------|---------|-------|
+| Undo | `Ctrl+Z` | `Cmd+Z` |
+| Redo | `Ctrl+Y` | `Cmd+Y` |
+| Delete annotation | `Delete` | `Delete` |
+| Copy selected text | `Ctrl+C` | `Cmd+C` |
+
+### Panels
+
+| Action | Windows | macOS |
+|--------|---------|-------|
+| Toggle annotations panel | `Ctrl+Shift+A` | `Cmd+Shift+A` |
+| Move page earlier | `Ctrl+Shift+↑` | `Cmd+Shift+↑` |
+| Move page later | `Ctrl+Shift+↓` | `Cmd+Shift+↓` |
 
 ## Tests
 

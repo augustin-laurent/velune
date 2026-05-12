@@ -1,12 +1,14 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Microsoft.Extensions.DependencyInjection;
+using Velune.Application.DTOs;
 using Velune.Presentation.Localization;
 using Velune.Presentation.Platform;
 using Velune.Presentation.ViewModels;
@@ -49,7 +51,7 @@ public partial class MainWindow : Window
     private PageThumbnailItemViewModel? _thumbnailContextTarget;
 
     /// <summary>
-    /// Initializes the main window with default configuration.
+    /// Initializes the main window with the default configuration.
     /// </summary>
     public MainWindow()
     {
@@ -102,7 +104,7 @@ public partial class MainWindow : Window
         _localizationService = localizationService;
 
         if (_localizationService is null ||
-            NativeMenu.GetMenu(this) is not NativeMenu menu)
+            NativeMenu.GetMenu(this) is not { } menu)
         {
             return;
         }
@@ -189,7 +191,7 @@ public partial class MainWindow : Window
 
     private void OnThumbnailExternalDragOver(object? sender, DragEventArgs e)
     {
-        var dropPreview = GetThumbnailDropPreview(e.GetPosition(ThumbnailDragSurface));
+        ThumbnailDropPreview? dropPreview = GetThumbnailDropPreview(e.GetPosition(ThumbnailDragSurface));
         if (DataContext is MainWindowViewModel viewModel &&
             viewModel.CanAcceptThumbnailDocumentDrop &&
             HasDroppedLocalFiles(e.DataTransfer) &&
@@ -223,13 +225,13 @@ public partial class MainWindow : Window
             return;
         }
 
-        var filePaths = GetDroppedLocalFilePaths(e.DataTransfer);
+        string[] filePaths = GetDroppedLocalFilePaths(e.DataTransfer);
         if (filePaths.Length == 0)
         {
             return;
         }
 
-        var insertionIndex = GetThumbnailDropPreview(e.GetPosition(ThumbnailDragSurface))?.FinalIndex
+        int insertionIndex = GetThumbnailDropPreview(e.GetPosition(ThumbnailDragSurface))?.FinalIndex
             ?? viewModel.Thumbnails.Count;
         HideThumbnailDropIndicator();
 
@@ -261,7 +263,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var filePaths = GetDroppedLocalFilePaths(e.DataTransfer);
+        string[] filePaths = GetDroppedLocalFilePaths(e.DataTransfer);
         if (filePaths.Length == 0)
         {
             return;
@@ -278,11 +280,11 @@ public partial class MainWindow : Window
             return;
         }
 
-        var thumbnail = ResolveThumbnailContextTarget(contextMenu);
+        PageThumbnailItemViewModel? thumbnail = ResolveThumbnailContextTarget(contextMenu);
         _thumbnailContextTarget = thumbnail;
         contextMenu.DataContext = thumbnail;
 
-        foreach (var menuItem in contextMenu.Items.OfType<MenuItem>())
+        foreach (MenuItem menuItem in contextMenu.Items.OfType<MenuItem>())
         {
             if (menuItem.Classes.Contains("thumbnail-context-title"))
             {
@@ -314,7 +316,7 @@ public partial class MainWindow : Window
         e.Handled = true;
 
         if (DataContext is MainWindowViewModel viewModel &&
-            TryGetThumbnailMenuTarget(sender, out var thumbnail))
+            TryGetThumbnailMenuTarget(sender, out PageThumbnailItemViewModel? thumbnail))
         {
             await viewModel.OpenThumbnailContextMenuActionAsync(thumbnail);
         }
@@ -325,7 +327,7 @@ public partial class MainWindow : Window
         e.Handled = true;
 
         if (DataContext is MainWindowViewModel viewModel &&
-            TryGetThumbnailMenuTarget(sender, out var thumbnail))
+            TryGetThumbnailMenuTarget(sender, out PageThumbnailItemViewModel? thumbnail))
         {
             await viewModel.ExtractThumbnailContextMenuActionAsync(thumbnail);
         }
@@ -336,7 +338,7 @@ public partial class MainWindow : Window
         e.Handled = true;
 
         if (DataContext is MainWindowViewModel viewModel &&
-            TryGetThumbnailMenuTarget(sender, out var thumbnail))
+            TryGetThumbnailMenuTarget(sender, out PageThumbnailItemViewModel? thumbnail))
         {
             await viewModel.DeleteThumbnailContextMenuActionAsync(thumbnail);
         }
@@ -384,7 +386,7 @@ public partial class MainWindow : Window
             return [];
         }
 
-        var files = dataTransfer.TryGetFiles();
+        IStorageItem[]? files = dataTransfer.TryGetFiles();
         if (files is null)
         {
             return [];
@@ -478,15 +480,15 @@ public partial class MainWindow : Window
             return false;
         }
 
-        var extentHeight = DocumentScrollViewer.Extent.Height;
-        var viewportHeight = DocumentScrollViewer.Viewport.Height;
+        double extentHeight = DocumentScrollViewer.Extent.Height;
+        double viewportHeight = DocumentScrollViewer.Viewport.Height;
         if (extentHeight <= viewportHeight + double.Epsilon)
         {
             return false;
         }
 
-        var offsetY = DocumentScrollViewer.Offset.Y;
-        var maxOffsetY = Math.Max(0, extentHeight - viewportHeight);
+        double offsetY = DocumentScrollViewer.Offset.Y;
+        double maxOffsetY = Math.Max(0, extentHeight - viewportHeight);
 
         return deltaY > 0
             ? offsetY > double.Epsilon
@@ -515,7 +517,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+        IClipboard? clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
         if (clipboard is null)
         {
             return;
@@ -611,7 +613,7 @@ public partial class MainWindow : Window
 
     private async void OnAboutMenuClicked(object? sender, RoutedEventArgs e)
     {
-        var aboutWindow = AboutWindowFactory.Create(LocalizationServiceLocator.Current);
+        Window aboutWindow = AboutWindowFactory.Create(LocalizationServiceLocator.Current);
         await aboutWindow.ShowDialog(this);
         e.Handled = true;
     }
@@ -635,10 +637,10 @@ public partial class MainWindow : Window
         }
 
         _documentTextSelectionLayer = layer;
-        var coordinateLayer = ResolveDocumentTextSelectionCoordinateLayer(layer);
+        Control coordinateLayer = ResolveDocumentTextSelectionCoordinateLayer(layer);
         _documentTextSelectionCoordinateLayer = coordinateLayer;
         _isSelectingDocumentText = true;
-        var documentPosition = MapPointerPositionToDocument(
+        Point documentPosition = MapPointerPositionToDocument(
             coordinateLayer,
             viewModel,
             GetDocumentSelectionVisualPosition(e, coordinateLayer));
@@ -663,10 +665,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        var coordinateLayer = _documentTextSelectionCoordinateLayer ?? ResolveDocumentTextSelectionCoordinateLayer(layer);
+        Control coordinateLayer = _documentTextSelectionCoordinateLayer ?? ResolveDocumentTextSelectionCoordinateLayer(layer);
         _documentTextSelectionCoordinateLayer = coordinateLayer;
-        var currentVisualPosition = GetDocumentSelectionVisualPosition(e, coordinateLayer);
-        var currentDocumentPosition = MapPointerPositionToDocument(coordinateLayer, viewModel, currentVisualPosition);
+        Point currentVisualPosition = GetDocumentSelectionVisualPosition(e, coordinateLayer);
+        Point currentDocumentPosition = MapPointerPositionToDocument(coordinateLayer, viewModel, currentVisualPosition);
         viewModel.UpdateDocumentTextSelection(currentDocumentPosition.X, currentDocumentPosition.Y);
         e.Handled = true;
     }
@@ -682,9 +684,9 @@ public partial class MainWindow : Window
             return;
         }
 
-        var coordinateLayer = _documentTextSelectionCoordinateLayer ?? ResolveDocumentTextSelectionCoordinateLayer(layer);
+        Control coordinateLayer = _documentTextSelectionCoordinateLayer ?? ResolveDocumentTextSelectionCoordinateLayer(layer);
         _documentTextSelectionCoordinateLayer = coordinateLayer;
-        var currentDocumentPosition = MapPointerPositionToDocument(
+        Point currentDocumentPosition = MapPointerPositionToDocument(
             coordinateLayer,
             viewModel,
             GetDocumentSelectionVisualPosition(e, coordinateLayer));
@@ -713,11 +715,11 @@ public partial class MainWindow : Window
         }
 
         _annotationInteractionLayer = layer;
-        var coordinateLayer = ResolveDocumentTextSelectionCoordinateLayer(layer);
+        Control coordinateLayer = ResolveDocumentTextSelectionCoordinateLayer(layer);
         _annotationCoordinateLayer = coordinateLayer;
 
-        var visualPosition = GetDocumentSelectionVisualPosition(e, coordinateLayer);
-        var didBegin = viewModel.BeginAnnotationInteraction(
+        Point visualPosition = GetDocumentSelectionVisualPosition(e, coordinateLayer);
+        bool didBegin = viewModel.BeginAnnotationInteraction(
             visualPosition.X,
             visualPosition.Y,
             coordinateLayer.Bounds.Width,
@@ -743,9 +745,9 @@ public partial class MainWindow : Window
             return;
         }
 
-        var coordinateLayer = _annotationCoordinateLayer ?? ResolveDocumentTextSelectionCoordinateLayer(layer);
+        Control coordinateLayer = _annotationCoordinateLayer ?? ResolveDocumentTextSelectionCoordinateLayer(layer);
         _annotationCoordinateLayer = coordinateLayer;
-        var visualPosition = GetDocumentSelectionVisualPosition(e, coordinateLayer);
+        Point visualPosition = GetDocumentSelectionVisualPosition(e, coordinateLayer);
         viewModel.UpdateAnnotationInteraction(
             visualPosition.X,
             visualPosition.Y,
@@ -763,8 +765,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        var coordinateLayer = _annotationCoordinateLayer ?? ResolveDocumentTextSelectionCoordinateLayer(layer);
-        var visualPosition = GetDocumentSelectionVisualPosition(e, coordinateLayer);
+        Control coordinateLayer = _annotationCoordinateLayer ?? ResolveDocumentTextSelectionCoordinateLayer(layer);
+        Point visualPosition = GetDocumentSelectionVisualPosition(e, coordinateLayer);
         viewModel.CompleteAnnotationInteraction(
             visualPosition.X,
             visualPosition.Y,
@@ -797,7 +799,7 @@ public partial class MainWindow : Window
 
         _signaturePadLayer = layer;
         _isCapturingSignaturePad = true;
-        var point = e.GetPosition(layer);
+        Point point = e.GetPosition(layer);
         viewModel.BeginSignatureCapture(point.X, point.Y, layer.Bounds.Width, layer.Bounds.Height);
         e.Pointer.Capture(layer);
         e.Handled = true;
@@ -814,14 +816,14 @@ public partial class MainWindow : Window
             return;
         }
 
-        var point = e.GetPosition(layer);
+        Point point = e.GetPosition(layer);
         viewModel.UpdateSignatureCapture(point.X, point.Y, layer.Bounds.Width, layer.Bounds.Height);
         e.Handled = true;
     }
 
     private void OnSignaturePadPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (sender is not Control layer)
+        if (sender is not Control)
         {
             ResetSignaturePadInteraction();
             return;
@@ -887,12 +889,12 @@ public partial class MainWindow : Window
             return;
         }
 
-        var currentPosition = e.GetPosition(ThumbnailDragSurface);
+        Point currentPosition = e.GetPosition(ThumbnailDragSurface);
         _lastThumbnailDragPosition = currentPosition;
 
         if (!_isDraggingThumbnail)
         {
-            var delta = currentPosition - _thumbnailDragStartPoint.Value;
+            Point delta = currentPosition - _thumbnailDragStartPoint.Value;
 
             if (Math.Abs(delta.X) < ThumbnailDragThreshold &&
                 Math.Abs(delta.Y) < ThumbnailDragThreshold)
@@ -926,37 +928,41 @@ public partial class MainWindow : Window
 
     private async void OnThumbnailPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        var wasDraggingThumbnail = _isDraggingThumbnail;
-        var draggedThumbnailPageNumber = _draggedThumbnailPageNumber;
-        var pendingDropIndex = _thumbnailPendingDropIndex;
+        bool wasDraggingThumbnail = _isDraggingThumbnail;
+        int? draggedThumbnailPageNumber = _draggedThumbnailPageNumber;
+        int? pendingDropIndex = _thumbnailPendingDropIndex;
         var viewModel = DataContext as MainWindowViewModel;
 
         _isReleasingThumbnailPointer = true;
 
         try
         {
-            if (sender is Control control)
+            if (sender is Control)
             {
                 e.Pointer.Capture(null);
             }
 
-            if (wasDraggingThumbnail)
+            if (!wasDraggingThumbnail)
             {
-                e.Handled = true;
+                return;
+            }
 
-                if (draggedThumbnailPageNumber is not null &&
-                    pendingDropIndex is not null &&
-                    viewModel is not null)
-                {
-                    var currentIndex = GetCurrentThumbnailIndex(viewModel, draggedThumbnailPageNumber.Value);
-                    if (currentIndex >= 0 && currentIndex != pendingDropIndex.Value)
-                    {
-                        await CommitThumbnailReorderAsync(
-                            viewModel,
-                            draggedThumbnailPageNumber.Value,
-                            pendingDropIndex.Value);
-                    }
-                }
+            e.Handled = true;
+
+            if (draggedThumbnailPageNumber is null ||
+                pendingDropIndex is null ||
+                viewModel is null)
+            {
+                return;
+            }
+
+            int currentIndex = GetCurrentThumbnailIndex(viewModel, draggedThumbnailPageNumber.Value);
+            if (currentIndex >= 0 && currentIndex != pendingDropIndex.Value)
+            {
+                await CommitThumbnailReorderAsync(
+                    viewModel,
+                    draggedThumbnailPageNumber.Value,
+                    pendingDropIndex.Value);
             }
         }
         finally
@@ -1020,7 +1026,7 @@ public partial class MainWindow : Window
 
         var hitboxes = new List<(Control Control, Rect Bounds)>();
 
-        foreach (var control in ThumbnailItemsControl.GetVisualDescendants().OfType<Control>())
+        foreach (Control control in ThumbnailItemsControl.GetVisualDescendants().OfType<Control>())
         {
             if (!control.Classes.Contains("thumbnail-hitbox"))
             {
@@ -1048,7 +1054,7 @@ public partial class MainWindow : Window
 
     private static int GetCurrentThumbnailIndex(MainWindowViewModel viewModel, int sourcePageNumber)
     {
-        for (var i = 0; i < viewModel.Thumbnails.Count; i++)
+        for (int i = 0; i < viewModel.Thumbnails.Count; i++)
         {
             if (viewModel.Thumbnails[i].SourcePageNumber == sourcePageNumber)
             {
@@ -1066,7 +1072,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        foreach (var thumbnail in viewModel.Thumbnails)
+        foreach (PageThumbnailItemViewModel thumbnail in viewModel.Thumbnails)
         {
             thumbnail.IsDragging = draggedThumbnailPageNumber.HasValue &&
                                    thumbnail.SourcePageNumber == draggedThumbnailPageNumber.Value;
@@ -1080,7 +1086,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var dropPreview = GetThumbnailDropPreview(currentPosition, _draggedThumbnailPageNumber.Value);
+        ThumbnailDropPreview? dropPreview = GetThumbnailDropPreview(currentPosition, _draggedThumbnailPageNumber.Value);
         if (dropPreview is null)
         {
             HideThumbnailDropIndicator();
@@ -1089,7 +1095,7 @@ public partial class MainWindow : Window
 
         ShowThumbnailDropIndicator(dropPreview.Value);
 
-        var currentIndex = GetCurrentThumbnailIndex(viewModel, _draggedThumbnailPageNumber.Value);
+        int currentIndex = GetCurrentThumbnailIndex(viewModel, _draggedThumbnailPageNumber.Value);
         if (currentIndex < 0)
         {
             return;
@@ -1189,31 +1195,31 @@ public partial class MainWindow : Window
 
     private ThumbnailDropPreview? GetThumbnailDropPreview(Point pointerPosition, int? excludedSourcePageNumber = null)
     {
-        var hitboxes = GetThumbnailHitboxes(excludedSourcePageNumber);
+        List<(Control Control, Rect Bounds)> hitboxes = GetThumbnailHitboxes(excludedSourcePageNumber);
         if (hitboxes.Count == 0)
         {
             return null;
         }
 
-        var left = hitboxes[0].Bounds.Left;
-        var width = hitboxes[0].Bounds.Width;
+        double left = hitboxes[0].Bounds.Left;
+        double width = hitboxes[0].Bounds.Width;
 
-        var firstMidpoint = hitboxes[0].Bounds.Top + (hitboxes[0].Bounds.Height / 2);
+        double firstMidpoint = hitboxes[0].Bounds.Top + (hitboxes[0].Bounds.Height / 2);
         if (pointerPosition.Y < firstMidpoint)
         {
             return new ThumbnailDropPreview(0, hitboxes[0].Bounds.Top, left, width);
         }
 
-        for (var i = 1; i < hitboxes.Count; i++)
+        for (int i = 1; i < hitboxes.Count; i++)
         {
-            var midpoint = hitboxes[i].Bounds.Top + (hitboxes[i].Bounds.Height / 2);
+            double midpoint = hitboxes[i].Bounds.Top + (hitboxes[i].Bounds.Height / 2);
             if (pointerPosition.Y < midpoint)
             {
                 return new ThumbnailDropPreview(i, hitboxes[i].Bounds.Top, left, width);
             }
         }
 
-        var lastBounds = hitboxes[^1].Bounds;
+        Rect lastBounds = hitboxes[^1].Bounds;
         return new ThumbnailDropPreview(hitboxes.Count, lastBounds.Bottom, left, width);
     }
 
@@ -1225,15 +1231,15 @@ public partial class MainWindow : Window
             return;
         }
 
-        var scrollViewerOrigin = ThumbnailScrollViewer.TranslatePoint(default, ThumbnailDragSurface);
+        Point? scrollViewerOrigin = ThumbnailScrollViewer.TranslatePoint(default, ThumbnailDragSurface);
         if (scrollViewerOrigin is null)
         {
             StopThumbnailAutoScroll();
             return;
         }
 
-        var pointerY = pointerPosition.Y - scrollViewerOrigin.Value.Y;
-        var direction = 0;
+        double pointerY = pointerPosition.Y - scrollViewerOrigin.Value.Y;
+        int direction = 0;
 
         if (pointerY < ThumbnailAutoScrollEdge)
         {
@@ -1276,14 +1282,14 @@ public partial class MainWindow : Window
             return;
         }
 
-        var maxOffsetY = Math.Max(0, ThumbnailScrollViewer.Extent.Height - ThumbnailScrollViewer.Viewport.Height);
+        double maxOffsetY = Math.Max(0, ThumbnailScrollViewer.Extent.Height - ThumbnailScrollViewer.Viewport.Height);
         if (maxOffsetY <= 0)
         {
             StopThumbnailAutoScroll();
             return;
         }
 
-        var nextOffsetY = Math.Clamp(
+        double nextOffsetY = Math.Clamp(
             ThumbnailScrollViewer.Offset.Y + (_thumbnailAutoScrollDirection * ThumbnailAutoScrollStep),
             0,
             maxOffsetY);
@@ -1329,7 +1335,7 @@ public partial class MainWindow : Window
         if (ReferenceEquals(coordinateLayer, ScrollableDocumentInteractionLayer) &&
             DocumentScrollViewer is not null)
         {
-            var viewportPosition = e.GetPosition(DocumentScrollViewer);
+            Point viewportPosition = e.GetPosition(DocumentScrollViewer);
 
             if (coordinateLayer.TranslatePoint(default, DocumentScrollViewer) is { } contentOriginInViewport)
             {
@@ -1351,7 +1357,7 @@ public partial class MainWindow : Window
                 visualPosition.Y,
                 layer.Bounds.Width,
                 layer.Bounds.Height,
-                out var point))
+                out DocumentTextSelectionPoint? point))
         {
             return visualPosition;
         }

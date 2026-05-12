@@ -989,7 +989,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task OpenAsync()
     {
-        var filePath = await _filePickerService.PickOpenFileAsync();
+        string? filePath = await _filePickerService.PickOpenFileAsync();
 
         if (string.IsNullOrWhiteSpace(filePath))
         {
@@ -1019,7 +1019,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         ArgumentNullException.ThrowIfNull(filePaths);
 
-        var supportedPaths = filePaths
+        string[] supportedPaths = filePaths
             .Where(IsSupportedMergeSourcePath)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -1098,7 +1098,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         IsPrintPanelVisible = false;
         StatusText = L("status.print.opening_dialog");
 
-        var result = await _showSystemPrintDialogUseCase.ExecuteAsync(CurrentDocumentPath);
+        Result result = await _showSystemPrintDialogUseCase.ExecuteAsync(CurrentDocumentPath);
         if (result.IsSuccess)
         {
             StatusText = L("status.print.dialog_shown");
@@ -1137,7 +1137,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (!int.TryParse(PrintCopiesInput, NumberStyles.Integer, CultureInfo.InvariantCulture, out var copies) ||
+        if (!int.TryParse(PrintCopiesInput, NumberStyles.Integer, CultureInfo.InvariantCulture, out int copies) ||
             copies <= 0)
         {
             EnqueueWarning(L("validation.print.title"), L("validation.print.copies"));
@@ -1145,7 +1145,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var pageRanges = BuildRequestedPrintPageRanges();
+        string? pageRanges = BuildRequestedPrintPageRanges();
         if (pageRanges is null && IsCustomPrintRangeVisible)
         {
             EnqueueWarning(L("validation.print.title"), L("validation.print.range"));
@@ -1159,7 +1159,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             SubmitPrintJobCommand.NotifyCanExecuteChanged();
             PrintDocumentCommand.NotifyCanExecuteChanged();
 
-            var result = await _printDocumentUseCase.ExecuteAsync(
+            Result result = await _printDocumentUseCase.ExecuteAsync(
                 new PrintDocumentRequest(
                     CurrentDocumentPath,
                     SelectedPrintDestination?.Name,
@@ -1170,7 +1170,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
             if (result.IsFailure)
             {
-                var presentation = _localizedErrorFormatter.Format(
+                LocalizedErrorPresentation presentation = _localizedErrorFormatter.Format(
                     result.Error,
                     "error.print.failed.title",
                     "error.print.failed.message");
@@ -1228,7 +1228,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (!int.TryParse(GoToPageInput, out var pageNumber))
+        if (!int.TryParse(GoToPageInput, out int pageNumber))
         {
             EnqueueWarning(L("status.page.invalid"), L("validation.page.numeric"));
             StatusText = L("status.page.invalid");
@@ -1290,7 +1290,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(CanMoveCurrentPageEarlier))]
     private async Task MoveCurrentPageEarlierAsync()
     {
-        var currentIndex = GetCurrentThumbnailIndex();
+        int currentIndex = GetCurrentThumbnailIndex();
         if (currentIndex <= 0)
         {
             return;
@@ -1306,7 +1306,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(CanMoveCurrentPageLater))]
     private async Task MoveCurrentPageLaterAsync()
     {
-        var currentIndex = GetCurrentThumbnailIndex();
+        int currentIndex = GetCurrentThumbnailIndex();
         if (currentIndex < 0 || currentIndex >= Thumbnails.Count - 1)
         {
             return;
@@ -1324,7 +1324,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         DisableImageAutoFit();
 
-        var nextZoom = Math.Min(MaxZoom, GetCurrentZoomFactor() + ZoomStep);
+        double nextZoom = Math.Min(MaxZoom, GetCurrentZoomFactor() + ZoomStep);
 
         if (!TryUpdateZoom(nextZoom, ZoomMode.Custom))
         {
@@ -1342,7 +1342,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         DisableImageAutoFit();
 
-        var nextZoom = Math.Max(MinZoom, GetCurrentZoomFactor() - ZoomStep);
+        double nextZoom = Math.Max(MinZoom, GetCurrentZoomFactor() - ZoomStep);
 
         if (!TryUpdateZoom(nextZoom, ZoomMode.Custom))
         {
@@ -1407,8 +1407,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         ArgumentNullException.ThrowIfNull(rotationTransform);
 
-        var activePageIndex = _pageViewportStore.ActivePageIndex;
-        var nextRotation = rotationTransform(_pageViewportStore.GetRotation(activePageIndex));
+        PageIndex activePageIndex = _pageViewportStore.ActivePageIndex;
+        Rotation nextRotation = rotationTransform(_pageViewportStore.GetRotation(activePageIndex));
 
         _pageViewportStore.SetRotation(activePageIndex, nextRotation);
         if (!TryUpdateRotation(nextRotation))
@@ -1430,8 +1430,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(CanPersistCurrentPageRotation))]
     private async Task PersistCurrentPageRotationAsync()
     {
-        var currentDocumentPath = CurrentDocumentPath;
-        var pendingRotations = GetPendingPdfRotationGroups();
+        string? currentDocumentPath = CurrentDocumentPath;
+        List<PendingPdfRotationGroup> pendingRotations = GetPendingPdfRotationGroups();
 
         if (string.IsNullOrWhiteSpace(currentDocumentPath) || pendingRotations.Count == 0)
         {
@@ -1454,7 +1454,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(CanSaveDocument))]
     private async Task SaveDocumentAsync()
     {
-        var currentDocumentPath = CurrentDocumentPath;
+        string? currentDocumentPath = CurrentDocumentPath;
         if (string.IsNullOrWhiteSpace(currentDocumentPath))
         {
             return;
@@ -1478,11 +1478,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var pendingRotations = GetPendingPdfRotationGroups();
-        var orderedPages = Thumbnails
+        List<PendingPdfRotationGroup> pendingRotations = GetPendingPdfRotationGroups();
+        int[] orderedPages = Thumbnails
             .Select(thumbnail => thumbnail.SourcePageNumber)
             .ToArray();
-        var hasPendingSaveNameChange = HasPendingRequestedSaveNameChange();
+        bool hasPendingSaveNameChange = HasPendingRequestedSaveNameChange();
 
         if (pendingRotations.Count == 0 &&
             !HasPendingPageReorder &&
@@ -1562,13 +1562,13 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(CanSaveReorderedPdf))]
     private async Task SaveReorderedPdfAsync()
     {
-        var currentDocumentPath = CurrentDocumentPath;
+        string? currentDocumentPath = CurrentDocumentPath;
         if (string.IsNullOrWhiteSpace(currentDocumentPath))
         {
             return;
         }
 
-        var orderedPages = Thumbnails
+        int[] orderedPages = Thumbnails
             .Select(thumbnail => thumbnail.SourcePageNumber)
             .ToArray();
 
@@ -1587,7 +1587,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(CanMergePdfDocuments))]
     private async Task MergePdfDocumentsAsync()
     {
-        var sourcePaths = await _filePickerService.PickOpenMergeSourceFilesAsync(
+        IReadOnlyList<string> sourcePaths = await _filePickerService.PickOpenMergeSourceFilesAsync(
             L("dialog.open.merge_pdf_sources"));
         if (sourcePaths.Count == 0)
         {
@@ -1613,7 +1613,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var supportedDroppedPaths = filePaths
+        string[] supportedDroppedPaths = filePaths
             .Where(IsSupportedMergeSourcePath)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -1628,7 +1628,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var sourcePaths = new[] { CurrentDocumentPath }
+        string[] sourcePaths = new[] { CurrentDocumentPath }
             .Concat(supportedDroppedPaths)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -1681,15 +1681,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         ArgumentNullException.ThrowIfNull(resolveMergeSourcePathsAsync);
 
         string? sourceTemporaryDirectory = null;
-        var previewDirectory = CreateMergeTemporaryDirectory();
-        var previewOutputPath = Path.Combine(previewDirectory, suggestedFileName);
-        var keepPreviewDirectory = false;
+        string previewDirectory = CreateMergeTemporaryDirectory();
+        string previewOutputPath = Path.Combine(previewDirectory, suggestedFileName);
+        bool keepPreviewDirectory = false;
 
         try
         {
             SetPdfStructureOperationState(true);
 
-            var mergeSourcePaths = await resolveMergeSourcePathsAsync(() =>
+            (string[]? SourcePaths, AppError? Error) mergeSourcePaths = await resolveMergeSourcePathsAsync(() =>
             {
                 sourceTemporaryDirectory ??= CreateMergeTemporaryDirectory();
                 return sourceTemporaryDirectory;
@@ -1701,7 +1701,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 return;
             }
 
-            var result = await _mergePdfDocumentsUseCase.ExecuteAsync(
+            Result<string> result = await _mergePdfDocumentsUseCase.ExecuteAsync(
                 new MergePdfDocumentsRequest(mergeSourcePaths.SourcePaths!, previewOutputPath));
             if (result.IsFailure)
             {
@@ -1710,7 +1710,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 return;
             }
 
-            var previewPath = result.Value ?? previewOutputPath;
+            string previewPath = result.Value ?? previewOutputPath;
             await OpenDocumentFromPathAsync(
                 previewPath,
                 addToRecentFiles: false,
@@ -1742,11 +1742,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private async Task SavePendingMergedDocumentAsync(string currentDocumentPath)
     {
-        var suggestedFileName = string.IsNullOrWhiteSpace(EditableDocumentName)
+        string suggestedFileName = string.IsNullOrWhiteSpace(EditableDocumentName)
             ? _pendingMergedDocumentSuggestedFileName ?? BuildSuggestedPdfFileName()
             : BuildSuggestedPdfFileName();
 
-        var outputPath = _pendingMergedDocumentRequiresSavePicker
+        string? outputPath = _pendingMergedDocumentRequiresSavePicker
             ? await _filePickerService.PickSavePdfFileAsync(
                 L("dialog.save.merged_pdf"),
                 suggestedFileName)
@@ -1758,16 +1758,16 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         string? temporaryDirectory = null;
-        var successStatusKey = _pendingMergedDocumentSaveSuccessStatusKey;
+        string successStatusKey = _pendingMergedDocumentSaveSuccessStatusKey;
 
         try
         {
             SetPdfStructureOperationState(true);
 
-            var outputSourcePath = currentDocumentPath;
-            var pendingRotations = GetPendingPdfRotationGroups();
-            var hasPendingReorder = HasPendingPageReorder;
-            var hasPendingAnnotations = HasPendingAnnotationChanges;
+            string outputSourcePath = currentDocumentPath;
+            List<PendingPdfRotationGroup> pendingRotations = GetPendingPdfRotationGroups();
+            bool hasPendingReorder = HasPendingPageReorder;
+            bool hasPendingAnnotations = HasPendingAnnotationChanges;
 
             if (pendingRotations.Count > 0 || hasPendingReorder || hasPendingAnnotations)
             {
@@ -1780,11 +1780,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
             if (pendingRotations.Count > 0 || hasPendingReorder)
             {
-                var orderedPages = Thumbnails
+                int[] orderedPages = Thumbnails
                     .Select(thumbnail => thumbnail.SourcePageNumber)
                     .ToArray();
-                var structuredPath = Path.Combine(temporaryDirectory!, $"structured-{suggestedFileName}");
-                var structureResult = await SavePdfDocumentChangesAsync(
+                string structuredPath = Path.Combine(temporaryDirectory!, $"structured-{suggestedFileName}");
+                Result<string> structureResult = await SavePdfDocumentChangesAsync(
                     currentDocumentPath,
                     structuredPath,
                     pendingRotations,
@@ -1807,8 +1807,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                     return;
                 }
 
-                var annotatedPath = Path.Combine(temporaryDirectory!, suggestedFileName);
-                var annotationResult = await _pdfMarkupService.ApplyAnnotationsAsync(
+                string annotatedPath = Path.Combine(temporaryDirectory!, suggestedFileName);
+                Result<string> annotationResult = await _pdfMarkupService.ApplyAnnotationsAsync(
                     new ApplyPdfAnnotationsRequest(
                         session,
                         outputSourcePath,
@@ -1829,7 +1829,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 File.Copy(outputSourcePath, outputPath, overwrite: true);
             }
 
-            var previewDirectory = _pendingMergedDocumentTemporaryDirectory;
+            string? previewDirectory = _pendingMergedDocumentTemporaryDirectory;
             ClearPendingMergedDocumentSave(deleteTemporaryDirectory: false);
             await OpenDocumentFromPathAsync(outputPath, openMode: DocumentOpenMode.ReplaceCurrent);
 
@@ -1870,8 +1870,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private void ClearPendingMergedDocumentSave(bool deleteTemporaryDirectory)
     {
-        var temporaryDirectory = _pendingMergedDocumentTemporaryDirectory;
-        var hadPendingSave = _hasPendingMergedDocumentSave;
+        string? temporaryDirectory = _pendingMergedDocumentTemporaryDirectory;
+        bool hadPendingSave = _hasPendingMergedDocumentSave;
 
         _pendingMergedDocumentTemporaryDirectory = null;
         _pendingMergedDocumentSuggestedFileName = null;
@@ -1902,11 +1902,11 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         int insertionIndex,
         Func<string> getTemporaryDirectory)
     {
-        var currentDocumentPath = sourcePaths[0];
-        var droppedSourcePaths = sourcePaths.Skip(1).ToArray();
+        string currentDocumentPath = sourcePaths[0];
+        string[] droppedSourcePaths = sourcePaths.Skip(1).ToArray();
 
-        var temporaryDirectory = getTemporaryDirectory();
-        var currentSourceCopy = Path.Combine(temporaryDirectory, "source-copy.pdf");
+        string temporaryDirectory = getTemporaryDirectory();
+        string currentSourceCopy = Path.Combine(temporaryDirectory, "source-copy.pdf");
         File.Copy(currentDocumentPath, currentSourceCopy, overwrite: true);
 
         if (!IsPdfDocument || TotalPages <= 1)
@@ -1916,7 +1916,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 : ([currentSourceCopy, .. droppedSourcePaths], null);
         }
 
-        var normalizedInsertionIndex = Math.Clamp(insertionIndex, 0, TotalPages);
+        int normalizedInsertionIndex = Math.Clamp(insertionIndex, 0, TotalPages);
         if (normalizedInsertionIndex <= 0)
         {
             return ([.. droppedSourcePaths, currentSourceCopy], null);
@@ -1927,10 +1927,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return ([currentSourceCopy, .. droppedSourcePaths], null);
         }
 
-        var beforePath = Path.Combine(temporaryDirectory, "current-before-drop.pdf");
-        var afterPath = Path.Combine(temporaryDirectory, "current-after-drop.pdf");
+        string beforePath = Path.Combine(temporaryDirectory, "current-before-drop.pdf");
+        string afterPath = Path.Combine(temporaryDirectory, "current-after-drop.pdf");
 
-        var beforeResult = await _extractPdfPagesUseCase.ExecuteAsync(
+        Result<string> beforeResult = await _extractPdfPagesUseCase.ExecuteAsync(
             new ExtractPdfPagesRequest(
                 currentSourceCopy,
                 beforePath,
@@ -1940,7 +1940,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return (null, beforeResult.Error);
         }
 
-        var afterResult = await _extractPdfPagesUseCase.ExecuteAsync(
+        Result<string> afterResult = await _extractPdfPagesUseCase.ExecuteAsync(
             new ExtractPdfPagesRequest(
                 currentSourceCopy,
                 afterPath,
@@ -1962,14 +1962,14 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return false;
         }
 
-        var extension = Path.GetExtension(path);
+        string extension = Path.GetExtension(path);
         return !string.IsNullOrWhiteSpace(extension) &&
             SupportedDocumentFormats.IsSupported(extension);
     }
 
     private static string CreateMergeTemporaryDirectory()
     {
-        var directoryPath = Path.Combine(
+        string directoryPath = Path.Combine(
             Path.GetTempPath(),
             "velune-drop-merge",
             Guid.NewGuid().ToString("N"));
@@ -2011,7 +2011,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var proposedName = EditableDocumentName.Trim();
+        string proposedName = EditableDocumentName.Trim();
         if (string.IsNullOrWhiteSpace(proposedName))
         {
             EditableDocumentName = CurrentDocumentName ?? string.Empty;
@@ -2020,7 +2020,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (!TryNormalizeRequestedDocumentFileName(proposedName, out var normalizedFileName, out var validationError))
+        if (!TryNormalizeRequestedDocumentFileName(proposedName, out string? normalizedFileName, out string? validationError))
         {
             EnqueueWarning(L("status.save_name.invalid"), validationError ?? L("validation.file_name.enter"));
             StatusText = L("status.save_name.invalid");
@@ -2144,7 +2144,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var result = _searchDocumentTextUseCase.Execute(
+        Result<IReadOnlyList<SearchHit>> result = _searchDocumentTextUseCase.Execute(
             new SearchDocumentTextRequest(
                 _currentDocumentTextIndex,
                 new SearchQuery(SearchQueryInput)));
@@ -2195,7 +2195,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var targetIndex = _selectedSearchResultIndex <= 0
+        int targetIndex = _selectedSearchResultIndex <= 0
             ? SearchResults.Count - 1
             : _selectedSearchResultIndex - 1;
 
@@ -2210,7 +2210,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var targetIndex = _selectedSearchResultIndex < 0 || _selectedSearchResultIndex >= SearchResults.Count - 1
+        int targetIndex = _selectedSearchResultIndex < 0 || _selectedSearchResultIndex >= SearchResults.Count - 1
             ? 0
             : _selectedSearchResultIndex + 1;
 
@@ -2270,7 +2270,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(HasNotificationPrimaryAction))]
     private void NotificationPrimaryAction()
     {
-        var action = _notificationPrimaryAction;
+        Action? action = _notificationPrimaryAction;
         AdvanceNotificationQueue();
         action?.Invoke();
     }
@@ -2278,7 +2278,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(HasNotificationSecondaryAction))]
     private void NotificationSecondaryAction()
     {
-        var action = _notificationSecondaryAction;
+        Action? action = _notificationSecondaryAction;
         AdvanceNotificationQueue();
         action?.Invoke();
     }
@@ -2359,16 +2359,16 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var sourceThumbnail = Thumbnails.FirstOrDefault(item => item.SourcePageNumber == sourcePageNumber);
-        var targetThumbnail = Thumbnails.FirstOrDefault(item => item.SourcePageNumber == targetPageNumber);
+        PageThumbnailItemViewModel? sourceThumbnail = Thumbnails.FirstOrDefault(item => item.SourcePageNumber == sourcePageNumber);
+        PageThumbnailItemViewModel? targetThumbnail = Thumbnails.FirstOrDefault(item => item.SourcePageNumber == targetPageNumber);
 
         if (sourceThumbnail is null || targetThumbnail is null)
         {
             return;
         }
 
-        var sourceIndex = Thumbnails.IndexOf(sourceThumbnail);
-        var targetIndex = Thumbnails.IndexOf(targetThumbnail);
+        int sourceIndex = Thumbnails.IndexOf(sourceThumbnail);
+        int targetIndex = Thumbnails.IndexOf(targetThumbnail);
         if (sourceIndex < 0 || targetIndex < 0 || sourceIndex == targetIndex)
         {
             return;
@@ -2395,13 +2395,13 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var sourceThumbnail = Thumbnails.FirstOrDefault(item => item.SourcePageNumber == sourcePageNumber);
+        PageThumbnailItemViewModel? sourceThumbnail = Thumbnails.FirstOrDefault(item => item.SourcePageNumber == sourcePageNumber);
         if (sourceThumbnail is null)
         {
             return;
         }
 
-        var sourceIndex = Thumbnails.IndexOf(sourceThumbnail);
+        int sourceIndex = Thumbnails.IndexOf(sourceThumbnail);
         if (sourceIndex < 0 || sourceIndex == targetIndex)
         {
             return;
@@ -2440,8 +2440,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var widthChanged = Math.Abs(_documentViewportWidth - viewportWidth) > ViewportResizeThreshold;
-        var heightChanged = Math.Abs(_documentViewportHeight - viewportHeight) > ViewportResizeThreshold;
+        bool widthChanged = Math.Abs(_documentViewportWidth - viewportWidth) > ViewportResizeThreshold;
+        bool heightChanged = Math.Abs(_documentViewportHeight - viewportHeight) > ViewportResizeThreshold;
 
         _documentViewportWidth = viewportWidth;
         _documentViewportHeight = viewportHeight;
@@ -2492,8 +2492,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         string? displayFileName = null,
         DocumentOpenMode? openMode = null)
     {
-        var effectiveOpenMode = openMode ?? DefaultOpenMode;
-        var previousActiveTab = ActiveDocumentTab;
+        DocumentOpenMode effectiveOpenMode = openMode ?? DefaultOpenMode;
+        DocumentTabViewModel? previousActiveTab = ActiveDocumentTab;
 
         if (IsWindowsShellVisible && effectiveOpenMode is DocumentOpenMode.AddToTabs)
         {
@@ -2531,7 +2531,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         ClearSearchHighlights();
         IsSearchPanelVisible = false;
 
-        var result = await _openDocumentUseCase.ExecuteAsync(new OpenDocumentRequest(filePath, effectiveOpenMode));
+        Result<IDocumentSession> result = await _openDocumentUseCase.ExecuteAsync(new OpenDocumentRequest(filePath, effectiveOpenMode));
 
         if (result.IsFailure)
         {
@@ -2555,7 +2555,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (IsWindowsShellVisible && effectiveOpenMode is DocumentOpenMode.AddToTabs)
         {
-            var wasApplyingPreferences = _isApplyingPreferencesState;
+            bool wasApplyingPreferences = _isApplyingPreferencesState;
             _isApplyingPreferencesState = true;
             ShowThumbnailsPanelPreference = true;
             _isApplyingPreferencesState = wasApplyingPreferences;
@@ -2581,7 +2581,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         ClearNotifications();
-        var detailsWarning = _documentSessionStore.Current?.Metadata.DetailsWarning;
+        string? detailsWarning = _documentSessionStore.Current?.Metadata.DetailsWarning;
         if (!string.IsNullOrWhiteSpace(detailsWarning))
         {
             EnqueueInfo(L("notification.document.details_unavailable.title"), detailsWarning);
@@ -2608,7 +2608,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             SubmitPrintJobCommand.NotifyCanExecuteChanged();
             RefreshPrintDestinationsCommand.NotifyCanExecuteChanged();
 
-            var result = await _printService.GetAvailablePrintersAsync();
+            Result<IReadOnlyList<PrintDestinationInfo>> result = await _printService.GetAvailablePrintersAsync();
             if (result.IsFailure)
             {
                 PrintDestinations.Clear();
@@ -2619,10 +2619,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 return;
             }
 
-            var currentSelection = SelectedPrintDestination?.Name;
+            string? currentSelection = SelectedPrintDestination?.Name;
             PrintDestinations.Clear();
 
-            foreach (var printer in result.Value ?? [])
+            foreach (PrintDestinationInfo printer in result.Value ?? [])
             {
                 PrintDestinations.Add(printer);
             }
@@ -2653,7 +2653,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         CancelCurrentTextAnalysis();
 
-        var handle = forceOcr
+        DocumentTextJobHandle handle = forceOcr
             ? _runDocumentOcrUseCase.Execute()
             : _loadDocumentTextUseCase.Execute();
 
@@ -2667,7 +2667,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         try
         {
-            var result = await handle.Completion;
+            DocumentTextAnalysisResult result = await handle.Completion;
             if (_currentDocumentTextJob?.JobId != handle.JobId)
             {
                 return;
@@ -2686,7 +2686,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 _requiresSearchOcr = !forceOcr;
                 ClearSearchResults();
                 ClearSearchHighlights();
-                var presentation = _localizedErrorFormatter.Format(
+                LocalizedErrorPresentation presentation = _localizedErrorFormatter.Format(
                     result.Error,
                     "error.text_analysis.failed.title",
                     "error.text_analysis.failed.message");
@@ -2776,13 +2776,13 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         ArgumentNullException.ThrowIfNull(item);
 
-        var targetPageNumber = item.PageNumber;
+        int targetPageNumber = item.PageNumber;
         if (targetPageNumber != CurrentPage)
         {
             await ChangeToPageAsync(targetPageNumber);
         }
 
-        for (var i = 0; i < SearchResults.Count; i++)
+        for (int i = 0; i < SearchResults.Count; i++)
         {
             SearchResults[i].IsSelected = ReferenceEquals(SearchResults[i], item);
             if (ReferenceEquals(SearchResults[i], item))
@@ -2804,7 +2804,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         ClearSearchResults();
 
-        foreach (var hit in hits)
+        foreach (SearchHit hit in hits)
         {
             SearchResults.Add(new SearchResultItemViewModel(hit, hit.PageIndex.Value + 1, _localizationService));
         }
@@ -2816,7 +2816,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private void RefreshSearchResultLocalization()
     {
-        foreach (var result in SearchResults)
+        foreach (SearchResultItemViewModel result in SearchResults)
         {
             result.UpdateLocalization(_localizationService);
         }
@@ -2842,22 +2842,22 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var selected = SearchResults[_selectedSearchResultIndex];
+        SearchResultItemViewModel selected = SearchResults[_selectedSearchResultIndex];
         if (selected.PageNumber != CurrentPage)
         {
             return;
         }
 
-        var pageContent = _currentDocumentTextIndex?.Pages
+        PageTextContent? pageContent = _currentDocumentTextIndex?.Pages
             .FirstOrDefault(page => page.PageIndex.Value == CurrentPage - 1);
         if (pageContent is null || selected.Hit.Regions.Count == 0)
         {
             return;
         }
 
-        foreach (var region in selected.Hit.Regions)
+        foreach (NormalizedTextRegion region in selected.Hit.Regions)
         {
-            if (!TryTransformRegionToRenderedPage(pageContent, region, out var left, out var top, out var width, out var height))
+            if (!TryTransformRegionToRenderedPage(pageContent, region, out double left, out double top, out double width, out double height))
             {
                 continue;
             }
@@ -2883,7 +2883,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     public bool BeginDocumentTextSelection(double x, double y)
     {
         var anchorPoint = new DocumentTextSelectionPoint(x, y);
-        if (!TryResolveDocumentTextSelection(anchorPoint, anchorPoint, out var selection))
+        if (!TryResolveDocumentTextSelection(anchorPoint, anchorPoint, out DocumentTextSelectionResult? selection))
         {
             ClearDocumentTextSelection();
             return false;
@@ -2901,10 +2901,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     /// <param name="y">The Y coordinate in document text space.</param>
     public void UpdateDocumentTextSelection(double x, double y)
     {
-        var anchorPoint = _documentTextSelectionAnchorPoint;
+        DocumentTextSelectionPoint? anchorPoint = _documentTextSelectionAnchorPoint;
         if (anchorPoint is null)
         {
-            var began = BeginDocumentTextSelection(x, y);
+            bool began = BeginDocumentTextSelection(x, y);
             if (!began)
             {
                 ClearDocumentTextSelection();
@@ -2914,7 +2914,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         }
 
         var activePoint = new DocumentTextSelectionPoint(x, y);
-        if (!TryResolveDocumentTextSelection(anchorPoint, activePoint, out var selection) &&
+        if (!TryResolveDocumentTextSelection(anchorPoint, activePoint, out DocumentTextSelectionResult? selection) &&
             !TryResolveDocumentTextSelection(anchorPoint, anchorPoint, out selection))
         {
             ClearDocumentTextSelection();
@@ -2978,7 +2978,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return false;
         }
 
-        var rotation = GetCurrentRotation();
+        Rotation rotation = GetCurrentRotation();
         return DocumentTextSelectionCoordinateMapper.TryMapVisualToDocument(
             visualX,
             visualY,
@@ -3007,7 +3007,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return false;
         }
 
-        var result = _resolveDocumentTextSelectionUseCase.Execute(
+        Result<DocumentTextSelectionResult> result = _resolveDocumentTextSelectionUseCase.Execute(
             new DocumentTextSelectionRequest(
                 session,
                 _currentDocumentTextIndex,
@@ -3049,9 +3049,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        foreach (var region in _currentDocumentTextSelection.Regions)
+        foreach (NormalizedTextRegion region in _currentDocumentTextSelection.Regions)
         {
-            if (!TryTransformRegionToRenderedPage(pageContent, region, out var left, out var top, out var width, out var height))
+            if (!TryTransformRegionToRenderedPage(pageContent, region, out double left, out double top, out double width, out double height))
             {
                 continue;
             }
@@ -3080,15 +3080,15 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return false;
         }
 
-        var sourceWidth = pageContent.SourceWidth;
-        var sourceHeight = pageContent.SourceHeight;
-        var sourceLeft = region.X * sourceWidth;
-        var sourceTop = region.Y * sourceHeight;
-        var sourceRight = sourceLeft + (region.Width * sourceWidth);
-        var sourceBottom = sourceTop + (region.Height * sourceHeight);
+        double sourceWidth = pageContent.SourceWidth;
+        double sourceHeight = pageContent.SourceHeight;
+        double sourceLeft = region.X * sourceWidth;
+        double sourceTop = region.Y * sourceHeight;
+        double sourceRight = sourceLeft + (region.Width * sourceWidth);
+        double sourceBottom = sourceTop + (region.Height * sourceHeight);
 
-        var rotation = GetCurrentRotation();
-        var (rotatedLeft, rotatedTop, rotatedRight, rotatedBottom, rotatedWidth, rotatedHeight) =
+        Rotation rotation = GetCurrentRotation();
+        (double rotatedLeft, double rotatedTop, double rotatedRight, double rotatedBottom, double rotatedWidth, double rotatedHeight) =
             rotation switch
             {
                 Rotation.Deg90 => (
@@ -3158,7 +3158,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var defaultZoomPreference = SelectedDefaultZoomPreference?.Value ?? DefaultZoomPreference.FitToPage;
+        DefaultZoomPreference defaultZoomPreference = SelectedDefaultZoomPreference?.Value ?? DefaultZoomPreference.FitToPage;
         switch (defaultZoomPreference)
         {
             case DefaultZoomPreference.FitToWidth:
@@ -3201,9 +3201,9 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         DisableImageAutoFit();
 
-        var clampedZoom = Math.Clamp(zoomFactor, MinZoom, MaxZoom);
-        var zoomChanged = Math.Abs(GetCurrentZoomFactor() - clampedZoom) > ZoomComparisonTolerance;
-        var zoomModeChanged = CurrentZoomMode != ZoomMode.Custom;
+        double clampedZoom = Math.Clamp(zoomFactor, MinZoom, MaxZoom);
+        bool zoomChanged = Math.Abs(GetCurrentZoomFactor() - clampedZoom) > ZoomComparisonTolerance;
+        bool zoomModeChanged = CurrentZoomMode != ZoomMode.Custom;
 
         if (zoomChanged || zoomModeChanged)
         {
@@ -3235,13 +3235,13 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return null;
         }
 
-        var trimmed = PrintCustomPageRange.Trim();
+        string trimmed = PrintCustomPageRange.Trim();
         if (string.IsNullOrWhiteSpace(trimmed))
         {
             return null;
         }
 
-        foreach (var character in trimmed)
+        foreach (char character in trimmed)
         {
             if (!char.IsDigit(character) &&
                 character is not ',' &&
@@ -3264,7 +3264,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var result = _changePageUseCase.Execute(
+        Result<ViewportState> result = _changePageUseCase.Execute(
             new ChangePageRequest(new PageIndex(pageNumber - 1)));
 
         if (result.IsFailure)
@@ -3300,7 +3300,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         CancelCurrentRender();
 
-        var session = _documentSessionStore.Current;
+        IDocumentSession? session = _documentSessionStore.Current;
         if (session is null)
         {
             CurrentRenderedBitmap?.Dispose();
@@ -3310,21 +3310,21 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         RefreshPageViewState();
 
-        var renderJob = _renderOrchestrator.Submit(
+        RenderJobHandle renderJob = _renderOrchestrator.Submit(
             CreateViewerRenderRequest(
                 _pageViewportStore.ActivePageIndex,
                 GetCurrentZoomFactor(),
                 GetCurrentRotation()));
         _currentRenderJob = renderJob;
 
-        var previousStatusText = StatusText;
-        var renderSucceeded = false;
+        string previousStatusText = StatusText;
+        bool renderSucceeded = false;
 
         try
         {
             IsRendering = true;
 
-            var result = await renderJob.Completion;
+            RenderResult result = await renderJob.Completion;
             if (_currentRenderJob?.JobId != renderJob.JobId)
             {
                 return;
@@ -3373,39 +3373,39 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         CancelThumbnailGeneration();
 
-        var session = _documentSessionStore.Current;
+        IDocumentSession? session = _documentSessionStore.Current;
         if (session is null)
         {
             return;
         }
 
-        var generationVersion = ++_thumbnailGenerationVersion;
+        int generationVersion = ++_thumbnailGenerationVersion;
 
         try
         {
             IsGeneratingThumbnails = true;
 
-            for (var i = 0; i < Thumbnails.Count; i++)
+            for (int i = 0; i < Thumbnails.Count; i++)
             {
                 if (generationVersion != _thumbnailGenerationVersion)
                 {
                     break;
                 }
 
-                var thumbnailItem = Thumbnails[i];
+                PageThumbnailItemViewModel thumbnailItem = Thumbnails[i];
                 var thumbnailPageIndex = new PageIndex(thumbnailItem.SourcePageNumber - 1);
 
                 try
                 {
                     thumbnailItem.IsLoading = true;
 
-                    var renderJob = _renderOrchestrator.Submit(
+                    RenderJobHandle renderJob = _renderOrchestrator.Submit(
                         CreateThumbnailRenderRequest(thumbnailPageIndex, _pageViewportStore.GetRotation(thumbnailPageIndex)));
 
                     _thumbnailRenderJobs[thumbnailPageIndex.Value] = renderJob;
 
-                    var result = await renderJob.Completion;
-                    if (!_thumbnailRenderJobs.TryGetValue(thumbnailPageIndex.Value, out var activeJob) ||
+                    RenderResult result = await renderJob.Completion;
+                    if (!_thumbnailRenderJobs.TryGetValue(thumbnailPageIndex.Value, out RenderJobHandle? activeJob) ||
                         activeJob.JobId != renderJob.JobId)
                     {
                         continue;
@@ -3420,7 +3420,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
                     if (result.IsSuccess && result.Page is not null)
                     {
-                        var bitmap = RenderedPageBitmapFactory.Create(result.Page);
+                        WriteableBitmap bitmap = RenderedPageBitmapFactory.Create(result.Page);
 
                         thumbnailItem.Thumbnail?.Dispose();
                         thumbnailItem.Thumbnail = bitmap;
@@ -3448,7 +3448,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var thumbnailItem = Thumbnails.FirstOrDefault(item => item.SourcePageNumber == CurrentPage);
+        PageThumbnailItemViewModel? thumbnailItem = Thumbnails.FirstOrDefault(item => item.SourcePageNumber == CurrentPage);
         if (thumbnailItem is null)
         {
             return;
@@ -3460,12 +3460,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             thumbnailItem.IsLoading = true;
 
-            var renderJob = _renderOrchestrator.Submit(
+            RenderJobHandle renderJob = _renderOrchestrator.Submit(
                 CreateThumbnailRenderRequest(pageIndex, _pageViewportStore.GetRotation(pageIndex)));
             _thumbnailRenderJobs[pageIndex.Value] = renderJob;
 
-            var result = await renderJob.Completion;
-            if (!_thumbnailRenderJobs.TryGetValue(pageIndex.Value, out var activeJob) ||
+            RenderResult result = await renderJob.Completion;
+            if (!_thumbnailRenderJobs.TryGetValue(pageIndex.Value, out RenderJobHandle? activeJob) ||
                 activeJob.JobId != renderJob.JobId)
             {
                 return;
@@ -3475,7 +3475,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
             if (result.IsSuccess && result.Page is not null)
             {
-                var bitmap = RenderedPageBitmapFactory.Create(result.Page);
+                WriteableBitmap bitmap = RenderedPageBitmapFactory.Create(result.Page);
 
                 thumbnailItem.Thumbnail?.Dispose();
                 thumbnailItem.Thumbnail = bitmap;
@@ -3491,7 +3491,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         ClearThumbnails();
 
-        for (var i = 1; i <= TotalPages; i++)
+        for (int i = 1; i <= TotalPages; i++)
         {
             Thumbnails.Add(new PageThumbnailItemViewModel(i)
             {
@@ -3507,7 +3507,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private void UpdateSelectedThumbnail()
     {
-        foreach (var item in Thumbnails)
+        foreach (PageThumbnailItemViewModel item in Thumbnails)
         {
             item.IsSelected = item.SourcePageNumber == CurrentPage;
         }
@@ -3515,7 +3515,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private void RefreshThumbnailLocalization()
     {
-        foreach (var item in Thumbnails)
+        foreach (PageThumbnailItemViewModel item in Thumbnails)
         {
             item.UpdateLocalization(_localizationService);
         }
@@ -3523,7 +3523,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private void ClearThumbnails()
     {
-        foreach (var item in Thumbnails)
+        foreach (PageThumbnailItemViewModel item in Thumbnails)
         {
             item.Dispose();
         }
@@ -3563,7 +3563,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         _thumbnailGenerationVersion++;
         IsGeneratingThumbnails = false;
 
-        foreach (var renderJob in _thumbnailRenderJobs.Values)
+        foreach (RenderJobHandle renderJob in _thumbnailRenderJobs.Values)
         {
             _renderOrchestrator.Cancel(renderJob.JobId);
         }
@@ -3573,7 +3573,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private void RefreshFromSession()
     {
-        var session = _documentSessionStore.Current;
+        IDocumentSession? session = _documentSessionStore.Current;
         if (session is null)
         {
             ResetDocumentState();
@@ -3689,16 +3689,16 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return false;
         }
 
-        if (!TryCalculateFitZoom(zoomMode, out var fitZoom))
+        if (!TryCalculateFitZoom(zoomMode, out double fitZoom))
         {
             return false;
         }
 
         fitZoom = Math.Clamp(fitZoom, MinZoom, MaxZoom);
 
-        var zoomChanged = Math.Abs(GetCurrentZoomFactor() - fitZoom) > ZoomComparisonTolerance;
-        var zoomModeChanged = CurrentZoomMode != zoomMode;
-        var shouldEnableImageAutoFit = IsCurrentImageDocument && zoomMode is ZoomMode.FitToPage;
+        bool zoomChanged = Math.Abs(GetCurrentZoomFactor() - fitZoom) > ZoomComparisonTolerance;
+        bool zoomModeChanged = CurrentZoomMode != zoomMode;
+        bool shouldEnableImageAutoFit = IsCurrentImageDocument && zoomMode is ZoomMode.FitToPage;
 
         if (_isImageAutoFitEnabled != shouldEnableImageAutoFit)
         {
@@ -3730,10 +3730,10 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private bool TryCalculateFitZoom(ZoomMode zoomMode, out double fitZoom)
     {
-        var availableWidth = Math.Max(1, _documentViewportWidth - (ViewerContentPadding * 2));
-        var availableHeight = Math.Max(1, _documentViewportHeight - (ViewerContentPadding * 2));
-        var rotation = GetCurrentRotation();
-        var currentZoomFactor = GetCurrentZoomFactor();
+        double availableWidth = Math.Max(1, _documentViewportWidth - (ViewerContentPadding * 2));
+        double availableHeight = Math.Max(1, _documentViewportHeight - (ViewerContentPadding * 2));
+        Rotation rotation = GetCurrentRotation();
+        double currentZoomFactor = GetCurrentZoomFactor();
 
         if (_documentSessionStore.Current is IImageDocumentSession imageSession)
         {
@@ -3780,7 +3780,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private bool TryUpdateZoom(double zoomFactor, ZoomMode zoomMode)
     {
-        var result = _changeZoomUseCase.Execute(
+        Result<ViewportState> result = _changeZoomUseCase.Execute(
             new ChangeZoomRequest(zoomFactor, zoomMode));
 
         if (result.IsFailure)
@@ -3796,7 +3796,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private bool TryUpdateRotation(Rotation rotation)
     {
-        var result = _rotateDocumentUseCase.Execute(
+        Result<ViewportState> result = _rotateDocumentUseCase.Execute(
             new RotateDocumentRequest(rotation));
 
         if (result.IsFailure)
@@ -3817,8 +3817,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return false;
         }
 
-        var zoomMode = CurrentZoomMode;
-        var targetZoom = _documentSessionStore.CurrentViewport?.ZoomFactor ?? 1.0;
+        ZoomMode zoomMode = CurrentZoomMode;
+        double targetZoom = _documentSessionStore.CurrentViewport?.ZoomFactor ?? 1.0;
 
         return TryUpdateZoom(targetZoom, zoomMode);
     }
@@ -3915,7 +3915,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private void RefreshThumbnailDisplayNumbers()
     {
-        for (var i = 0; i < Thumbnails.Count; i++)
+        for (int i = 0; i < Thumbnails.Count; i++)
         {
             Thumbnails[i].DisplayPageNumber = i + 1;
         }
@@ -3923,7 +3923,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private int GetCurrentThumbnailIndex()
     {
-        for (var i = 0; i < Thumbnails.Count; i++)
+        for (int i = 0; i < Thumbnails.Count; i++)
         {
             if (Thumbnails[i].SourcePageNumber == CurrentPage)
             {
@@ -3953,7 +3953,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(successStatus);
         ArgumentException.ThrowIfNullOrWhiteSpace(failureTitle);
 
-        var outputPath = await _filePickerService.PickSavePdfFileAsync(title, suggestedFileName);
+        string? outputPath = await _filePickerService.PickSavePdfFileAsync(title, suggestedFileName);
         if (string.IsNullOrWhiteSpace(outputPath))
         {
             StatusText = L("status.save.cancelled");
@@ -3964,7 +3964,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             SetPdfStructureOperationState(true);
 
-            var result = await executeOperation(outputPath);
+            Result<string> result = await executeOperation(outputPath);
             if (result.IsFailure)
             {
                 EnqueueLocalizedError(result.Error, "error.save.document.title", "error.save.document.message");
@@ -3995,26 +3995,26 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return ResultFactory.Success(outputPath);
         }
 
-        var intermediateDirectory = Path.Combine(
+        string intermediateDirectory = Path.Combine(
             Path.GetTempPath(),
             "velune-pdf-rotations",
             Guid.NewGuid().ToString("N"));
 
         Directory.CreateDirectory(intermediateDirectory);
 
-        var currentInputPath = sourcePath;
+        string currentInputPath = sourcePath;
 
         try
         {
-            for (var i = 0; i < pendingRotations.Count; i++)
+            for (int i = 0; i < pendingRotations.Count; i++)
             {
-                var group = pendingRotations[i];
-                var isLastGroup = i == pendingRotations.Count - 1;
-                var currentOutputPath = isLastGroup
+                PendingPdfRotationGroup group = pendingRotations[i];
+                bool isLastGroup = i == pendingRotations.Count - 1;
+                string currentOutputPath = isLastGroup
                     ? outputPath
                     : Path.Combine(intermediateDirectory, $"rotation-step-{i + 1}.pdf");
 
-                var result = await _rotatePdfPagesUseCase.ExecuteAsync(
+                Result<string> result = await _rotatePdfPagesUseCase.ExecuteAsync(
                     new RotatePdfPagesRequest(
                         currentInputPath,
                         currentOutputPath,
@@ -4080,20 +4080,20 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         if (!TryResolveRequestedSavePath(
                 currentDocumentPath,
-                out var targetDocumentPath,
-                out var targetFileName,
-                out var validationError))
+                out string? targetDocumentPath,
+                out string? targetFileName,
+                out string? validationError))
         {
             EnqueueWarning(L("status.save_name.invalid"), validationError ?? L("validation.file_name.save_default"));
             StatusText = L("status.save_name.invalid");
             return;
         }
 
-        var temporaryDirectory = Path.Combine(
+        string temporaryDirectory = Path.Combine(
             Path.GetTempPath(),
             "velune-pdf-save",
             Guid.NewGuid().ToString("N"));
-        var temporaryOutputPath = Path.Combine(temporaryDirectory, targetFileName);
+        string temporaryOutputPath = Path.Combine(temporaryDirectory, targetFileName);
 
         Directory.CreateDirectory(temporaryDirectory);
 
@@ -4101,7 +4101,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         {
             SetPdfStructureOperationState(true);
 
-            var result = await executeOperation(temporaryOutputPath);
+            Result<string> result = await executeOperation(temporaryOutputPath);
             if (result.IsFailure)
             {
                 EnqueueLocalizedError(result.Error, "error.save.document.title", "error.save.document.message");
@@ -4158,27 +4158,27 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         ArgumentNullException.ThrowIfNull(pendingRotations);
         ArgumentNullException.ThrowIfNull(orderedPages);
 
-        var intermediateDirectory = Path.Combine(
+        string intermediateDirectory = Path.Combine(
             Path.GetTempPath(),
             "velune-pdf-save-steps",
             Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(intermediateDirectory);
 
-        var currentInputPath = sourcePath;
+        string currentInputPath = sourcePath;
 
         try
         {
             if (pendingRotations.Count > 0)
             {
-                for (var i = 0; i < pendingRotations.Count; i++)
+                for (int i = 0; i < pendingRotations.Count; i++)
                 {
-                    var group = pendingRotations[i];
-                    var requiresAdditionalStep = hasPendingReorder || i < pendingRotations.Count - 1;
-                    var currentOutputPath = requiresAdditionalStep
+                    PendingPdfRotationGroup group = pendingRotations[i];
+                    bool requiresAdditionalStep = hasPendingReorder || i < pendingRotations.Count - 1;
+                    string currentOutputPath = requiresAdditionalStep
                         ? Path.Combine(intermediateDirectory, $"rotation-step-{i + 1}.pdf")
                         : outputPath;
 
-                    var rotationResult = await _rotatePdfPagesUseCase.ExecuteAsync(
+                    Result<string> rotationResult = await _rotatePdfPagesUseCase.ExecuteAsync(
                         new RotatePdfPagesRequest(
                             currentInputPath,
                             currentOutputPath,
@@ -4196,7 +4196,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
             if (hasPendingReorder)
             {
-                var reorderResult = await _reorderPdfPagesUseCase.ExecuteAsync(
+                Result<string> reorderResult = await _reorderPdfPagesUseCase.ExecuteAsync(
                     new ReorderPdfPagesRequest(
                         currentInputPath,
                         outputPath,
@@ -4230,7 +4230,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private async Task ExtractPageAsync(int sourcePageNumber, string pageLabel)
     {
-        var currentDocumentPath = CurrentDocumentPath;
+        string? currentDocumentPath = CurrentDocumentPath;
         if (string.IsNullOrWhiteSpace(currentDocumentPath))
         {
             return;
@@ -4250,27 +4250,27 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private async Task DeletePageAsync(int sourcePageNumber, string pageLabel)
     {
-        var currentDocumentPath = CurrentDocumentPath;
+        string? currentDocumentPath = CurrentDocumentPath;
         if (string.IsNullOrWhiteSpace(currentDocumentPath))
         {
             return;
         }
 
-        var hasExistingPendingSave = _hasPendingMergedDocumentSave;
-        var requiresSavePicker = hasExistingPendingSave && _pendingMergedDocumentRequiresSavePicker;
-        var targetDocumentPath = requiresSavePicker
+        bool hasExistingPendingSave = _hasPendingMergedDocumentSave;
+        bool requiresSavePicker = hasExistingPendingSave && _pendingMergedDocumentRequiresSavePicker;
+        string? targetDocumentPath = requiresSavePicker
             ? null
             : _pendingMergedDocumentTargetPath ?? currentDocumentPath;
-        var suggestedFileName = BuildSuggestedPdfFileName();
-        var previewDirectory = CreateMergeTemporaryDirectory();
-        var previewOutputPath = Path.Combine(previewDirectory, suggestedFileName);
-        var keepPreviewDirectory = false;
+        string suggestedFileName = BuildSuggestedPdfFileName();
+        string previewDirectory = CreateMergeTemporaryDirectory();
+        string previewOutputPath = Path.Combine(previewDirectory, suggestedFileName);
+        bool keepPreviewDirectory = false;
 
         try
         {
             SetPdfStructureOperationState(true);
 
-            var result = await _deletePdfPagesUseCase.ExecuteAsync(
+            Result<string> result = await _deletePdfPagesUseCase.ExecuteAsync(
                 new DeletePdfPagesRequest(
                     currentDocumentPath,
                     previewOutputPath,
@@ -4282,8 +4282,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
                 return;
             }
 
-            var displayFileName = CurrentDocumentName ?? suggestedFileName;
-            var previewPath = result.Value ?? previewOutputPath;
+            string displayFileName = CurrentDocumentName ?? suggestedFileName;
+            string previewPath = result.Value ?? previewOutputPath;
             await OpenDocumentFromPathAsync(
                 previewPath,
                 addToRecentFiles: false,
@@ -4318,7 +4318,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private string BuildSuggestedPdfFileName()
     {
-        var resolvedFileName = ResolveRequestedDocumentFileName();
+        string resolvedFileName = ResolveRequestedDocumentFileName();
         return string.IsNullOrWhiteSpace(resolvedFileName)
             ? L("document.file_name.default")
             : resolvedFileName;
@@ -4328,8 +4328,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         ArgumentNullException.ThrowIfNull(sourcePaths);
 
-        var firstSourcePath = sourcePaths.FirstOrDefault(path => !string.IsNullOrWhiteSpace(path));
-        var baseFileName = string.IsNullOrWhiteSpace(firstSourcePath)
+        string? firstSourcePath = sourcePaths.FirstOrDefault(path => !string.IsNullOrWhiteSpace(path));
+        string baseFileName = string.IsNullOrWhiteSpace(firstSourcePath)
             ? Path.GetFileNameWithoutExtension(L("document.file_name.default"))
             : Path.GetFileNameWithoutExtension(firstSourcePath);
 
@@ -4343,7 +4343,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private string ResolveRequestedDocumentFileName()
     {
-        var candidate = string.IsNullOrWhiteSpace(EditableDocumentName)
+        string? candidate = string.IsNullOrWhiteSpace(EditableDocumentName)
             ? Path.GetFileName(CurrentDocumentName)
             : EditableDocumentName.Trim();
 
@@ -4398,12 +4398,12 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private bool HasPendingRequestedSaveNameChange()
     {
-        var currentDocumentPath = CurrentDocumentPath;
+        string? currentDocumentPath = CurrentDocumentPath;
         if (!IsPdfDocument ||
             string.IsNullOrWhiteSpace(currentDocumentPath) ||
             !TryResolveRequestedSavePath(
                 currentDocumentPath,
-                out var targetDocumentPath,
+                out string? targetDocumentPath,
                 out _,
                 out _))
         {
@@ -4430,7 +4430,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return false;
         }
 
-        var currentDirectory = Path.GetDirectoryName(currentDocumentPath);
+        string? currentDirectory = Path.GetDirectoryName(currentDocumentPath);
         if (string.IsNullOrWhiteSpace(currentDirectory))
         {
             validationError = L("validation.file_name.directory_missing");
@@ -4449,7 +4449,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private string AppendCurrentDocumentExtension(string fileName)
     {
-        var extension = Path.GetExtension(CurrentDocumentPath);
+        string? extension = Path.GetExtension(CurrentDocumentPath);
         return string.IsNullOrWhiteSpace(extension)
             ? $"{fileName}.pdf"
             : $"{fileName}{extension}";
@@ -4457,7 +4457,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
     private static bool PathsEqual(string leftPath, string rightPath)
     {
-        var comparison = OperatingSystem.IsWindows()
+        StringComparison comparison = OperatingSystem.IsWindows()
             ? StringComparison.OrdinalIgnoreCase
             : StringComparison.Ordinal;
 
@@ -4502,8 +4502,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
 
         try
         {
-            var updatedPreferences = BuildUserPreferencesFromUi();
-            var languageChanged = _userPreferencesService.Current.Language != updatedPreferences.Language;
+            UserPreferences updatedPreferences = BuildUserPreferencesFromUi();
+            bool languageChanged = _userPreferencesService.Current.Language != updatedPreferences.Language;
 
             await _userPreferencesService.SaveAsync(updatedPreferences);
 
@@ -4573,7 +4573,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var insertionIndex = 0;
+        int insertionIndex = 0;
         while (insertionIndex < MemoryCacheEntryLimitOptions.Count &&
                MemoryCacheEntryLimitOptions[insertionIndex] < entryLimit)
         {
@@ -4665,7 +4665,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
         bool replaceCurrent = false,
         params object?[] fallbackArguments)
     {
-        var presentation = _localizedErrorFormatter.Format(error, fallbackTitleKey, fallbackMessageKey, fallbackArguments);
+        LocalizedErrorPresentation presentation = _localizedErrorFormatter.Format(error, fallbackTitleKey, fallbackMessageKey, fallbackArguments);
         EnqueueError(presentation.Message, presentation.Title, replaceCurrent);
     }
 
@@ -4790,7 +4790,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         RecentFiles.Clear();
 
-        foreach (var item in _recentFilesService.GetAll())
+        foreach (RecentFileItem item in _recentFilesService.GetAll())
         {
             RecentFiles.Add(item with
             {
@@ -4808,7 +4808,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
     {
         ArgumentNullException.ThrowIfNull(item);
 
-        var extension = Path.GetExtension(item.FilePath);
+        string extension = Path.GetExtension(item.FilePath);
         if (Velune.Application.Documents.SupportedDocumentFormats.IsPdf(extension))
         {
             return L("document.type.pdf");
@@ -4981,8 +4981,8 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             L("document.file_size.gb"),
             L("document.file_size.tb")
         ];
-        var size = (double)fileSizeInBytes;
-        var unitIndex = 0;
+        double size = (double)fileSizeInBytes;
+        int unitIndex = 0;
 
         while (size >= 1024 && unitIndex < units.Length - 1)
         {
@@ -4990,7 +4990,7 @@ public partial class MainWindowViewModel : ObservableObject, IDisposable
             unitIndex++;
         }
 
-        var format = unitIndex == 0 ? "0" : "0.#";
+        string format = unitIndex == 0 ? "0" : "0.#";
         return $"{size.ToString(format, CultureInfo.CurrentCulture)} {units[unitIndex]}";
     }
 

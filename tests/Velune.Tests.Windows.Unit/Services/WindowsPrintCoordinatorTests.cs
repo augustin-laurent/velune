@@ -9,15 +9,16 @@ using Velune.Domain.ValueObjects;
 using Velune.Windows.Services;
 using Velune.Windows.ViewModels;
 using Windows.Foundation;
+using Velune.Application.Results;
 
 namespace Velune.Tests.Windows.Unit.Services;
 
-public sealed class WindowsPrintCoordinatorTests
+public sealed partial class WindowsPrintCoordinatorTests
 {
     [Fact]
     public void CreatePageIndices_ReturnsAllPages()
     {
-        var pages = WindowsPrintPageSnapshotFactory.CreatePageIndices(3);
+        IReadOnlyList<PageIndex> pages = WindowsPrintPageSnapshotFactory.CreatePageIndices(3);
 
         Assert.Equal([0, 1, 2], pages.Select(page => page.Value));
     }
@@ -25,14 +26,14 @@ public sealed class WindowsPrintCoordinatorTests
     [Fact]
     public void CaptureAnnotationsForPage_FiltersAndCopiesPageAnnotations()
     {
-        var firstPageAnnotation = CreateRectangleAnnotation(0);
-        var secondPageAnnotation = CreateRectangleAnnotation(1);
+        DocumentAnnotation firstPageAnnotation = CreateRectangleAnnotation(0);
+        DocumentAnnotation secondPageAnnotation = CreateRectangleAnnotation(1);
 
-        var captured = WindowsPrintPageSnapshotFactory.CaptureAnnotationsForPage(
+        IReadOnlyList<DocumentAnnotation> captured = WindowsPrintPageSnapshotFactory.CaptureAnnotationsForPage(
             [firstPageAnnotation, secondPageAnnotation],
             new PageIndex(1));
 
-        var annotation = Assert.Single(captured);
+        DocumentAnnotation annotation = Assert.Single(captured);
         Assert.Equal(secondPageAnnotation.Id, annotation.Id);
         Assert.NotSame(secondPageAnnotation, annotation);
     }
@@ -41,19 +42,19 @@ public sealed class WindowsPrintCoordinatorTests
     public void CreatePrintJobSnapshot_CapturesPrintableTabState()
     {
         var sessionId = DocumentId.New();
-        var tab = CreateTab(sessionId, "sample.pdf");
+        WindowsDocumentTabViewModel tab = CreateTab(sessionId, "sample.pdf");
         tab.Title = " ";
         tab.TotalPages = 2;
-        var annotation = CreateRectangleAnnotation(0);
+        DocumentAnnotation annotation = CreateRectangleAnnotation(0);
         tab.Annotations.Add(annotation);
 
-        var snapshot = WindowsPrintJobSnapshotFactory.Create(tab, "Velune");
+        WindowsPrintJobSnapshot snapshot = WindowsPrintJobSnapshotFactory.Create(tab, "Velune");
 
         Assert.Equal(sessionId, snapshot.SessionId);
         Assert.Equal("Velune", snapshot.Title);
         Assert.Equal(2, snapshot.TotalPages);
         Assert.Equal(Rotation.Deg0, snapshot.Rotation);
-        var capturedAnnotation = Assert.Single(snapshot.Annotations);
+        DocumentAnnotation capturedAnnotation = Assert.Single(snapshot.Annotations);
         Assert.Equal(annotation.Id, capturedAnnotation.Id);
         Assert.NotSame(annotation, capturedAnnotation);
     }
@@ -61,7 +62,7 @@ public sealed class WindowsPrintCoordinatorTests
     [Fact]
     public void Calculate_CentersContentInsideImageableArea()
     {
-        var layout = WindowsPrintLayoutCalculator.Calculate(
+        WindowsPrintContentLayout layout = WindowsPrintLayoutCalculator.Calculate(
             new WindowsPrintPageDescription(
                 new Size(1000, 1000),
                 new Rect(100, 50, 800, 600)),
@@ -78,7 +79,7 @@ public sealed class WindowsPrintCoordinatorTests
     public async Task PrintAsync_ReturnsMissingFile_WhenDocumentPathNoLongerExists()
     {
         var sessionId = DocumentId.New();
-        var missingPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.pdf");
+        string missingPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.pdf");
         var sessionStore = new InMemoryDocumentSessionStore();
         sessionStore.Add(CreateSession(sessionId, missingPath), makeActive: true);
         using var renderOrchestrator = new StubRenderOrchestrator();
@@ -87,9 +88,9 @@ public sealed class WindowsPrintCoordinatorTests
             sessionStore,
             renderOrchestrator,
             new StubWindowsTextCatalog());
-        var tab = CreateTab(sessionId, missingPath);
+        WindowsDocumentTabViewModel tab = CreateTab(sessionId, missingPath);
 
-        var result = await coordinator.PrintAsync(tab);
+        Result result = await coordinator.PrintAsync(tab);
 
         Assert.True(result.IsFailure);
         Assert.Equal("print.file.missing", result.Error?.Code);
@@ -107,12 +108,12 @@ public sealed class WindowsPrintCoordinatorTests
             renderOrchestrator,
             new StubWindowsTextCatalog());
 
-        var filePath = Path.GetTempFileName();
+        string filePath = Path.GetTempFileName();
         try
         {
-            var tab = CreateTab(sessionId, filePath);
+            WindowsDocumentTabViewModel tab = CreateTab(sessionId, filePath);
 
-            var result = await coordinator.PrintAsync(tab);
+            Result result = await coordinator.PrintAsync(tab);
 
             Assert.True(result.IsFailure);
             Assert.Equal("print.session.missing", result.Error?.Code);
@@ -139,7 +140,7 @@ public sealed class WindowsPrintCoordinatorTests
 
     private static void SetReadOnlyProperty<T>(WindowsDocumentTabViewModel tab, string propertyName, T value)
     {
-        var backingField = typeof(WindowsDocumentTabViewModel).GetField(
+        FieldInfo? backingField = typeof(WindowsDocumentTabViewModel).GetField(
             $"<{propertyName}>k__BackingField",
             BindingFlags.Instance | BindingFlags.NonPublic);
 
@@ -181,7 +182,7 @@ public sealed class WindowsPrintCoordinatorTests
         public string Format(string key, params object[] args) => $"{key}: {string.Join(", ", args)}";
     }
 
-    private sealed class StubRenderOrchestrator : IRenderOrchestrator
+    private sealed partial class StubRenderOrchestrator : IRenderOrchestrator
     {
         public int SubmitCount
         {

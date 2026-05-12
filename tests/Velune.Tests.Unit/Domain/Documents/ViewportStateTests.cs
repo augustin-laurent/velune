@@ -8,7 +8,7 @@ public sealed class ViewportStateTests
     [Fact]
     public void DefaultViewportState_ShouldHaveExpectedDefaults()
     {
-        var viewport = ViewportState.Default;
+        ViewportState viewport = ViewportState.Default;
 
         Assert.Equal(new PageIndex(0), viewport.CurrentPage);
         Assert.Equal(1.0, viewport.ZoomFactor);

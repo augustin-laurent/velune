@@ -55,8 +55,8 @@ public sealed partial class JsonUserPreferencesService : IUserPreferencesService
     {
         ArgumentNullException.ThrowIfNull(preferences);
 
-        var normalizedPreferences = preferences.Normalize(_defaultMemoryCacheEntryLimit);
-        var directory = Path.GetDirectoryName(_filePath);
+        UserPreferences normalizedPreferences = preferences.Normalize(_defaultMemoryCacheEntryLimit);
+        string? directory = Path.GetDirectoryName(_filePath);
 
         await _saveLock.WaitAsync(cancellationToken);
         try
@@ -66,7 +66,7 @@ public sealed partial class JsonUserPreferencesService : IUserPreferencesService
                 Directory.CreateDirectory(directory);
             }
 
-            await using var stream = File.Create(_filePath);
+            await using FileStream stream = File.Create(_filePath);
             await JsonSerializer.SerializeAsync(
                 stream,
                 normalizedPreferences,
@@ -97,7 +97,7 @@ public sealed partial class JsonUserPreferencesService : IUserPreferencesService
 
         try
         {
-            var json = File.ReadAllText(_filePath);
+            string json = File.ReadAllText(_filePath);
             if (string.IsNullOrWhiteSpace(json))
             {
                 return UserPreferences.CreateDefault(_defaultMemoryCacheEntryLimit);
@@ -135,10 +135,10 @@ public sealed partial class JsonUserPreferencesService : IUserPreferencesService
             return options.UserPreferencesPath;
         }
 
-        var applicationName = string.IsNullOrWhiteSpace(options.Name)
+        string applicationName = string.IsNullOrWhiteSpace(options.Name)
             ? "Velune"
             : options.Name;
-        var applicationDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        string applicationDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
 
         return Path.Combine(applicationDataPath, applicationName, "preferences.json");
     }

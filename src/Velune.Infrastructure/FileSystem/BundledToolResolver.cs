@@ -27,7 +27,7 @@ internal static class BundledToolResolver
             return Create(configuredExecutablePath, toolDirectoryName);
         }
 
-        foreach (var candidatePath in EnumerateBundledExecutableCandidates(defaultExecutableName, toolDirectoryName))
+        foreach (string candidatePath in EnumerateBundledExecutableCandidates(defaultExecutableName, toolDirectoryName))
         {
             if (File.Exists(candidatePath))
             {
@@ -45,26 +45,7 @@ internal static class BundledToolResolver
     /// <returns>The resolved tessdata path, or null if not found.</returns>
     internal static string? ResolveTesseractDataPath(string? configuredDataPath)
     {
-        if (!string.IsNullOrWhiteSpace(configuredDataPath))
-        {
-            return configuredDataPath;
-        }
-
-        foreach (var baseDirectory in EnumerateBaseDirectories())
-        {
-            var candidatePath = Path.Combine(
-                baseDirectory,
-                ToolsDirectoryName,
-                "tesseract",
-                "tessdata");
-
-            if (Directory.Exists(candidatePath))
-            {
-                return candidatePath;
-            }
-        }
-
-        return null;
+        return !string.IsNullOrWhiteSpace(configuredDataPath) ? configuredDataPath : EnumerateBaseDirectories().Select(baseDirectory => Path.Combine(baseDirectory, ToolsDirectoryName, "tesseract", "tessdata")).FirstOrDefault(Directory.Exists);
     }
 
     /// <summary>
@@ -88,7 +69,7 @@ internal static class BundledToolResolver
 
     private static BundledTool Create(string executablePath, string toolDirectoryName)
     {
-        var libraryDirectories = EnumerateNativeLibraryDirectories(executablePath, toolDirectoryName)
+        string[] libraryDirectories = EnumerateNativeLibraryDirectories(executablePath, toolDirectoryName)
             .Distinct(StringComparer.Ordinal)
             .ToArray();
 
@@ -111,11 +92,11 @@ internal static class BundledToolResolver
         string defaultExecutableName,
         string toolDirectoryName)
     {
-        var executableName = WithPlatformExtension(defaultExecutableName);
+        string executableName = WithPlatformExtension(defaultExecutableName);
 
-        foreach (var baseDirectory in EnumerateBaseDirectories())
+        foreach (string baseDirectory in EnumerateBaseDirectories())
         {
-            var toolRoot = Path.Combine(baseDirectory, ToolsDirectoryName, toolDirectoryName);
+            string toolRoot = Path.Combine(baseDirectory, ToolsDirectoryName, toolDirectoryName);
 
             yield return Path.Combine(toolRoot, executableName);
             yield return Path.Combine(toolRoot, "bin", executableName);
@@ -129,7 +110,7 @@ internal static class BundledToolResolver
         if (OperatingSystem.IsMacOS())
         {
             var macOsDirectory = new DirectoryInfo(AppContext.BaseDirectory);
-            var contentsDirectory = macOsDirectory.Parent;
+            DirectoryInfo? contentsDirectory = macOsDirectory.Parent;
             if (contentsDirectory?.Name == "Contents")
             {
                 yield return contentsDirectory.FullName;
@@ -147,16 +128,16 @@ internal static class BundledToolResolver
             yield return executableDirectory;
         }
 
-        foreach (var baseDirectory in EnumerateBaseDirectories())
+        foreach (string baseDirectory in EnumerateBaseDirectories())
         {
-            var toolRoot = Path.Combine(baseDirectory, ToolsDirectoryName, toolDirectoryName);
-            var toolLibDirectory = Path.Combine(toolRoot, "lib");
+            string toolRoot = Path.Combine(baseDirectory, ToolsDirectoryName, toolDirectoryName);
+            string toolLibDirectory = Path.Combine(toolRoot, "lib");
             if (Directory.Exists(toolLibDirectory))
             {
                 yield return toolLibDirectory;
             }
 
-            var sharedLibDirectory = Path.Combine(baseDirectory, ToolsDirectoryName, "lib");
+            string sharedLibDirectory = Path.Combine(baseDirectory, ToolsDirectoryName, "lib");
             if (Directory.Exists(sharedLibDirectory))
             {
                 yield return sharedLibDirectory;
@@ -192,11 +173,11 @@ internal static class BundledToolResolver
         string variableName,
         IReadOnlyList<string> values)
     {
-        var separator = Path.PathSeparator.ToString();
-        var existingValue = startInfo.Environment.TryGetValue(variableName, out var value)
+        string separator = Path.PathSeparator.ToString();
+        string? existingValue = startInfo.Environment.TryGetValue(variableName, out string? value)
             ? value
             : Environment.GetEnvironmentVariable(variableName);
-        var prefix = string.Join(separator, values);
+        string prefix = string.Join(separator, values);
 
         startInfo.Environment[variableName] = string.IsNullOrWhiteSpace(existingValue)
             ? prefix

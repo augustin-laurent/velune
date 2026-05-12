@@ -7,7 +7,7 @@ public sealed class ResultTest
     [Fact]
     public void Success_ShouldCreateSuccessfulNonGenericResult()
     {
-        var result = ResultFactory.Success();
+        Velune.Application.Results.Result result = ResultFactory.Success();
 
         Assert.True(result.IsSuccess);
         Assert.False(result.IsFailure);
@@ -19,7 +19,7 @@ public sealed class ResultTest
     {
         var error = AppError.Validation("validation.failed", "Validation failed.");
 
-        var result = ResultFactory.Failure(error);
+        Velune.Application.Results.Result result = ResultFactory.Failure(error);
 
         Assert.False(result.IsSuccess);
         Assert.True(result.IsFailure);
@@ -29,7 +29,7 @@ public sealed class ResultTest
     [Fact]
     public void GenericSuccess_ShouldCreateSuccessfulResultWithValue()
     {
-        var result = ResultFactory.Success(42);
+        Result<int> result = ResultFactory.Success(42);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(42, result.Value);
@@ -41,7 +41,7 @@ public sealed class ResultTest
     {
         var error = AppError.NotFound("document.missing", "Document not found.");
 
-        var result = ResultFactory.Failure<string>(error);
+        Result<string> result = ResultFactory.Failure<string>(error);
 
         Assert.True(result.IsFailure);
         Assert.Equal(error, result.Error);

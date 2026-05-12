@@ -9,31 +9,31 @@ namespace Velune.Windows.Services;
 /// <summary>
 /// Converts a boolean value to <see cref="Visibility"/> (true = Visible).
 /// </summary>
-public sealed class BoolToVisibilityConverter : IValueConverter
+public sealed partial class BoolToVisibilityConverter : IValueConverter
 {
     /// <inheritdoc />
     public object Convert(object value, Type targetType, object parameter, string language)
     {
-        var visible = value is bool boolValue && boolValue;
+        bool visible = value is true;
         return visible ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <inheritdoc />
     public object ConvertBack(object value, Type targetType, object parameter, string language)
     {
-        return value is Visibility visibility && visibility == Visibility.Visible;
+        return value is Visibility.Visible;
     }
 }
 
 /// <summary>
 /// Converts a boolean value to <see cref="Visibility"/> (true = Collapsed).
 /// </summary>
-public sealed class InverseBoolToVisibilityConverter : IValueConverter
+public sealed partial class InverseBoolToVisibilityConverter : IValueConverter
 {
     /// <inheritdoc />
     public object Convert(object value, Type targetType, object parameter, string language)
     {
-        var visible = value is not bool boolValue || !boolValue;
+        bool visible = value is not true;
         return visible ? Visibility.Visible : Visibility.Collapsed;
     }
 
@@ -47,26 +47,26 @@ public sealed class InverseBoolToVisibilityConverter : IValueConverter
 /// <summary>
 /// Returns a highlighted brush when the bound annotation tool matches the parameter tool.
 /// </summary>
-public sealed class AnnotationToolBackgroundConverter : IValueConverter
+public sealed partial class AnnotationToolBackgroundConverter : IValueConverter
 {
-    private static readonly SolidColorBrush SelectedBrush = new(global::Windows.UI.Color.FromArgb(255, 0, 120, 212));
-    private static readonly SolidColorBrush TransparentBrush = new(global::Windows.UI.Color.FromArgb(0, 0, 0, 0));
-
-    /// <inheritdoc />
     public object Convert(object value, Type targetType, object parameter, string language)
     {
         if (parameter is not string toolName ||
             !Enum.TryParse(toolName, ignoreCase: true, out AnnotationTool targetTool))
         {
-            return TransparentBrush;
+            return new SolidColorBrush(global::Windows.UI.Color.FromArgb(0, 0, 0, 0));
         }
 
-        return value is AnnotationTool selectedTool && selectedTool == targetTool
-            ? SelectedBrush
-            : TransparentBrush;
+        if (value is AnnotationTool selectedTool && selectedTool == targetTool)
+        {
+            return Microsoft.UI.Xaml.Application.Current.Resources.TryGetValue("AccentBgBrush", out object? brush) && brush is SolidColorBrush accentBrush
+                ? accentBrush
+                : new SolidColorBrush(global::Windows.UI.Color.FromArgb(255, 0, 120, 212));
+        }
+
+        return new SolidColorBrush(global::Windows.UI.Color.FromArgb(0, 0, 0, 0));
     }
 
-    /// <inheritdoc />
     public object ConvertBack(object value, Type targetType, object parameter, string language)
     {
         return DependencyProperty.UnsetValue;
@@ -76,18 +76,22 @@ public sealed class AnnotationToolBackgroundConverter : IValueConverter
 /// <summary>
 /// Converts a boolean selection state to a highlighted or default background brush.
 /// </summary>
-public sealed class BoolToSelectedToolBackgroundConverter : IValueConverter
+public sealed partial class BoolToSelectedToolBackgroundConverter : IValueConverter
 {
-    private static readonly SolidColorBrush SelectedBrush = new(global::Windows.UI.Color.FromArgb(255, 0, 120, 212));
-    private static readonly SolidColorBrush DefaultBrush = new(global::Windows.UI.Color.FromArgb(31, 255, 255, 255));
-
-    /// <inheritdoc />
     public object Convert(object value, Type targetType, object parameter, string language)
     {
-        return value is true ? SelectedBrush : DefaultBrush;
+        if (value is true)
+        {
+            return Microsoft.UI.Xaml.Application.Current.Resources.TryGetValue("AccentBgBrush", out object? brush) && brush is SolidColorBrush accentBrush
+                ? accentBrush
+                : new SolidColorBrush(global::Windows.UI.Color.FromArgb(255, 0, 120, 212));
+        }
+
+        return Microsoft.UI.Xaml.Application.Current.Resources.TryGetValue("CardBrush", out object? defaultBrush) && defaultBrush is SolidColorBrush cardBrush
+            ? cardBrush
+            : new SolidColorBrush(global::Windows.UI.Color.FromArgb(31, 255, 255, 255));
     }
 
-    /// <inheritdoc />
     public object ConvertBack(object value, Type targetType, object parameter, string language)
     {
         return DependencyProperty.UnsetValue;
@@ -97,7 +101,7 @@ public sealed class BoolToSelectedToolBackgroundConverter : IValueConverter
 /// <summary>
 /// Returns Visible when the file path has a .pdf extension.
 /// </summary>
-public sealed class RecentFilePdfVisibilityConverter : IValueConverter
+public sealed partial class RecentFilePdfVisibilityConverter : IValueConverter
 {
     /// <inheritdoc />
     public object Convert(object value, Type targetType, object parameter, string language)
@@ -125,7 +129,7 @@ public sealed class RecentFilePdfVisibilityConverter : IValueConverter
 /// <summary>
 /// Returns Visible when the file path is a non-PDF (image) file.
 /// </summary>
-public sealed class RecentFileImageVisibilityConverter : IValueConverter
+public sealed partial class RecentFileImageVisibilityConverter : IValueConverter
 {
     /// <inheritdoc />
     public object Convert(object value, Type targetType, object parameter, string language)
@@ -148,25 +152,45 @@ public sealed class RecentFileImageVisibilityConverter : IValueConverter
 /// <summary>
 /// Returns an accent brush color based on the file extension (PDF, WebP, or image).
 /// </summary>
-public sealed class RecentFileBrushConverter : IValueConverter
+public sealed partial class RecentFileBrushConverter : IValueConverter
 {
     private static readonly SolidColorBrush PdfBrush = new(global::Windows.UI.Color.FromArgb(255, 232, 35, 46));
-    private static readonly SolidColorBrush ImageBrush = new(global::Windows.UI.Color.FromArgb(255, 0, 102, 216));
     private static readonly SolidColorBrush WebpBrush = new(global::Windows.UI.Color.FromArgb(255, 45, 145, 111));
 
-    /// <inheritdoc />
     public object Convert(object value, Type targetType, object parameter, string language)
     {
-        var extension = Path.GetExtension(value as string)?.ToLowerInvariant() ?? string.Empty;
+        string extension = Path.GetExtension(value as string)?.ToLowerInvariant() ?? string.Empty;
         return extension switch
         {
             ".pdf" => PdfBrush,
             ".webp" => WebpBrush,
-            _ => ImageBrush
+            _ => Microsoft.UI.Xaml.Application.Current.Resources.TryGetValue("AccentBgBrush", out object? brush) && brush is SolidColorBrush accentBrush
+                ? accentBrush
+                : new SolidColorBrush(global::Windows.UI.Color.FromArgb(255, 0, 102, 216))
         };
     }
 
-    /// <inheritdoc />
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+    {
+        return DependencyProperty.UnsetValue;
+    }
+}
+
+/// <summary>
+/// Subtracts the parameter value from the bound double value.
+/// </summary>
+public sealed partial class SubtractConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+    {
+        if (value is double d && parameter is string s && double.TryParse(s, CultureInfo.InvariantCulture, out double subtract))
+        {
+            return d - subtract;
+        }
+
+        return value;
+    }
+
     public object ConvertBack(object value, Type targetType, object parameter, string language)
     {
         return DependencyProperty.UnsetValue;
@@ -176,7 +200,7 @@ public sealed class RecentFileBrushConverter : IValueConverter
 /// <summary>
 /// Converts a <see cref="DateTimeOffset"/> to a localized relative date string (e.g. "Today at 10:30").
 /// </summary>
-public sealed class RecentFileOpenedAtConverter : IValueConverter
+public sealed partial class RecentFileOpenedAtConverter : IValueConverter
 {
     /// <inheritdoc />
     public object Convert(object value, Type targetType, object parameter, string language)
@@ -187,10 +211,10 @@ public sealed class RecentFileOpenedAtConverter : IValueConverter
             return string.Empty;
         }
 
-        var local = openedAt.ToLocalTime().DateTime;
-        var today = DateTime.Today;
-        var culture = CultureInfo.CurrentUICulture;
-        var languageName = culture.TwoLetterISOLanguageName;
+        DateTime local = openedAt.ToLocalTime().DateTime;
+        DateTime today = DateTime.Today;
+        CultureInfo culture = CultureInfo.CurrentUICulture;
+        string languageName = culture.TwoLetterISOLanguageName;
 
         if (local.Date == today)
         {

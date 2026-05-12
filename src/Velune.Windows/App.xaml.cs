@@ -1,18 +1,19 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Velune.Application.Abstractions;
 using Velune.Application.DependencyInjection;
+using Velune.Application.Documents;
 using Velune.Infrastructure.DependencyInjection;
 using Velune.Windows.Services;
 using Velune.Windows.ViewModels;
+using Velune.Windows.ViewModels.UndoSystem;
 
 namespace Velune.Windows;
 
 /// <summary>
 /// WinUI application class that configures DI and manages the application lifecycle.
 /// </summary>
-public sealed partial class App : Microsoft.UI.Xaml.Application
+public sealed partial class App
 {
     private readonly string[] _args;
     private IHost? _host;
@@ -35,9 +36,10 @@ public sealed partial class App : Microsoft.UI.Xaml.Application
 
     protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
+        VeluneTempDirectory.CleanupStale();
         _host = CreateHost(_args).Build();
-        var startupPaths = _args.Where(File.Exists).ToArray();
-        var windowCoordinator = _host.Services.GetRequiredService<WindowsWindowCoordinator>();
+        string[] startupPaths = _args.Where(File.Exists).ToArray();
+        WindowsWindowCoordinator windowCoordinator = _host.Services.GetRequiredService<WindowsWindowCoordinator>();
         if (startupPaths.Length == 0)
         {
             windowCoordinator.ShowWelcome();
@@ -49,12 +51,12 @@ public sealed partial class App : Microsoft.UI.Xaml.Application
 
     private static HostApplicationBuilder CreateHost(string[] args)
     {
-        var environment =
+        string environment =
             Environment.GetEnvironmentVariable("VELUNE_ENVIRONMENT")
             ?? Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")
             ?? "Development";
 
-        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
         {
             Args = args,
             EnvironmentName = environment,
@@ -66,6 +68,7 @@ public sealed partial class App : Microsoft.UI.Xaml.Application
         builder.Services
             .AddApplication(builder.Configuration)
             .AddInfrastructure()
+            .AddSingleton<UndoRedoManager>()
             .AddSingleton<WindowsWindowContext>()
             .AddSingleton<WindowsWindowCoordinator>()
             .AddSingleton<IWindowsTextCatalog, WindowsTextCatalog>()

@@ -12,7 +12,7 @@ public sealed class NativeMenuLocalizationBindingTests
     [Fact]
     public void Constructor_ShouldLocalizeMenuImmediately()
     {
-        var previousDetector = PresentationPlatform.IsMacOSDetector;
+        Func<bool> previousDetector = PresentationPlatform.IsMacOSDetector;
         PresentationPlatform.IsMacOSDetector = static () => false;
 
         try
@@ -21,7 +21,7 @@ public sealed class NativeMenuLocalizationBindingTests
             var menu = new NativeMenu();
             NativeMenu.SetMenu(owner, menu);
             var localizationService = new TriggerableLocalizationService();
-            var localizeCalls = 0;
+            int localizeCalls = 0;
 
             var binding = new NativeMenuLocalizationBinding(
                 owner,
@@ -41,7 +41,7 @@ public sealed class NativeMenuLocalizationBindingTests
     [Fact]
     public void LanguageChanged_ShouldRelocalizeAndReapplyMenu()
     {
-        var previousDetector = PresentationPlatform.IsMacOSDetector;
+        Func<bool> previousDetector = PresentationPlatform.IsMacOSDetector;
         PresentationPlatform.IsMacOSDetector = static () => false;
 
         try
@@ -50,7 +50,7 @@ public sealed class NativeMenuLocalizationBindingTests
             var menu = new NativeMenu();
             NativeMenu.SetMenu(owner, menu);
             var localizationService = new TriggerableLocalizationService();
-            var localizeCalls = 0;
+            int localizeCalls = 0;
             var binding = new NativeMenuLocalizationBinding(
                 owner,
                 menu,
@@ -58,7 +58,7 @@ public sealed class NativeMenuLocalizationBindingTests
                 (_, _) => localizeCalls++);
 
             localizeCalls = 0;
-            var menuPropertyChanges = 0;
+            int menuPropertyChanges = 0;
             owner.PropertyChanged += (_, args) =>
             {
                 if (args.Property == NativeMenu.MenuProperty)
@@ -83,7 +83,7 @@ public sealed class NativeMenuLocalizationBindingTests
     [Fact]
     public void NeedsUpdate_ShouldRelocalizeMenuBeforeDisplay()
     {
-        var previousDetector = PresentationPlatform.IsMacOSDetector;
+        Func<bool> previousDetector = PresentationPlatform.IsMacOSDetector;
         PresentationPlatform.IsMacOSDetector = static () => false;
 
         try
@@ -92,7 +92,7 @@ public sealed class NativeMenuLocalizationBindingTests
             var menu = new NativeMenu();
             NativeMenu.SetMenu(owner, menu);
             var localizationService = new TriggerableLocalizationService();
-            var localizeCalls = 0;
+            int localizeCalls = 0;
             var binding = new NativeMenuLocalizationBinding(
                 owner,
                 menu,
@@ -100,7 +100,7 @@ public sealed class NativeMenuLocalizationBindingTests
                 (_, _) => localizeCalls++);
 
             localizeCalls = 0;
-            var raiseNeedsUpdate = typeof(NativeMenu).GetMethod(
+            MethodInfo? raiseNeedsUpdate = typeof(NativeMenu).GetMethod(
                 "Avalonia.Controls.INativeMenuExporterEventsImplBridge.RaiseNeedsUpdate",
                 BindingFlags.Instance | BindingFlags.NonPublic);
 
@@ -120,7 +120,7 @@ public sealed class NativeMenuLocalizationBindingTests
     [Fact]
     public void LanguageChanged_ShouldNotReapplyMenuOnMacOs()
     {
-        var previousDetector = PresentationPlatform.IsMacOSDetector;
+        Func<bool> previousDetector = PresentationPlatform.IsMacOSDetector;
         PresentationPlatform.IsMacOSDetector = static () => true;
 
         try
@@ -129,7 +129,7 @@ public sealed class NativeMenuLocalizationBindingTests
             var menu = new NativeMenu();
             NativeMenu.SetMenu(owner, menu);
             var localizationService = new TriggerableLocalizationService();
-            var localizeCalls = 0;
+            int localizeCalls = 0;
             var binding = new NativeMenuLocalizationBinding(
                 owner,
                 menu,
@@ -137,7 +137,7 @@ public sealed class NativeMenuLocalizationBindingTests
                 (_, _) => localizeCalls++);
 
             localizeCalls = 0;
-            var menuPropertyChanges = 0;
+            int menuPropertyChanges = 0;
             owner.PropertyChanged += (_, args) =>
             {
                 if (args.Property == NativeMenu.MenuProperty)
@@ -162,7 +162,7 @@ public sealed class NativeMenuLocalizationBindingTests
     [Fact]
     public void Constructor_ShouldNotRelocalizeMenuThroughBindingOnMacOs()
     {
-        var previousDetector = PresentationPlatform.IsMacOSDetector;
+        Func<bool> previousDetector = PresentationPlatform.IsMacOSDetector;
         PresentationPlatform.IsMacOSDetector = static () => true;
 
         try
@@ -171,7 +171,7 @@ public sealed class NativeMenuLocalizationBindingTests
             var menu = new NativeMenu();
             NativeMenu.SetMenu(owner, menu);
             var localizationService = new TriggerableLocalizationService();
-            var localizeCalls = 0;
+            int localizeCalls = 0;
 
             var binding = new NativeMenuLocalizationBinding(
                 owner,
@@ -191,7 +191,7 @@ public sealed class NativeMenuLocalizationBindingTests
     [Fact]
     public void NeedsUpdate_ShouldNotRelocalizeMenuOnMacOs()
     {
-        var previousDetector = PresentationPlatform.IsMacOSDetector;
+        Func<bool> previousDetector = PresentationPlatform.IsMacOSDetector;
         PresentationPlatform.IsMacOSDetector = static () => true;
 
         try
@@ -200,7 +200,7 @@ public sealed class NativeMenuLocalizationBindingTests
             var menu = new NativeMenu();
             NativeMenu.SetMenu(owner, menu);
             var localizationService = new TriggerableLocalizationService();
-            var localizeCalls = 0;
+            int localizeCalls = 0;
             var binding = new NativeMenuLocalizationBinding(
                 owner,
                 menu,
@@ -208,7 +208,7 @@ public sealed class NativeMenuLocalizationBindingTests
                 (_, _) => localizeCalls++);
 
             localizeCalls = 0;
-            var raiseNeedsUpdate = typeof(NativeMenu).GetMethod(
+            MethodInfo? raiseNeedsUpdate = typeof(NativeMenu).GetMethod(
                 "Avalonia.Controls.INativeMenuExporterEventsImplBridge.RaiseNeedsUpdate",
                 BindingFlags.Instance | BindingFlags.NonPublic);
 

@@ -15,7 +15,7 @@ public sealed class ChangePageUseCaseTests
         var store = new InMemoryDocumentSessionStore();
         var useCase = new ChangePageUseCase(store);
 
-        var result = useCase.Execute(new ChangePageRequest(new PageIndex(1)));
+        Result<ViewportState> result = useCase.Execute(new ChangePageRequest(new PageIndex(1)));
 
         Assert.True(result.IsFailure);
         Assert.NotNull(result.Error);
@@ -26,10 +26,10 @@ public sealed class ChangePageUseCaseTests
     [Fact]
     public void Execute_ShouldReturnValidationError_WhenPageIsOutOfRange()
     {
-        var store = CreateStore(pageCount: 3);
+        InMemoryDocumentSessionStore store = CreateStore(pageCount: 3);
         var useCase = new ChangePageUseCase(store);
 
-        var result = useCase.Execute(new ChangePageRequest(new PageIndex(5)));
+        Result<ViewportState> result = useCase.Execute(new ChangePageRequest(new PageIndex(5)));
 
         Assert.True(result.IsFailure);
         Assert.NotNull(result.Error);
@@ -40,10 +40,10 @@ public sealed class ChangePageUseCaseTests
     [Fact]
     public void Execute_ShouldUpdateCurrentViewport_WhenPageIsValid()
     {
-        var store = CreateStore(pageCount: 3);
+        InMemoryDocumentSessionStore store = CreateStore(pageCount: 3);
         var useCase = new ChangePageUseCase(store);
 
-        var result = useCase.Execute(new ChangePageRequest(new PageIndex(2)));
+        Result<ViewportState> result = useCase.Execute(new ChangePageRequest(new PageIndex(2)));
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(store.Current);

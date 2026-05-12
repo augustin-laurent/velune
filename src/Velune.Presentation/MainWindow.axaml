@@ -41,6 +41,14 @@
     <KeyBinding Gesture="Left" Command="{Binding PreviousPageCommand}" />
     <KeyBinding Gesture="PageDown" Command="{Binding NextPageCommand}" />
     <KeyBinding Gesture="PageUp" Command="{Binding PreviousPageCommand}" />
+    <KeyBinding Gesture="Ctrl+R" Command="{Binding RotateRightCommand}" />
+    <KeyBinding Gesture="Meta+R" Command="{Binding RotateRightCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+R" Command="{Binding RotateLeftCommand}" />
+    <KeyBinding Gesture="Meta+Shift+R" Command="{Binding RotateLeftCommand}" />
+    <KeyBinding Gesture="Ctrl+D0" Command="{Binding FitToPageCommand}" />
+    <KeyBinding Gesture="Meta+D0" Command="{Binding FitToPageCommand}" />
+    <KeyBinding Gesture="Ctrl+D1" Command="{Binding FitToWidthCommand}" />
+    <KeyBinding Gesture="Meta+D1" Command="{Binding FitToWidthCommand}" />
   </Window.KeyBindings>
 
   <NativeMenu.Menu>

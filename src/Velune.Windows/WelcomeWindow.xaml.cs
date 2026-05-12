@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Shapes;
+using Microsoft.Win32;
 using Velune.Application.DTOs;
 using Velune.Windows.Services;
 using Velune.Windows.ViewModels;
@@ -17,7 +18,7 @@ namespace Velune.Windows;
 /// <summary>
 /// Landing window displayed on startup that shows recent files and a drop zone for opening documents.
 /// </summary>
-public sealed partial class WelcomeWindow : Window
+public sealed partial class WelcomeWindow
 {
     private readonly WindowsMainViewModel _viewModel;
     private readonly WindowsWindowContext _windowContext;
@@ -65,9 +66,18 @@ public sealed partial class WelcomeWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(TitleBarDragRegion);
 
-        var appWindow = ResolveAppWindow();
-        appWindow.Resize(new SizeInt32(1712, 963));
-        appWindow.Move(new PointInt32(0, 0));
+        AppWindow appWindow = ResolveAppWindow();
+        DisplayArea displayArea = DisplayArea.GetFromWindowId(
+            Win32Interop.GetWindowIdFromWindow(WindowNative.GetWindowHandle(this)),
+            DisplayAreaFallback.Primary);
+        int workWidth = displayArea.WorkArea.Width;
+        int workHeight = displayArea.WorkArea.Height;
+        int windowWidth = Math.Min(1712, (int)(workWidth * 0.85));
+        int windowHeight = Math.Min(963, (int)(workHeight * 0.85));
+        appWindow.Resize(new SizeInt32(windowWidth, windowHeight));
+        int x = (workWidth - windowWidth) / 2;
+        int y = (workHeight - windowHeight) / 2;
+        appWindow.Move(new PointInt32(x, y));
         appWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
         appWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "Brand", "Velune.ico"));
     }
@@ -99,12 +109,12 @@ public sealed partial class WelcomeWindow : Window
 
     private void ApplyTheme()
     {
-        var isLight = IsLightTheme();
+        bool isLight = IsLightTheme();
         Root.RequestedTheme = isLight ? ElementTheme.Light : ElementTheme.Dark;
 
         try
         {
-            var appWindow = ResolveAppWindow();
+            AppWindow appWindow = ResolveAppWindow();
             appWindow.TitleBar.ButtonBackgroundColor = Colors.Transparent;
             appWindow.TitleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
             appWindow.TitleBar.ButtonForegroundColor = isLight
@@ -119,6 +129,7 @@ public sealed partial class WelcomeWindow : Window
         }
         catch
         {
+            // Do nothing
         }
     }
 
@@ -139,7 +150,7 @@ public sealed partial class WelcomeWindow : Window
     {
         try
         {
-            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
+            using RegistryKey? key = Registry.CurrentUser.OpenSubKey(
                 @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
 
             if (key?.GetValue("AppsUseLightTheme") is int intValue)
@@ -149,6 +160,7 @@ public sealed partial class WelcomeWindow : Window
         }
         catch
         {
+            // Do nothing
         }
 
         return false;
@@ -181,8 +193,8 @@ public sealed partial class WelcomeWindow : Window
 
         try
         {
-            var items = await e.DataView.GetStorageItemsAsync();
-            var paths = items
+            IReadOnlyList<IStorageItem>? items = await e.DataView.GetStorageItemsAsync();
+            string[] paths = items
                 .OfType<StorageFile>()
                 .Select(file => file.Path)
                 .Where(path => !string.IsNullOrWhiteSpace(path))
@@ -227,7 +239,7 @@ public sealed partial class WelcomeWindow : Window
 
     private static Rectangle? FindAccentBar(Grid grid)
     {
-        foreach (var child in grid.Children)
+        foreach (UIElement? child in grid.Children)
         {
             if (child is Rectangle { Name: "AccentBar" } rect)
             {
@@ -253,7 +265,7 @@ public sealed partial class WelcomeWindow : Window
     {
         try
         {
-            var path = await _fileDialogService.PickOpenDocumentAsync();
+            string? path = await _fileDialogService.PickOpenDocumentAsync();
             if (string.IsNullOrWhiteSpace(path))
             {
                 return;
@@ -316,8 +328,8 @@ public sealed partial class WelcomeWindow : Window
 
     private AppWindow ResolveAppWindow()
     {
-        var windowHandle = WindowNative.GetWindowHandle(this);
-        var windowId = Win32Interop.GetWindowIdFromWindow(windowHandle);
+        IntPtr windowHandle = WindowNative.GetWindowHandle(this);
+        WindowId windowId = Win32Interop.GetWindowIdFromWindow(windowHandle);
         return AppWindow.GetFromWindowId(windowId);
     }
 }

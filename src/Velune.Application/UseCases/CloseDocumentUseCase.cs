@@ -1,6 +1,7 @@
 using Velune.Application.Abstractions;
 using Velune.Application.DTOs;
 using Velune.Application.Results;
+using Velune.Domain.Abstractions;
 
 namespace Velune.Application.UseCases;
 
@@ -46,7 +47,7 @@ public sealed class CloseDocumentUseCase
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var session = request.DocumentId is { } documentId
+        IDocumentSession? session = request.DocumentId is { } documentId
             ? _sessionStore.Sessions.FirstOrDefault(item => item.Id == documentId)
             : _sessionStore.Current;
 

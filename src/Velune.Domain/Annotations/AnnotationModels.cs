@@ -89,7 +89,8 @@ public sealed record AnnotationAppearance
         double strokeThickness,
         double opacity = 1.0,
         double fontSize = 14,
-        string? fontFamily = null)
+        string? fontFamily = null,
+        double rotationAngle = 0)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(strokeHex);
 
@@ -114,6 +115,7 @@ public sealed record AnnotationAppearance
         Opacity = opacity;
         FontSize = fontSize;
         FontFamily = fontFamily;
+        RotationAngle = rotationAngle;
     }
 
     public string StrokeHex
@@ -142,6 +144,11 @@ public sealed record AnnotationAppearance
     }
 
     public string? FontFamily
+    {
+        get;
+    }
+
+    public double RotationAngle
     {
         get;
     }
@@ -184,7 +191,7 @@ public sealed record DocumentAnnotation
             throw new ArgumentException("Annotation id cannot be empty.", nameof(id));
         }
 
-        var normalizedPoints = points?.ToArray() ?? [];
+        NormalizedPoint[] normalizedPoints = points?.ToArray() ?? [];
 
         if (kind is DocumentAnnotationKind.Ink && normalizedPoints.Length == 0)
         {
@@ -277,7 +284,8 @@ public sealed record DocumentAnnotation
                 Appearance.StrokeThickness,
                 Appearance.Opacity,
                 Appearance.FontSize,
-                Appearance.FontFamily),
+                Appearance.FontFamily,
+                Appearance.RotationAngle),
             Bounds is null
                 ? null
                 : new NormalizedTextRegion(

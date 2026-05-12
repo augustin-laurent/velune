@@ -25,28 +25,43 @@ public sealed class SkiaImageDocumentOpener
             throw new FileNotFoundException("The image file does not exist.", filePath);
         }
 
-        var extension = Path.GetExtension(filePath);
+        string extension = Path.GetExtension(filePath);
 
         if (!SupportedDocumentFormats.IsImage(extension))
         {
             throw new NotSupportedException($"Unsupported image file type: {extension}");
         }
 
-        var fileBytes = File.ReadAllBytes(filePath);
+        const long maxFileSizeBytes = 500 * 1024 * 1024;
+        long fileLength = new FileInfo(filePath).Length;
+        if (fileLength > maxFileSizeBytes)
+        {
+            throw new InvalidOperationException(
+                $"The image file exceeds the maximum supported size of 500 MB ({fileLength / (1024 * 1024)} MB).");
+        }
 
-        using var decodedBitmap = SKBitmap.Decode(fileBytes);
+        byte[] fileBytes = File.ReadAllBytes(filePath);
+
+        using SKBitmap? decodedBitmap = SKBitmap.Decode(fileBytes);
         if (decodedBitmap is null)
         {
             throw new InvalidOperationException("Unable to decode the image file.");
         }
 
-        var pixelWidth = decodedBitmap.Width;
-        var pixelHeight = decodedBitmap.Height;
+        int pixelWidth = decodedBitmap.Width;
+        int pixelHeight = decodedBitmap.Height;
 
-        var fileInfo = new FileInfo(filePath);
-        var imageMetadata = new ImageMetadata(pixelWidth, pixelHeight);
+        const long maxDecodedPixels = 100_000_000;
+        if ((long)pixelWidth * pixelHeight > maxDecodedPixels)
+        {
+            throw new InvalidOperationException(
+                $"The decoded image dimensions ({pixelWidth}x{pixelHeight}) exceed the maximum of 100 megapixels.");
+        }
 
-        var metadata = new DocumentMetadata(
+        FileInfo fileInfo = new FileInfo(filePath);
+        ImageMetadata imageMetadata = new ImageMetadata(pixelWidth, pixelHeight);
+
+        DocumentMetadata metadata = new DocumentMetadata(
             fileName: fileInfo.Name,
             filePath: fileInfo.FullName,
             documentType: DocumentType.Image,
@@ -58,7 +73,7 @@ public sealed class SkiaImageDocumentOpener
             createdAt: fileInfo.CreationTimeUtc,
             modifiedAt: fileInfo.LastWriteTimeUtc);
 
-        var resource = new ImageDocumentResource(fileBytes);
+        ImageDocumentResource resource = new ImageDocumentResource(fileBytes);
 
         return new ImageDocumentSession(
             id: DocumentId.New(),

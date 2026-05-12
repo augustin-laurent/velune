@@ -21,7 +21,7 @@ public static class RenderedPageViewportCalculator
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(currentZoom);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(availableWidth);
 
-        var baseWidth = renderedWidth / currentZoom;
+        double baseWidth = renderedWidth / currentZoom;
         return availableWidth / Math.Max(1d, baseWidth);
     }
 
@@ -47,8 +47,8 @@ public static class RenderedPageViewportCalculator
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(availableWidth);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(availableHeight);
 
-        var baseWidth = renderedWidth / currentZoom;
-        var baseHeight = renderedHeight / currentZoom;
+        double baseWidth = renderedWidth / currentZoom;
+        double baseHeight = renderedHeight / currentZoom;
 
         return Math.Min(
             availableWidth / Math.Max(1d, baseWidth),

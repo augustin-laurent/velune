@@ -105,7 +105,7 @@ public sealed partial class FileLocalizationService : ILocalizationService, INot
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
 
-        if (TryGetValue(key, out var value))
+        if (TryGetValue(key, out string? value))
         {
             return value;
         }
@@ -123,7 +123,7 @@ public sealed partial class FileLocalizationService : ILocalizationService, INot
     {
         ArgumentNullException.ThrowIfNull(arguments);
 
-        var format = GetString(key);
+        string format = GetString(key);
         if (arguments.Length == 0)
         {
             return format;
@@ -160,13 +160,13 @@ public sealed partial class FileLocalizationService : ILocalizationService, INot
     {
         lock (_gate)
         {
-            if (_activeCatalog.TryGetValue(key, out var activeValue))
+            if (_activeCatalog.TryGetValue(key, out string? activeValue))
             {
                 value = activeValue;
                 return true;
             }
 
-            if (_fallbackCatalog.TryGetValue(key, out var fallbackValue))
+            if (_fallbackCatalog.TryGetValue(key, out string? fallbackValue))
             {
                 value = fallbackValue;
                 return true;
@@ -184,9 +184,9 @@ public sealed partial class FileLocalizationService : ILocalizationService, INot
 
     private void ReloadCatalogs(AppLanguagePreference preference)
     {
-        var fallbackCatalog = LoadCatalog("en");
-        var languageCode = ResolveLanguageCode(preference, fallbackCatalog);
-        var activeCatalog = string.Equals(languageCode, "en", StringComparison.OrdinalIgnoreCase)
+        Dictionary<string, string> fallbackCatalog = LoadCatalog("en");
+        string languageCode = ResolveLanguageCode(preference, fallbackCatalog);
+        Dictionary<string, string> activeCatalog = string.Equals(languageCode, "en", StringComparison.OrdinalIgnoreCase)
             ? fallbackCatalog
             : LoadCatalog(languageCode);
 
@@ -213,7 +213,7 @@ public sealed partial class FileLocalizationService : ILocalizationService, INot
 
     private Dictionary<string, string> LoadCatalog(string languageCode)
     {
-        var path = Path.Combine(_catalogRootPath, $"{languageCode}.lang");
+        string path = Path.Combine(_catalogRootPath, $"{languageCode}.lang");
         if (!File.Exists(path))
         {
             LogMissingCatalog(_logger, languageCode, path);
@@ -225,7 +225,7 @@ public sealed partial class FileLocalizationService : ILocalizationService, INot
 
     private static void ApplyCurrentCulture(string languageCode)
     {
-        var culture = CreateCulture(languageCode);
+        CultureInfo culture = CreateCulture(languageCode);
         CultureInfo.CurrentCulture = culture;
         CultureInfo.CurrentUICulture = culture;
         CultureInfo.DefaultThreadCurrentCulture = culture;
@@ -247,12 +247,12 @@ public sealed partial class FileLocalizationService : ILocalizationService, INot
         Dictionary<string, string> fallbackCatalog)
     {
         if (preference is not AppLanguagePreference.System &&
-            LanguageCodes.TryGetValue(preference, out var configuredLanguageCode))
+            LanguageCodes.TryGetValue(preference, out string? configuredLanguageCode))
         {
             return configuredLanguageCode;
         }
 
-        var candidate = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+        string candidate = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
         if (string.Equals(candidate, "fr", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(candidate, "es", StringComparison.OrdinalIgnoreCase))
         {

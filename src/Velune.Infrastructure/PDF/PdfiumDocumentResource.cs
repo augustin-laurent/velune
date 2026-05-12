@@ -42,7 +42,7 @@ internal sealed class PdfiumDocumentResource : IDisposable
             return;
         }
 
-        var handle = Interlocked.Exchange(ref _handle, nint.Zero);
+        IntPtr handle = Interlocked.Exchange(ref _handle, nint.Zero);
         if (handle != nint.Zero)
         {
             PdfiumNative.FPDF_CloseDocument(handle);

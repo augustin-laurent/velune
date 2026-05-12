@@ -1,3 +1,5 @@
+using Microsoft.UI.Xaml;
+
 namespace Velune.Windows.ViewModels;
 
 /// <summary>
@@ -40,5 +42,5 @@ public sealed class TextSelectionHighlightItem
     /// <summary>
     /// Gets the margin used for absolute positioning in the overlay canvas.
     /// </summary>
-    public Microsoft.UI.Xaml.Thickness Margin => new(Left, Top, 0, 0);
+    public Thickness Margin => new(Left, Top, 0, 0);
 }

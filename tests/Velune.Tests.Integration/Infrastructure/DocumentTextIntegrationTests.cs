@@ -4,6 +4,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Velune.Application.Abstractions;
 using Velune.Application.Configuration;
+using Velune.Application.DTOs;
+using Velune.Application.Results;
 using Velune.Application.Text;
 using Velune.Domain.Abstractions;
 using Velune.Domain.Documents;
@@ -22,13 +24,13 @@ public sealed class DocumentTextIntegrationTests
     public async Task SamplePdf_ShouldLoadEmbeddedTextWithoutOcr()
     {
         using var temporaryDirectory = new TemporaryDirectory();
-        var fixturePath = Path.Combine(AppContext.BaseDirectory, "Fixtures", "sample.pdf");
-        var textService = CreateTextService(temporaryDirectory.Path);
-        var session = await OpenSessionAsync(fixturePath);
+        string fixturePath = Path.Combine(AppContext.BaseDirectory, "Fixtures", "sample.pdf");
+        IDocumentTextService textService = CreateTextService(temporaryDirectory.Path);
+        IDocumentSession session = await OpenSessionAsync(fixturePath);
 
         try
         {
-            var result = await textService.LoadAsync(session, ["eng"]);
+            Result<DocumentTextLoadResult> result = await textService.LoadAsync(session, ["eng"]);
 
             Assert.True(result.IsSuccess, result.Error?.Message);
             Assert.NotNull(result.Value);
@@ -48,16 +50,16 @@ public sealed class DocumentTextIntegrationTests
     public async Task ImageOcr_ShouldRecognizeTextAndReuseCacheBetweenSessions()
     {
         using var temporaryDirectory = new TemporaryDirectory();
-        var imagePath = Path.Combine(temporaryDirectory.Path, "ocr-image.pgm");
-        var raster = OcrTestAssetBuilder.CreateRaster("TEST");
+        string imagePath = Path.Combine(temporaryDirectory.Path, "ocr-image.pgm");
+        TextRaster raster = OcrTestAssetBuilder.CreateRaster("TEST");
         OcrTestAssetBuilder.WritePgm(imagePath, raster);
 
-        var firstService = CreateTextService(temporaryDirectory.Path);
-        var firstSession = CreateImageSession(imagePath, raster);
+        IDocumentTextService firstService = CreateTextService(temporaryDirectory.Path);
+        IDocumentSession firstSession = CreateImageSession(imagePath, raster);
 
         try
         {
-            var ocrResult = await firstService.RunOcrAsync(firstSession, ["eng"]);
+            Result<DocumentTextIndex> ocrResult = await firstService.RunOcrAsync(firstSession, ["eng"]);
 
             Assert.True(ocrResult.IsSuccess, ocrResult.Error?.Message);
             Assert.NotNull(ocrResult.Value);
@@ -68,12 +70,12 @@ public sealed class DocumentTextIntegrationTests
             DisposeSession(firstSession);
         }
 
-        var secondService = CreateTextService(temporaryDirectory.Path);
-        var secondSession = CreateImageSession(imagePath, raster);
+        IDocumentTextService secondService = CreateTextService(temporaryDirectory.Path);
+        IDocumentSession secondSession = CreateImageSession(imagePath, raster);
 
         try
         {
-            var loadResult = await secondService.LoadAsync(secondSession, ["eng"]);
+            Result<DocumentTextLoadResult> loadResult = await secondService.LoadAsync(secondSession, ["eng"]);
 
             Assert.True(loadResult.IsSuccess, loadResult.Error?.Message);
             Assert.NotNull(loadResult.Value);
@@ -92,16 +94,16 @@ public sealed class DocumentTextIntegrationTests
     public async Task ImageOcrCache_ShouldInvalidate_WhenSourceFileChanges()
     {
         using var temporaryDirectory = new TemporaryDirectory();
-        var imagePath = Path.Combine(temporaryDirectory.Path, "ocr-image.pgm");
-        var initialRaster = OcrTestAssetBuilder.CreateRaster("TEST");
+        string imagePath = Path.Combine(temporaryDirectory.Path, "ocr-image.pgm");
+        TextRaster initialRaster = OcrTestAssetBuilder.CreateRaster("TEST");
         OcrTestAssetBuilder.WritePgm(imagePath, initialRaster);
 
-        var initialService = CreateTextService(temporaryDirectory.Path);
-        var initialSession = CreateImageSession(imagePath, initialRaster);
+        IDocumentTextService initialService = CreateTextService(temporaryDirectory.Path);
+        IDocumentSession initialSession = CreateImageSession(imagePath, initialRaster);
 
         try
         {
-            var initialResult = await initialService.RunOcrAsync(initialSession, ["eng"]);
+            Result<DocumentTextIndex> initialResult = await initialService.RunOcrAsync(initialSession, ["eng"]);
             Assert.True(initialResult.IsSuccess, initialResult.Error?.Message);
             Assert.NotNull(initialResult.Value);
             Assert.Contains("TEST", NormalizeText(initialResult.Value!.Pages[0].Text), StringComparison.OrdinalIgnoreCase);
@@ -111,23 +113,23 @@ public sealed class DocumentTextIntegrationTests
             DisposeSession(initialSession);
         }
 
-        var updatedRaster = OcrTestAssetBuilder.CreateRaster("TESTS");
+        TextRaster updatedRaster = OcrTestAssetBuilder.CreateRaster("TESTS");
         OcrTestAssetBuilder.WritePgm(imagePath, updatedRaster);
         File.SetLastWriteTimeUtc(imagePath, DateTime.UtcNow.AddMinutes(1));
 
-        var updatedService = CreateTextService(temporaryDirectory.Path);
-        var updatedSession = CreateImageSession(imagePath, updatedRaster);
+        IDocumentTextService updatedService = CreateTextService(temporaryDirectory.Path);
+        IDocumentSession updatedSession = CreateImageSession(imagePath, updatedRaster);
 
         try
         {
-            var loadResult = await updatedService.LoadAsync(updatedSession, ["eng"]);
+            Result<DocumentTextLoadResult> loadResult = await updatedService.LoadAsync(updatedSession, ["eng"]);
 
             Assert.True(loadResult.IsSuccess, loadResult.Error?.Message);
             Assert.NotNull(loadResult.Value);
             Assert.True(loadResult.Value.RequiresOcr);
             Assert.False(loadResult.Value.UsedCache);
 
-            var rerunResult = await updatedService.RunOcrAsync(updatedSession, ["eng"]);
+            Result<DocumentTextIndex> rerunResult = await updatedService.RunOcrAsync(updatedSession, ["eng"]);
 
             Assert.True(rerunResult.IsSuccess, rerunResult.Error?.Message);
             Assert.NotNull(rerunResult.Value);
@@ -144,21 +146,21 @@ public sealed class DocumentTextIntegrationTests
     public async Task ScannedPdf_ShouldRunOcr_WhenPdfHasNoEmbeddedText()
     {
         using var temporaryDirectory = new TemporaryDirectory();
-        var pdfPath = Path.Combine(temporaryDirectory.Path, "scanned.pdf");
+        string pdfPath = Path.Combine(temporaryDirectory.Path, "scanned.pdf");
         OcrTestAssetBuilder.WriteScannedPdf(pdfPath, OcrTestAssetBuilder.CreateRaster("TEST"));
 
-        var textService = CreateTextService(temporaryDirectory.Path);
-        var session = await OpenSessionAsync(pdfPath);
+        IDocumentTextService textService = CreateTextService(temporaryDirectory.Path);
+        IDocumentSession session = await OpenSessionAsync(pdfPath);
 
         try
         {
-            var loadResult = await textService.LoadAsync(session, ["eng"]);
+            Result<DocumentTextLoadResult> loadResult = await textService.LoadAsync(session, ["eng"]);
 
             Assert.True(loadResult.IsSuccess, loadResult.Error?.Message);
             Assert.NotNull(loadResult.Value);
             Assert.True(loadResult.Value.RequiresOcr);
 
-            var ocrResult = await textService.RunOcrAsync(session, ["eng"]);
+            Result<DocumentTextIndex> ocrResult = await textService.RunOcrAsync(session, ["eng"]);
 
             Assert.True(ocrResult.IsSuccess, ocrResult.Error?.Message);
             Assert.NotNull(ocrResult.Value);
@@ -173,7 +175,7 @@ public sealed class DocumentTextIntegrationTests
 
     private static IDocumentTextService CreateTextService(string cachePath)
     {
-        var options = Options.Create(new AppOptions
+        IOptions<AppOptions> options = Options.Create(new AppOptions
         {
             OcrCachePath = cachePath,
             TesseractExecutablePath = TesseractTestSupport.GetExecutablePath(),
@@ -196,7 +198,7 @@ public sealed class DocumentTextIntegrationTests
         }
 
         var fileInfo = new FileInfo(filePath);
-        var imageInfo = ImageInfoReader.ReadPng(filePath);
+        ImageInfo imageInfo = ImageInfoReader.ReadPng(filePath);
 
         return new TestImageDocumentSession(
             DocumentId.New(),
@@ -272,6 +274,7 @@ public sealed class DocumentTextIntegrationTests
             }
             catch
             {
+                // Do nothing
             }
         }
     }
@@ -299,21 +302,21 @@ public sealed class DocumentTextIntegrationTests
     {
         public static ImageInfo ReadPng(string filePath)
         {
-            using var stream = File.OpenRead(filePath);
+            using FileStream stream = File.OpenRead(filePath);
             Span<byte> header = stackalloc byte[24];
-            var read = stream.Read(header);
+            int read = stream.Read(header);
 
             if (read < 24)
             {
                 throw new InvalidOperationException("The PNG header is incomplete.");
             }
 
-            var width =
+            int width =
                 (header[16] << 24) |
                 (header[17] << 16) |
                 (header[18] << 8) |
                 header[19];
-            var height =
+            int height =
                 (header[20] << 24) |
                 (header[21] << 16) |
                 (header[22] << 8) |
@@ -325,7 +328,6 @@ public sealed class DocumentTextIntegrationTests
 
     private static class OcrTestAssetBuilder
     {
-        private const int GlyphWidth = 5;
         private const int GlyphHeight = 7;
         private const int Scale = 18;
         private const int Margin = 24;
@@ -353,28 +355,28 @@ public sealed class DocumentTextIntegrationTests
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(text);
 
-            var uppercase = text.ToUpperInvariant();
-            var totalWidth = Margin * 2;
+            string uppercase = text.ToUpperInvariant();
+            int totalWidth = Margin * 2;
 
-            foreach (var character in uppercase)
+            foreach (char character in uppercase)
             {
-                var glyph = GetGlyph(character);
+                string[] glyph = GetGlyph(character);
                 totalWidth += (glyph[0].Length * Scale) + Spacing;
             }
 
             totalWidth -= Spacing;
 
-            var totalHeight = Margin * 2 + (GlyphHeight * Scale);
-            var pixels = Enumerable.Repeat((byte)255, totalWidth * totalHeight).ToArray();
-            var currentX = Margin;
+            int totalHeight = Margin * 2 + (GlyphHeight * Scale);
+            byte[] pixels = Enumerable.Repeat((byte)255, totalWidth * totalHeight).ToArray();
+            int currentX = Margin;
 
-            foreach (var character in uppercase)
+            foreach (char character in uppercase)
             {
-                var glyph = GetGlyph(character);
+                string[] glyph = GetGlyph(character);
 
-                for (var row = 0; row < glyph.Length; row++)
+                for (int row = 0; row < glyph.Length; row++)
                 {
-                    for (var column = 0; column < glyph[row].Length; column++)
+                    for (int column = 0; column < glyph[row].Length; column++)
                     {
                         if (glyph[row][column] != '1')
                         {
@@ -404,7 +406,7 @@ public sealed class DocumentTextIntegrationTests
 
             Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
 
-            using var stream = File.Create(outputPath);
+            using FileStream stream = File.Create(outputPath);
             stream.Write(PngSignature);
             WriteChunk(stream, "IHDR", CreatePngHeader(raster.Width, raster.Height));
             WriteChunk(stream, "IDAT", CreatePngImageData(raster));
@@ -417,8 +419,8 @@ public sealed class DocumentTextIntegrationTests
 
             Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
 
-            using var stream = File.Create(outputPath);
-            var header = Encoding.ASCII.GetBytes($"P5\n{raster.Width} {raster.Height}\n255\n");
+            using FileStream stream = File.Create(outputPath);
+            byte[] header = Encoding.ASCII.GetBytes($"P5\n{raster.Width} {raster.Height}\n255\n");
             stream.Write(header, 0, header.Length);
             stream.Write(raster.GrayscalePixels, 0, raster.GrayscalePixels.Length);
         }
@@ -429,10 +431,10 @@ public sealed class DocumentTextIntegrationTests
 
             Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
 
-            var contentBytes = Encoding.ASCII.GetBytes($"q {raster.Width} 0 0 {raster.Height} 0 0 cm /Im0 Do Q");
-            var compressedImageData = Compress(raster.GrayscalePixels);
+            byte[] contentBytes = Encoding.ASCII.GetBytes($"q {raster.Width} 0 0 {raster.Height} 0 0 cm /Im0 Do Q");
+            byte[] compressedImageData = Compress(raster.GrayscalePixels);
 
-            using var stream = File.Create(outputPath);
+            using FileStream stream = File.Create(outputPath);
             var offsets = new List<long> { 0 };
 
             WriteAscii(stream, "%PDF-1.4\n%VELUNE\n");
@@ -451,11 +453,11 @@ public sealed class DocumentTextIntegrationTests
                 $"<< /Type /XObject /Subtype /Image /Width {raster.Width} /Height {raster.Height} /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode /Length {compressedImageData.Length} >>",
                 compressedImageData);
 
-            var startXref = stream.Position;
+            long startXref = stream.Position;
             WriteAscii(stream, $"xref\n0 {offsets.Count}\n");
             WriteAscii(stream, "0000000000 65535 f \n");
 
-            for (var objectNumber = 1; objectNumber < offsets.Count; objectNumber++)
+            for (int objectNumber = 1; objectNumber < offsets.Count; objectNumber++)
             {
                 WriteAscii(stream, $"{offsets[objectNumber]:D10} 00000 n \n");
             }
@@ -465,7 +467,7 @@ public sealed class DocumentTextIntegrationTests
 
         private static string[] GetGlyph(char character)
         {
-            if (Glyphs.TryGetValue(character, out var glyph))
+            if (Glyphs.TryGetValue(character, out string[]? glyph))
             {
                 return glyph;
             }
@@ -482,10 +484,10 @@ public sealed class DocumentTextIntegrationTests
             int height,
             byte value)
         {
-            for (var y = startY; y < startY + height; y++)
+            for (int y = startY; y < startY + height; y++)
             {
-                var rowStart = y * stride;
-                for (var x = startX; x < startX + width; x++)
+                int rowStart = y * stride;
+                for (int x = startX; x < startX + width; x++)
                 {
                     pixels[rowStart + x] = value;
                 }
@@ -508,10 +510,10 @@ public sealed class DocumentTextIntegrationTests
         private static byte[] CreatePngImageData(TextRaster raster)
         {
             using var raw = new MemoryStream();
-            var rgba = ConvertGrayscaleToRgba(raster.GrayscalePixels);
-            var stride = raster.Width * 4;
+            byte[] rgba = ConvertGrayscaleToRgba(raster.GrayscalePixels);
+            int stride = raster.Width * 4;
 
-            for (var row = 0; row < raster.Height; row++)
+            for (int row = 0; row < raster.Height; row++)
             {
                 raw.WriteByte(0);
                 raw.Write(rgba, row * stride, stride);
@@ -522,12 +524,12 @@ public sealed class DocumentTextIntegrationTests
 
         private static byte[] ConvertGrayscaleToRgba(byte[] grayscale)
         {
-            var rgba = new byte[grayscale.Length * 4];
+            byte[] rgba = new byte[grayscale.Length * 4];
 
-            for (var index = 0; index < grayscale.Length; index++)
+            for (int index = 0; index < grayscale.Length; index++)
             {
-                var value = grayscale[index];
-                var rgbaIndex = index * 4;
+                byte value = grayscale[index];
+                int rgbaIndex = index * 4;
                 rgba[rgbaIndex] = value;
                 rgba[rgbaIndex + 1] = value;
                 rgba[rgbaIndex + 2] = value;
@@ -566,7 +568,7 @@ public sealed class DocumentTextIntegrationTests
         private static void WriteChunk(Stream stream, string type, byte[] data)
         {
             WriteBigEndian(stream, data.Length);
-            var typeBytes = Encoding.ASCII.GetBytes(type);
+            byte[] typeBytes = Encoding.ASCII.GetBytes(type);
             stream.Write(typeBytes, 0, typeBytes.Length);
             stream.Write(data, 0, data.Length);
 
@@ -578,7 +580,7 @@ public sealed class DocumentTextIntegrationTests
 
         private static void WriteAscii(Stream stream, string value)
         {
-            var bytes = Encoding.ASCII.GetBytes(value);
+            byte[] bytes = Encoding.ASCII.GetBytes(value);
             stream.Write(bytes, 0, bytes.Length);
         }
 
@@ -603,9 +605,9 @@ public sealed class DocumentTextIntegrationTests
 
         public void Append(ReadOnlySpan<byte> bytes)
         {
-            foreach (var current in bytes)
+            foreach (byte current in bytes)
             {
-                var tableIndex = (_current ^ current) & 0xFF;
+                uint tableIndex = (_current ^ current) & 0xFF;
                 _current = Table[tableIndex] ^ (_current >> 8);
             }
         }
@@ -617,12 +619,12 @@ public sealed class DocumentTextIntegrationTests
 
         private static uint[] BuildTable()
         {
-            var table = new uint[256];
+            uint[] table = new uint[256];
 
             for (uint index = 0; index < table.Length; index++)
             {
-                var value = index;
-                for (var bit = 0; bit < 8; bit++)
+                uint value = index;
+                for (int bit = 0; bit < 8; bit++)
                 {
                     value = (value & 1) != 0
                         ? Polynomial ^ (value >> 1)

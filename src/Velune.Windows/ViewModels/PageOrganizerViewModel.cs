@@ -7,6 +7,7 @@ using Velune.Application.DTOs;
 using Velune.Application.UseCases;
 using Velune.Domain.ValueObjects;
 using Velune.Windows.Services;
+using Velune.Windows.ViewModels.UndoSystem;
 
 namespace Velune.Windows.ViewModels;
 
@@ -27,6 +28,7 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
     private readonly MergePdfDocumentsUseCase _mergePdfDocumentsUseCase;
     private readonly IWindowsFileDialogService _fileDialogService;
     private readonly IWindowsTextCatalog _textCatalog;
+    private readonly UndoRedoManager _globalUndoManager;
     private readonly DispatcherQueue _dispatcherQueue;
     private readonly Stack<IPageOperation> _undoStack = new();
     private readonly Stack<IPageOperation> _redoStack = new();
@@ -46,6 +48,7 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
         ExtractPdfPagesUseCase extractPdfPagesUseCase,
         MergePdfDocumentsUseCase mergePdfDocumentsUseCase,
         IWindowsFileDialogService fileDialogService,
+        UndoRedoManager globalUndoManager,
         IWindowsTextCatalog textCatalog)
     {
         ArgumentNullException.ThrowIfNull(documentSessionStore);
@@ -55,6 +58,7 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(extractPdfPagesUseCase);
         ArgumentNullException.ThrowIfNull(mergePdfDocumentsUseCase);
         ArgumentNullException.ThrowIfNull(fileDialogService);
+        ArgumentNullException.ThrowIfNull(globalUndoManager);
         ArgumentNullException.ThrowIfNull(textCatalog);
 
         _documentSessionStore = documentSessionStore;
@@ -64,6 +68,7 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
         _extractPdfPagesUseCase = extractPdfPagesUseCase;
         _mergePdfDocumentsUseCase = mergePdfDocumentsUseCase;
         _fileDialogService = fileDialogService;
+        _globalUndoManager = globalUndoManager;
         _textCatalog = textCatalog;
         _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
     }
@@ -144,12 +149,12 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
         _redoStack.Clear();
         UpdateUndoRedoState();
 
-        for (var i = 1; i <= pageCount; i++)
+        for (int i = 1; i <= pageCount; i++)
         {
             var item = new PageOrganizerItemViewModel(i);
             if (existingThumbnails is not null && i - 1 < existingThumbnails.Count)
             {
-                var existing = existingThumbnails[i - 1];
+                WindowsPageThumbnailViewModel existing = existingThumbnails[i - 1];
                 item.Rotation = existing.Rotation;
                 if (existing.Image is not null && existing.Rotation is Rotation.Deg0)
                 {
@@ -167,7 +172,7 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
     [RelayCommand]
     private void SelectAll()
     {
-        foreach (var page in Pages)
+        foreach (PageOrganizerItemViewModel page in Pages)
         {
             page.IsSelected = true;
         }
@@ -178,7 +183,7 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
     [RelayCommand]
     private void DeselectAll()
     {
-        foreach (var page in Pages)
+        foreach (PageOrganizerItemViewModel page in Pages)
         {
             page.IsSelected = false;
         }
@@ -189,7 +194,7 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
     [RelayCommand]
     private void SelectOddPages()
     {
-        for (var i = 0; i < Pages.Count; i++)
+        for (int i = 0; i < Pages.Count; i++)
         {
             Pages[i].IsSelected = (i + 1) % 2 != 0;
         }
@@ -200,7 +205,7 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
     [RelayCommand]
     private void SelectEvenPages()
     {
-        for (var i = 0; i < Pages.Count; i++)
+        for (int i = 0; i < Pages.Count; i++)
         {
             Pages[i].IsSelected = (i + 1) % 2 == 0;
         }
@@ -211,7 +216,7 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
     [RelayCommand]
     private void InvertSelection()
     {
-        foreach (var page in Pages)
+        foreach (PageOrganizerItemViewModel page in Pages)
         {
             page.IsSelected = !page.IsSelected;
         }
@@ -292,7 +297,7 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
             return;
         }
 
-        var operation = _undoStack.Pop();
+        IPageOperation operation = _undoStack.Pop();
         operation.Undo(Pages);
         _redoStack.Push(operation);
         UpdateUndoRedoState();
@@ -308,7 +313,7 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
             return;
         }
 
-        var operation = _redoStack.Pop();
+        IPageOperation operation = _redoStack.Pop();
         operation.Execute(Pages);
         _undoStack.Push(operation);
         UpdateUndoRedoState();
@@ -346,14 +351,14 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
 
         if (isShiftHeld && Pages.Count > 0)
         {
-            var lastSelected = Pages.LastOrDefault(p => p.IsSelected && p != item);
+            PageOrganizerItemViewModel? lastSelected = Pages.LastOrDefault(p => p.IsSelected && p != item);
             if (lastSelected is not null)
             {
-                var startIdx = Pages.IndexOf(lastSelected);
-                var endIdx = Pages.IndexOf(item);
-                var from = Math.Min(startIdx, endIdx);
-                var to = Math.Max(startIdx, endIdx);
-                for (var i = from; i <= to; i++)
+                int startIdx = Pages.IndexOf(lastSelected);
+                int endIdx = Pages.IndexOf(item);
+                int from = Math.Min(startIdx, endIdx);
+                int to = Math.Max(startIdx, endIdx);
+                for (int i = from; i <= to; i++)
                 {
                     Pages[i].IsSelected = true;
                 }
@@ -369,7 +374,7 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
         }
         else
         {
-            foreach (var page in Pages)
+            foreach (PageOrganizerItemViewModel page in Pages)
             {
                 page.IsSelected = page == item;
             }
@@ -419,6 +424,26 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
         UpdateUndoRedoState();
         RefreshPageNumbers();
         RefreshSelectedCount();
+
+        _globalUndoManager.Push(new PageOperationAction(
+            "Page operation",
+            () =>
+            {
+                operation.Execute(Pages);
+                _undoStack.Push(operation);
+                _redoStack.Clear();
+                UpdateUndoRedoState();
+                RefreshPageNumbers();
+                RefreshSelectedCount();
+            },
+            () =>
+            {
+                operation.Undo(Pages);
+                _redoStack.Push(operation);
+                UpdateUndoRedoState();
+                RefreshPageNumbers();
+                RefreshSelectedCount();
+            }));
     }
 
     private void UpdateUndoRedoState()
@@ -430,7 +455,7 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
 
     private void RefreshPageNumbers()
     {
-        for (var i = 0; i < Pages.Count; i++)
+        for (int i = 0; i < Pages.Count; i++)
         {
             Pages[i].PageNumber = i + 1;
         }
@@ -441,24 +466,19 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
     /// <summary>
     /// Recalculates and updates the selected page count.
     /// </summary>
-    public void RefreshSelectedCount()
+    private void RefreshSelectedCount()
     {
         SelectedCount = Pages.Count(p => p.IsSelected);
     }
 
     private async Task RenderAllThumbnailsAsync()
     {
-        foreach (var page in Pages.ToList())
+        foreach (PageOrganizerItemViewModel page in Pages.AsEnumerable().Where(page => page.Thumbnail is null))
         {
-            if (page.Thumbnail is not null)
-            {
-                continue;
-            }
-
             page.IsLoading = true;
 
             var pageIndex = new PageIndex(page.OriginalPageNumber - 1);
-            var previousActiveSessionId = _documentSessionStore.ActiveSessionId;
+            DocumentId? previousActiveSessionId = _documentSessionStore.ActiveSessionId;
 
             if (!_documentSessionStore.TryActivate(_sessionId))
             {
@@ -466,7 +486,7 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
                 continue;
             }
 
-            var handle = _renderOrchestrator.Submit(new RenderRequest(
+            RenderJobHandle handle = _renderOrchestrator.Submit(new RenderRequest(
                 JobKey: $"organizer-thumbnail:{_sessionId.Value}:{pageIndex.Value}",
                 PageIndex: pageIndex,
                 ZoomFactor: OrganizerThumbnailZoom,
@@ -477,7 +497,7 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
 
             RestoreActiveSession(previousActiveSessionId);
 
-            var result = await handle.Completion;
+            RenderResult result = await handle.Completion;
             if (result.IsSuccess && result.Page is not null)
             {
                 await RunOnUiThreadAsync(() =>
@@ -550,7 +570,7 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
 
         public void Execute(ObservableCollection<PageOrganizerItemViewModel> pages)
         {
-            foreach (var (_, item) in _removedItems.AsEnumerable().Reverse())
+            foreach ((int _, PageOrganizerItemViewModel? item) in _removedItems.AsEnumerable().Reverse())
             {
                 pages.Remove(item);
             }
@@ -558,9 +578,9 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
 
         public void Undo(ObservableCollection<PageOrganizerItemViewModel> pages)
         {
-            foreach (var (index, item) in _removedItems)
+            foreach ((int index, PageOrganizerItemViewModel? item) in _removedItems)
             {
-                var insertAt = Math.Min(index, pages.Count);
+                int insertAt = Math.Min(index, pages.Count);
                 pages.Insert(insertAt, item);
             }
         }
@@ -579,7 +599,7 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
 
         public void Execute(ObservableCollection<PageOrganizerItemViewModel> pages)
         {
-            foreach (var item in _items)
+            foreach (PageOrganizerItemViewModel item in _items)
             {
                 item.Rotation = _rotateRight ? RotateRight(item.Rotation) : RotateLeft(item.Rotation);
             }
@@ -587,7 +607,7 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
 
         public void Undo(ObservableCollection<PageOrganizerItemViewModel> pages)
         {
-            foreach (var item in _items)
+            foreach (PageOrganizerItemViewModel item in _items)
             {
                 item.Rotation = _rotateRight ? RotateLeft(item.Rotation) : RotateRight(item.Rotation);
             }
@@ -622,10 +642,10 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
             ObservableCollection<PageOrganizerItemViewModel> pages)
         {
             _sourceItems = selectedItems;
-            var offset = 0;
-            foreach (var item in selectedItems.OrderBy(i => pages.IndexOf(i)))
+            int offset = 0;
+            foreach (PageOrganizerItemViewModel? item in selectedItems.OrderBy(pages.IndexOf))
             {
-                var sourceIndex = pages.IndexOf(item);
+                int sourceIndex = pages.IndexOf(item);
                 var clone = new PageOrganizerItemViewModel(item.OriginalPageNumber, item.Rotation)
                 {
                     Thumbnail = item.Thumbnail
@@ -637,16 +657,16 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
 
         public void Execute(ObservableCollection<PageOrganizerItemViewModel> pages)
         {
-            foreach (var (index, clone) in _insertedItems)
+            foreach ((int index, PageOrganizerItemViewModel? clone) in _insertedItems)
             {
-                var insertAt = Math.Min(index, pages.Count);
+                int insertAt = Math.Min(index, pages.Count);
                 pages.Insert(insertAt, clone);
             }
         }
 
         public void Undo(ObservableCollection<PageOrganizerItemViewModel> pages)
         {
-            foreach (var (_, clone) in _insertedItems.AsEnumerable().Reverse())
+            foreach ((int _, PageOrganizerItemViewModel? clone) in _insertedItems.AsEnumerable().Reverse())
             {
                 pages.Remove(clone);
             }
@@ -673,13 +693,13 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
         public void Execute(ObservableCollection<PageOrganizerItemViewModel> pages)
         {
             var items = _movedItems.Select(m => m.Item).ToList();
-            foreach (var item in items)
+            foreach (PageOrganizerItemViewModel? item in items)
             {
                 pages.Remove(item);
             }
 
-            var adjustedIndex = Math.Min(_insertIndex, pages.Count);
-            for (var i = 0; i < items.Count; i++)
+            int adjustedIndex = Math.Min(_insertIndex, pages.Count);
+            for (int i = 0; i < items.Count; i++)
             {
                 pages.Insert(adjustedIndex + i, items[i]);
             }
@@ -688,14 +708,14 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
         public void Undo(ObservableCollection<PageOrganizerItemViewModel> pages)
         {
             var items = _movedItems.Select(m => m.Item).ToList();
-            foreach (var item in items)
+            foreach (PageOrganizerItemViewModel? item in items)
             {
                 pages.Remove(item);
             }
 
-            foreach (var (originalIndex, item) in _movedItems)
+            foreach ((int originalIndex, PageOrganizerItemViewModel? item) in _movedItems)
             {
-                var insertAt = Math.Min(originalIndex, pages.Count);
+                int insertAt = Math.Min(originalIndex, pages.Count);
                 pages.Insert(insertAt, item);
             }
         }
@@ -719,7 +739,7 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
         {
             var items = _indices.Select(i => pages[i]).ToList();
             items.Reverse();
-            for (var i = 0; i < _indices.Count; i++)
+            for (int i = 0; i < _indices.Count; i++)
             {
                 pages[_indices[i]] = items[i];
             }

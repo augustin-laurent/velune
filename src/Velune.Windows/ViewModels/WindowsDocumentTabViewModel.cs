@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Xaml.Media;
+using Velune.Application.Annotations;
 using Velune.Application.DTOs;
 using Velune.Domain.Annotations;
 using Velune.Domain.Documents;
@@ -15,8 +16,11 @@ namespace Velune.Windows.ViewModels;
 /// </summary>
 public sealed partial class WindowsDocumentTabViewModel : ObservableObject
 {
+    private const string White = "#00000000";
+
     private readonly IWindowsTextCatalog _textCatalog;
     private readonly Dictionary<int, Rotation> _pendingPageRotations = [];
+    private readonly Dictionary<Guid, double> _originalRotationAngles = [];
     private readonly HashSet<Guid> _hiddenAnnotations = [];
     private readonly HashSet<Guid> _lockedAnnotations = [];
     private IReadOnlyDictionary<string, SignatureAsset> _signatureAssets = new Dictionary<string, SignatureAsset>(StringComparer.Ordinal);
@@ -54,7 +58,7 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
         CurrentPagePixelWidth = metadata.PixelWidth ?? 900;
         CurrentPagePixelHeight = metadata.PixelHeight ?? 1200;
 
-        for (var page = 1; page <= TotalPages; page++)
+        for (int page = 1; page <= TotalPages; page++)
         {
             Thumbnails.Add(new WindowsPageThumbnailViewModel(
                 page,
@@ -70,10 +74,16 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
     }
 
     [ObservableProperty]
-    public partial string FilePath { get; set; } = string.Empty;
+    public partial string FilePath
+    {
+        get; set;
+    }
 
     [ObservableProperty]
-    public partial string Title { get; set; } = string.Empty;
+    public partial string Title
+    {
+        get; set;
+    }
 
     [ObservableProperty]
     public partial bool IsActive
@@ -155,6 +165,13 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
     {
         get; set;
     }
+
+    public bool IsAnyRightPanelOpen => IsAnnotationsPanelOpen || IsInfoPanelOpen || IsSearchPanelOpen || IsSettingsPanelOpen;
+
+    partial void OnIsAnnotationsPanelOpenChanged(bool value) => OnPropertyChanged(nameof(IsAnyRightPanelOpen));
+    partial void OnIsInfoPanelOpenChanged(bool value) => OnPropertyChanged(nameof(IsAnyRightPanelOpen));
+    partial void OnIsSearchPanelOpenChanged(bool value) => OnPropertyChanged(nameof(IsAnyRightPanelOpen));
+    partial void OnIsSettingsPanelOpenChanged(bool value) => OnPropertyChanged(nameof(IsAnyRightPanelOpen));
 
     [ObservableProperty]
     public partial string SearchQuery { get; set; } = string.Empty;
@@ -371,13 +388,13 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
     {
         get;
         private set;
-    } = CreateBrush("#00000000");
+    } = CreateBrush(White);
 
     public SolidColorBrush TabBorderBrush
     {
         get;
         private set;
-    } = CreateBrush("#00000000");
+    } = CreateBrush(White);
 
     /// <summary>
     /// Raises property-changed for thumbnail loading status.
@@ -413,9 +430,7 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
     /// <returns>The rotation, or Deg0 if none pending.</returns>
     public Rotation GetPageRotation(int pageNumber)
     {
-        return _pendingPageRotations.TryGetValue(pageNumber, out var rotation)
-            ? rotation
-            : Rotation.Deg0;
+        return _pendingPageRotations.GetValueOrDefault(pageNumber, Rotation.Deg0);
     }
 
     /// <summary>
@@ -483,7 +498,7 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
         }
 
         _pendingPageRotations.Clear();
-        foreach (var thumbnail in Thumbnails)
+        foreach (WindowsPageThumbnailViewModel thumbnail in Thumbnails)
         {
             thumbnail.Rotation = Rotation.Deg0;
         }
@@ -495,7 +510,7 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
     /// <summary>
     /// Raises property-changed notifications for page edit state properties.
     /// </summary>
-    public void NotifyPendingPageEditStateChanged()
+    void NotifyPendingPageEditStateChanged()
     {
         OnPropertyChanged(nameof(HasPendingPageRotations));
         OnPropertyChanged(nameof(HasPendingPageEdits));
@@ -510,6 +525,7 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(annotation);
 
         Annotations.Add(annotation);
+        _originalRotationAngles.TryAdd(annotation.Id, annotation.Appearance.RotationAngle);
         RefreshAnnotationOverlays();
         IsDirty = true;
     }
@@ -520,13 +536,14 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
     /// <param name="annotationId">The annotation identifier to remove.</param>
     public void DeleteAnnotationById(Guid annotationId)
     {
-        var annotation = Annotations.FirstOrDefault(item => item.Id == annotationId);
+        DocumentAnnotation? annotation = Annotations.FirstOrDefault(item => item.Id == annotationId);
         if (annotation is null)
         {
             return;
         }
 
         Annotations.Remove(annotation);
+        _originalRotationAngles.Remove(annotationId);
         if (InlineTextEditor?.AnnotationId == annotationId)
         {
             InlineTextEditor = null;
@@ -580,7 +597,7 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
     {
         ArgumentNullException.ThrowIfNull(annotation);
 
-        if (annotation.Kind is not (DocumentAnnotationKind.Text or DocumentAnnotationKind.Stamp))
+        if (annotation.Kind is not (DocumentAnnotationKind.Text or DocumentAnnotationKind.Stamp or DocumentAnnotationKind.Note))
         {
             return;
         }
@@ -600,13 +617,13 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
     /// <param name="text">The new text content.</param>
     public void UpdateAnnotationText(Guid annotationId, string? text)
     {
-        var annotationIndex = FindAnnotationIndex(annotationId);
+        int annotationIndex = FindAnnotationIndex(annotationId);
         if (annotationIndex < 0)
         {
             return;
         }
 
-        var annotation = Annotations[annotationIndex];
+        DocumentAnnotation annotation = Annotations[annotationIndex];
         Annotations[annotationIndex] = new DocumentAnnotation(
             annotation.Id,
             annotation.Kind,
@@ -632,21 +649,21 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
     /// <summary>
     /// Rebuilds the annotation and comment overlay collections for the current page.
     /// </summary>
-    public void RefreshAnnotationOverlays()
+    public void RefreshAnnotationOverlays(Guid? selectedAnnotationId = null)
     {
         CurrentPageAnnotationOverlays.Clear();
         CurrentPageCommentOverlays.Clear();
 
         var pageIndex = new PageIndex(Math.Max(0, CurrentPage - 1));
-        foreach (var annotation in Annotations.Where(item => item.PageIndex == pageIndex))
+        foreach (DocumentAnnotation? annotation in Annotations.Where(item => item.PageIndex == pageIndex))
         {
             if (InlineTextEditor?.AnnotationId == annotation.Id)
             {
                 continue;
             }
 
-            var isHidden = _hiddenAnnotations.Contains(annotation.Id);
-            var isLocked = _lockedAnnotations.Contains(annotation.Id);
+            bool isHidden = _hiddenAnnotations.Contains(annotation.Id);
+            bool isLocked = _lockedAnnotations.Contains(annotation.Id);
 
             if (annotation.Kind is DocumentAnnotationKind.Note)
             {
@@ -673,6 +690,7 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
                 ResolveAnnotationGlyph(annotation.Kind),
                 _signatureAssets)
             {
+                IsSelected = selectedAnnotationId == annotation.Id,
                 IsHidden = isHidden,
                 IsLocked = isLocked,
                 HideMenuText = isHidden
@@ -714,7 +732,7 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(hits);
 
         ClearSearchResults();
-        foreach (var hit in hits)
+        foreach (SearchHit hit in hits)
         {
             SearchResults.Add(new WindowsSearchResultItemViewModel(hit, hit.PageIndex.Value + 1, _textCatalog));
         }
@@ -734,7 +752,7 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
             return null;
         }
 
-        var index = _selectedSearchResultIndex <= 0
+        int index = _selectedSearchResultIndex <= 0
             ? SearchResults.Count - 1
             : _selectedSearchResultIndex - 1;
 
@@ -752,7 +770,7 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
             return null;
         }
 
-        var index = _selectedSearchResultIndex < 0 || _selectedSearchResultIndex >= SearchResults.Count - 1
+        int index = _selectedSearchResultIndex < 0 || _selectedSearchResultIndex >= SearchResults.Count - 1
             ? 0
             : _selectedSearchResultIndex + 1;
 
@@ -767,7 +785,7 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
     {
         ArgumentNullException.ThrowIfNull(result);
 
-        for (var i = 0; i < SearchResults.Count; i++)
+        for (int i = 0; i < SearchResults.Count; i++)
         {
             SearchResults[i].IsSelected = ReferenceEquals(SearchResults[i], result);
             if (ReferenceEquals(SearchResults[i], result))
@@ -794,7 +812,7 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
     /// <summary>
     /// Rebuilds the search highlight overlays for the current page.
     /// </summary>
-    public void RefreshSearchHighlights()
+    private void RefreshSearchHighlights()
     {
         SearchHighlights.Clear();
 
@@ -807,9 +825,9 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
             return;
         }
 
-        foreach (var region in result.Hit.Regions)
+        foreach (NormalizedTextRegion region in result.Hit.Regions)
         {
-            var bounds = Velune.Application.Annotations.DocumentAnnotationCoordinateMapper.MapRegionToVisualBounds(region, Rotation);
+            NormalizedTextRegion bounds = DocumentAnnotationCoordinateMapper.MapRegionToVisualBounds(region, Rotation);
             SearchHighlights.Add(new TextSelectionHighlightItem
             {
                 Left = bounds.X * CurrentPagePixelWidth,
@@ -853,9 +871,9 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
             return;
         }
 
-        foreach (var region in selection.Regions)
+        foreach (NormalizedTextRegion region in selection.Regions)
         {
-            var bounds = Velune.Application.Annotations.DocumentAnnotationCoordinateMapper.MapRegionToVisualBounds(region, Rotation);
+            NormalizedTextRegion bounds = DocumentAnnotationCoordinateMapper.MapRegionToVisualBounds(region, Rotation);
             TextSelectionHighlights.Add(new TextSelectionHighlightItem
             {
                 Left = bounds.X * CurrentPagePixelWidth,
@@ -898,8 +916,8 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
         }
         else
         {
-            TabBackground = CreateBrush("#00000000");
-            TabBorderBrush = CreateBrush("#00000000");
+            TabBackground = CreateBrush(White);
+            TabBorderBrush = CreateBrush(White);
         }
 
         OnPropertyChanged(nameof(TabBackground));
@@ -971,35 +989,32 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
 
     private string ResolveAnnotationLabel(DocumentAnnotation annotation)
     {
-        if (!string.IsNullOrWhiteSpace(annotation.Text))
-        {
-            return annotation.Text;
-        }
-
-        return annotation.Kind switch
-        {
-            DocumentAnnotationKind.Highlight => _textCatalog.GetString("annotation.kind.highlight"),
-            DocumentAnnotationKind.Ink => _textCatalog.GetString("annotation.kind.ink"),
-            DocumentAnnotationKind.Text => _textCatalog.GetString("annotation.kind.text"),
-            DocumentAnnotationKind.Rectangle => _textCatalog.GetString("annotation.kind.rectangle"),
-            DocumentAnnotationKind.Note => _textCatalog.GetString("annotation.kind.note"),
-            DocumentAnnotationKind.Stamp => _textCatalog.GetString("annotation.kind.stamp"),
-            DocumentAnnotationKind.Signature => _textCatalog.GetString("annotation.kind.signature"),
-            _ => annotation.Kind.ToString()
-        };
+        return !string.IsNullOrWhiteSpace(annotation.Text)
+            ? annotation.Text
+            : annotation.Kind switch
+            {
+                DocumentAnnotationKind.Highlight => _textCatalog.GetString("annotation.kind.highlight"),
+                DocumentAnnotationKind.Ink => _textCatalog.GetString("annotation.kind.ink"),
+                DocumentAnnotationKind.Text => _textCatalog.GetString("annotation.kind.text"),
+                DocumentAnnotationKind.Rectangle => _textCatalog.GetString("annotation.kind.rectangle"),
+                DocumentAnnotationKind.Note => _textCatalog.GetString("annotation.kind.note"),
+                DocumentAnnotationKind.Stamp => _textCatalog.GetString("annotation.kind.stamp"),
+                DocumentAnnotationKind.Signature => _textCatalog.GetString("annotation.kind.signature"),
+                _ => annotation.Kind.ToString()
+            };
     }
 
     private static string ResolveAnnotationGlyph(DocumentAnnotationKind kind)
     {
         return kind switch
         {
-            DocumentAnnotationKind.Highlight => "\uE7FB",
+            DocumentAnnotationKind.Highlight => "\uE891",
             DocumentAnnotationKind.Ink => "\uED5F",
             DocumentAnnotationKind.Text => "\uE8D2",
-            DocumentAnnotationKind.Rectangle => "\uE9F5",
+            DocumentAnnotationKind.Rectangle => "\uE003",
             DocumentAnnotationKind.Note => "\uE90A",
-            DocumentAnnotationKind.Signature => "\uED5F",
-            DocumentAnnotationKind.Stamp => "\uE8B7",
+            DocumentAnnotationKind.Signature => "\uEE56",
+            DocumentAnnotationKind.Stamp => "\uE7C1",
             _ => "\uE8A5"
         };
     }
@@ -1014,7 +1029,7 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(point);
 
         var pageIndex = new PageIndex(Math.Max(0, CurrentPage - 1));
-        foreach (var annotation in Annotations.Where(item =>
+        foreach (DocumentAnnotation annotation in Annotations.Where(item =>
                      item.PageIndex == pageIndex && item.Kind is DocumentAnnotationKind.Text))
         {
             if (annotation.Bounds is not { } bounds)
@@ -1037,31 +1052,69 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
     /// </summary>
     /// <param name="point">The normalized point to hit-test.</param>
     /// <returns>The matching annotation, or null.</returns>
-    public DocumentAnnotation? FindAnnotationAtPoint(NormalizedPoint point)
+    public DocumentAnnotation? FindAnnotationAtPoint(NormalizedPoint point, double pageWidth = 1, double pageHeight = 1)
     {
         ArgumentNullException.ThrowIfNull(point);
 
         var pageIndex = new PageIndex(Math.Max(0, CurrentPage - 1));
-        foreach (var annotation in Annotations.Where(item => item.PageIndex == pageIndex))
+        foreach (DocumentAnnotation annotation in Annotations.Where(item => item.PageIndex == pageIndex))
         {
             if (annotation.Kind is DocumentAnnotationKind.Note)
             {
                 continue;
             }
 
-            if (annotation.Bounds is not { } bounds)
+            if (annotation.Bounds is { } bounds)
             {
+                NormalizedPoint testPoint = UnrotatePointForHitTest(point, bounds, annotation.Appearance.RotationAngle, pageWidth, pageHeight);
+                if (testPoint.X >= bounds.X && testPoint.X <= bounds.X + bounds.Width &&
+                    testPoint.Y >= bounds.Y && testPoint.Y <= bounds.Y + bounds.Height)
+                {
+                    return annotation;
+                }
+
                 continue;
             }
 
-            if (point.X >= bounds.X && point.X <= bounds.X + bounds.Width &&
-                point.Y >= bounds.Y && point.Y <= bounds.Y + bounds.Height)
+            if (annotation.Kind is DocumentAnnotationKind.Ink && annotation.Points.Count > 0)
             {
-                return annotation;
+                double minX = annotation.Points.Min(p => p.X);
+                double maxX = annotation.Points.Max(p => p.X);
+                double minY = annotation.Points.Min(p => p.Y);
+                double maxY = annotation.Points.Max(p => p.Y);
+                const double margin = 0.02;
+                var inkBounds = new NormalizedTextRegion(minX, minY, Math.Max(0.01, maxX - minX), Math.Max(0.01, maxY - minY));
+                NormalizedPoint testPoint = UnrotatePointForHitTest(point, inkBounds, annotation.Appearance.RotationAngle, pageWidth, pageHeight);
+                if (testPoint.X >= minX - margin && testPoint.X <= maxX + margin &&
+                    testPoint.Y >= minY - margin && testPoint.Y <= maxY + margin)
+                {
+                    return annotation;
+                }
             }
         }
 
         return null;
+    }
+
+    private static NormalizedPoint UnrotatePointForHitTest(NormalizedPoint point, NormalizedTextRegion bounds, double angleDeg, double pageWidth, double pageHeight)
+    {
+        if (Math.Abs(angleDeg) < 0.01)
+        {
+            return point;
+        }
+
+        double cx = (bounds.X + bounds.Width / 2) * pageWidth;
+        double cy = (bounds.Y + bounds.Height / 2) * pageHeight;
+        double px = point.X * pageWidth;
+        double py = point.Y * pageHeight;
+        double rad = -angleDeg * Math.PI / 180;
+        double cos = Math.Cos(rad);
+        double sin = Math.Sin(rad);
+        double dx = px - cx;
+        double dy = py - cy;
+        double rx = cx + dx * cos - dy * sin;
+        double ry = cy + dx * sin + dy * cos;
+        return new NormalizedPoint(rx / pageWidth, ry / pageHeight);
     }
 
     /// <summary>
@@ -1071,13 +1124,18 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
     /// <param name="newBounds">The new normalized position and size.</param>
     public void MoveAnnotation(Guid annotationId, NormalizedTextRegion newBounds)
     {
-        var annotationIndex = FindAnnotationIndex(annotationId);
+        int annotationIndex = FindAnnotationIndex(annotationId);
         if (annotationIndex < 0)
         {
             return;
         }
 
-        var annotation = Annotations[annotationIndex];
+        DocumentAnnotation annotation = Annotations[annotationIndex];
+        if (annotation.Kind is DocumentAnnotationKind.Ink)
+        {
+            return;
+        }
+
         Annotations[annotationIndex] = new DocumentAnnotation(
             annotation.Id,
             annotation.Kind,
@@ -1089,12 +1147,59 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
             annotation.AssetId,
             annotation.CreatedAt);
         IsDirty = true;
-        RefreshAnnotationOverlays();
+        RefreshAnnotationOverlays(annotationId);
     }
 
-    private int FindAnnotationIndex(Guid annotationId)
+    public void TransformInkAnnotation(
+        Guid annotationId,
+        NormalizedTextRegion originalBounds,
+        NormalizedTextRegion newBounds,
+        IReadOnlyList<NormalizedPoint> originalPoints)
     {
-        for (var index = 0; index < Annotations.Count; index++)
+        ArgumentNullException.ThrowIfNull(originalBounds);
+        ArgumentNullException.ThrowIfNull(newBounds);
+        ArgumentNullException.ThrowIfNull(originalPoints);
+
+        int annotationIndex = FindAnnotationIndex(annotationId);
+        if (annotationIndex < 0)
+        {
+            return;
+        }
+
+        DocumentAnnotation annotation = Annotations[annotationIndex];
+        if (annotation.Kind is not DocumentAnnotationKind.Ink || originalPoints.Count == 0)
+        {
+            return;
+        }
+
+        double scaleX = originalBounds.Width > 0.001 ? newBounds.Width / originalBounds.Width : 1;
+        double scaleY = originalBounds.Height > 0.001 ? newBounds.Height / originalBounds.Height : 1;
+
+        var transformedPoints = new List<NormalizedPoint>(originalPoints.Count);
+        foreach (NormalizedPoint p in originalPoints)
+        {
+            double nx = newBounds.X + (p.X - originalBounds.X) * scaleX;
+            double ny = newBounds.Y + (p.Y - originalBounds.Y) * scaleY;
+            transformedPoints.Add(new NormalizedPoint(Math.Clamp(nx, 0, 1), Math.Clamp(ny, 0, 1)));
+        }
+
+        Annotations[annotationIndex] = new DocumentAnnotation(
+            annotation.Id,
+            annotation.Kind,
+            annotation.PageIndex,
+            annotation.Appearance,
+            null,
+            transformedPoints,
+            annotation.Text,
+            annotation.AssetId,
+            annotation.CreatedAt);
+        IsDirty = true;
+        RefreshAnnotationOverlays(annotationId);
+    }
+
+    public int FindAnnotationIndex(Guid annotationId)
+    {
+        for (int index = 0; index < Annotations.Count; index++)
         {
             if (Annotations[index].Id == annotationId)
             {
@@ -1105,19 +1210,22 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
         return -1;
     }
 
+    public double GetOriginalRotation(Guid annotationId)
+    {
+        return _originalRotationAngles.TryGetValue(annotationId, out double angle) ? angle : 0;
+    }
+
     private static string FormatFileSize(long bytes)
     {
-        if (bytes < 1024)
+        switch (bytes)
         {
-            return $"{bytes} B";
+            case < 1024:
+                return $"{bytes} B";
+            case < 1024 * 1024:
+                return $"{bytes / 1024d:0.#} KB";
+            default:
+                return $"{bytes / 1024d / 1024d:0.#} MB";
         }
-
-        if (bytes < 1024 * 1024)
-        {
-            return $"{bytes / 1024d:0.#} KB";
-        }
-
-        return $"{bytes / 1024d / 1024d:0.#} MB";
     }
 
     private static string FormatDimensions(int? width, int? height)
@@ -1134,7 +1242,7 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
 
     private static SolidColorBrush CreateBrush(string hex)
     {
-        var normalized = hex.Trim().TrimStart('#');
+        string normalized = hex.Trim().TrimStart('#');
         return new SolidColorBrush(global::Windows.UI.Color.FromArgb(
             255,
             Convert.ToByte(normalized[..2], 16),

@@ -1,6 +1,8 @@
 using Velune.Application.Abstractions;
 using Velune.Application.DTOs;
 using Velune.Application.Results;
+using Velune.Domain.Documents;
+using Velune.Domain.ValueObjects;
 
 namespace Velune.Application.UseCases;
 
@@ -24,5 +26,16 @@ public sealed class ResolveDocumentTextSelectionUseCase
     {
         ArgumentNullException.ThrowIfNull(request);
         return _selectionService.Resolve(request);
+    }
+
+    /// <summary>Resolves a text selection by character index range.</summary>
+    public Result<DocumentTextSelectionResult> ExecuteByRange(
+        DocumentTextIndex index,
+        PageIndex pageIndex,
+        int startCharacterIndex,
+        int endCharacterIndex)
+    {
+        ArgumentNullException.ThrowIfNull(index);
+        return _selectionService.ResolveByRange(index, pageIndex, startCharacterIndex, endCharacterIndex);
     }
 }

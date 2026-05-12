@@ -136,14 +136,15 @@
                      FontSize="20"
                      FontWeight="SemiBold" />
           <TextBlock Text="{Binding Labels.WindowSubtitle}"
-                     Foreground="{ThemeResource WelcomeTextSecondaryBrush}"
-                     FontSize="15" />
+                     Style="{StaticResource BodyTextBlockStyle}"
+                     Foreground="{ThemeResource WelcomeTextSecondaryBrush}" />
         </StackPanel>
 
         <Button Grid.Column="2"
                 Style="{StaticResource IconButtonStyle}"
                 VerticalAlignment="Center"
-                Click="OnSettingsClicked">
+                Click="OnSettingsClicked"
+                AutomationProperties.Name="{Binding Labels.Settings}">
           <FontIcon Glyph="&#xE713;"
                     FontFamily="Segoe Fluent Icons"
                     FontSize="17" />
@@ -208,9 +209,8 @@
           </Canvas>
 
           <TextBlock Text="{Binding Labels.WelcomeDropTitle}"
+                     Style="{StaticResource SubtitleTextBlockStyle}"
                      Foreground="{ThemeResource WelcomeTextPrimaryBrush}"
-                     FontSize="21"
-                     FontWeight="SemiBold"
                      HorizontalAlignment="Center"
                      TextAlignment="Center" />
 
@@ -225,7 +225,8 @@
                       Spacing="11"
                       Margin="0,6,0,0">
             <Button Click="OnOpenFilesClicked"
-                    Style="{StaticResource PrimaryWelcomeButtonStyle}">
+                    Style="{StaticResource PrimaryWelcomeButtonStyle}"
+                    AutomationProperties.Name="{Binding Labels.WelcomeOpenFiles}">
               <StackPanel Orientation="Horizontal"
                           Spacing="10"
                           VerticalAlignment="Center">
@@ -240,7 +241,8 @@
             </Button>
 
             <Button Command="{Binding MergeCommand}"
-                    Style="{StaticResource SecondaryWelcomeButtonStyle}">
+                    Style="{StaticResource SecondaryWelcomeButtonStyle}"
+                    AutomationProperties.Name="{Binding Labels.WelcomeMergePdf}">
               <StackPanel Orientation="Horizontal"
                           Spacing="10"
                           VerticalAlignment="Center">
@@ -260,7 +262,8 @@
                   Background="Transparent"
                   BorderThickness="0"
                   HorizontalAlignment="Center"
-                  Foreground="{ThemeResource WelcomeAccentTextBrush}">
+                  Foreground="{ThemeResource WelcomeAccentTextBrush}"
+                  AutomationProperties.Name="{Binding Labels.WelcomeBrowseDevice}">
             <StackPanel Orientation="Horizontal"
                         Spacing="8">
               <FontIcon Glyph="&#xE838;"
@@ -292,7 +295,8 @@
         <Button Grid.Row="0"
                 Style="{StaticResource ClearRecentButtonStyle}"
                 HorizontalAlignment="Right"
-                Command="{Binding ClearRecentFilesCommand}">
+                Command="{Binding ClearRecentFilesCommand}"
+                AutomationProperties.Name="{Binding Labels.RecentClear}">
           <StackPanel Orientation="Horizontal"
                       Spacing="6"
                       VerticalAlignment="Center">
@@ -350,13 +354,13 @@
                         VerticalAlignment="Center">
                     <Grid Visibility="{Binding FileName, Converter={StaticResource RecentFilePdfVisibility}}">
                       <Path Data="M5,1 H17 L24,8 V31 H5 Z M17,1 V8 H24"
-                            Stroke="#E8232E"
+                            Stroke="{ThemeResource PdfBadgeBrush}"
                             StrokeThickness="1.2"
                             StrokeLineJoin="Round"
                             Fill="Transparent" />
                       <Border Width="22"
                               Height="10"
-                              Background="#E8232E"
+                              Background="{ThemeResource PdfBadgeBrush}"
                               CornerRadius="2"
                               HorizontalAlignment="Center"
                               VerticalAlignment="Bottom"

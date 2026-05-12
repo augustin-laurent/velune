@@ -62,7 +62,7 @@ Domain has zero dependencies on external packages or other layers.
 
 - Nullable enabled, warnings as errors
 - 4-space indent, LF endings, mandatory braces
-- `var` only when type is obvious from RHS
+- Avoid `var` — use explicit types. Only use `var` when required (e.g., anonymous types) per Microsoft guidelines
 - Long-running ops accept `CancellationToken`
 - Business logic never in views
 - Infrastructure libs never leak into Presentation

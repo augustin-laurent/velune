@@ -32,7 +32,7 @@ internal static class SkiaAnnotationRenderer
         ArgumentNullException.ThrowIfNull(annotations);
         ArgumentNullException.ThrowIfNull(signatureAssets);
 
-        foreach (var annotation in annotations)
+        foreach (DocumentAnnotation annotation in annotations)
         {
             switch (annotation.Kind)
             {
@@ -78,7 +78,7 @@ internal static class SkiaAnnotationRenderer
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
 
         using var surface = SKSurface.Create(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul));
-        var canvas = surface.Canvas;
+        SKCanvas? canvas = surface.Canvas;
         canvas.Clear(SKColors.Transparent);
 
         if (points.Count > 0)
@@ -94,20 +94,20 @@ internal static class SkiaAnnotationRenderer
             };
 
             using var path = new SKPath();
-            var first = points[0];
+            NormalizedPoint first = points[0];
             path.MoveTo((float)(first.X * width), (float)(first.Y * height));
 
-            for (var i = 1; i < points.Count; i++)
+            for (int i = 1; i < points.Count; i++)
             {
-                var point = points[i];
+                NormalizedPoint point = points[i];
                 path.LineTo((float)(point.X * width), (float)(point.Y * height));
             }
 
             canvas.DrawPath(path, paint);
         }
 
-        using var image = surface.Snapshot();
-        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        using SKImage? image = surface.Snapshot();
+        using SKData? data = image.Encode(SKEncodedImageFormat.Png, 100);
         return data?.ToArray() ?? [];
     }
 
@@ -123,8 +123,8 @@ internal static class SkiaAnnotationRenderer
             return;
         }
 
-        var bounds = ResolveBounds(annotation.Bounds, width, height, rotation);
-        using var paint = CreateFillPaint(annotation.Appearance, "#F6D98B");
+        SKRect bounds = ResolveBounds(annotation.Bounds, width, height, rotation);
+        using SKPaint paint = CreateFillPaint(annotation.Appearance, "#F6D98B");
         canvas.DrawRoundRect(bounds, 4, 4, paint);
     }
 
@@ -140,15 +140,15 @@ internal static class SkiaAnnotationRenderer
             return;
         }
 
-        using var paint = CreateStrokePaint(annotation.Appearance);
+        using SKPaint paint = CreateStrokePaint(annotation.Appearance);
         using var path = new SKPath();
 
-        var first = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(annotation.Points[0], width, height, rotation);
+        (double X, double Y) first = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(annotation.Points[0], width, height, rotation);
         path.MoveTo((float)first.X, (float)first.Y);
 
-        for (var i = 1; i < annotation.Points.Count; i++)
+        for (int i = 1; i < annotation.Points.Count; i++)
         {
-            var point = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(annotation.Points[i], width, height, rotation);
+            (double X, double Y) point = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(annotation.Points[i], width, height, rotation);
             path.LineTo((float)point.X, (float)point.Y);
         }
 
@@ -168,15 +168,15 @@ internal static class SkiaAnnotationRenderer
             return;
         }
 
-        var bounds = ResolveBounds(annotation.Bounds, width, height, rotation);
+        SKRect bounds = ResolveBounds(annotation.Bounds, width, height, rotation);
 
         if (includeFill)
         {
-            using var fillPaint = CreateFillPaint(annotation.Appearance, "#FFF5D8");
+            using SKPaint fillPaint = CreateFillPaint(annotation.Appearance, "#FFF5D8");
             canvas.DrawRoundRect(bounds, 10, 10, fillPaint);
         }
 
-        using var strokePaint = CreateStrokePaint(annotation.Appearance);
+        using SKPaint strokePaint = CreateStrokePaint(annotation.Appearance);
         canvas.DrawRoundRect(bounds, 10, 10, strokePaint);
     }
 
@@ -193,10 +193,10 @@ internal static class SkiaAnnotationRenderer
             return;
         }
 
-        var bounds = ResolveBounds(annotation.Bounds, width, height, rotation);
+        SKRect bounds = ResolveBounds(annotation.Bounds, width, height, rotation);
 
-        using var fillPaint = CreateFillPaint(annotation.Appearance, emphasizeFill ? "#FFF2D6" : "#EEF1FF");
-        using var strokePaint = CreateStrokePaint(annotation.Appearance);
+        using SKPaint fillPaint = CreateFillPaint(annotation.Appearance, emphasizeFill ? "#FFF2D6" : "#EEF1FF");
+        using SKPaint strokePaint = CreateStrokePaint(annotation.Appearance);
 
         canvas.DrawRoundRect(bounds, 12, 12, fillPaint);
         canvas.DrawRoundRect(bounds, 12, 12, strokePaint);
@@ -220,9 +220,9 @@ internal static class SkiaAnnotationRenderer
             return;
         }
 
-        var bounds = ResolveBounds(annotation.Bounds, width, height, rotation);
-        using var strokePaint = CreateStrokePaint(annotation.Appearance);
-        using var fillPaint = CreateFillPaint(annotation.Appearance, "#FEE6F2");
+        SKRect bounds = ResolveBounds(annotation.Bounds, width, height, rotation);
+        using SKPaint strokePaint = CreateStrokePaint(annotation.Appearance);
+        using SKPaint fillPaint = CreateFillPaint(annotation.Appearance, "#FEE6F2");
 
         canvas.DrawRoundRect(bounds, 16, 16, fillPaint);
         canvas.DrawRoundRect(bounds, 16, 16, strokePaint);
@@ -248,10 +248,10 @@ internal static class SkiaAnnotationRenderer
             return;
         }
 
-        var bounds = ResolveBounds(annotation.Bounds, width, height, rotation);
+        SKRect bounds = ResolveBounds(annotation.Bounds, width, height, rotation);
 
         if (!string.IsNullOrWhiteSpace(annotation.AssetId) &&
-            signatureAssets.TryGetValue(annotation.AssetId, out var asset) &&
+            signatureAssets.TryGetValue(annotation.AssetId, out SignatureAsset? asset) &&
             File.Exists(asset.FilePath))
         {
             using var signatureBitmap = SKBitmap.Decode(asset.FilePath);
@@ -272,31 +272,31 @@ internal static class SkiaAnnotationRenderer
         float height,
         Rotation rotation)
     {
-        var topLeft = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(
+        (double X, double Y) topLeft = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(
             new NormalizedPoint(bounds.X, bounds.Y),
             width,
             height,
             rotation);
-        var topRight = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(
+        (double X, double Y) topRight = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(
             new NormalizedPoint(bounds.X + bounds.Width, bounds.Y),
             width,
             height,
             rotation);
-        var bottomLeft = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(
+        (double X, double Y) bottomLeft = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(
             new NormalizedPoint(bounds.X, bounds.Y + bounds.Height),
             width,
             height,
             rotation);
-        var bottomRight = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(
+        (double X, double Y) bottomRight = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(
             new NormalizedPoint(bounds.X + bounds.Width, bounds.Y + bounds.Height),
             width,
             height,
             rotation);
 
-        var left = (float)Math.Min(Math.Min(topLeft.X, topRight.X), Math.Min(bottomLeft.X, bottomRight.X));
-        var top = (float)Math.Min(Math.Min(topLeft.Y, topRight.Y), Math.Min(bottomLeft.Y, bottomRight.Y));
-        var right = (float)Math.Max(Math.Max(topLeft.X, topRight.X), Math.Max(bottomLeft.X, bottomRight.X));
-        var bottom = (float)Math.Max(Math.Max(topLeft.Y, topRight.Y), Math.Max(bottomLeft.Y, bottomRight.Y));
+        float left = (float)Math.Min(Math.Min(topLeft.X, topRight.X), Math.Min(bottomLeft.X, bottomRight.X));
+        float top = (float)Math.Min(Math.Min(topLeft.Y, topRight.Y), Math.Min(bottomLeft.Y, bottomRight.Y));
+        float right = (float)Math.Max(Math.Max(topLeft.X, topRight.X), Math.Max(bottomLeft.X, bottomRight.X));
+        float bottom = (float)Math.Max(Math.Max(topLeft.Y, topRight.Y), Math.Max(bottomLeft.Y, bottomRight.Y));
 
         return new SKRect(left, top, right, bottom);
     }
@@ -316,7 +316,7 @@ internal static class SkiaAnnotationRenderer
 
     private static SKPaint CreateFillPaint(AnnotationAppearance appearance, string fallbackFill)
     {
-        var color = appearance.FillHex ?? fallbackFill;
+        string color = appearance.FillHex ?? fallbackFill;
         return new SKPaint
         {
             Style = SKPaintStyle.Fill,
@@ -343,14 +343,14 @@ internal static class SkiaAnnotationRenderer
                 : SKTypeface.Default
         };
 
-        var maxTextWidth = Math.Max(24, bounds.Width - 20);
-        var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        float maxTextWidth = Math.Max(24, bounds.Width - 20);
+        string[] words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         var lines = new List<string>();
-        var currentLine = string.Empty;
+        string currentLine = string.Empty;
 
-        foreach (var word in words)
+        foreach (string word in words)
         {
-            var candidate = string.IsNullOrWhiteSpace(currentLine)
+            string candidate = string.IsNullOrWhiteSpace(currentLine)
                 ? word
                 : $"{currentLine} {word}";
 
@@ -376,15 +376,15 @@ internal static class SkiaAnnotationRenderer
             lines.Add(text);
         }
 
-        var lineHeight = paint.TextSize * 1.22f;
-        var totalHeight = lines.Count * lineHeight;
-        var originY = center
+        float lineHeight = paint.TextSize * 1.22f;
+        float totalHeight = lines.Count * lineHeight;
+        float originY = center
             ? bounds.MidY - (totalHeight / 2) + paint.TextSize
             : bounds.Top + 18 + paint.TextSize;
 
-        foreach (var line in lines)
+        foreach (string line in lines)
         {
-            var x = center
+            float x = center
                 ? bounds.MidX - (paint.MeasureText(line) / 2)
                 : bounds.Left + 12;
             canvas.DrawText(line, x, originY, paint);

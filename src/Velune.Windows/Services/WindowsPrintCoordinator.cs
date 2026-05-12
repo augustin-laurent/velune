@@ -1,3 +1,4 @@
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
@@ -13,7 +14,6 @@ using Velune.Domain.ValueObjects;
 using Velune.Windows.ViewModels;
 using Windows.Foundation;
 using Windows.Graphics.Printing;
-using WinRT.Interop;
 
 namespace Velune.Windows.Services;
 
@@ -92,10 +92,10 @@ public sealed class WindowsPrintCoordinator : IWindowsPrintCoordinator
                     "Another print operation is already active."));
         }
 
-        var printUiShown = false;
+        bool printUiShown = false;
         if (string.IsNullOrWhiteSpace(tab.FilePath) || !System.IO.File.Exists(tab.FilePath))
         {
-            CleanupPrintSession();
+            await CleanupPrintSessionAsync();
             return ResultFactory.Failure(
                 AppError.NotFound("print.file.missing", _textCatalog.GetString("windows.print.session_missing")));
         }
@@ -106,22 +106,22 @@ public sealed class WindowsPrintCoordinator : IWindowsPrintCoordinator
 
             if (!_documentSessionStore.TryActivate(tab.SessionId))
             {
-                CleanupPrintSession();
+                await CleanupPrintSessionAsync();
                 return ResultFactory.Failure(
                     AppError.NotFound("print.session.missing", _textCatalog.GetString("windows.print.session_missing")));
             }
 
             if (!PrintManager.IsSupported())
             {
-                CleanupPrintSession();
+                await CleanupPrintSessionAsync();
                 return ResultFactory.Failure(
                     AppError.Unsupported(
                         "print.platform.unsupported",
                         "Printing is not supported on this Windows device."));
             }
 
-            var printJob = WindowsPrintJobSnapshotFactory.Create(tab, _textCatalog.GetString("app.name"));
-            var wasPrintUiShown = await RunOnUiThreadAsync(async () =>
+            WindowsPrintJobSnapshot printJob = WindowsPrintJobSnapshotFactory.Create(tab, _textCatalog.GetString("app.name"));
+            bool wasPrintUiShown = await RunOnUiThreadAsync(async () =>
             {
                 _currentPrintJob = printJob;
                 _currentPrintCancellationToken = cancellationToken;
@@ -166,11 +166,11 @@ public sealed class WindowsPrintCoordinator : IWindowsPrintCoordinator
     {
         var snapshots = new List<WindowsPrintPageSnapshot>();
 
-        foreach (var pageIndex in WindowsPrintPageSnapshotFactory.CreatePageIndices(printJob.TotalPages))
+        foreach (PageIndex pageIndex in WindowsPrintPageSnapshotFactory.CreatePageIndices(printJob.TotalPages))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var handle = _renderOrchestrator.Submit(
+            RenderJobHandle handle = _renderOrchestrator.Submit(
                 new RenderRequest(
                     $"windows-print:{printJob.SessionId.Value}:{pageIndex.Value}",
                     pageIndex,
@@ -179,7 +179,7 @@ public sealed class WindowsPrintCoordinator : IWindowsPrintCoordinator
                     Priority: RenderPriority.Viewer,
                     UseThumbnailDiskCache: false));
 
-            var result = await handle.Completion.WaitAsync(cancellationToken);
+            RenderResult result = await handle.Completion.WaitAsync(cancellationToken);
             if (result.IsCanceled)
             {
                 throw new OperationCanceledException(cancellationToken);
@@ -255,8 +255,8 @@ public sealed class WindowsPrintCoordinator : IWindowsPrintCoordinator
             return;
         }
 
-        var printJob = _currentPrintJob;
-        var printDocumentSource = _printDocumentSource;
+        WindowsPrintJobSnapshot? printJob = _currentPrintJob;
+        IPrintDocumentSource? printDocumentSource = _printDocumentSource;
         if (printJob is null || printDocumentSource is null)
         {
             return;
@@ -279,11 +279,11 @@ public sealed class WindowsPrintCoordinator : IWindowsPrintCoordinator
         IPrintDocumentSource printDocumentSource,
         CancellationToken cancellationToken)
     {
-        var deferral = sourceRequested.GetDeferral();
+        PrintTaskSourceRequestedDeferral deferral = sourceRequested.GetDeferral();
         try
         {
-            var snapshotsResult = await PreparePrintPageSnapshotsAsync(printJob, cancellationToken);
-            var snapshots = snapshotsResult.IsSuccess && snapshotsResult.Value is not null
+            Result<IReadOnlyList<WindowsPrintPageSnapshot>> snapshotsResult = await PreparePrintPageSnapshotsAsync(printJob, cancellationToken);
+            IReadOnlyList<WindowsPrintPageSnapshot>? snapshots = snapshotsResult.IsSuccess && snapshotsResult.Value is not null
                 ? snapshotsResult.Value
                 : [];
 
@@ -349,7 +349,7 @@ public sealed class WindowsPrintCoordinator : IWindowsPrintCoordinator
             return;
         }
 
-        if (!_previewPages.TryGetValue(args.PageNumber, out var previewPage))
+        if (!_previewPages.TryGetValue(args.PageNumber, out UIElement? previewPage))
         {
             previewPage = WindowsPrintPageElementFactory.Create(
                 _pageSnapshots[args.PageNumber - 1],
@@ -369,7 +369,7 @@ public sealed class WindowsPrintCoordinator : IWindowsPrintCoordinator
 
         try
         {
-            foreach (var snapshot in _pageSnapshots)
+            foreach (WindowsPrintPageSnapshot snapshot in _pageSnapshots)
             {
                 _printDocument.AddPage(
                     WindowsPrintPageElementFactory.Create(
@@ -390,7 +390,7 @@ public sealed class WindowsPrintCoordinator : IWindowsPrintCoordinator
 
     private void CleanupPrintSessionOnUiThread()
     {
-        var dispatcherQueue = _windowContext.GetDispatcherQueue();
+        DispatcherQueue? dispatcherQueue = _windowContext.GetDispatcherQueue();
         if (dispatcherQueue is not null && !dispatcherQueue.HasThreadAccess && dispatcherQueue.TryEnqueue(CleanupPrintSession))
         {
             return;
@@ -408,7 +408,7 @@ public sealed class WindowsPrintCoordinator : IWindowsPrintCoordinator
     {
         ArgumentNullException.ThrowIfNull(action);
 
-        var dispatcherQueue = _windowContext.GetDispatcherQueue();
+        DispatcherQueue? dispatcherQueue = _windowContext.GetDispatcherQueue();
         if (dispatcherQueue is null || dispatcherQueue.HasThreadAccess)
         {
             action();
@@ -439,7 +439,7 @@ public sealed class WindowsPrintCoordinator : IWindowsPrintCoordinator
     {
         ArgumentNullException.ThrowIfNull(operation);
 
-        var dispatcherQueue = _windowContext.GetDispatcherQueue();
+        DispatcherQueue? dispatcherQueue = _windowContext.GetDispatcherQueue();
         if (dispatcherQueue is null || dispatcherQueue.HasThreadAccess)
         {
             return operation();
@@ -487,7 +487,7 @@ public sealed class WindowsPrintCoordinator : IWindowsPrintCoordinator
             _previewPages.Clear();
             _pageDescription = null;
             _currentPrintJob = null;
-            _currentPrintCancellationToken = default;
+            _currentPrintCancellationToken = CancellationToken.None;
             _currentPrintTitle = _textCatalog.GetString("app.name");
             _isPrintSessionActive = false;
         }
@@ -560,7 +560,7 @@ internal sealed record WindowsPrintPageDescription(
     {
         ArgumentNullException.ThrowIfNull(options);
 
-        var description = options.GetPageDescription(0);
+        PrintPageDescription description = options.GetPageDescription(0);
         return new WindowsPrintPageDescription(description.PageSize, description.ImageableRect);
     }
 }
@@ -582,7 +582,7 @@ internal static class WindowsPrintLayoutCalculator
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sourceWidth);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sourceHeight);
 
-        var imageableRect = pageDescription.ImageableRect;
+        Rect imageableRect = pageDescription.ImageableRect;
         if (imageableRect.Width <= 0 || imageableRect.Height <= 0)
         {
             imageableRect = new Rect(
@@ -592,9 +592,9 @@ internal static class WindowsPrintLayoutCalculator
                 Math.Max(1, pageDescription.PageSize.Height));
         }
 
-        var scale = Math.Min(imageableRect.Width / sourceWidth, imageableRect.Height / sourceHeight);
-        var width = Math.Max(1, sourceWidth * scale);
-        var height = Math.Max(1, sourceHeight * scale);
+        double scale = Math.Min(imageableRect.Width / sourceWidth, imageableRect.Height / sourceHeight);
+        double width = Math.Max(1, sourceWidth * scale);
+        double height = Math.Max(1, sourceHeight * scale);
 
         return new WindowsPrintContentLayout(
             imageableRect.X + Math.Max(0, (imageableRect.Width - width) / 2),
@@ -613,7 +613,7 @@ internal static class WindowsPrintPageElementFactory
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(pageDescription);
 
-        var layout = WindowsPrintLayoutCalculator.Calculate(
+        WindowsPrintContentLayout layout = WindowsPrintLayoutCalculator.Calculate(
             pageDescription,
             snapshot.Page.Width,
             snapshot.Page.Height);
@@ -649,7 +649,7 @@ internal static class WindowsPrintPageElementFactory
             IsHitTestVisible = false
         };
 
-        foreach (var annotation in snapshot.Annotations)
+        foreach (DocumentAnnotation annotation in snapshot.Annotations)
         {
             annotationLayer.Children.Add(CreateAnnotationElement(
                 annotation,
@@ -682,21 +682,33 @@ internal static class WindowsPrintPageElementFactory
             return polyline;
         }
 
-        var bounds = annotation.Bounds is { } annotationBounds
+        NormalizedTextRegion bounds = annotation.Bounds is { } annotationBounds
             ? DocumentAnnotationCoordinateMapper.MapRegionToVisualBounds(annotationBounds, rotation)
             : new NormalizedTextRegion(0.1, 0.1, 0.2, 0.08);
 
-        var width = Math.Max(12, bounds.Width * pageWidth);
-        var height = Math.Max(12, bounds.Height * pageHeight);
+        double width = Math.Max(12, bounds.Width * pageWidth);
+        double height = Math.Max(12, bounds.Height * pageHeight);
+        byte fillAlpha = annotation.Kind switch
+        {
+            DocumentAnnotationKind.Highlight => 90,
+            DocumentAnnotationKind.Text => 0,
+            _ when annotation.Appearance.FillHex is not null => 200,
+            _ => 0
+        };
+        string? fillHex = annotation.Kind switch
+        {
+            DocumentAnnotationKind.Highlight => annotation.Appearance.StrokeHex,
+            _ => annotation.Appearance.FillHex
+        };
         var border = new Border
         {
             Width = width,
             Height = height,
-            Background = CreateBrush(
-                annotation.Appearance.FillHex ?? annotation.Appearance.StrokeHex,
-                annotation.Kind is DocumentAnnotationKind.Highlight ? (byte)90 : (byte)220),
+            Background = fillHex is not null
+                ? CreateBrush(fillHex, fillAlpha)
+                : CreateBrush("#000000", 0),
             BorderBrush = CreateBrush(annotation.Appearance.StrokeHex),
-            BorderThickness = annotation.Kind is DocumentAnnotationKind.Highlight
+            BorderThickness = annotation.Kind is DocumentAnnotationKind.Highlight or DocumentAnnotationKind.Text
                 ? new Thickness(0)
                 : new Thickness(Math.Max(1, annotation.Appearance.StrokeThickness)),
             CornerRadius = new CornerRadius(annotation.Kind is DocumentAnnotationKind.Stamp ? 2 : 4),
@@ -712,7 +724,9 @@ internal static class WindowsPrintPageElementFactory
             border.Child = new TextBlock
             {
                 Text = string.IsNullOrWhiteSpace(annotation.Text) ? annotation.Kind.ToString() : annotation.Text,
-                Foreground = CreateBrush("#111827"),
+                Foreground = annotation.Kind is DocumentAnnotationKind.Text
+                    ? CreateBrush(annotation.Appearance.StrokeHex)
+                    : CreateBrush("#111827"),
                 FontSize = Math.Clamp(height / 4, 8, 18),
                 TextWrapping = TextWrapping.Wrap,
                 TextTrimming = TextTrimming.CharacterEllipsis
@@ -731,9 +745,9 @@ internal static class WindowsPrintPageElementFactory
         Rotation rotation)
     {
         var points = new PointCollection();
-        foreach (var point in annotation.Points)
+        foreach (NormalizedPoint point in annotation.Points)
         {
-            var mapped = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(
+            (double X, double Y) mapped = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(
                 point,
                 pageWidth,
                 pageHeight,
@@ -746,7 +760,7 @@ internal static class WindowsPrintPageElementFactory
 
     private static SolidColorBrush CreateBrush(string hex, byte alpha = 255)
     {
-        var normalized = hex.Trim().TrimStart('#');
+        string normalized = hex.Trim().TrimStart('#');
         if (normalized.Length != 6)
         {
             normalized = "000000";

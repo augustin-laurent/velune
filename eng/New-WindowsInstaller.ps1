@@ -173,7 +173,14 @@ Invoke-LoggedCommand `
 Copy-BundledNativeTools -DestinationBaseDirectory $publishDir
 
 $iscc = Resolve-InnoSetupCompiler
+$numericVersion = ($Version -split '-')[0]
+if ($numericVersion -notmatch '^\d+\.\d+\.\d+$') {
+    $numericVersion = "1.0.0"
+}
+$numericVersion = "$numericVersion.0"
+
 $env:VELUNE_VERSION = $Version
+$env:VELUNE_NUMERIC_VERSION = $numericVersion
 $env:VELUNE_PUBLISH_DIR = $publishDir
 $env:VELUNE_OUTPUT_DIR = $packageRoot
 $env:VELUNE_OUTPUT_BASE_NAME = $outputBaseName

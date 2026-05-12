@@ -1,4 +1,5 @@
 #define AppVersion GetEnv("VELUNE_VERSION")
+#define NumericVersion GetEnv("VELUNE_NUMERIC_VERSION")
 #define SourceDir GetEnv("VELUNE_PUBLISH_DIR")
 #define OutputDir GetEnv("VELUNE_OUTPUT_DIR")
 #define OutputBaseName GetEnv("VELUNE_OUTPUT_BASE_NAME")
@@ -22,9 +23,9 @@ WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayIcon={app}\Velune.Windows.exe
-VersionInfoVersion={#AppVersion}
+VersionInfoVersion={#NumericVersion}
 VersionInfoProductName=Velune
-VersionInfoProductVersion={#AppVersion}
+VersionInfoProductVersion={#NumericVersion}
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

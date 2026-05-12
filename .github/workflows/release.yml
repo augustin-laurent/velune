@@ -1,0 +1,153 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: release-${{ github.sha }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows-installer:
+    name: Build Windows installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-release-${{ hashFiles('**/*.csproj', 'Velune.slnx') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-release-
+            ${{ runner.os }}-nuget-
+
+      - name: Restore
+        run: dotnet restore Velune.slnx
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+
+      - name: Download bundled native tools
+        shell: pwsh
+        run: ./eng/Download-WindowsNativeTools.ps1
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          [xml] $props = Get-Content -LiteralPath "Directory.Build.props"
+          $versionPrefix = ($props.Project.PropertyGroup.VersionPrefix | Select-Object -First 1).Trim()
+          $shortSha = "${{ github.sha }}".Substring(0, 7)
+          "version=$versionPrefix" >> $env:GITHUB_OUTPUT
+          "informational_version=$versionPrefix+$shortSha" >> $env:GITHUB_OUTPUT
+          "tag_name=v$versionPrefix" >> $env:GITHUB_OUTPUT
+          "Resolved version: $versionPrefix+$shortSha"
+
+      - name: Build installer
+        id: package
+        shell: pwsh
+        run: |
+          $packageInfo = ./eng/New-WindowsInstaller.ps1 `
+            -Version "${{ steps.version.outputs.version }}" `
+            -InformationalVersion "${{ steps.version.outputs.informational_version }}" | ConvertFrom-Json
+
+          "package_path=$($packageInfo.PackagePath)" >> $env:GITHUB_OUTPUT
+          "checksum_path=$($packageInfo.ChecksumPath)" >> $env:GITHUB_OUTPUT
+          "Built package: $($packageInfo.PackagePath)"
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: velune-windows-installer-${{ steps.version.outputs.version }}
+          if-no-files-found: error
+          path: |
+            ${{ steps.package.outputs.package_path }}
+            ${{ steps.package.outputs.checksum_path }}
+
+  publish:
+    name: Publish GitHub release
+    runs-on: ubuntu-latest
+    needs: build-windows-installer
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          [xml] $props = Get-Content -LiteralPath "Directory.Build.props"
+          $versionPrefix = ($props.Project.PropertyGroup.VersionPrefix | Select-Object -First 1).Trim()
+          $shortSha = "${{ github.sha }}".Substring(0, 7)
+          "version=$versionPrefix" >> $env:GITHUB_OUTPUT
+          "tag_name=v$versionPrefix" >> $env:GITHUB_OUTPUT
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: velune-windows-installer-*
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: Publish release
+        shell: bash
+        run: |
+          mapfile -t files < <(find release-artifacts -type f | sort)
+
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No release artifacts found."
+            exit 1
+          fi
+
+          tag="${{ steps.version.outputs.tag_name }}"
+          title="Velune ${{ steps.version.outputs.version }} — Windows"
+
+          notes=$(cat <<'EOF'
+          ## Velune ${{ steps.version.outputs.version }} — Windows Desktop
+
+          Native Windows desktop application built with WinUI 3.
+
+          ### Features
+          - Tabbed document interface with multi-document support
+          - Ribbon navigation bar
+          - System print dialog integration
+          - PDF viewing, annotation, and manipulation
+          - OCR text extraction (Tesseract bundled)
+          - Page organizer with drag-and-drop reordering
+
+          ### Installation
+          Download and run the `.exe` installer. It handles everything including PDF file associations.
+
+          ### Requirements
+          - Windows 10 version 10.0.26100 or later (x64)
+          - Self-contained (no separate .NET install needed)
+
+          ### Checksums
+          SHA-256 checksums are attached next to the installer.
+          EOF
+          )
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "${files[@]}" --clobber
+            gh release edit "$tag" --title "$title" --notes "$notes" --latest
+          else
+            gh release create "$tag" "${files[@]}" --title "$title" --notes "$notes" --latest
+          fi

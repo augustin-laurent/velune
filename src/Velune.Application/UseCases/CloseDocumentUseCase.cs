@@ -58,15 +58,7 @@ public sealed class CloseDocumentUseCase
 
         await _renderOrchestrator.CancelDocumentJobsAsync(session.Id, cancellationToken);
         _performanceMetrics.Clear(session.Id);
-
-        if (request.DocumentId is null)
-        {
-            _sessionStore.Clear();
-        }
-        else
-        {
-            _sessionStore.Remove(session.Id);
-        }
+        _sessionStore.Remove(session.Id);
 
         if (session is IReleasableDocumentSession releasableSession)
         {

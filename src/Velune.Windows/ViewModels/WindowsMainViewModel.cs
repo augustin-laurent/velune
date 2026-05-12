@@ -502,7 +502,6 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     /// <inheritdoc />
     public void Dispose()
     {
-        _renderOrchestrator.Dispose();
         _documentOpenGate.Dispose();
     }
 

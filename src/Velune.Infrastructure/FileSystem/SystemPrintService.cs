@@ -23,6 +23,7 @@ public sealed partial class SystemPrintService : IPrintService
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (OperatingSystem.IsWindows())
         {

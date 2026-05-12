@@ -117,13 +117,16 @@ public sealed class InMemoryDocumentSessionStore : IDocumentSessionStore
     {
         ArgumentNullException.ThrowIfNull(viewport);
 
-        DocumentId? activeSessionId = ActiveSessionId;
-        if (activeSessionId is null)
+        lock (_gate)
         {
-            throw new InvalidOperationException("No active document session.");
-        }
+            if (_activeSessionId is not { } activeSessionId ||
+                !_sessions.TryGetValue(activeSessionId, out IDocumentSession? session))
+            {
+                throw new InvalidOperationException("No active document session.");
+            }
 
-        UpdateViewport(activeSessionId.Value, viewport);
+            _sessions[activeSessionId] = session.WithViewport(viewport);
+        }
     }
 
     public void UpdateViewport(DocumentId documentId, ViewportState viewport)

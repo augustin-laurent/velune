@@ -17,12 +17,12 @@ public sealed class RenderOrchestratorTests
     [Fact]
     public async Task Submit_ShouldReturnWithoutBlockingAndCompleteWithDuration()
     {
-        var store = CreateStoreWithSession();
+        InMemoryDocumentSessionStore store = CreateStoreWithSession();
         var renderService = new ControlledRenderService();
-        var releaseGate = renderService.EnqueueGate();
-        using var orchestrator = new RenderOrchestrator(NoOpPerformanceMetrics.Instance, CreateCache(), new NullThumbnailDiskCache(), store, renderService);
+        TaskCompletionSource<bool> releaseGate = renderService.EnqueueGate();
+        using var orchestrator = new RenderOrchestrator(NoOpPerformanceMetrics.Instance, CreateCache(), new NoOpThumbnailDiskCache(), store, renderService);
 
-        var handle = orchestrator.Submit(
+        RenderJobHandle handle = orchestrator.Submit(
             new RenderRequest("viewer", new PageIndex(0), 1.0, Rotation.Deg0));
 
         Assert.False(handle.Completion.IsCompleted);
@@ -30,7 +30,7 @@ public sealed class RenderOrchestratorTests
         await Task.Delay(25);
         releaseGate.SetResult(true);
 
-        var result = await handle.Completion;
+        RenderResult result = await handle.Completion;
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Page);
@@ -40,18 +40,18 @@ public sealed class RenderOrchestratorTests
     [Fact]
     public async Task Cancel_ShouldCancelRunningJob()
     {
-        var store = CreateStoreWithSession();
+        InMemoryDocumentSessionStore store = CreateStoreWithSession();
         var renderService = new ControlledRenderService();
-        var releaseGate = renderService.EnqueueGate();
-        using var orchestrator = new RenderOrchestrator(NoOpPerformanceMetrics.Instance, CreateCache(), new NullThumbnailDiskCache(), store, renderService);
+        TaskCompletionSource<bool> releaseGate = renderService.EnqueueGate();
+        using var orchestrator = new RenderOrchestrator(NoOpPerformanceMetrics.Instance, CreateCache(), new NoOpThumbnailDiskCache(), store, renderService);
 
-        var handle = orchestrator.Submit(
+        RenderJobHandle handle = orchestrator.Submit(
             new RenderRequest("viewer", new PageIndex(0), 1.0, Rotation.Deg0));
 
         Assert.True(SpinWait.SpinUntil(() => renderService.InvocationCount == 1, TimeSpan.FromSeconds(1)));
         Assert.True(orchestrator.Cancel(handle.JobId));
 
-        var result = await handle.Completion;
+        RenderResult result = await handle.Completion;
 
         Assert.True(result.IsCanceled);
         Assert.False(result.IsObsolete);
@@ -62,31 +62,31 @@ public sealed class RenderOrchestratorTests
     [Fact]
     public async Task Submit_ShouldPurgeQueuedObsoleteJobs()
     {
-        var store = CreateStoreWithSession();
+        InMemoryDocumentSessionStore store = CreateStoreWithSession();
         var renderService = new ControlledRenderService();
-        var blockerGate = renderService.EnqueueGate();
-        using var orchestrator = new RenderOrchestrator(NoOpPerformanceMetrics.Instance, CreateCache(), new NullThumbnailDiskCache(), store, renderService);
+        TaskCompletionSource<bool> blockerGate = renderService.EnqueueGate();
+        using var orchestrator = new RenderOrchestrator(NoOpPerformanceMetrics.Instance, CreateCache(), new NoOpThumbnailDiskCache(), store, renderService);
 
-        var blocker = orchestrator.Submit(
+        RenderJobHandle blocker = orchestrator.Submit(
             new RenderRequest("blocker", new PageIndex(0), 1.0, Rotation.Deg0));
 
         Assert.True(SpinWait.SpinUntil(() => renderService.InvocationCount == 1, TimeSpan.FromSeconds(1)));
 
-        var obsolete = orchestrator.Submit(
+        RenderJobHandle obsolete = orchestrator.Submit(
             new RenderRequest("viewer", new PageIndex(0), 1.0, Rotation.Deg0));
 
-        var current = orchestrator.Submit(
+        RenderJobHandle current = orchestrator.Submit(
             new RenderRequest("viewer", new PageIndex(1), 1.0, Rotation.Deg0));
 
-        var obsoleteResult = await obsolete.Completion;
+        RenderResult obsoleteResult = await obsolete.Completion;
 
         Assert.True(obsoleteResult.IsCanceled);
         Assert.True(obsoleteResult.IsObsolete);
 
         blockerGate.SetResult(true);
 
-        var blockerResult = await blocker.Completion;
-        var currentResult = await current.Completion;
+        RenderResult blockerResult = await blocker.Completion;
+        RenderResult currentResult = await current.Completion;
 
         Assert.True(blockerResult.IsSuccess);
         Assert.True(currentResult.IsSuccess);
@@ -96,20 +96,64 @@ public sealed class RenderOrchestratorTests
     [Fact]
     public async Task Submit_ShouldReuseThumbnailFromDiskCache()
     {
-        var store = CreateStoreWithSession();
+        InMemoryDocumentSessionStore store = CreateStoreWithSession();
         var renderService = new ControlledRenderService();
         var diskCache = new StubThumbnailDiskCache(CreatePage(pageIndex: 0));
         using var orchestrator = new RenderOrchestrator(NoOpPerformanceMetrics.Instance, CreateCache(), diskCache, store, renderService);
 
-        var handle = orchestrator.Submit(
+        RenderJobHandle handle = orchestrator.Submit(
             new RenderRequest("thumbnail:0", new PageIndex(0), 0.20, Rotation.Deg0, 170, 150, RenderPriority.Thumbnail));
 
-        var result = await handle.Completion.WaitAsync(TimeSpan.FromSeconds(1));
+        RenderResult result = await handle.Completion.WaitAsync(TimeSpan.FromSeconds(1));
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Page);
         Assert.Equal(0, renderService.InvocationCount);
         Assert.Equal(1, diskCache.HitCount);
+    }
+
+    [Fact]
+    public async Task Submit_ShouldBypassThumbnailDiskCache_WhenRequestDisablesIt()
+    {
+        InMemoryDocumentSessionStore store = CreateStoreWithSession();
+        var renderService = new ControlledRenderService();
+        var diskCache = new StubThumbnailDiskCache(CreatePage(pageIndex: 0));
+        using var orchestrator = new RenderOrchestrator(NoOpPerformanceMetrics.Instance, CreateCache(), diskCache, store, renderService);
+
+        RenderJobHandle handle = orchestrator.Submit(
+            new RenderRequest("thumbnail:0", new PageIndex(0), 0.20, Rotation.Deg0, 170, 150, RenderPriority.Thumbnail, UseThumbnailDiskCache: false));
+
+        RenderResult result = await handle.Completion.WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Page);
+        Assert.Equal(1, renderService.InvocationCount);
+        Assert.Equal(0, diskCache.HitCount);
+        Assert.Equal(0, diskCache.StoreCount);
+    }
+
+    [Fact]
+    public async Task Submit_ShouldBypassDiskDerivedMemoryEntry_WhenRequestDisablesThumbnailDiskCache()
+    {
+        InMemoryDocumentSessionStore store = CreateStoreWithSession();
+        var renderService = new ControlledRenderService();
+        var diskCache = new StubThumbnailDiskCache(CreatePage(pageIndex: 0));
+        using var orchestrator = new RenderOrchestrator(NoOpPerformanceMetrics.Instance, CreateCache(), diskCache, store, renderService);
+
+        RenderJobHandle cachedHandle = orchestrator.Submit(
+            new RenderRequest("thumbnail:0", new PageIndex(0), 0.20, Rotation.Deg0, 170, 150, RenderPriority.Thumbnail));
+
+        RenderResult cachedResult = await cachedHandle.Completion.WaitAsync(TimeSpan.FromSeconds(1));
+
+        RenderJobHandle bypassHandle = orchestrator.Submit(
+            new RenderRequest("thumbnail:0:bypass", new PageIndex(0), 0.20, Rotation.Deg0, 170, 150, RenderPriority.Thumbnail, UseThumbnailDiskCache: false));
+
+        RenderResult bypassResult = await bypassHandle.Completion.WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.True(cachedResult.IsSuccess);
+        Assert.True(bypassResult.IsSuccess);
+        Assert.Equal(1, diskCache.HitCount);
+        Assert.Equal(1, renderService.InvocationCount);
     }
 
     [Fact]
@@ -119,14 +163,14 @@ public sealed class RenderOrchestratorTests
         var metrics = new DevelopmentPerformanceMetrics(
             logger,
             Options.Create(new AppOptions()));
-        var store = CreateStoreWithSession();
+        InMemoryDocumentSessionStore store = CreateStoreWithSession();
         var renderService = new ControlledRenderService();
         metrics.RecordDocumentOpened(store.Current!, TimeSpan.FromMilliseconds(12));
-        using var orchestrator = new RenderOrchestrator(metrics, CreateCache(), new NullThumbnailDiskCache(), store, renderService);
+        using var orchestrator = new RenderOrchestrator(metrics, CreateCache(), new NoOpThumbnailDiskCache(), store, renderService);
 
-        var handle = orchestrator.Submit(
+        RenderJobHandle handle = orchestrator.Submit(
             new RenderRequest("viewer", new PageIndex(0), 1.0, Rotation.Deg0));
-        var result = await handle.Completion;
+        RenderResult result = await handle.Completion;
 
         Assert.True(result.IsSuccess);
         Assert.Contains(
@@ -143,13 +187,13 @@ public sealed class RenderOrchestratorTests
         var metrics = new DevelopmentPerformanceMetrics(
             logger,
             Options.Create(new AppOptions()));
-        var store = CreateStoreWithSession();
+        InMemoryDocumentSessionStore store = CreateStoreWithSession();
         var renderService = new ControlledRenderService();
-        using var orchestrator = new RenderOrchestrator(metrics, CreateCache(), new NullThumbnailDiskCache(), store, renderService);
+        using var orchestrator = new RenderOrchestrator(metrics, CreateCache(), new NoOpThumbnailDiskCache(), store, renderService);
 
-        var handle = orchestrator.Submit(
+        RenderJobHandle handle = orchestrator.Submit(
             new RenderRequest("thumbnail:0", new PageIndex(0), 0.20, Rotation.Deg0, 170, 150, RenderPriority.Thumbnail));
-        var result = await handle.Completion;
+        RenderResult result = await handle.Completion;
 
         Assert.True(result.IsSuccess);
         Assert.Contains(
@@ -160,26 +204,31 @@ public sealed class RenderOrchestratorTests
     }
 
     [Fact]
-    public async Task Submit_ShouldCancelThumbnailWorkWhenViewerRequestArrives()
+    public async Task Submit_ShouldKeepThumbnailWorkWhenViewerRequestArrives()
     {
-        var store = CreateStoreWithSession();
+        InMemoryDocumentSessionStore store = CreateStoreWithSession();
         var renderService = new ControlledRenderService();
-        renderService.EnqueueGate();
-        using var orchestrator = new RenderOrchestrator(NoOpPerformanceMetrics.Instance, CreateCache(), new NullThumbnailDiskCache(), store, renderService);
+        TaskCompletionSource<bool> thumbnailGate = renderService.EnqueueGate();
+        using var orchestrator = new RenderOrchestrator(NoOpPerformanceMetrics.Instance, CreateCache(), new NoOpThumbnailDiskCache(), store, renderService);
 
-        var thumbnail = orchestrator.Submit(
+        RenderJobHandle thumbnail = orchestrator.Submit(
             new RenderRequest("thumbnail:0", new PageIndex(0), 0.20, Rotation.Deg0, 170, 150, RenderPriority.Thumbnail));
 
         Assert.True(SpinWait.SpinUntil(() => renderService.InvocationCount == 1, TimeSpan.FromSeconds(1)));
 
-        var viewer = orchestrator.Submit(
+        RenderJobHandle viewer = orchestrator.Submit(
             new RenderRequest("viewer", new PageIndex(0), 1.0, Rotation.Deg0, Priority: RenderPriority.Viewer));
 
-        var thumbnailResult = await thumbnail.Completion;
-        var viewerResult = await viewer.Completion.WaitAsync(TimeSpan.FromSeconds(1));
+        Assert.False(thumbnail.Completion.IsCompleted);
+        Assert.False(viewer.Completion.IsCompleted);
 
-        Assert.True(thumbnailResult.IsCanceled);
-        Assert.True(thumbnailResult.IsObsolete);
+        thumbnailGate.SetResult(true);
+
+        RenderResult thumbnailResult = await thumbnail.Completion;
+        RenderResult viewerResult = await viewer.Completion.WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.True(thumbnailResult.IsSuccess);
+        Assert.False(thumbnailResult.IsObsolete);
         Assert.True(viewerResult.IsSuccess);
         Assert.Equal(2, renderService.InvocationCount);
     }
@@ -272,7 +321,10 @@ public sealed class RenderOrchestratorTests
             Current = UserPreferences.CreateDefault(memoryCacheEntryLimit);
         }
 
-        public UserPreferences Current { get; private set; }
+        public UserPreferences Current
+        {
+            get; private set;
+        }
 
         public event EventHandler? PreferencesChanged;
 
@@ -300,6 +352,12 @@ public sealed class RenderOrchestratorTests
             private set;
         }
 
+        public int StoreCount
+        {
+            get;
+            private set;
+        }
+
         public bool TryGet(
             IDocumentSession session,
             RenderRequest request,
@@ -318,6 +376,7 @@ public sealed class RenderOrchestratorTests
             RenderRequest request,
             RenderedPage renderedPage)
         {
+            StoreCount++;
         }
     }
 }

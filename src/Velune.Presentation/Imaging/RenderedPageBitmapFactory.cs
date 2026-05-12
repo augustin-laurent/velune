@@ -5,8 +5,16 @@ using Velune.Domain.Documents;
 
 namespace Velune.Presentation.Imaging;
 
+/// <summary>
+/// Factory that converts a <see cref="RenderedPage"/> into an Avalonia <see cref="WriteableBitmap"/>.
+/// </summary>
 public static class RenderedPageBitmapFactory
 {
+    /// <summary>
+    /// Creates a writeable bitmap from a rendered page's pixel data.
+    /// </summary>
+    /// <param name="renderedPage">The rendered page to convert.</param>
+    /// <returns>A writeable bitmap containing the page pixels.</returns>
     public static WriteableBitmap Create(RenderedPage renderedPage)
     {
         ArgumentNullException.ThrowIfNull(renderedPage);
@@ -17,7 +25,7 @@ public static class RenderedPageBitmapFactory
             PixelFormat.Bgra8888,
             AlphaFormat.Unpremul);
 
-        using var framebuffer = bitmap.Lock();
+        using ILockedFramebuffer framebuffer = bitmap.Lock();
 
         renderedPage.CopyPixelDataTo(framebuffer.Address);
 

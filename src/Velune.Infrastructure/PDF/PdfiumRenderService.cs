@@ -5,16 +5,29 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Infrastructure.Pdf;
 
+/// <summary>
+/// Renders PDF pages to BGRA pixel buffers using PDFium.
+/// </summary>
 public sealed class PdfiumRenderService : IRenderService
 {
     private readonly PdfiumInitializer _initializer;
+    private readonly PdfiumExecutionGate _executionGate;
 
-    public PdfiumRenderService(PdfiumInitializer initializer)
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PdfiumRenderService"/> class.
+    /// </summary>
+    /// <param name="initializer">Ensures PDFium is initialized before rendering.</param>
+    /// <param name="executionGate">Serializes access to the single-threaded PDFium library.</param>
+    public PdfiumRenderService(PdfiumInitializer initializer, PdfiumExecutionGate executionGate)
     {
         ArgumentNullException.ThrowIfNull(initializer);
+        ArgumentNullException.ThrowIfNull(executionGate);
+
         _initializer = initializer;
+        _executionGate = executionGate;
     }
 
+    /// <inheritdoc />
     public Task<RenderedPage> RenderPageAsync(
         IDocumentSession session,
         PageIndex pageIndex,
@@ -28,6 +41,7 @@ public sealed class PdfiumRenderService : IRenderService
         return Task.Run(() =>
         {
             cancellationToken.ThrowIfCancellationRequested();
+            using IDisposable pdfiumAccess = _executionGate.Enter(cancellationToken);
 
             if (session is not PdfiumDocumentSession pdfSession)
             {
@@ -36,7 +50,7 @@ public sealed class PdfiumRenderService : IRenderService
 
             _initializer.EnsureInitialized();
 
-            var pageHandle = PdfiumNative.FPDF_LoadPage(pdfSession.Resource.Handle, pageIndex.Value);
+            IntPtr pageHandle = PdfiumNative.FPDF_LoadPage(pdfSession.Resource.Handle, pageIndex.Value);
             if (pageHandle == nint.Zero)
             {
                 throw new InvalidOperationException($"Unable to load PDF page at index {pageIndex.Value}.");
@@ -46,13 +60,14 @@ public sealed class PdfiumRenderService : IRenderService
 
             try
             {
-                var rawWidth = Math.Max(1, (int)Math.Ceiling(PdfiumNative.FPDF_GetPageWidthF(pageHandle) * zoomFactor));
-                var rawHeight = Math.Max(1, (int)Math.Ceiling(PdfiumNative.FPDF_GetPageHeightF(pageHandle) * zoomFactor));
+                const int maxDimension = 16384;
+                int rawWidth = Math.Clamp((int)Math.Ceiling(PdfiumNative.FPDF_GetPageWidthF(pageHandle) * zoomFactor), 1, maxDimension);
+                int rawHeight = Math.Clamp((int)Math.Ceiling(PdfiumNative.FPDF_GetPageHeightF(pageHandle) * zoomFactor), 1, maxDimension);
 
-                var isQuarterTurn = rotation is Rotation.Deg90 or Rotation.Deg270;
+                bool isQuarterTurn = rotation is Rotation.Deg90 or Rotation.Deg270;
 
-                var targetWidth = isQuarterTurn ? rawHeight : rawWidth;
-                var targetHeight = isQuarterTurn ? rawWidth : rawHeight;
+                int targetWidth = isQuarterTurn ? rawHeight : rawWidth;
+                int targetHeight = isQuarterTurn ? rawWidth : rawHeight;
 
                 bitmapHandle = PdfiumNative.FPDFBitmap_CreateEx(
                     targetWidth,
@@ -66,16 +81,13 @@ public sealed class PdfiumRenderService : IRenderService
                     throw new InvalidOperationException("Unable to create PDFium bitmap.");
                 }
 
-                var hasTransparency = PdfiumNative.FPDFPage_HasTransparency(pageHandle) != 0;
-                var background = hasTransparency ? 0x00000000u : 0xFFFFFFFFu;
-
                 PdfiumNative.FPDFBitmap_FillRect(
                     bitmapHandle,
                     0,
                     0,
                     targetWidth,
                     targetHeight,
-                    background);
+                    0xFFFFFFFFu);
 
                 PdfiumNative.FPDF_RenderPageBitmap(
                     bitmapHandle,
@@ -87,29 +99,29 @@ public sealed class PdfiumRenderService : IRenderService
                     ToPdfiumRotation(rotation),
                     PdfiumNative.FPDF_ANNOT);
 
-                var stride = PdfiumNative.FPDFBitmap_GetStride(bitmapHandle);
-                var sourceBuffer = PdfiumNative.FPDFBitmap_GetBuffer(bitmapHandle);
+                int stride = PdfiumNative.FPDFBitmap_GetStride(bitmapHandle);
+                IntPtr sourceBuffer = PdfiumNative.FPDFBitmap_GetBuffer(bitmapHandle);
 
                 if (sourceBuffer == nint.Zero || stride <= 0)
                 {
                     throw new InvalidOperationException("Unable to access PDFium bitmap buffer.");
                 }
 
-                var minimumStride = targetWidth * 4;
+                int minimumStride = targetWidth * 4;
                 if (stride < minimumStride)
                 {
                     throw new InvalidOperationException(
                         $"Invalid PDFium bitmap stride. Expected at least {minimumStride} bytes but received {stride}.");
                 }
 
-                var pixelData = new byte[targetWidth * targetHeight * 4];
+                byte[] pixelData = new byte[targetWidth * targetHeight * 4];
 
-                for (var y = 0; y < targetHeight; y++)
+                for (int y = 0; y < targetHeight; y++)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    var rowSource = sourceBuffer + (y * stride);
-                    var rowTargetOffset = y * targetWidth * 4;
+                    IntPtr rowSource = sourceBuffer + (y * stride);
+                    int rowTargetOffset = y * targetWidth * 4;
 
                     Marshal.Copy(
                         rowSource,

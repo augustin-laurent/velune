@@ -6,6 +6,7 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Application.Rendering;
 
+/// <summary>LRU memory cache for rendered page bitmaps with configurable size limits.</summary>
 public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
 {
     private const int MaxCachedPageBytes = 64 * 1024 * 1024;
@@ -19,6 +20,9 @@ public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
     private long _totalCachedBytes;
     private bool _disposed;
 
+    /// <summary>Initializes a new instance of the <see cref="RenderMemoryCache"/> class.</summary>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="userPreferencesService">The user preferences service for cache limits.</param>
     public RenderMemoryCache(
         ILogger<RenderMemoryCache> logger,
         IUserPreferencesService userPreferencesService)
@@ -32,6 +36,7 @@ public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
         _userPreferencesService.PreferencesChanged += OnPreferencesChanged;
     }
 
+    /// <inheritdoc />
     public bool TryGet(
         DocumentId documentId,
         RenderRequest request,
@@ -50,7 +55,7 @@ public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
 
         lock (_gate)
         {
-            if (!_entries.TryGetValue(key, out var node))
+            if (!_entries.TryGetValue(key, out LinkedListNode<RenderCacheEntry>? node))
             {
                 renderedPage = null;
                 LogCacheMiss(_logger, documentId, request.PageIndex, request.ZoomFactor, request.Rotation, request.RequestedWidth, request.RequestedHeight);
@@ -66,6 +71,7 @@ public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
         }
     }
 
+    /// <inheritdoc />
     public void Store(
         DocumentId documentId,
         RenderRequest request,
@@ -88,7 +94,7 @@ public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
 
         lock (_gate)
         {
-            if (_entries.TryGetValue(key, out var existingNode))
+            if (_entries.TryGetValue(key, out LinkedListNode<RenderCacheEntry>? existingNode))
             {
                 _totalCachedBytes -= existingNode.Value.RenderedPage.ByteCount;
                 existingNode.Value = new RenderCacheEntry(key, renderedPage);
@@ -109,6 +115,7 @@ public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
         }
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         if (_disposed)
@@ -122,7 +129,7 @@ public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
 
     private void OnPreferencesChanged(object? sender, EventArgs e)
     {
-        var updatedLimit = Math.Max(0, _userPreferencesService.Current.MemoryCacheEntryLimit);
+        int updatedLimit = Math.Max(0, _userPreferencesService.Current.MemoryCacheEntryLimit);
         _entryLimit = updatedLimit;
         TrimToLimit(updatedLimit);
     }
@@ -145,12 +152,12 @@ public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
 
     private void TrimToBudget(int? entryLimitOverride = null)
     {
-        var entryLimit = entryLimitOverride ?? _entryLimit;
+        int entryLimit = entryLimitOverride ?? _entryLimit;
 
         while ((_entries.Count > entryLimit || _totalCachedBytes > MaxTotalCacheBytes) &&
                _lru.Last is not null)
         {
-            var leastRecentlyUsed = _lru.Last;
+            LinkedListNode<RenderCacheEntry>? leastRecentlyUsed = _lru.Last;
             _lru.RemoveLast();
 
             if (leastRecentlyUsed is null)
@@ -199,7 +206,8 @@ public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
         int ZoomFactorTimes10000,
         Rotation Rotation,
         int RequestedWidth,
-        int RequestedHeight)
+        int RequestedHeight,
+        bool UseThumbnailDiskCache)
     {
         public static RenderCacheKey Create(
             DocumentId documentId,
@@ -213,7 +221,8 @@ public sealed partial class RenderMemoryCache : IRenderMemoryCache, IDisposable
                 (int)Math.Round(request.ZoomFactor * 10000, 0, MidpointRounding.AwayFromZero),
                 request.Rotation,
                 request.RequestedWidth ?? 0,
-                request.RequestedHeight ?? 0);
+                request.RequestedHeight ?? 0,
+                request.UseThumbnailDiskCache);
         }
     }
 }

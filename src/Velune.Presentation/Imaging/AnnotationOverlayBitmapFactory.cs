@@ -9,8 +9,16 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Presentation.Imaging;
 
+/// <summary>
+/// Factory that renders document annotations into a transparent overlay bitmap using SkiaSharp.
+/// </summary>
 public static class AnnotationOverlayBitmapFactory
 {
+    /// <summary>
+    /// Determines whether the exception indicates a missing native rendering dependency.
+    /// </summary>
+    /// <param name="exception">The exception to inspect.</param>
+    /// <returns>True if the exception is caused by an unavailable native library.</returns>
     public static bool IsRenderingDependencyUnavailable(Exception exception)
     {
         ArgumentNullException.ThrowIfNull(exception);
@@ -20,6 +28,16 @@ public static class AnnotationOverlayBitmapFactory
                typeInitializationException.InnerException is DllNotFoundException or EntryPointNotFoundException;
     }
 
+    /// <summary>
+    /// Creates an overlay bitmap with all annotations rendered for a given page size and rotation.
+    /// </summary>
+    /// <param name="annotations">Annotations to render.</param>
+    /// <param name="width">Target bitmap width in pixels.</param>
+    /// <param name="height">Target bitmap height in pixels.</param>
+    /// <param name="rotation">Current page rotation.</param>
+    /// <param name="selectedAnnotationId">The currently selected annotation identifier, if any.</param>
+    /// <param name="signatureAssets">Available signature assets keyed by ID.</param>
+    /// <returns>A bitmap with the rendered annotations, or null if nothing to draw.</returns>
     public static WriteableBitmap? Create(
         IReadOnlyList<DocumentAnnotation> annotations,
         int width,
@@ -37,22 +55,22 @@ public static class AnnotationOverlayBitmapFactory
         }
 
         using var surface = SKSurface.Create(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul));
-        var canvas = surface.Canvas;
+        SKCanvas canvas = surface.Canvas;
         canvas.Clear(SKColors.Transparent);
 
-        foreach (var annotation in annotations)
+        foreach (DocumentAnnotation annotation in annotations)
         {
             DrawAnnotation(canvas, annotation, width, height, rotation, signatureAssets, annotation.Id == selectedAnnotationId);
         }
 
-        using var image = surface.Snapshot();
+        using SKImage image = surface.Snapshot();
         var bitmap = new WriteableBitmap(
             new PixelSize(width, height),
             new Vector(96, 96),
             PixelFormat.Bgra8888,
             AlphaFormat.Premul);
 
-        using var framebuffer = bitmap.Lock();
+        using ILockedFramebuffer framebuffer = bitmap.Lock();
         image.ReadPixels(
             new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul),
             framebuffer.Address,
@@ -63,6 +81,13 @@ public static class AnnotationOverlayBitmapFactory
         return bitmap;
     }
 
+    /// <summary>
+    /// Creates a preview bitmap of the signature pad showing drawn strokes.
+    /// </summary>
+    /// <param name="points">Normalized ink points captured from the signature pad.</param>
+    /// <param name="width">Preview width in pixels.</param>
+    /// <param name="height">Preview height in pixels.</param>
+    /// <returns>A bitmap showing the signature preview.</returns>
     public static WriteableBitmap CreateSignaturePadPreview(
         IReadOnlyList<NormalizedPoint> points,
         int width,
@@ -71,7 +96,7 @@ public static class AnnotationOverlayBitmapFactory
         ArgumentNullException.ThrowIfNull(points);
 
         using var surface = SKSurface.Create(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul));
-        var canvas = surface.Canvas;
+        SKCanvas canvas = surface.Canvas;
         canvas.Clear(SKColor.Parse("#00000000"));
 
         using var outlinePaint = new SKPaint
@@ -97,26 +122,26 @@ public static class AnnotationOverlayBitmapFactory
             };
 
             using var path = new SKPath();
-            var first = points[0];
+            NormalizedPoint first = points[0];
             path.MoveTo((float)(first.X * width), (float)(first.Y * height));
 
-            for (var i = 1; i < points.Count; i++)
+            for (int i = 1; i < points.Count; i++)
             {
-                var point = points[i];
+                NormalizedPoint point = points[i];
                 path.LineTo((float)(point.X * width), (float)(point.Y * height));
             }
 
             canvas.DrawPath(path, paint);
         }
 
-        using var image = surface.Snapshot();
+        using SKImage image = surface.Snapshot();
         var bitmap = new WriteableBitmap(
             new PixelSize(width, height),
             new Vector(96, 96),
             PixelFormat.Bgra8888,
             AlphaFormat.Premul);
 
-        using var framebuffer = bitmap.Lock();
+        using ILockedFramebuffer framebuffer = bitmap.Lock();
         image.ReadPixels(
             new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul),
             framebuffer.Address,
@@ -172,7 +197,7 @@ public static class AnnotationOverlayBitmapFactory
             return;
         }
 
-        var rect = ResolveRect(annotation.Bounds, width, height, rotation);
+        SKRect rect = ResolveRect(annotation.Bounds, width, height, rotation);
         using var fillPaint = new SKPaint
         {
             Style = SKPaintStyle.Fill,
@@ -209,8 +234,8 @@ public static class AnnotationOverlayBitmapFactory
             return;
         }
 
-        var rect = ResolveRect(annotation.Bounds, width, height, rotation);
-        var fallbackFill = annotation.Kind switch
+        SKRect rect = ResolveRect(annotation.Bounds, width, height, rotation);
+        string fallbackFill = annotation.Kind switch
         {
             DocumentAnnotationKind.Note => "#FFF2D7",
             DocumentAnnotationKind.Stamp => "#FDE5F0",
@@ -243,11 +268,11 @@ public static class AnnotationOverlayBitmapFactory
         canvas.DrawRoundRect(rect, 14, 14, fillPaint);
         canvas.DrawRoundRect(rect, 14, 14, strokePaint);
 
-        var content = string.IsNullOrWhiteSpace(annotation.Text)
+        string content = string.IsNullOrWhiteSpace(annotation.Text)
             ? annotation.Kind.ToString()
             : annotation.Text!;
-        var textX = rect.Left + 12;
-        var textY = rect.Top + 18 + textPaint.TextSize;
+        float textX = rect.Left + 12;
+        float textY = rect.Top + 18 + textPaint.TextSize;
         canvas.DrawText(content, textX, textY, textPaint);
 
         if (isSelected)
@@ -270,10 +295,10 @@ public static class AnnotationOverlayBitmapFactory
             return;
         }
 
-        var rect = ResolveRect(annotation.Bounds, width, height, rotation);
+        SKRect rect = ResolveRect(annotation.Bounds, width, height, rotation);
 
         if (!string.IsNullOrWhiteSpace(annotation.AssetId) &&
-            signatureAssets.TryGetValue(annotation.AssetId, out var asset) &&
+            signatureAssets.TryGetValue(annotation.AssetId, out SignatureAsset? asset) &&
             File.Exists(asset.FilePath))
         {
             using var signatureBitmap = SKBitmap.Decode(asset.FilePath);
@@ -324,12 +349,12 @@ public static class AnnotationOverlayBitmapFactory
         };
         using var path = new SKPath();
 
-        var first = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(annotation.Points[0], width, height, rotation);
+        (double X, double Y) first = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(annotation.Points[0], width, height, rotation);
         path.MoveTo((float)first.X, (float)first.Y);
 
-        for (var i = 1; i < annotation.Points.Count; i++)
+        for (int i = 1; i < annotation.Points.Count; i++)
         {
-            var point = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(annotation.Points[i], width, height, rotation);
+            (double X, double Y) point = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(annotation.Points[i], width, height, rotation);
             path.LineTo((float)point.X, (float)point.Y);
         }
 
@@ -337,10 +362,10 @@ public static class AnnotationOverlayBitmapFactory
 
         if (isSelected)
         {
-            var minX = annotation.Points.Min(point => point.X);
-            var maxX = annotation.Points.Max(point => point.X);
-            var minY = annotation.Points.Min(point => point.Y);
-            var maxY = annotation.Points.Max(point => point.Y);
+            double minX = annotation.Points.Min(point => point.X);
+            double maxX = annotation.Points.Max(point => point.X);
+            double minY = annotation.Points.Min(point => point.Y);
+            double maxY = annotation.Points.Max(point => point.Y);
             DrawSelectionOutline(
                 canvas,
                 ResolveRect(new NormalizedTextRegion(minX, minY, Math.Max(0.01, maxX - minX), Math.Max(0.01, maxY - minY)), width, height, rotation));
@@ -353,31 +378,31 @@ public static class AnnotationOverlayBitmapFactory
         int height,
         Rotation rotation)
     {
-        var topLeft = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(
+        (double X, double Y) topLeft = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(
             new NormalizedPoint(region.X, region.Y),
             width,
             height,
             rotation);
-        var topRight = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(
+        (double X, double Y) topRight = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(
             new NormalizedPoint(region.X + region.Width, region.Y),
             width,
             height,
             rotation);
-        var bottomLeft = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(
+        (double X, double Y) bottomLeft = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(
             new NormalizedPoint(region.X, region.Y + region.Height),
             width,
             height,
             rotation);
-        var bottomRight = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(
+        (double X, double Y) bottomRight = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(
             new NormalizedPoint(region.X + region.Width, region.Y + region.Height),
             width,
             height,
             rotation);
 
-        var left = (float)Math.Min(Math.Min(topLeft.X, topRight.X), Math.Min(bottomLeft.X, bottomRight.X));
-        var top = (float)Math.Min(Math.Min(topLeft.Y, topRight.Y), Math.Min(bottomLeft.Y, bottomRight.Y));
-        var right = (float)Math.Max(Math.Max(topLeft.X, topRight.X), Math.Max(bottomLeft.X, bottomRight.X));
-        var bottom = (float)Math.Max(Math.Max(topLeft.Y, topRight.Y), Math.Max(bottomLeft.Y, bottomRight.Y));
+        float left = (float)Math.Min(Math.Min(topLeft.X, topRight.X), Math.Min(bottomLeft.X, bottomRight.X));
+        float top = (float)Math.Min(Math.Min(topLeft.Y, topRight.Y), Math.Min(bottomLeft.Y, bottomRight.Y));
+        float right = (float)Math.Max(Math.Max(topLeft.X, topRight.X), Math.Max(bottomLeft.X, bottomRight.X));
+        float bottom = (float)Math.Max(Math.Max(topLeft.Y, topRight.Y), Math.Max(bottomLeft.Y, bottomRight.Y));
 
         return new SKRect(left, top, right, bottom);
     }

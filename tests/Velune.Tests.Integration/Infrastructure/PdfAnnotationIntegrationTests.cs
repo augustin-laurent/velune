@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using Velune.Application.Configuration;
 using Velune.Application.DTOs;
+using Velune.Application.Results;
 using Velune.Domain.Annotations;
 using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
@@ -15,11 +16,11 @@ public sealed class PdfAnnotationIntegrationTests
     [Fact]
     public async Task ApplyAnnotationsAsync_ShouldEmbedAnnotationOverlayIntoPdfPage()
     {
-        await using var workspace = await PdfAnnotationWorkspace.CreateAsync();
+        await using PdfAnnotationWorkspace workspace = await PdfAnnotationWorkspace.CreateAsync();
 
-        var initializer = IntegrationPdfium.Initializer;
-        var opener = new PdfiumDocumentOpener(initializer);
-        var renderer = new PdfiumRenderService(initializer);
+        PdfiumInitializer initializer = IntegrationPdfium.Initializer;
+        var opener = new PdfiumDocumentOpener(initializer, IntegrationPdfium.ExecutionGate);
+        var renderer = new PdfiumRenderService(initializer, IntegrationPdfium.ExecutionGate);
         var session = opener.Open(workspace.SourcePdfPath) as PdfiumDocumentSession;
         var annotatedSession = default(PdfiumDocumentSession);
 
@@ -27,7 +28,7 @@ public sealed class PdfAnnotationIntegrationTests
         {
             Assert.NotNull(session);
 
-            var saveResult = await workspace.MarkupService.ApplyAnnotationsAsync(
+            Result<string> saveResult = await workspace.MarkupService.ApplyAnnotationsAsync(
                 new ApplyPdfAnnotationsRequest(
                     session,
                     workspace.SourcePdfPath,
@@ -47,12 +48,12 @@ public sealed class PdfAnnotationIntegrationTests
             Assert.NotNull(annotatedSession);
 
             initializer.EnsureInitialized();
-            var pageHandle = PdfiumNative.FPDF_LoadPage(annotatedSession.Resource.Handle, 0);
+            IntPtr pageHandle = PdfiumNative.FPDF_LoadPage(annotatedSession.Resource.Handle, 0);
             Assert.NotEqual(nint.Zero, pageHandle);
-            var objectCount = PdfiumNative.FPDFPage_CountObjects(pageHandle);
+            int objectCount = PdfiumNative.FPDFPage_CountObjects(pageHandle);
             PdfiumNative.FPDF_ClosePage(pageHandle);
 
-            var renderedPage = await renderer.RenderPageAsync(
+            RenderedPage renderedPage = await renderer.RenderPageAsync(
                 annotatedSession,
                 new PageIndex(0),
                 1.0,
@@ -62,9 +63,9 @@ public sealed class PdfAnnotationIntegrationTests
             Assert.True(renderedPage.Width >= 90);
             Assert.True(renderedPage.Height >= 90);
 
-            var highlightedPixel = ReadPixel(renderedPage, 18, 18);
-            var untouchedPixel = ReadPixel(renderedPage, renderedPage.Width - 10, renderedPage.Height - 10);
-            var mirroredPixel = ReadPixel(renderedPage, 18, renderedPage.Height - 18);
+            (byte R, byte G, byte B) highlightedPixel = ReadPixel(renderedPage, 18, 18);
+            (byte R, byte G, byte B) untouchedPixel = ReadPixel(renderedPage, renderedPage.Width - 10, renderedPage.Height - 10);
+            (byte R, byte G, byte B) mirroredPixel = ReadPixel(renderedPage, 18, renderedPage.Height - 18);
 
             Assert.True(objectCount > 0, $"Expected at least one page object after saving annotations, got {objectCount}.");
             Assert.NotEqual((255, 255, 255), highlightedPixel);
@@ -80,8 +81,8 @@ public sealed class PdfAnnotationIntegrationTests
 
     private static (byte R, byte G, byte B) ReadPixel(RenderedPage renderedPage, int x, int y)
     {
-        var buffer = renderedPage.PixelData.Span;
-        var index = ((y * renderedPage.Width) + x) * 4;
+        ReadOnlySpan<byte> buffer = renderedPage.PixelData.Span;
+        int index = ((y * renderedPage.Width) + x) * 4;
         return (buffer[index + 2], buffer[index + 1], buffer[index]);
     }
 
@@ -99,11 +100,14 @@ public sealed class PdfAnnotationIntegrationTests
 
         public string OutputPdfPath => Path.Combine(_workspacePath, "annotated.pdf");
 
-        public SkiaPdfMarkupService MarkupService { get; }
+        public SkiaPdfMarkupService MarkupService
+        {
+            get;
+        }
 
         public static async Task<PdfAnnotationWorkspace> CreateAsync()
         {
-            var workspacePath = Path.Combine(
+            string workspacePath = Path.Combine(
                 Path.GetTempPath(),
                 "velune-pdf-annotation-tests",
                 Guid.NewGuid().ToString("N"));
@@ -111,11 +115,11 @@ public sealed class PdfAnnotationIntegrationTests
             Directory.CreateDirectory(workspacePath);
             MinimalPdfBuilder.CreateDocument(Path.Combine(workspacePath, "source.pdf"), new PdfPageSpec(100, 100));
 
-            var appOptions = Options.Create(new AppOptions
+            IOptions<AppOptions> appOptions = Options.Create(new AppOptions
             {
                 SignatureLibraryPath = Path.Combine(workspacePath, "signature-library")
             });
-            var initializer = IntegrationPdfium.Initializer;
+            PdfiumInitializer initializer = IntegrationPdfium.Initializer;
 
             await Task.CompletedTask;
 
@@ -153,7 +157,7 @@ public sealed class PdfAnnotationIntegrationTests
             ArgumentNullException.ThrowIfNull(outputPath);
             ArgumentNullException.ThrowIfNull(pages);
 
-            using var stream = File.Create(outputPath);
+            using FileStream stream = File.Create(outputPath);
             using var writer = new StreamWriter(stream, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false), leaveOpen: true);
 
             writer.NewLine = "\n";
@@ -161,7 +165,7 @@ public sealed class PdfAnnotationIntegrationTests
             writer.WriteLine("%VELUNE");
 
             var offsets = new List<long> { 0 };
-            var totalObjectCount = 2 + (pages.Length * 2);
+            int totalObjectCount = 2 + (pages.Length * 2);
 
             WriteObject(writer, stream, offsets, 1, "<< /Type /Catalog /Pages 2 0 R >>");
             WriteObject(
@@ -171,11 +175,11 @@ public sealed class PdfAnnotationIntegrationTests
                 2,
                 $"<< /Type /Pages /Kids [{string.Join(" ", Enumerable.Range(0, pages.Length).Select(index => $"{3 + (index * 2)} 0 R"))}] /Count {pages.Length} >>");
 
-            for (var index = 0; index < pages.Length; index++)
+            for (int index = 0; index < pages.Length; index++)
             {
-                var pageObjectNumber = 3 + (index * 2);
-                var contentObjectNumber = pageObjectNumber + 1;
-                var page = pages[index];
+                int pageObjectNumber = 3 + (index * 2);
+                int contentObjectNumber = pageObjectNumber + 1;
+                PdfPageSpec page = pages[index];
 
                 WriteObject(
                     writer,
@@ -193,13 +197,13 @@ public sealed class PdfAnnotationIntegrationTests
             }
 
             writer.Flush();
-            var startXref = stream.Position;
+            long startXref = stream.Position;
 
             writer.WriteLine("xref");
             writer.WriteLine($"0 {totalObjectCount + 1}");
             writer.WriteLine("0000000000 65535 f ");
 
-            for (var objectNumber = 1; objectNumber <= totalObjectCount; objectNumber++)
+            for (int objectNumber = 1; objectNumber <= totalObjectCount; objectNumber++)
             {
                 writer.WriteLine($"{offsets[objectNumber]:D10} 00000 n ");
             }

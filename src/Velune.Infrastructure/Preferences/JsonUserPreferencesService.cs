@@ -6,6 +6,9 @@ using Velune.Application.Configuration;
 
 namespace Velune.Infrastructure.Preferences;
 
+/// <summary>
+/// Persists user preferences as a JSON file on disk.
+/// </summary>
 public sealed partial class JsonUserPreferencesService : IUserPreferencesService, IDisposable
 {
     private static readonly JsonSerializerOptions SerializerOptions = new()
@@ -19,6 +22,11 @@ public sealed partial class JsonUserPreferencesService : IUserPreferencesService
     private readonly int _defaultMemoryCacheEntryLimit;
     private bool _disposed;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="JsonUserPreferencesService"/> class.
+    /// </summary>
+    /// <param name="logger">Logger for recording load/save failures.</param>
+    /// <param name="options">Application options containing preferences file path configuration.</param>
     public JsonUserPreferencesService(
         ILogger<JsonUserPreferencesService> logger,
         IOptions<AppOptions> options)
@@ -32,20 +40,23 @@ public sealed partial class JsonUserPreferencesService : IUserPreferencesService
         Current = Load();
     }
 
+    /// <inheritdoc />
     public UserPreferences Current
     {
         get;
         private set;
     }
 
+    /// <inheritdoc />
     public event EventHandler? PreferencesChanged;
 
+    /// <inheritdoc />
     public async Task SaveAsync(UserPreferences preferences, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(preferences);
 
-        var normalizedPreferences = preferences.Normalize(_defaultMemoryCacheEntryLimit);
-        var directory = Path.GetDirectoryName(_filePath);
+        UserPreferences normalizedPreferences = preferences.Normalize(_defaultMemoryCacheEntryLimit);
+        string? directory = Path.GetDirectoryName(_filePath);
 
         await _saveLock.WaitAsync(cancellationToken);
         try
@@ -55,7 +66,7 @@ public sealed partial class JsonUserPreferencesService : IUserPreferencesService
                 Directory.CreateDirectory(directory);
             }
 
-            await using var stream = File.Create(_filePath);
+            await using FileStream stream = File.Create(_filePath);
             await JsonSerializer.SerializeAsync(
                 stream,
                 normalizedPreferences,
@@ -86,7 +97,7 @@ public sealed partial class JsonUserPreferencesService : IUserPreferencesService
 
         try
         {
-            var json = File.ReadAllText(_filePath);
+            string json = File.ReadAllText(_filePath);
             if (string.IsNullOrWhiteSpace(json))
             {
                 return UserPreferences.CreateDefault(_defaultMemoryCacheEntryLimit);
@@ -103,6 +114,7 @@ public sealed partial class JsonUserPreferencesService : IUserPreferencesService
         }
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         if (_disposed)
@@ -123,10 +135,10 @@ public sealed partial class JsonUserPreferencesService : IUserPreferencesService
             return options.UserPreferencesPath;
         }
 
-        var applicationName = string.IsNullOrWhiteSpace(options.Name)
+        string applicationName = string.IsNullOrWhiteSpace(options.Name)
             ? "Velune"
             : options.Name;
-        var applicationDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        string applicationDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
 
         return Path.Combine(applicationDataPath, applicationName, "preferences.json");
     }

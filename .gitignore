@@ -25,12 +25,14 @@ project.fragment.lock.json
 artifacts/
 
 # Coverage / test reports
+.sonarqube/
 coverage/
 coverage.*
 *.coverage
 *.coveragexml
 TestResults/
 BenchmarkDotNet.Artifacts/
+qodana.yaml
 
 # =========================
 # JetBrains Rider / IntelliJ
@@ -83,3 +85,9 @@ appsettings.Development.local.json
 .env
 .env.*
 !.env.example
+
+# =========================
+# AI Generated
+# =========================
+.codegraph/
+.claude/

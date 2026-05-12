@@ -8,19 +8,27 @@ using Velune.Presentation.Localization;
 
 namespace Velune.Presentation.Views;
 
+/// <summary>
+/// Factory for creating the About window with application branding and version info.
+/// </summary>
 public static class AboutWindowFactory
 {
     private static readonly Uri AppIconUri = new("avares://Velune.Presentation/Assets/Brand/velune-app-icon.png");
 
+    /// <summary>
+    /// Creates and returns a new About window instance.
+    /// </summary>
+    /// <param name="localizationService">Optional localization service for translated labels.</param>
+    /// <returns>The configured About window.</returns>
     public static Window Create(ILocalizationService? localizationService = null)
     {
-        var version = typeof(AboutWindowFactory).Assembly.GetName().Version?.ToString(3) ?? "Development";
-        var appName = localizationService?.GetString("app.name") ?? "Velune";
-        var aboutTitle = localizationService?.GetString("about.title") ?? "About Velune";
-        var aboutDescription = localizationService?.GetString("about.description") ??
+        string version = typeof(AboutWindowFactory).Assembly.GetName().Version?.ToString(3) ?? "Development";
+        string appName = localizationService?.GetString("app.name") ?? "Velune";
+        string aboutTitle = localizationService?.GetString("about.title") ?? "About Velune";
+        string aboutDescription = localizationService?.GetString("about.description") ??
             "Native PDF and image viewing, page management, search, OCR, and printing in a focused desktop workspace.";
-        var closeLabel = localizationService?.GetString("about.close") ?? "Close";
-        var versionLabel = localizationService?.GetString("about.version", version) ?? $"Version {version}";
+        string closeLabel = localizationService?.GetString("about.close") ?? "Close";
+        string versionLabel = localizationService?.GetString("about.version", version) ?? $"Version {version}";
 
         var closeButton = new Button
         {
@@ -39,13 +47,13 @@ public static class AboutWindowFactory
         };
 
         closeButton.Click += (_, _) => aboutWindow.Close();
-        using (var iconStream = AssetLoader.Open(AppIconUri))
+        using (Stream iconStream = AssetLoader.Open(AppIconUri))
         {
             aboutWindow.Icon = new WindowIcon(iconStream);
         }
 
         Bitmap logoBitmap;
-        using (var imageStream = AssetLoader.Open(AppIconUri))
+        using (Stream imageStream = AssetLoader.Open(AppIconUri))
         {
             logoBitmap = new Bitmap(imageStream);
         }

@@ -41,6 +41,14 @@
     <KeyBinding Gesture="Left" Command="{Binding PreviousPageCommand}" />
     <KeyBinding Gesture="PageDown" Command="{Binding NextPageCommand}" />
     <KeyBinding Gesture="PageUp" Command="{Binding PreviousPageCommand}" />
+    <KeyBinding Gesture="Ctrl+R" Command="{Binding RotateRightCommand}" />
+    <KeyBinding Gesture="Meta+R" Command="{Binding RotateRightCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+R" Command="{Binding RotateLeftCommand}" />
+    <KeyBinding Gesture="Meta+Shift+R" Command="{Binding RotateLeftCommand}" />
+    <KeyBinding Gesture="Ctrl+D0" Command="{Binding FitToPageCommand}" />
+    <KeyBinding Gesture="Meta+D0" Command="{Binding FitToPageCommand}" />
+    <KeyBinding Gesture="Ctrl+D1" Command="{Binding FitToWidthCommand}" />
+    <KeyBinding Gesture="Meta+D1" Command="{Binding FitToWidthCommand}" />
   </Window.KeyBindings>
 
   <NativeMenu.Menu>
@@ -162,6 +170,108 @@
       <ColumnDefinition Width="*" />
     </Grid.ColumnDefinitions>
 
+    <Border x:Name="WindowsTitleBar"
+            Grid.Row="0"
+            Grid.Column="0"
+            Grid.ColumnSpan="2"
+            Classes="windows-titlebar"
+            IsVisible="{Binding IsWindowsShellVisible}"
+            PointerPressed="OnWindowsTitleBarPointerPressed">
+      <Grid ColumnDefinitions="Auto,Auto,*,Auto"
+            ColumnSpacing="10">
+        <StackPanel Grid.Column="0"
+                    Orientation="Horizontal"
+                    VerticalAlignment="Center"
+                    Spacing="8"
+                    Margin="12,0,4,0">
+          <Image Source="avares://Velune.Presentation/Assets/Brand/velune-app-icon.png"
+                 Width="22"
+                 Height="22"
+                 Stretch="UniformToFill" />
+          <TextBlock Text="{Binding ApplicationTitle}"
+                     FontWeight="SemiBold"
+                     VerticalAlignment="Center" />
+        </StackPanel>
+
+        <ItemsControl Grid.Column="1"
+                      ItemsSource="{Binding DocumentTabs}"
+                      VerticalAlignment="Stretch">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Button Classes="windows-tab"
+                      Classes.active="{Binding IsActive}"
+                      Command="{Binding $parent[Window].DataContext.ActivateDocumentTabCommand}"
+                      CommandParameter="{Binding}"
+                      ToolTip.Tip="{Binding FilePath}">
+                <Grid ColumnDefinitions="Auto,*,Auto"
+                      ColumnSpacing="8"
+                      Width="220">
+                  <TextBlock Grid.Column="0"
+                             Text="•"
+                             Classes="windows-tab-dirty"
+                             IsVisible="{Binding IsDirty}" />
+                  <TextBlock Grid.Column="1"
+                             Text="{Binding Title}"
+                             TextTrimming="CharacterEllipsis"
+                             VerticalAlignment="Center" />
+                  <Button Grid.Column="2"
+                          Classes="windows-tab-close"
+                          Command="{Binding $parent[Window].DataContext.CloseDocumentTabCommand}"
+                          CommandParameter="{Binding}"
+                          ToolTip.Tip="{loc:Loc tabs.close}">
+                    <materialIcons:MaterialIcon Kind="Close"
+                                                Width="14"
+                                                Height="14" />
+                  </Button>
+                </Grid>
+              </Button>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <Button Grid.Column="2"
+                Classes="windows-new-tab"
+                Command="{Binding OpenCommand}"
+                HorizontalAlignment="Left"
+                ToolTip.Tip="{loc:Loc toolbar.open.tooltip}">
+          <materialIcons:MaterialIcon Kind="Plus"
+                                      Width="18"
+                                      Height="18" />
+        </Button>
+
+        <StackPanel Grid.Column="3"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right">
+          <Button Classes="windows-window-button"
+                  Click="OnWindowsMinimizeClicked"
+                  ToolTip.Tip="{loc:Loc window.minimize}">
+            <materialIcons:MaterialIcon Kind="WindowMinimize"
+                                        Width="16"
+                                        Height="16" />
+          </Button>
+          <Button Classes="windows-window-button"
+                  Click="OnWindowsMaximizeRestoreClicked"
+                  ToolTip.Tip="{loc:Loc window.maximize}">
+            <materialIcons:MaterialIcon Kind="WindowMaximize"
+                                        Width="16"
+                                        Height="16" />
+          </Button>
+          <Button Classes="windows-window-button close"
+                  Click="OnWindowsCloseClicked"
+                  ToolTip.Tip="{loc:Loc window.close}">
+            <materialIcons:MaterialIcon Kind="Close"
+                                        Width="16"
+                                        Height="16" />
+          </Button>
+        </StackPanel>
+      </Grid>
+    </Border>
+
     <Menu Grid.Row="0"
           Grid.Column="0"
           Grid.ColumnSpan="2"
@@ -268,12 +378,237 @@
       </MenuItem>
     </Menu>
 
+    <Border Grid.Row="1"
+            Grid.Column="0"
+            Grid.ColumnSpan="2"
+            Classes="windows-ribbon"
+            IsVisible="{Binding IsWindowsShellVisible}">
+      <Grid RowDefinitions="Auto,Auto">
+        <StackPanel Grid.Row="0"
+                    Orientation="Horizontal"
+                    Spacing="4"
+                    Margin="14,0,14,0">
+          <Button Classes="windows-ribbon-tab"
+                  Classes.active="{Binding IsWindowsRibbonFileSelected}"
+                  Command="{Binding SelectWindowsRibbonSectionCommand}"
+                  CommandParameter="File"
+                  Content="{loc:Loc ribbon.file}" />
+          <Button Classes="windows-ribbon-tab"
+                  Classes.active="{Binding IsWindowsRibbonHomeSelected}"
+                  Command="{Binding SelectWindowsRibbonSectionCommand}"
+                  CommandParameter="Home"
+                  Content="{loc:Loc ribbon.home}" />
+          <Button Classes="windows-ribbon-tab"
+                  Classes.active="{Binding IsWindowsRibbonViewSelected}"
+                  Command="{Binding SelectWindowsRibbonSectionCommand}"
+                  CommandParameter="View"
+                  Content="{loc:Loc ribbon.view}" />
+          <Button Classes="windows-ribbon-tab"
+                  Classes.active="{Binding IsWindowsRibbonAnnotateSelected}"
+                  Command="{Binding SelectWindowsRibbonSectionCommand}"
+                  CommandParameter="Annotate"
+                  Content="{loc:Loc ribbon.annotate}" />
+          <Button Classes="windows-ribbon-tab"
+                  Classes.active="{Binding IsWindowsRibbonHelpSelected}"
+                  Command="{Binding SelectWindowsRibbonSectionCommand}"
+                  CommandParameter="Help"
+                  Content="{loc:Loc ribbon.help}" />
+        </StackPanel>
+
+        <Grid Grid.Row="1"
+              ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto,Auto"
+              ColumnSpacing="14"
+              Margin="12,6,12,10">
+          <StackPanel Grid.Column="0"
+                      Classes="windows-ribbon-group"
+                      Orientation="Horizontal"
+                      Spacing="6"
+                      IsVisible="{Binding ShowWindowsRibbonFileCommands}">
+            <Button Classes="windows-command-button"
+                    Command="{Binding OpenCommand}"
+                    ToolTip.Tip="{loc:Loc toolbar.open.tooltip}">
+              <StackPanel Orientation="Horizontal"
+                          Spacing="6">
+                <materialIcons:MaterialIcon Kind="FolderOpenOutline"
+                                            Width="18"
+                                            Height="18" />
+                <TextBlock Text="{loc:Loc toolbar.open.label}" />
+              </StackPanel>
+            </Button>
+            <Button Classes="windows-command-button"
+                    Command="{Binding MergePdfDocumentsCommand}"
+                    ToolTip.Tip="{loc:Loc toolbar.merge.tooltip}">
+              <StackPanel Orientation="Horizontal"
+                          Spacing="6">
+                <materialIcons:MaterialIcon Kind="FileDocumentMultipleOutline"
+                                            Width="18"
+                                            Height="18" />
+                <TextBlock Text="{loc:Loc toolbar.merge.label}" />
+              </StackPanel>
+            </Button>
+            <Button Classes="windows-command-button"
+                    Command="{Binding PrintDocumentCommand}"
+                    ToolTip.Tip="{loc:Loc toolbar.print.tooltip}">
+              <StackPanel Orientation="Horizontal"
+                          Spacing="6">
+                <materialIcons:MaterialIcon Kind="PrinterOutline"
+                                            Width="18"
+                                            Height="18" />
+                <TextBlock Text="{loc:Loc toolbar.print.label}" />
+              </StackPanel>
+            </Button>
+          </StackPanel>
+
+          <StackPanel Grid.Column="1"
+                      Classes="windows-ribbon-group"
+                      Orientation="Horizontal"
+                      Spacing="6"
+                      IsVisible="{Binding ShowWindowsRibbonNavigationCommands}">
+            <Button Classes="windows-icon-button"
+                    Command="{Binding PreviousPageCommand}"
+                    ToolTip.Tip="{loc:Loc toolbar.page.previous}">
+              <materialIcons:MaterialIcon Kind="ChevronLeft"
+                                          Width="20"
+                                          Height="20" />
+            </Button>
+            <TextBox Classes="windows-page-input"
+                     Text="{Binding GoToPageInput}"
+                     HorizontalContentAlignment="Center" />
+            <TextBlock Text="{Binding PageIndicator}"
+                       Classes="windows-page-indicator"
+                       VerticalAlignment="Center" />
+            <Button Classes="windows-icon-button"
+                    Command="{Binding GoToPageCommand}"
+                    ToolTip.Tip="{loc:Loc toolbar.page.input.tooltip}">
+              <materialIcons:MaterialIcon Kind="ArrowRight"
+                                          Width="18"
+                                          Height="18" />
+            </Button>
+            <Button Classes="windows-icon-button"
+                    Command="{Binding NextPageCommand}"
+                    ToolTip.Tip="{loc:Loc toolbar.page.next}">
+              <materialIcons:MaterialIcon Kind="ChevronRight"
+                                          Width="20"
+                                          Height="20" />
+            </Button>
+          </StackPanel>
+
+          <StackPanel Grid.Column="2"
+                      Classes="windows-ribbon-group"
+                      Orientation="Horizontal"
+                      Spacing="6"
+                      IsVisible="{Binding ShowWindowsRibbonZoomCommands}">
+            <Button Classes="windows-icon-button"
+                    Command="{Binding ZoomOutCommand}"
+                    ToolTip.Tip="{loc:Loc toolbar.zoom.out}">
+              <materialIcons:MaterialIcon Kind="Minus"
+                                          Width="18"
+                                          Height="18" />
+            </Button>
+            <TextBlock Text="{Binding CurrentZoom}"
+                       Classes="windows-page-indicator"
+                       VerticalAlignment="Center" />
+            <Button Classes="windows-icon-button"
+                    Command="{Binding ZoomInCommand}"
+                    ToolTip.Tip="{loc:Loc toolbar.zoom.in}">
+              <materialIcons:MaterialIcon Kind="Plus"
+                                          Width="18"
+                                          Height="18" />
+            </Button>
+            <Button Classes="windows-command-button"
+                    Command="{Binding FitToPageCommand}"
+                    ToolTip.Tip="{loc:Loc toolbar.zoom.fit_page}">
+              <StackPanel Orientation="Horizontal"
+                          Spacing="6">
+                <materialIcons:MaterialIcon Kind="FitToPageOutline"
+                                            Width="18"
+                                            Height="18" />
+                <TextBlock Text="{loc:Loc toolbar.fit_page.short}" />
+              </StackPanel>
+            </Button>
+          </StackPanel>
+
+          <TextBox Grid.Column="4"
+                   Classes="windows-search"
+                   Text="{Binding SearchQueryInput}"
+                   Watermark="{loc:Loc toolbar.search.placeholder}"
+                   IsVisible="{Binding ShowWindowsRibbonSearchCommands}" />
+
+          <StackPanel Grid.Column="5"
+                      Classes="windows-ribbon-group"
+                      Orientation="Horizontal"
+                      Spacing="6"
+                      IsVisible="{Binding ShowWindowsRibbonViewCommands}">
+            <Button Classes="windows-icon-button"
+                    Command="{Binding ToggleSidebarCommand}"
+                    ToolTip.Tip="{Binding SidebarToggleLabel}">
+              <materialIcons:MaterialIcon Kind="PageLayoutSidebarLeft"
+                                          Width="20"
+                                          Height="20" />
+            </Button>
+            <Button Classes="windows-icon-button"
+                    Command="{Binding ToggleSearchPanelCommand}"
+                    ToolTip.Tip="{loc:Loc panel.search.title}">
+              <materialIcons:MaterialIcon Kind="Magnify"
+                                          Width="20"
+                                          Height="20" />
+            </Button>
+            <Button Classes="windows-icon-button"
+                    Command="{Binding ToggleInfoPanelCommand}"
+                    ToolTip.Tip="{loc:Loc panel.info.title}">
+              <materialIcons:MaterialIcon Kind="InformationOutline"
+                                          Width="20"
+                                          Height="20" />
+            </Button>
+            <Button Classes="windows-icon-button"
+                    Command="{Binding TogglePreferencesPanelCommand}"
+                    ToolTip.Tip="{loc:Loc panel.preferences.title}">
+              <materialIcons:MaterialIcon Kind="CogOutline"
+                                          Width="20"
+                                          Height="20" />
+            </Button>
+          </StackPanel>
+
+          <StackPanel Grid.Column="6"
+                      Classes="windows-ribbon-group"
+                      Orientation="Horizontal"
+                      Spacing="6"
+                      IsVisible="{Binding ShowWindowsRibbonAnnotationCommands}">
+            <Button Classes="windows-icon-button"
+                    Classes.accent="{Binding IsAnnotationsPanelOpen}"
+                    Command="{Binding ToggleAnnotationsPanelCommand}"
+                    ToolTip.Tip="{loc:Loc panel.annotations.title}">
+              <materialIcons:MaterialIcon Kind="PencilOutline"
+                                          Width="20"
+                                          Height="20" />
+            </Button>
+            <Button Classes="windows-icon-button"
+                    Command="{Binding SelectAnnotationToolCommand}"
+                    CommandParameter="Note"
+                    ToolTip.Tip="{loc:Loc annotation.tool.note}">
+              <materialIcons:MaterialIcon Kind="CommentTextOutline"
+                                          Width="20"
+                                          Height="20" />
+            </Button>
+            <Button Classes="windows-icon-button"
+                    Command="{Binding SelectAnnotationToolCommand}"
+                    CommandParameter="Text"
+                    ToolTip.Tip="{loc:Loc annotation.tool.text}">
+              <materialIcons:MaterialIcon Kind="FormatText"
+                                          Width="20"
+                                          Height="20" />
+            </Button>
+          </StackPanel>
+        </Grid>
+      </Grid>
+    </Border>
+
     <!-- Header -->
     <Border x:Name="HeaderHostBorder"
             Grid.Row="1"
             Grid.Column="0"
             Grid.ColumnSpan="2"
-            IsVisible="{Binding HasOpenDocument}"
+            IsVisible="{Binding ShowClassicHeader}"
             Padding="18,14"
             BorderBrush="{DynamicResource Brush.Border}"
             BorderThickness="0,0,0,1"
@@ -1230,7 +1565,7 @@
 
             <Button Grid.Column="1"
                     Classes="panel-close-button"
-                    Command="{Binding ToggleSearchPanelCommand}"
+                    Command="{Binding CloseSearchPanelCommand}"
                     ToolTip.Tip="{loc:Loc panel.search.close}">
               <materialIcons:MaterialIcon Classes="toolbar-icon"
                                           Kind="Close"

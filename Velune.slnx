@@ -5,10 +5,11 @@
         <Project Path="src/Velune.Domain/Velune.Domain.csproj"/>
         <Project Path="src/Velune.Infrastructure/Velune.Infrastructure.csproj"/>
         <Project Path="src/Velune.Presentation/Velune.Presentation.csproj"/>
+        <Project Path="src/Velune.Windows/Velune.Windows.csproj"/>
     </Folder>
     <Folder Name="/tests/">
         <Project Path="tests/Velune.Tests.Integration/Velune.Tests.Integration.csproj"/>
-        <Project Path="tests/Velune.Tests.Render/Velune.Tests.Render.csproj"/>
         <Project Path="tests/Velune.Tests.Unit/Velune.Tests.Unit.csproj"/>
+        <Project Path="tests/Velune.Tests.Windows.Unit/Velune.Tests.Windows.Unit.csproj"/>
     </Folder>
 </Solution>

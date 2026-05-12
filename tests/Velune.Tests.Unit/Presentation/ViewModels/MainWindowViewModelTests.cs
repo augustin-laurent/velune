@@ -1,5 +1,5 @@
-using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Velune.Application.Abstractions;
 using Velune.Application.Configuration;
 using Velune.Application.DTOs;
@@ -23,9 +23,9 @@ public sealed class MainWindowViewModelTests
     [Fact]
     public void ClearRecentFilesCommand_ShouldRequestConfirmationWithoutClearingEntries()
     {
-        var recentFilesService = CreateRecentFilesService();
+        IRecentFilesService recentFilesService = CreateRecentFilesService();
         recentFilesService.Add(new RecentFileItem("Document.pdf", "/tmp/document.pdf", "Pdf"));
-        using var viewModel = CreateViewModel(recentFilesService);
+        using MainWindowViewModel viewModel = CreateViewModel(recentFilesService);
 
         viewModel.ClearRecentFilesCommand.Execute(null);
 
@@ -41,9 +41,9 @@ public sealed class MainWindowViewModelTests
     [Fact]
     public void NotificationPrimaryActionCommand_ShouldClearRecentFilesAndShowFollowUpInfo()
     {
-        var recentFilesService = CreateRecentFilesService();
+        IRecentFilesService recentFilesService = CreateRecentFilesService();
         recentFilesService.Add(new RecentFileItem("Document.pdf", "/tmp/document.pdf", "Pdf"));
-        using var viewModel = CreateViewModel(recentFilesService);
+        using MainWindowViewModel viewModel = CreateViewModel(recentFilesService);
 
         viewModel.ClearRecentFilesCommand.Execute(null);
         viewModel.NotificationPrimaryActionCommand.Execute(null);
@@ -61,9 +61,9 @@ public sealed class MainWindowViewModelTests
     [Fact]
     public void NotificationSecondaryActionCommand_ShouldKeepRecentFilesAndDismissConfirmation()
     {
-        var recentFilesService = CreateRecentFilesService();
+        IRecentFilesService recentFilesService = CreateRecentFilesService();
         recentFilesService.Add(new RecentFileItem("Document.pdf", "/tmp/document.pdf", "Pdf"));
-        using var viewModel = CreateViewModel(recentFilesService);
+        using MainWindowViewModel viewModel = CreateViewModel(recentFilesService);
 
         viewModel.ClearRecentFilesCommand.Execute(null);
         viewModel.NotificationSecondaryActionCommand.Execute(null);
@@ -76,12 +76,12 @@ public sealed class MainWindowViewModelTests
     [Fact]
     public void LanguagePreferenceChange_OnMacOs_ShouldShowRestartNoticeInSelectedLanguage()
     {
-        var previousDetector = PresentationPlatform.IsMacOSDetector;
+        Func<bool> previousDetector = PresentationPlatform.IsMacOSDetector;
         PresentationPlatform.IsMacOSDetector = static () => true;
 
         try
         {
-            using var viewModel = CreateViewModel();
+            using MainWindowViewModel viewModel = CreateViewModel();
 
             viewModel.SelectedLanguagePreference = viewModel.LanguagePreferenceOptions
                 .Single(option => option.Value == AppLanguagePreference.French);
@@ -100,9 +100,120 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public async Task OpenDocument_OnWindows_ShouldCreateTabsAndFocusExistingPath()
+    {
+        Func<bool> previousWindowsDetector = PresentationPlatform.IsWindowsDetector;
+        Func<bool> previousMacOsDetector = PresentationPlatform.IsMacOSDetector;
+        PresentationPlatform.IsWindowsDetector = static () => true;
+        PresentationPlatform.IsMacOSDetector = static () => false;
+
+        try
+        {
+            using MainWindowViewModel viewModel = CreateViewModel(documentOpener: new PathAwareStubDocumentOpener());
+
+            await viewModel.HandleHomeFilesDroppedAsync(["/tmp/a.pdf"]);
+            await viewModel.HandleHomeFilesDroppedAsync(["/tmp/b.pdf"]);
+            await viewModel.HandleHomeFilesDroppedAsync(["/tmp/a.pdf"]);
+
+            Assert.True(viewModel.IsWindowsShellVisible);
+            Assert.False(viewModel.IsClassicShellVisible);
+            Assert.Equal(2, viewModel.DocumentTabs.Count);
+            Assert.Equal("/tmp/a.pdf", viewModel.DocumentTabs[0].FilePath);
+            Assert.Equal("/tmp/b.pdf", viewModel.DocumentTabs[1].FilePath);
+            Assert.True(viewModel.DocumentTabs[0].IsActive);
+            Assert.False(viewModel.DocumentTabs[1].IsActive);
+            Assert.Equal("/tmp/a.pdf", viewModel.ActiveDocumentTab?.FilePath);
+            Assert.True(viewModel.IsSidebarVisible);
+            Assert.False(viewModel.IsAnnotationsPanelOpen);
+        }
+        finally
+        {
+            PresentationPlatform.IsWindowsDetector = previousWindowsDetector;
+            PresentationPlatform.IsMacOSDetector = previousMacOsDetector;
+        }
+    }
+
+    [Fact]
+    public async Task SwitchingWindowsTabs_ShouldKeepDocumentsRenderable()
+    {
+        Func<bool> previousWindowsDetector = PresentationPlatform.IsWindowsDetector;
+        Func<bool> previousMacOsDetector = PresentationPlatform.IsMacOSDetector;
+        PresentationPlatform.IsWindowsDetector = static () => true;
+        PresentationPlatform.IsMacOSDetector = static () => false;
+
+        try
+        {
+            using var renderOrchestrator = new StubRenderOrchestrator();
+            using MainWindowViewModel viewModel = CreateViewModel(
+                documentOpener: new PathAwareStubDocumentOpener(),
+                renderOrchestrator: renderOrchestrator);
+
+            await viewModel.HandleHomeFilesDroppedAsync(["/tmp/a.pdf"]);
+            await viewModel.HandleHomeFilesDroppedAsync(["/tmp/b.pdf"]);
+            int renderRequestsAfterOpen = renderOrchestrator.SubmitRequests.Count;
+
+            Assert.Equal(2, viewModel.DocumentTabs.Count);
+            Assert.Equal("/tmp/a.pdf", viewModel.DocumentTabs[0].FilePath);
+            Assert.Equal("/tmp/b.pdf", viewModel.DocumentTabs[1].FilePath);
+            Assert.Equal("/tmp/b.pdf", viewModel.ActiveDocumentTab?.FilePath);
+            Assert.Equal("/tmp/b.pdf", viewModel.CurrentDocumentPath);
+            Assert.True(viewModel.ActivateDocumentTabCommand.CanExecute(viewModel.DocumentTabs[0]));
+
+            viewModel.ActivateDocumentTabCommand.Execute(viewModel.DocumentTabs[0]);
+            if (viewModel.ActivateDocumentTabCommand.ExecutionTask is { } firstActivation)
+            {
+                await firstActivation;
+            }
+
+            Assert.Equal("/tmp/a.pdf", viewModel.ActiveDocumentTab?.FilePath);
+            Assert.Equal("/tmp/a.pdf", viewModel.CurrentDocumentPath);
+            Assert.True(viewModel.HasOpenDocument);
+            Assert.True(renderOrchestrator.SubmitRequests.Count > renderRequestsAfterOpen);
+
+            viewModel.ActivateDocumentTabCommand.Execute(viewModel.DocumentTabs[1]);
+            if (viewModel.ActivateDocumentTabCommand.ExecutionTask is { } secondActivation)
+            {
+                await secondActivation;
+            }
+
+            Assert.Equal("/tmp/b.pdf", viewModel.CurrentDocumentPath);
+            Assert.True(viewModel.HasOpenDocument);
+        }
+        finally
+        {
+            PresentationPlatform.IsWindowsDetector = previousWindowsDetector;
+            PresentationPlatform.IsMacOSDetector = previousMacOsDetector;
+        }
+    }
+
+    [Fact]
+    public async Task OpenDocument_OutsideWindows_ShouldKeepClassicSingleDocumentShell()
+    {
+        Func<bool> previousWindowsDetector = PresentationPlatform.IsWindowsDetector;
+        PresentationPlatform.IsWindowsDetector = static () => false;
+
+        try
+        {
+            using MainWindowViewModel viewModel = CreateViewModel(documentOpener: new PathAwareStubDocumentOpener());
+
+            await viewModel.HandleHomeFilesDroppedAsync(["/tmp/a.pdf"]);
+            await viewModel.HandleHomeFilesDroppedAsync(["/tmp/b.pdf"]);
+
+            Assert.False(viewModel.IsWindowsShellVisible);
+            Assert.True(viewModel.IsClassicShellVisible);
+            Assert.Empty(viewModel.DocumentTabs);
+            Assert.Equal("b.pdf", viewModel.CurrentDocumentName);
+        }
+        finally
+        {
+            PresentationPlatform.IsWindowsDetector = previousWindowsDetector;
+        }
+    }
+
+    [Fact]
     public async Task OpenCommand_ShouldPopulateDocumentInfoAndShowFriendlyMetadataWarning()
     {
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService("/tmp/document.pdf"),
             documentOpener: new StubDocumentOpener(
                 new DocumentSession(
@@ -135,9 +246,26 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public async Task CloseSearchPanelCommand_ShouldCloseSearchEvenWhenUsingDedicatedCloseButton()
+    {
+        using MainWindowViewModel viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService("/tmp/document.pdf"));
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+        await viewModel.ToggleSearchPanelCommand.ExecuteAsync(null);
+
+        Assert.True(viewModel.IsSearchPanelOpen);
+
+        viewModel.CloseSearchPanelCommand.Execute(null);
+
+        Assert.False(viewModel.IsSearchPanelOpen);
+        Assert.Equal("Search hidden", viewModel.StatusText);
+    }
+
+    [Fact]
     public async Task ToggleInfoPanelCommand_ShouldTogglePanelWhenDocumentIsOpen()
     {
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService("/tmp/image.png"),
             documentOpener: new StubDocumentOpener(
                 new StubImageDocumentSession(
@@ -167,7 +295,7 @@ public sealed class MainWindowViewModelTests
     [Fact]
     public async Task TogglePreferencesPanelCommand_ShouldTogglePanelWhenDocumentIsOpen()
     {
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService("/tmp/document.pdf"),
             documentOpener: new StubDocumentOpener(
                 new DocumentSession(
@@ -189,7 +317,7 @@ public sealed class MainWindowViewModelTests
     public async Task ShowThumbnailsPanelPreference_ShouldHideSidebarAndPersistPreference()
     {
         var preferencesService = new StubUserPreferencesService();
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService("/tmp/document.pdf"),
             documentOpener: new StubDocumentOpener(
                 new DocumentSession(
@@ -217,7 +345,7 @@ public sealed class MainWindowViewModelTests
                 DefaultZoom = DefaultZoomPreference.FitToWidth
             });
 
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService("/tmp/image.png"),
             documentOpener: new StubDocumentOpener(
                 new StubImageDocumentSession(
@@ -244,7 +372,7 @@ public sealed class MainWindowViewModelTests
     [Fact]
     public async Task ZoomInCommand_ShouldKeepZoomWhenNavigatingToNextPage()
     {
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService("/tmp/document.pdf"),
             documentOpener: new StubDocumentOpener(
                 new DocumentSession(
@@ -268,7 +396,7 @@ public sealed class MainWindowViewModelTests
                 request,
                 index: CreateDocumentTextIndex("Velune integration sample")));
 
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService("/tmp/document.pdf"),
             documentOpener: new StubDocumentOpener(
                 new DocumentSession(
@@ -306,7 +434,7 @@ public sealed class MainWindowViewModelTests
                     request,
                     requiresOcr: true));
 
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService("/tmp/image.png"),
             documentOpener: new StubDocumentOpener(
                 new StubImageDocumentSession(
@@ -337,7 +465,7 @@ public sealed class MainWindowViewModelTests
     [Fact]
     public async Task ImageDocuments_ShouldShowThumbnailPaneWithoutPdfStructureControls()
     {
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService("/tmp/image.png"),
             documentOpener: new StubDocumentOpener(
                 new StubImageDocumentSession(
@@ -366,9 +494,39 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public async Task SelectAnnotationToolCommand_ShouldOpenAnnotationsPanel()
+    {
+        using MainWindowViewModel viewModel = CreateViewModel(
+            filePickerService: new StubFilePickerService("/tmp/image.png"),
+            documentOpener: new StubDocumentOpener(
+                new StubImageDocumentSession(
+                    DocumentId.New(),
+                    new DocumentMetadata(
+                        "image.png",
+                        "/tmp/image.png",
+                        DocumentType.Image,
+                        2048,
+                        1,
+                        pixelWidth: 1200,
+                        pixelHeight: 800,
+                        formatLabel: "PNG image"),
+                    ViewportState.Default,
+                    new ImageMetadata(1200, 800))));
+
+        await viewModel.OpenCommand.ExecuteAsync(null);
+
+        Assert.False(viewModel.IsAnnotationsPanelOpen);
+
+        viewModel.SelectAnnotationToolCommand.Execute("Text");
+
+        Assert.True(viewModel.IsAnnotationsPanelOpen);
+        Assert.True(viewModel.IsTextAnnotationToolSelected);
+    }
+
+    [Fact]
     public async Task Annotations_ShouldEnableSaveForImageDocuments()
     {
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService("/tmp/image.png"),
             documentOpener: new StubDocumentOpener(
                 new StubImageDocumentSession(
@@ -389,7 +547,7 @@ public sealed class MainWindowViewModelTests
         viewModel.ToggleAnnotationsPanelCommand.Execute(null);
         viewModel.SelectAnnotationToolCommand.Execute("Rectangle");
 
-        var began = viewModel.BeginAnnotationInteraction(20, 30, 200, 200);
+        bool began = viewModel.BeginAnnotationInteraction(20, 30, 200, 200);
         Assert.True(began);
 
         viewModel.UpdateAnnotationInteraction(120, 140, 200, 200);
@@ -403,7 +561,7 @@ public sealed class MainWindowViewModelTests
     [Fact]
     public async Task AnnotationProperties_ShouldApplyToNewAnnotations()
     {
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService("/tmp/image.png"),
             documentOpener: new StubDocumentOpener(
                 new StubImageDocumentSession(
@@ -430,7 +588,7 @@ public sealed class MainWindowViewModelTests
         viewModel.UpdateAnnotationInteraction(120, 140, 200, 200);
         viewModel.CompleteAnnotationInteraction(120, 140, 200, 200);
 
-        var annotation = Assert.Single(viewModel.CurrentPageAnnotations);
+        AnnotationListItemViewModel annotation = Assert.Single(viewModel.CurrentPageAnnotations);
         Assert.Equal("#7B61FF", annotation.Annotation.Appearance.StrokeHex);
         Assert.Equal(8.0, annotation.Annotation.Appearance.StrokeThickness);
     }
@@ -438,7 +596,7 @@ public sealed class MainWindowViewModelTests
     [Fact]
     public async Task AnnotationProperties_ShouldUpdateSelectedAnnotation()
     {
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService("/tmp/image.png"),
             documentOpener: new StubDocumentOpener(
                 new StubImageDocumentSession(
@@ -466,7 +624,7 @@ public sealed class MainWindowViewModelTests
         viewModel.SelectAnnotationColorCommand.Execute("#E04DA5");
         viewModel.SelectAnnotationThicknessCommand.Execute("4");
 
-        var annotation = Assert.Single(viewModel.CurrentPageAnnotations);
+        AnnotationListItemViewModel annotation = Assert.Single(viewModel.CurrentPageAnnotations);
         Assert.Equal("#E04DA5", annotation.Annotation.Appearance.StrokeHex);
         Assert.Equal(4.0, annotation.Annotation.Appearance.StrokeThickness);
         Assert.True(viewModel.CanUndoAnnotations);
@@ -475,7 +633,7 @@ public sealed class MainWindowViewModelTests
     [Fact]
     public async Task DeleteCurrentPageAnnotationCommand_ShouldRemoveRequestedAnnotation()
     {
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService("/tmp/image.png"),
             documentOpener: new StubDocumentOpener(
                 new StubImageDocumentSession(
@@ -500,7 +658,7 @@ public sealed class MainWindowViewModelTests
         viewModel.UpdateAnnotationInteraction(120, 140, 200, 200);
         viewModel.CompleteAnnotationInteraction(120, 140, 200, 200);
 
-        var annotation = Assert.Single(viewModel.CurrentPageAnnotations);
+        AnnotationListItemViewModel annotation = Assert.Single(viewModel.CurrentPageAnnotations);
         viewModel.DeleteCurrentPageAnnotationCommand.Execute(annotation);
 
         Assert.Empty(viewModel.CurrentPageAnnotations);
@@ -510,7 +668,7 @@ public sealed class MainWindowViewModelTests
     [Fact]
     public async Task Annotations_ShouldSupportUndoAndRedo()
     {
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService("/tmp/document.pdf"),
             documentOpener: new StubDocumentOpener(
                 new DocumentSession(
@@ -544,7 +702,7 @@ public sealed class MainWindowViewModelTests
     [Fact]
     public async Task DrawnSignature_ShouldBecomeAvailableAndPlaceable()
     {
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService("/tmp/document.pdf"),
             documentOpener: new StubDocumentOpener(
                 new DocumentSession(
@@ -580,7 +738,7 @@ public sealed class MainWindowViewModelTests
     [Fact]
     public async Task DeleteSelectedSignatureAsset_ShouldRemoveItFromLibrary()
     {
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService("/tmp/document.pdf"),
             documentOpener: new StubDocumentOpener(
                 new DocumentSession(
@@ -612,7 +770,7 @@ public sealed class MainWindowViewModelTests
                 request,
                 index: CreateDocumentTextIndex("Velune integration sample")));
 
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService("/tmp/document.pdf"),
             documentOpener: new StubDocumentOpener(
                 new DocumentSession(
@@ -640,7 +798,7 @@ public sealed class MainWindowViewModelTests
             ResultFactory.Success(),
             supportsSystemPrintDialog: true);
 
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService(temporaryFile.Path),
             documentOpener: new StubDocumentOpener(
                 new DocumentSession(
@@ -667,7 +825,7 @@ public sealed class MainWindowViewModelTests
             [new PrintDestinationInfo("Office Printer", true), new PrintDestinationInfo("Label Printer", false)],
             supportsSystemPrintDialog: false);
 
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService(temporaryFile.Path),
             documentOpener: new StubDocumentOpener(
                 new DocumentSession(
@@ -691,7 +849,7 @@ public sealed class MainWindowViewModelTests
     {
         using var temporaryFile = new TemporaryFile(".pdf");
 
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService(temporaryFile.Path),
             documentOpener: new StubDocumentOpener(
                 new DocumentSession(
@@ -723,7 +881,7 @@ public sealed class MainWindowViewModelTests
             [new PrintDestinationInfo("Office Printer", true)],
             supportsSystemPrintDialog: false);
 
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService(temporaryFile.Path),
             documentOpener: new StubDocumentOpener(
                 new DocumentSession(
@@ -761,7 +919,7 @@ public sealed class MainWindowViewModelTests
     {
         using var temporaryFile = new TemporaryFile(".pdf");
 
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService(temporaryFile.Path),
             documentOpener: new StubDocumentOpener(
                 new DocumentSession(
@@ -793,7 +951,7 @@ public sealed class MainWindowViewModelTests
     [Fact]
     public async Task HandleThumbnailReorderAsync_ShouldMarkPendingOrderAndMoveThumbnail()
     {
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService("/tmp/document.pdf"),
             documentOpener: new StubDocumentOpener(
                 new DocumentSession(
@@ -813,7 +971,7 @@ public sealed class MainWindowViewModelTests
     [Fact]
     public async Task HandleThumbnailReorderToIndexAsync_ShouldMoveThumbnailToRequestedSlot()
     {
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService("/tmp/document.pdf"),
             documentOpener: new StubDocumentOpener(
                 new DocumentSession(
@@ -832,7 +990,7 @@ public sealed class MainWindowViewModelTests
     [Fact]
     public async Task MoveCurrentPageLaterCommand_ShouldMoveCurrentPageByOneSlot()
     {
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService("/tmp/document.pdf"),
             documentOpener: new StubDocumentOpener(
                 new DocumentSession(
@@ -856,7 +1014,7 @@ public sealed class MainWindowViewModelTests
             savePath: "/tmp/document.pdf");
         var pdfStructureService = new StubPdfDocumentStructureService();
 
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: filePickerService,
             documentOpener: new PathAwareStubDocumentOpener(
                 ("/tmp/document.pdf", DocumentType.Pdf, 3)),
@@ -876,7 +1034,7 @@ public sealed class MainWindowViewModelTests
     [Fact]
     public async Task SelectThumbnailCommand_ShouldOpenRequestedThumbnailPage()
     {
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: new StubFilePickerService("/tmp/document.pdf"),
             documentOpener: new StubDocumentOpener(
                 new DocumentSession(
@@ -899,7 +1057,7 @@ public sealed class MainWindowViewModelTests
             savePath: "/tmp/page-3.pdf");
         var pdfStructureService = new StubPdfDocumentStructureService();
 
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: filePickerService,
             documentOpener: new StubDocumentOpener(
                 new DocumentSession(
@@ -925,7 +1083,7 @@ public sealed class MainWindowViewModelTests
             savePath: "/tmp/document.pdf");
         var pdfStructureService = new StubPdfDocumentStructureService();
 
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: filePickerService,
             documentOpener: new PathAwareStubDocumentOpener(
                 ("/tmp/document.pdf", DocumentType.Pdf, 3)),
@@ -945,8 +1103,8 @@ public sealed class MainWindowViewModelTests
     [Fact]
     public async Task SaveDocumentCommand_ShouldPersistDeletedPageWithoutSavePicker()
     {
-        var directoryPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-        var currentPath = Path.Combine(directoryPath, "document.pdf");
+        string directoryPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        string currentPath = Path.Combine(directoryPath, "document.pdf");
         Directory.CreateDirectory(directoryPath);
         await File.WriteAllTextAsync(currentPath, "%PDF-1.4\n% Original test PDF\n");
 
@@ -957,7 +1115,7 @@ public sealed class MainWindowViewModelTests
                 savePath: Path.Combine(directoryPath, "should-not-be-used.pdf"));
             var pdfStructureService = new StubPdfDocumentStructureService();
 
-            using var viewModel = CreateViewModel(
+            using MainWindowViewModel viewModel = CreateViewModel(
                 filePickerService: filePickerService,
                 documentOpener: new PathAwareStubDocumentOpener(
                     (currentPath, DocumentType.Pdf, 3)),
@@ -996,7 +1154,7 @@ public sealed class MainWindowViewModelTests
             savePath: "/tmp/document-rotated.pdf");
         var pdfStructureService = new StubPdfDocumentStructureService();
 
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: filePickerService,
             documentOpener: new StubDocumentOpener(
                 new DocumentSession(
@@ -1029,7 +1187,7 @@ public sealed class MainWindowViewModelTests
             openPaths: ["/tmp/first.pdf", "/tmp/second.pdf"]);
         var pdfStructureService = new StubPdfDocumentStructureService();
 
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: filePickerService,
             pdfDocumentStructureService: pdfStructureService,
             documentOpener: new PathAwareStubDocumentOpener());
@@ -1048,8 +1206,8 @@ public sealed class MainWindowViewModelTests
     [Fact]
     public async Task SaveDocumentCommand_ShouldSavePendingMergedDocumentWhenUserChoosesDestination()
     {
-        var directoryPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-        var outputPath = Path.Combine(directoryPath, "document-merged.pdf");
+        string directoryPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        string outputPath = Path.Combine(directoryPath, "document-merged.pdf");
         Directory.CreateDirectory(directoryPath);
 
         try
@@ -1059,7 +1217,7 @@ public sealed class MainWindowViewModelTests
                 openPaths: ["/tmp/first.pdf", "/tmp/second.pdf"]);
             var pdfStructureService = new StubPdfDocumentStructureService();
 
-            using var viewModel = CreateViewModel(
+            using MainWindowViewModel viewModel = CreateViewModel(
                 filePickerService: filePickerService,
                 pdfDocumentStructureService: pdfStructureService,
                 documentOpener: new PathAwareStubDocumentOpener());
@@ -1091,81 +1249,127 @@ public sealed class MainWindowViewModelTests
     [Fact]
     public async Task HandleThumbnailFilesDroppedAsync_ShouldMergeCurrentPdfWithDroppedDocumentsWithoutSavingImmediately()
     {
-        var directoryPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-        var currentPath = Path.Combine(directoryPath, "current.pdf");
-        var filePickerService = new StubFilePickerService(
-            openPath: currentPath);
-        var pdfStructureService = new StubPdfDocumentStructureService();
+        string directoryPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        string currentPath = Path.Combine(directoryPath, "current.pdf");
+        Directory.CreateDirectory(directoryPath);
+        await File.WriteAllTextAsync(currentPath, "%PDF-1.4\n");
 
-        using var viewModel = CreateViewModel(
-            filePickerService: filePickerService,
-            pdfDocumentStructureService: pdfStructureService,
-            documentOpener: new PathAwareStubDocumentOpener(
-                (currentPath, DocumentType.Pdf, 1)));
+        try
+        {
+            var filePickerService = new StubFilePickerService(
+                openPath: currentPath);
+            var pdfStructureService = new StubPdfDocumentStructureService();
 
-        await viewModel.OpenCommand.ExecuteAsync(null);
-        await viewModel.HandleThumbnailFilesDroppedAsync(["/tmp/append.pdf", "/tmp/photo.png"], insertionIndex: 1);
+            using MainWindowViewModel viewModel = CreateViewModel(
+                filePickerService: filePickerService,
+                pdfDocumentStructureService: pdfStructureService,
+                documentOpener: new PathAwareStubDocumentOpener(
+                    (currentPath, DocumentType.Pdf, 1)));
 
-        Assert.Equal([currentPath, "/tmp/append.pdf", "/tmp/photo.png"], pdfStructureService.LastMergedSourcePaths);
-        Assert.EndsWith("current-merged.pdf", pdfStructureService.LastOutputPath);
-        Assert.Null(filePickerService.LastSaveTitle);
-        Assert.Null(filePickerService.LastSuggestedFileName);
-        Assert.Equal("Merged PDF ready. Use Save when you're ready.", viewModel.StatusText);
-        Assert.True(viewModel.CanSaveDocument);
+            await viewModel.OpenCommand.ExecuteAsync(null);
+            await viewModel.HandleThumbnailFilesDroppedAsync(["/tmp/append.pdf", "/tmp/photo.png"], insertionIndex: 1);
+
+            Assert.NotNull(pdfStructureService.LastMergedSourcePaths);
+            Assert.Equal(3, pdfStructureService.LastMergedSourcePaths.Count);
+            Assert.EndsWith("source-copy.pdf", pdfStructureService.LastMergedSourcePaths[0]);
+            Assert.Equal("/tmp/append.pdf", pdfStructureService.LastMergedSourcePaths[1]);
+            Assert.Equal("/tmp/photo.png", pdfStructureService.LastMergedSourcePaths[2]);
+            Assert.EndsWith("current-merged.pdf", pdfStructureService.LastOutputPath);
+            Assert.Null(filePickerService.LastSaveTitle);
+            Assert.Null(filePickerService.LastSuggestedFileName);
+            Assert.Equal("Merged PDF ready. Use Save when you're ready.", viewModel.StatusText);
+            Assert.True(viewModel.CanSaveDocument);
+        }
+        finally
+        {
+            if (Directory.Exists(directoryPath))
+            {
+                Directory.Delete(directoryPath, recursive: true);
+            }
+        }
     }
 
     [Fact]
     public async Task HandleThumbnailFilesDroppedAsync_ShouldInsertDroppedDocumentsAtThumbnailIndex()
     {
-        var directoryPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-        var currentPath = Path.Combine(directoryPath, "current.pdf");
-        var filePickerService = new StubFilePickerService(
-            openPath: currentPath);
-        var pdfStructureService = new StubPdfDocumentStructureService();
+        string directoryPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        string currentPath = Path.Combine(directoryPath, "current.pdf");
+        Directory.CreateDirectory(directoryPath);
+        await File.WriteAllTextAsync(currentPath, "%PDF-1.4\n");
 
-        using var viewModel = CreateViewModel(
-            filePickerService: filePickerService,
-            pdfDocumentStructureService: pdfStructureService,
-            documentOpener: new PathAwareStubDocumentOpener(
-                (currentPath, DocumentType.Pdf, 3)));
+        try
+        {
+            var filePickerService = new StubFilePickerService(
+                openPath: currentPath);
+            var pdfStructureService = new StubPdfDocumentStructureService();
 
-        await viewModel.OpenCommand.ExecuteAsync(null);
-        await viewModel.HandleThumbnailFilesDroppedAsync(["/tmp/insert.pdf"], insertionIndex: 1);
+            using MainWindowViewModel viewModel = CreateViewModel(
+                filePickerService: filePickerService,
+                pdfDocumentStructureService: pdfStructureService,
+                documentOpener: new PathAwareStubDocumentOpener(
+                    (currentPath, DocumentType.Pdf, 3)));
 
-        Assert.Equal(2, pdfStructureService.ExtractCalls.Count);
-        Assert.Equal([1], pdfStructureService.ExtractCalls[0].Pages);
-        Assert.Equal([2, 3], pdfStructureService.ExtractCalls[1].Pages);
-        Assert.NotNull(pdfStructureService.LastMergedSourcePaths);
-        Assert.Equal("/tmp/insert.pdf", pdfStructureService.LastMergedSourcePaths[1]);
-        Assert.EndsWith("current-before-drop.pdf", pdfStructureService.LastMergedSourcePaths[0]);
-        Assert.EndsWith("current-after-drop.pdf", pdfStructureService.LastMergedSourcePaths[2]);
-        Assert.EndsWith("current-merged.pdf", pdfStructureService.LastOutputPath);
-        Assert.Null(filePickerService.LastSaveTitle);
-        Assert.Null(filePickerService.LastSuggestedFileName);
+            await viewModel.OpenCommand.ExecuteAsync(null);
+            await viewModel.HandleThumbnailFilesDroppedAsync(["/tmp/insert.pdf"], insertionIndex: 1);
+
+            Assert.Equal(2, pdfStructureService.ExtractCalls.Count);
+            Assert.Equal([1], pdfStructureService.ExtractCalls[0].Pages);
+            Assert.Equal([2, 3], pdfStructureService.ExtractCalls[1].Pages);
+            Assert.NotNull(pdfStructureService.LastMergedSourcePaths);
+            Assert.Equal("/tmp/insert.pdf", pdfStructureService.LastMergedSourcePaths[1]);
+            Assert.EndsWith("current-before-drop.pdf", pdfStructureService.LastMergedSourcePaths[0]);
+            Assert.EndsWith("current-after-drop.pdf", pdfStructureService.LastMergedSourcePaths[2]);
+            Assert.EndsWith("current-merged.pdf", pdfStructureService.LastOutputPath);
+            Assert.Null(filePickerService.LastSaveTitle);
+            Assert.Null(filePickerService.LastSuggestedFileName);
+        }
+        finally
+        {
+            if (Directory.Exists(directoryPath))
+            {
+                Directory.Delete(directoryPath, recursive: true);
+            }
+        }
     }
 
     [Fact]
     public async Task HandleThumbnailFilesDroppedAsync_ShouldMergeCurrentImageWithDroppedDocument()
     {
-        var directoryPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
-        var currentPath = Path.Combine(directoryPath, "photo.png");
-        var filePickerService = new StubFilePickerService(
-            openPath: currentPath);
-        var pdfStructureService = new StubPdfDocumentStructureService();
+        string directoryPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        string currentPath = Path.Combine(directoryPath, "photo.png");
+        Directory.CreateDirectory(directoryPath);
+        await File.WriteAllBytesAsync(currentPath, [0x89, 0x50, 0x4E, 0x47]);
 
-        using var viewModel = CreateViewModel(
-            filePickerService: filePickerService,
-            pdfDocumentStructureService: pdfStructureService,
-            documentOpener: new PathAwareStubDocumentOpener(
-                (currentPath, DocumentType.Image, 1)));
+        try
+        {
+            var filePickerService = new StubFilePickerService(
+                openPath: currentPath);
+            var pdfStructureService = new StubPdfDocumentStructureService();
 
-        await viewModel.OpenCommand.ExecuteAsync(null);
-        await viewModel.HandleThumbnailFilesDroppedAsync(["/tmp/append.pdf"], insertionIndex: 1);
+            using MainWindowViewModel viewModel = CreateViewModel(
+                filePickerService: filePickerService,
+                pdfDocumentStructureService: pdfStructureService,
+                documentOpener: new PathAwareStubDocumentOpener(
+                    (currentPath, DocumentType.Image, 1)));
 
-        Assert.Equal([currentPath, "/tmp/append.pdf"], pdfStructureService.LastMergedSourcePaths);
-        Assert.EndsWith("photo-merged.pdf", pdfStructureService.LastOutputPath);
-        Assert.Null(filePickerService.LastSaveTitle);
-        Assert.Null(filePickerService.LastSuggestedFileName);
+            await viewModel.OpenCommand.ExecuteAsync(null);
+            await viewModel.HandleThumbnailFilesDroppedAsync(["/tmp/append.pdf"], insertionIndex: 1);
+
+            Assert.NotNull(pdfStructureService.LastMergedSourcePaths);
+            Assert.Equal(2, pdfStructureService.LastMergedSourcePaths.Count);
+            Assert.EndsWith("source-copy.pdf", pdfStructureService.LastMergedSourcePaths[0]);
+            Assert.Equal("/tmp/append.pdf", pdfStructureService.LastMergedSourcePaths[1]);
+            Assert.EndsWith("photo-merged.pdf", pdfStructureService.LastOutputPath);
+            Assert.Null(filePickerService.LastSaveTitle);
+            Assert.Null(filePickerService.LastSuggestedFileName);
+        }
+        finally
+        {
+            if (Directory.Exists(directoryPath))
+            {
+                Directory.Delete(directoryPath, recursive: true);
+            }
+        }
     }
 
     [Fact]
@@ -1176,7 +1380,7 @@ public sealed class MainWindowViewModelTests
             savePath: "/tmp/current-merged.pdf");
         var pdfStructureService = new StubPdfDocumentStructureService();
 
-        using var viewModel = CreateViewModel(
+        using MainWindowViewModel viewModel = CreateViewModel(
             filePickerService: filePickerService,
             pdfDocumentStructureService: pdfStructureService,
             documentOpener: new StubDocumentOpener(
@@ -1209,13 +1413,13 @@ public sealed class MainWindowViewModelTests
     {
         var sessionStore = new InMemoryDocumentSessionStore();
         var viewportStore = new InMemoryPageViewportStore();
-        var orchestrator = renderOrchestrator ?? new StubRenderOrchestrator();
-        var structureService = pdfDocumentStructureService ?? new StubPdfDocumentStructureService();
-        var activePrintService = printService ?? new StubPrintService(ResultFactory.Success());
-        var activeTextAnalysisOrchestrator = textAnalysisOrchestrator ?? new StubDocumentTextAnalysisOrchestrator();
-        var activeTextSelectionService = textSelectionService ?? new StubDocumentTextSelectionService();
-        var activeUserPreferencesService = userPreferencesService ?? new StubUserPreferencesService();
-        var localizationService = CreateLocalizationService(activeUserPreferencesService);
+        IRenderOrchestrator orchestrator = renderOrchestrator ?? new StubRenderOrchestrator();
+        IPdfDocumentStructureService structureService = pdfDocumentStructureService ?? new StubPdfDocumentStructureService();
+        IPrintService activePrintService = printService ?? new StubPrintService(ResultFactory.Success());
+        IDocumentTextAnalysisOrchestrator activeTextAnalysisOrchestrator = textAnalysisOrchestrator ?? new StubDocumentTextAnalysisOrchestrator();
+        IDocumentTextSelectionService activeTextSelectionService = textSelectionService ?? new StubDocumentTextSelectionService();
+        IUserPreferencesService activeUserPreferencesService = userPreferencesService ?? new StubUserPreferencesService();
+        FileLocalizationService localizationService = CreateLocalizationService(activeUserPreferencesService);
 
         return new MainWindowViewModel(
             filePickerService ?? new StubFilePickerService(),
@@ -1270,7 +1474,7 @@ public sealed class MainWindowViewModelTests
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null)
         {
-            var candidate = Path.Combine(
+            string candidate = Path.Combine(
                 directory.FullName,
                 "src",
                 "Velune.Presentation",
@@ -1344,11 +1548,20 @@ public sealed class MainWindowViewModelTests
                 (string.IsNullOrWhiteSpace(openPath) ? [] : [openPath]);
         }
 
-        public string? LastOpenMergeSourcesTitle { get; private set; }
+        public string? LastOpenMergeSourcesTitle
+        {
+            get; private set;
+        }
 
-        public string? LastSaveTitle { get; private set; }
+        public string? LastSaveTitle
+        {
+            get; private set;
+        }
 
-        public string? LastSuggestedFileName { get; private set; }
+        public string? LastSuggestedFileName
+        {
+            get; private set;
+        }
 
         public Task<string?> PickOpenFileAsync(CancellationToken cancellationToken = default)
         {
@@ -1407,10 +1620,10 @@ public sealed class MainWindowViewModelTests
 
         public Task<IDocumentSession> OpenAsync(string filePath, CancellationToken cancellationToken = default)
         {
-            var metadata = _metadataByPath.TryGetValue(filePath, out var configuredMetadata)
+            (DocumentType Type, int PageCount) metadata = _metadataByPath.TryGetValue(filePath, out (DocumentType Type, int PageCount) configuredMetadata)
                 ? configuredMetadata
                 : InferMetadata(filePath);
-            var fileName = Path.GetFileName(filePath);
+            string fileName = Path.GetFileName(filePath);
             var documentMetadata = new DocumentMetadata(
                 fileName,
                 filePath,
@@ -1469,9 +1682,13 @@ public sealed class MainWindowViewModelTests
             _isCanceled = isCanceled;
         }
 
+        public List<RenderRequest> SubmitRequests { get; } = [];
+
         public RenderJobHandle Submit(RenderRequest request)
         {
             ArgumentNullException.ThrowIfNull(request);
+
+            SubmitRequests.Add(request);
 
             var jobId = Guid.NewGuid();
 
@@ -1555,7 +1772,7 @@ public sealed class MainWindowViewModelTests
 
         public AppResult Delete(string assetId)
         {
-            var removed = _assets.RemoveAll(asset => string.Equals(asset.Id, assetId, StringComparison.Ordinal));
+            int removed = _assets.RemoveAll(asset => string.Equals(asset.Id, assetId, StringComparison.Ordinal));
             return removed > 0
                 ? ResultFactory.Success()
                 : ResultFactory.Failure(AppError.NotFound("signature.asset.not_found", "The test signature was not found."));
@@ -1598,7 +1815,7 @@ public sealed class MainWindowViewModelTests
             Requests.Add(request);
 
             var jobId = Guid.NewGuid();
-            var result = _resultFactory(request) with
+            DocumentTextAnalysisResult result = _resultFactory(request) with
             {
                 JobId = jobId
             };
@@ -1630,6 +1847,20 @@ public sealed class MainWindowViewModelTests
                     [],
                     TextSourceKind.Ocr));
         }
+
+        public Result<DocumentTextSelectionResult> ResolveByRange(
+            DocumentTextIndex index,
+            PageIndex pageIndex,
+            int startCharacterIndex,
+            int endCharacterIndex)
+        {
+            return ResultFactory.Success(
+                new DocumentTextSelectionResult(
+                    pageIndex,
+                    null,
+                    [],
+                    TextSourceKind.Ocr));
+        }
     }
 
     private sealed class StubUserPreferencesService : IUserPreferencesService
@@ -1642,7 +1873,10 @@ public sealed class MainWindowViewModelTests
             };
         }
 
-        public UserPreferences Current { get; private set; }
+        public UserPreferences Current
+        {
+            get; private set;
+        }
 
         public event EventHandler? PreferencesChanged;
 
@@ -1672,13 +1906,25 @@ public sealed class MainWindowViewModelTests
             _systemDialogResult = systemDialogResult ?? ResultFactory.Success();
         }
 
-        public bool SupportsSystemPrintDialog { get; }
+        public bool SupportsSystemPrintDialog
+        {
+            get;
+        }
 
-        public int GetAvailablePrintersCallCount { get; private set; }
+        public int GetAvailablePrintersCallCount
+        {
+            get; private set;
+        }
 
-        public PrintDocumentRequest? LastRequest { get; private set; }
+        public PrintDocumentRequest? LastRequest
+        {
+            get; private set;
+        }
 
-        public string? LastSystemDialogFilePath { get; private set; }
+        public string? LastSystemDialogFilePath
+        {
+            get; private set;
+        }
 
         public Task<AppResult> ShowSystemPrintDialogAsync(string filePath, CancellationToken cancellationToken = default)
         {
@@ -1707,7 +1953,10 @@ public sealed class MainWindowViewModelTests
             File.WriteAllText(Path, "temporary");
         }
 
-        public string Path { get; }
+        public string Path
+        {
+            get;
+        }
 
         public void Dispose()
         {
@@ -1731,11 +1980,20 @@ public sealed class MainWindowViewModelTests
 
         public List<(string SourcePath, string OutputPath, IReadOnlyList<int> Pages)> ExtractCalls { get; } = [];
 
-        public IReadOnlyList<int>? LastDeletedPages { get; private set; }
+        public IReadOnlyList<int>? LastDeletedPages
+        {
+            get; private set;
+        }
 
-        public IReadOnlyList<string>? LastMergedSourcePaths { get; private set; }
+        public IReadOnlyList<string>? LastMergedSourcePaths
+        {
+            get; private set;
+        }
 
-        public string? LastOutputPath { get; private set; }
+        public string? LastOutputPath
+        {
+            get; private set;
+        }
 
         public bool IsAvailable() => true;
 
@@ -1797,7 +2055,7 @@ public sealed class MainWindowViewModelTests
 
         private static void WriteStubPdf(string outputPath)
         {
-            var directoryPath = Path.GetDirectoryName(outputPath);
+            string? directoryPath = Path.GetDirectoryName(outputPath);
             if (!string.IsNullOrWhiteSpace(directoryPath))
             {
                 Directory.CreateDirectory(directoryPath);

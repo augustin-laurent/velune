@@ -10,7 +10,7 @@ public sealed class InMemoryRecentFilesServiceTests
     [Fact]
     public void Add_ShouldInsertNewestItemFirst()
     {
-        var service = CreateService(limit: 5);
+        IRecentFilesService service = CreateService(limit: 5);
 
         service.Add(new RecentFileItem("a.pdf", "/tmp/a.pdf", "Pdf"));
         service.Add(new RecentFileItem("b.pdf", "/tmp/b.pdf", "Pdf"));
@@ -23,7 +23,7 @@ public sealed class InMemoryRecentFilesServiceTests
     [Fact]
     public void Add_ShouldRemoveDuplicateAndMoveItemToTop()
     {
-        var service = CreateService(limit: 5);
+        IRecentFilesService service = CreateService(limit: 5);
 
         service.Add(new RecentFileItem("a.pdf", "/tmp/a.pdf", "Pdf"));
         service.Add(new RecentFileItem("b.pdf", "/tmp/b.pdf", "Pdf"));
@@ -36,7 +36,7 @@ public sealed class InMemoryRecentFilesServiceTests
     [Fact]
     public void Add_ShouldRespectConfiguredLimit()
     {
-        var service = CreateService(limit: 2);
+        IRecentFilesService service = CreateService(limit: 2);
 
         service.Add(new RecentFileItem("a.pdf", "/tmp/a.pdf", "Pdf"));
         service.Add(new RecentFileItem("b.pdf", "/tmp/b.pdf", "Pdf"));
@@ -49,7 +49,7 @@ public sealed class InMemoryRecentFilesServiceTests
 
     private static IRecentFilesService CreateService(int limit)
     {
-        var options = Options.Create(new AppOptions
+        IOptions<AppOptions> options = Options.Create(new AppOptions
         {
             RecentFilesLimit = limit
         });

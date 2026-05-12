@@ -6,8 +6,12 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Infrastructure.Image;
 
+/// <summary>
+/// Renders image documents by decoding, scaling, and rotating via SkiaSharp.
+/// </summary>
 public sealed class ImageRenderService : IRenderService
 {
+    /// <inheritdoc />
     public Task<RenderedPage> RenderPageAsync(
         IDocumentSession session,
         PageIndex pageIndex,
@@ -40,21 +44,21 @@ public sealed class ImageRenderService : IRenderService
                 throw new InvalidOperationException("Unable to decode the image file.");
             }
 
-            var sourceWidth = sourceBitmap.Width;
-            var sourceHeight = sourceBitmap.Height;
+            int sourceWidth = sourceBitmap.Width;
+            int sourceHeight = sourceBitmap.Height;
 
-            var scaledWidth = Math.Max(1, (int)Math.Floor(sourceWidth * zoomFactor));
-            var scaledHeight = Math.Max(1, (int)Math.Floor(sourceHeight * zoomFactor));
+            int scaledWidth = Math.Max(1, (int)Math.Floor(sourceWidth * zoomFactor));
+            int scaledHeight = Math.Max(1, (int)Math.Floor(sourceHeight * zoomFactor));
 
-            var resizedPixels = RenderBitmapPixels(sourceBitmap, scaledWidth, scaledHeight);
+            byte[] resizedPixels = RenderBitmapPixels(sourceBitmap, scaledWidth, scaledHeight);
 
-            var rotatedPixels = RotateBgra(
+            byte[] rotatedPixels = RotateBgra(
                 resizedPixels,
                 scaledWidth,
                 scaledHeight,
                 rotation,
-                out var finalWidth,
-                out var finalHeight);
+                out int finalWidth,
+                out int finalHeight);
 
             return new RenderedPage(
                 pageIndex,
@@ -66,7 +70,7 @@ public sealed class ImageRenderService : IRenderService
 
     private static byte[] RenderBitmapPixels(SKBitmap sourceBitmap, int width, int height)
     {
-        using var scaledBitmap = new SKBitmap(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Unpremul));
+        using var scaledBitmap = new SKBitmap(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul));
         if (!sourceBitmap.ScalePixels(scaledBitmap, SKFilterQuality.High))
         {
             throw new InvalidOperationException("Unable to scale the image.");
@@ -77,12 +81,12 @@ public sealed class ImageRenderService : IRenderService
 
     private static byte[] CopySkiaPixels(SKBitmap bitmap)
     {
-        var width = bitmap.Width;
-        var height = bitmap.Height;
-        var stride = width * 4;
-        var bufferSize = stride * height;
-        var result = new byte[bufferSize];
-        var sourceStride = bitmap.RowBytes;
+        int width = bitmap.Width;
+        int height = bitmap.Height;
+        int stride = width * 4;
+        int bufferSize = stride * height;
+        byte[] result = new byte[bufferSize];
+        int sourceStride = bitmap.RowBytes;
 
         if (sourceStride == stride)
         {
@@ -90,7 +94,7 @@ public sealed class ImageRenderService : IRenderService
             return result;
         }
 
-        for (var row = 0; row < height; row++)
+        for (int row = 0; row < height; row++)
         {
             Marshal.Copy(
                 nint.Add(bitmap.GetPixels(), row * sourceStride),
@@ -122,16 +126,16 @@ public sealed class ImageRenderService : IRenderService
             resultWidth = width;
             resultHeight = height;
 
-            var result = new byte[source.Length];
+            byte[] result = new byte[source.Length];
 
-            for (var y = 0; y < height; y++)
+            for (int y = 0; y < height; y++)
             {
-                for (var x = 0; x < width; x++)
+                for (int x = 0; x < width; x++)
                 {
-                    var srcIndex = (y * width + x) * 4;
-                    var dstX = width - 1 - x;
-                    var dstY = height - 1 - y;
-                    var dstIndex = (dstY * width + dstX) * 4;
+                    int srcIndex = (y * width + x) * 4;
+                    int dstX = width - 1 - x;
+                    int dstY = height - 1 - y;
+                    int dstIndex = (dstY * width + dstX) * 4;
 
                     Buffer.BlockCopy(source, srcIndex, result, dstIndex, 4);
                 }
@@ -143,13 +147,13 @@ public sealed class ImageRenderService : IRenderService
         resultWidth = height;
         resultHeight = width;
 
-        var rotated = new byte[resultWidth * resultHeight * 4];
+        byte[] rotated = new byte[resultWidth * resultHeight * 4];
 
-        for (var y = 0; y < height; y++)
+        for (int y = 0; y < height; y++)
         {
-            for (var x = 0; x < width; x++)
+            for (int x = 0; x < width; x++)
             {
-                var srcIndex = (y * width + x) * 4;
+                int srcIndex = (y * width + x) * 4;
 
                 int dstX;
                 int dstY;
@@ -165,7 +169,7 @@ public sealed class ImageRenderService : IRenderService
                     dstY = width - 1 - x;
                 }
 
-                var dstIndex = (dstY * resultWidth + dstX) * 4;
+                int dstIndex = (dstY * resultWidth + dstX) * 4;
                 Buffer.BlockCopy(source, srcIndex, rotated, dstIndex, 4);
             }
         }

@@ -13,7 +13,7 @@ public sealed class PrintDocumentUseCaseTests
     {
         var useCase = new PrintDocumentUseCase(new StubPrintService(ResultFactory.Success()));
 
-        var result = await useCase.ExecuteAsync(new PrintDocumentRequest(string.Empty));
+        AppResult result = await useCase.ExecuteAsync(new PrintDocumentRequest(string.Empty));
 
         Assert.True(result.IsFailure);
         Assert.Equal("print.path.empty", result.Error?.Code);
@@ -24,7 +24,7 @@ public sealed class PrintDocumentUseCaseTests
     {
         var useCase = new PrintDocumentUseCase(new StubPrintService(ResultFactory.Success()));
 
-        var result = await useCase.ExecuteAsync(new PrintDocumentRequest("/tmp/missing-document.pdf"));
+        AppResult result = await useCase.ExecuteAsync(new PrintDocumentRequest("/tmp/missing-document.pdf"));
 
         Assert.True(result.IsFailure);
         Assert.Equal("print.file.missing", result.Error?.Code);
@@ -33,13 +33,13 @@ public sealed class PrintDocumentUseCaseTests
     [Fact]
     public async Task ExecuteAsync_ShouldDelegateToPrintService_WhenFileExists()
     {
-        var filePath = Path.GetTempFileName();
+        string filePath = Path.GetTempFileName();
         try
         {
             var printService = new StubPrintService(ResultFactory.Success());
             var useCase = new PrintDocumentUseCase(printService);
 
-            var result = await useCase.ExecuteAsync(new PrintDocumentRequest(filePath));
+            AppResult result = await useCase.ExecuteAsync(new PrintDocumentRequest(filePath));
 
             Assert.True(result.IsSuccess);
             Assert.Equal(filePath, printService.LastRequest?.FilePath);
@@ -59,7 +59,10 @@ public sealed class PrintDocumentUseCaseTests
             _result = result;
         }
 
-        public PrintDocumentRequest? LastRequest { get; private set; }
+        public PrintDocumentRequest? LastRequest
+        {
+            get; private set;
+        }
 
         public bool SupportsSystemPrintDialog => false;
 

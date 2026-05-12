@@ -1,10 +1,10 @@
-using System.Globalization;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Velune.Application.Abstractions;
 using Velune.Application.Annotations;
+using Velune.Application.Documents;
 using Velune.Application.DTOs;
 using Velune.Application.Results;
 using Velune.Domain.Annotations;
@@ -16,6 +16,10 @@ namespace Velune.Presentation.ViewModels;
 
 public partial class MainWindowViewModel
 {
+    private const string StatusSaveNameInvalid = "status.save_name.invalid";
+    private const string ErrorSaveDocumentTitle = "error.save.document.title";
+    private const string ErrorSaveDocumentMessage = "error.save.document.message";
+
     private const double AnnotationDefaultWidthRatio = 0.24;
     private const double AnnotationDefaultHeightRatio = 0.12;
     private const double SignatureDefaultWidthRatio = 0.24;
@@ -66,12 +70,18 @@ public partial class MainWindowViewModel
     [ObservableProperty]
     private Bitmap? _signaturePadPreviewBitmap;
 
+    /// <summary>
+    /// Gets the annotations visible on the current page.
+    /// </summary>
     public ObservableCollection<AnnotationListItemViewModel> CurrentPageAnnotations
     {
         get;
         private set;
     } = [];
 
+    /// <summary>
+    /// Gets the available signature assets.
+    /// </summary>
     public ObservableCollection<SignatureAsset> SignatureAssets
     {
         get;
@@ -176,11 +186,11 @@ public partial class MainWindowViewModel
 
     private void LoadSignatureAssets()
     {
-        var previousSelectedAssetId = SelectedSignatureAssetId;
+        string? previousSelectedAssetId = SelectedSignatureAssetId;
         SignatureAssets.Clear();
         _signatureAssetLookup.Clear();
 
-        foreach (var asset in _signatureAssetStore.GetAll().OrderByDescending(asset => asset.CreatedAt))
+        foreach (SignatureAsset asset in _signatureAssetStore.GetAll().OrderByDescending(asset => asset.CreatedAt))
         {
             SignatureAssets.Add(asset);
             _signatureAssetLookup[asset.Id] = asset;
@@ -229,13 +239,14 @@ public partial class MainWindowViewModel
         SearchTextCommand.NotifyCanExecuteChanged();
         RunSearchOcrCommand.NotifyCanExecuteChanged();
         CancelDocumentTextAnalysisCommand.NotifyCanExecuteChanged();
+        UpdateActiveDocumentTabSummary();
     }
 
     private void RefreshCurrentPageAnnotations()
     {
         CurrentPageAnnotations.Clear();
 
-        foreach (var annotation in _annotations.Where(annotation => annotation.PageIndex.Value == CurrentPage - 1))
+        foreach (DocumentAnnotation annotation in _annotations.Where(annotation => annotation.PageIndex.Value == CurrentPage - 1))
         {
             CurrentPageAnnotations.Add(new AnnotationListItemViewModel(annotation, _localizationService));
         }
@@ -246,7 +257,7 @@ public partial class MainWindowViewModel
 
     private void RefreshAnnotationLocalization()
     {
-        foreach (var annotation in CurrentPageAnnotations)
+        foreach (AnnotationListItemViewModel annotation in CurrentPageAnnotations)
         {
             annotation.UpdateLocalization(_localizationService);
         }
@@ -334,15 +345,29 @@ public partial class MainWindowViewModel
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanAnnotateCurrentDocument))]
     private void SelectAnnotationTool(string? toolValue)
     {
-        if (!Enum.TryParse<AnnotationTool>(toolValue, ignoreCase: true, out var tool))
+        if (!CanAnnotateCurrentDocument)
+        {
+            return;
+        }
+
+        if (!Enum.TryParse<AnnotationTool>(toolValue, ignoreCase: true, out AnnotationTool tool))
         {
             return;
         }
 
         SelectedAnnotationTool = tool;
+        if (tool is not AnnotationTool.Select)
+        {
+            IsInfoPanelVisible = false;
+            IsSearchPanelVisible = false;
+            IsPreferencesPanelVisible = false;
+            IsPrintPanelVisible = false;
+            IsAnnotationsPanelVisible = true;
+        }
+
         StatusText = tool is AnnotationTool.Select
             ? L("status.annotation.tool.select")
             : L("status.annotation.tool.active", GetAnnotationToolLabel(tool));
@@ -351,7 +376,7 @@ public partial class MainWindowViewModel
     [RelayCommand]
     private void SelectAnnotationColor(string? colorHex)
     {
-        if (!TryNormalizeAnnotationColor(colorHex, out var normalizedColorHex))
+        if (!TryNormalizeAnnotationColor(colorHex, out string normalizedColorHex))
         {
             return;
         }
@@ -367,7 +392,7 @@ public partial class MainWindowViewModel
                 strokeThickness,
                 NumberStyles.Float,
                 CultureInfo.InvariantCulture,
-                out var thickness) ||
+                out double thickness) ||
             thickness <= 0)
         {
             return;
@@ -387,7 +412,7 @@ public partial class MainWindowViewModel
 
         CaptureAnnotationSnapshot();
 
-        foreach (var region in _currentDocumentTextSelection.Regions)
+        foreach (NormalizedTextRegion region in _currentDocumentTextSelection.Regions)
         {
             _annotations.Add(new DocumentAnnotation(
                 Guid.NewGuid(),
@@ -428,7 +453,7 @@ public partial class MainWindowViewModel
             return;
         }
 
-        var existingAnnotation = _annotations.FirstOrDefault(item => item.Id == annotation.Id);
+        DocumentAnnotation? existingAnnotation = _annotations.FirstOrDefault(item => item.Id == annotation.Id);
         if (existingAnnotation is null)
         {
             return;
@@ -479,19 +504,19 @@ public partial class MainWindowViewModel
     [RelayCommand(CanExecute = nameof(CanAnnotateCurrentDocument))]
     private async Task ImportSignatureAssetAsync()
     {
-        var imagePath = await _filePickerService.PickOpenFileAsync();
+        string? imagePath = await _filePickerService.PickOpenFileAsync();
         if (string.IsNullOrWhiteSpace(imagePath))
         {
             return;
         }
 
-        if (!Velune.Application.Documents.SupportedDocumentFormats.IsImage(Path.GetExtension(imagePath)))
+        if (SupportedDocumentFormats.IsImage(Path.GetExtension(imagePath)))
         {
             EnqueueLocalizedError(null, "error.signature.unsupported_image.title", "error.signature.unsupported_image.message");
             return;
         }
 
-        var result = _signatureAssetStore.Import(imagePath);
+        Result<SignatureAsset> result = _signatureAssetStore.Import(imagePath);
         if (result.IsFailure || result.Value is null)
         {
             EnqueueLocalizedError(result.Error, "error.signature.import_failed.title", "error.signature.import_failed.message");
@@ -506,7 +531,7 @@ public partial class MainWindowViewModel
     [RelayCommand(CanExecute = nameof(CanDeleteSelectedSignatureAsset))]
     private void DeleteSelectedSignatureAsset(string? assetId)
     {
-        var targetAssetId = string.IsNullOrWhiteSpace(assetId)
+        string? targetAssetId = string.IsNullOrWhiteSpace(assetId)
             ? SelectedSignatureAssetId
             : assetId;
 
@@ -524,8 +549,8 @@ public partial class MainWindowViewModel
             return;
         }
 
-        var deletedAssetId = targetAssetId;
-        var result = _signatureAssetStore.Delete(deletedAssetId);
+        string deletedAssetId = targetAssetId;
+        Result result = _signatureAssetStore.Delete(deletedAssetId);
         if (result.IsFailure)
         {
             EnqueueLocalizedError(result.Error, "error.signature.delete_failed.title", "error.signature.delete_failed.message");
@@ -545,7 +570,7 @@ public partial class MainWindowViewModel
     [RelayCommand(CanExecute = nameof(CanSaveSignatureCapture))]
     private void SaveDrawnSignatureAsset()
     {
-        var result = _signatureAssetStore.SaveInkSignature(SignatureAssetNameInput.Trim(), _signatureCapturePoints);
+        Result<SignatureAsset> result = _signatureAssetStore.SaveInkSignature(SignatureAssetNameInput.Trim(), _signatureCapturePoints);
         if (result.IsFailure || result.Value is null)
         {
             EnqueueLocalizedError(result.Error, "error.signature.save_failed.title", "error.signature.save_failed.message");
@@ -587,6 +612,14 @@ public partial class MainWindowViewModel
         RefreshAnnotationWorkspaceState();
     }
 
+    /// <summary>
+    /// Begins an annotation interaction at the given visual coordinates.
+    /// </summary>
+    /// <param name="x">The X coordinate on the interaction layer.</param>
+    /// <param name="y">The Y coordinate on the interaction layer.</param>
+    /// <param name="layerWidth">The interaction layer width.</param>
+    /// <param name="layerHeight">The interaction layer height.</param>
+    /// <returns>True if a drawing capture was started.</returns>
     public bool BeginAnnotationInteraction(double x, double y, double layerWidth, double layerHeight)
     {
         if (!IsAnnotationModeActive)
@@ -594,7 +627,7 @@ public partial class MainWindowViewModel
             return false;
         }
 
-        var normalizedPoint = DocumentAnnotationCoordinateMapper.MapVisualPointToNormalized(
+        NormalizedPoint normalizedPoint = DocumentAnnotationCoordinateMapper.MapVisualPointToNormalized(
             x,
             y,
             layerWidth,
@@ -632,6 +665,13 @@ public partial class MainWindowViewModel
         return true;
     }
 
+    /// <summary>
+    /// Updates the in-progress annotation interaction as the pointer moves.
+    /// </summary>
+    /// <param name="x">The current X coordinate.</param>
+    /// <param name="y">The current Y coordinate.</param>
+    /// <param name="layerWidth">The interaction layer width.</param>
+    /// <param name="layerHeight">The interaction layer height.</param>
     public void UpdateAnnotationInteraction(double x, double y, double layerWidth, double layerHeight)
     {
         if (!_isCapturingAnnotation || _annotationAnchorPoint is null)
@@ -639,7 +679,7 @@ public partial class MainWindowViewModel
             return;
         }
 
-        var normalizedPoint = DocumentAnnotationCoordinateMapper.MapVisualPointToNormalized(
+        NormalizedPoint normalizedPoint = DocumentAnnotationCoordinateMapper.MapVisualPointToNormalized(
             x,
             y,
             layerWidth,
@@ -655,6 +695,13 @@ public partial class MainWindowViewModel
         RefreshAnnotationOverlay();
     }
 
+    /// <summary>
+    /// Completes the annotation interaction and commits the annotation.
+    /// </summary>
+    /// <param name="x">The final X coordinate.</param>
+    /// <param name="y">The final Y coordinate.</param>
+    /// <param name="layerWidth">The interaction layer width.</param>
+    /// <param name="layerHeight">The interaction layer height.</param>
     public void CompleteAnnotationInteraction(double x, double y, double layerWidth, double layerHeight)
     {
         if (!_isCapturingAnnotation || _annotationAnchorPoint is null)
@@ -663,13 +710,13 @@ public partial class MainWindowViewModel
             return;
         }
 
-        var normalizedPoint = DocumentAnnotationCoordinateMapper.MapVisualPointToNormalized(
+        NormalizedPoint normalizedPoint = DocumentAnnotationCoordinateMapper.MapVisualPointToNormalized(
             x,
             y,
             layerWidth,
             layerHeight,
             GetCurrentRotation());
-        var finalAnnotation = BuildCommittedAnnotation(_annotationAnchorPoint, normalizedPoint);
+        DocumentAnnotation? finalAnnotation = BuildCommittedAnnotation(_annotationAnchorPoint, normalizedPoint);
 
         if (finalAnnotation is not null)
         {
@@ -686,6 +733,9 @@ public partial class MainWindowViewModel
         RefreshAnnotationWorkspaceState();
     }
 
+    /// <summary>
+    /// Cancels the current annotation interaction without committing.
+    /// </summary>
     public void CancelAnnotationInteraction()
     {
         _annotationPreview = null;
@@ -695,15 +745,29 @@ public partial class MainWindowViewModel
         RefreshAnnotationOverlay();
     }
 
+    /// <summary>
+    /// Begins capturing a signature drawing from the signature pad.
+    /// </summary>
+    /// <param name="x">The starting X coordinate.</param>
+    /// <param name="y">The starting Y coordinate.</param>
+    /// <param name="layerWidth">The pad layer width.</param>
+    /// <param name="layerHeight">The pad layer height.</param>
     public void BeginSignatureCapture(double x, double y, double layerWidth, double layerHeight)
     {
         _signatureCapturePoints.Clear();
         UpdateSignatureCapture(x, y, layerWidth, layerHeight);
     }
 
+    /// <summary>
+    /// Adds a point to the active signature capture.
+    /// </summary>
+    /// <param name="x">The current X coordinate.</param>
+    /// <param name="y">The current Y coordinate.</param>
+    /// <param name="layerWidth">The pad layer width.</param>
+    /// <param name="layerHeight">The pad layer height.</param>
     public void UpdateSignatureCapture(double x, double y, double layerWidth, double layerHeight)
     {
-        var normalizedPoint = DocumentAnnotationCoordinateMapper.MapVisualPointToNormalized(
+        NormalizedPoint normalizedPoint = DocumentAnnotationCoordinateMapper.MapVisualPointToNormalized(
             x,
             y,
             layerWidth,
@@ -713,6 +777,9 @@ public partial class MainWindowViewModel
         RefreshSignaturePadPreview();
     }
 
+    /// <summary>
+    /// Completes the signature capture and refreshes the preview.
+    /// </summary>
     public void CompleteSignatureCapture()
     {
         RefreshSignaturePadPreview();
@@ -765,7 +832,7 @@ public partial class MainWindowViewModel
         string? text = null,
         string? assetId = null)
     {
-        var bounds = BuildAnnotationBounds(kind, start, end);
+        NormalizedTextRegion bounds = BuildAnnotationBounds(kind, start, end);
         return new DocumentAnnotation(
             Guid.NewGuid(),
             kind,
@@ -781,15 +848,12 @@ public partial class MainWindowViewModel
         NormalizedPoint start,
         NormalizedPoint end)
     {
-        var bounds = DocumentAnnotationCoordinateMapper.CreateBounds(start, end);
-        var hasMeaningfulDrag = bounds.Width > 0.01 || bounds.Height > 0.01;
+        NormalizedTextRegion bounds = DocumentAnnotationCoordinateMapper.CreateBounds(start, end);
+        bool hasMeaningfulDrag = bounds.Width > 0.01 || bounds.Height > 0.01;
 
-        if (hasMeaningfulDrag)
-        {
-            return bounds;
-        }
-
-        return kind is DocumentAnnotationKind.Signature
+        return hasMeaningfulDrag
+            ? bounds
+            : kind is DocumentAnnotationKind.Signature
             ? DocumentAnnotationCoordinateMapper.InflatePoint(start, SignatureDefaultWidthRatio, SignatureDefaultHeightRatio)
             : DocumentAnnotationCoordinateMapper.InflatePoint(start, AnnotationDefaultWidthRatio, AnnotationDefaultHeightRatio);
     }
@@ -812,8 +876,8 @@ public partial class MainWindowViewModel
 
     private AnnotationAppearance BuildAppearanceForKind(DocumentAnnotationKind kind)
     {
-        var strokeHex = SelectedAnnotationColorHex;
-        var fillHex = kind is DocumentAnnotationKind.Highlight
+        string strokeHex = SelectedAnnotationColorHex;
+        string? fillHex = kind is DocumentAnnotationKind.Highlight
             ? SelectedAnnotationColorHex
             : kind is DocumentAnnotationKind.Rectangle or DocumentAnnotationKind.Note or DocumentAnnotationKind.Stamp or DocumentAnnotationKind.Text
                 ? GetDefaultFillForKind(kind)
@@ -853,7 +917,7 @@ public partial class MainWindowViewModel
 
     private void ReplaceAnnotation(DocumentAnnotation annotation, AnnotationAppearance appearance)
     {
-        var index = _annotations.FindIndex(item => item.Id == annotation.Id);
+        int index = _annotations.FindIndex(item => item.Id == annotation.Id);
         if (index < 0)
         {
             return;
@@ -891,7 +955,7 @@ public partial class MainWindowViewModel
             return false;
         }
 
-        var trimmedColor = colorHex.Trim();
+        string trimmedColor = colorHex.Trim();
         if (trimmedColor.Length == 7 &&
             trimmedColor[0] == '#' &&
             trimmedColor.Skip(1).All(Uri.IsHexDigit))
@@ -939,7 +1003,7 @@ public partial class MainWindowViewModel
 
     private void SelectAnnotationAt(NormalizedPoint point)
     {
-        var candidate = CurrentPageAnnotations
+        AnnotationListItemViewModel? candidate = CurrentPageAnnotations
             .Reverse()
             .FirstOrDefault(annotation => AnnotationContains(annotation.Annotation, point));
         _selectedAnnotationId = candidate?.Id;
@@ -965,10 +1029,10 @@ public partial class MainWindowViewModel
             return false;
         }
 
-        var minX = annotation.Points.Min(item => item.X) - 0.015;
-        var maxX = annotation.Points.Max(item => item.X) + 0.015;
-        var minY = annotation.Points.Min(item => item.Y) - 0.015;
-        var maxY = annotation.Points.Max(item => item.Y) + 0.015;
+        double minX = annotation.Points.Min(item => item.X) - 0.015;
+        double maxX = annotation.Points.Max(item => item.X) + 0.015;
+        double minY = annotation.Points.Min(item => item.Y) - 0.015;
+        double maxY = annotation.Points.Max(item => item.Y) + 0.015;
 
         return point.X >= minX &&
                point.X <= maxX &&
@@ -986,7 +1050,7 @@ public partial class MainWindowViewModel
     {
         _annotations.Clear();
 
-        foreach (var annotation in snapshot)
+        foreach (DocumentAnnotation annotation in snapshot)
         {
             _annotations.Add(annotation.DeepCopy());
         }
@@ -1006,26 +1070,26 @@ public partial class MainWindowViewModel
 
         if (!TryResolveRequestedSavePath(
                 currentDocumentPath,
-                out var targetDocumentPath,
-                out var targetFileName,
-                out var validationError))
+                out string targetDocumentPath,
+                out string targetFileName,
+                out string? validationError))
         {
-            EnqueueWarning(L("status.save_name.invalid"), validationError ?? L("validation.file_name.save_default"));
-            StatusText = L("status.save_name.invalid");
+            EnqueueWarning(L(StatusSaveNameInvalid), validationError ?? L("validation.file_name.save_default"));
+            StatusText = L(StatusSaveNameInvalid);
             return;
         }
 
-        var temporaryDirectory = Path.Combine(
+        string temporaryDirectory = Path.Combine(
             Path.GetTempPath(),
             "velune-annotated-pdf-save",
             Guid.NewGuid().ToString("N"));
-        var pendingRotations = GetPendingPdfRotationGroups();
-        var orderedPages = Thumbnails
+        List<PendingPdfRotationGroup> pendingRotations = GetPendingPdfRotationGroups();
+        int[] orderedPages = Thumbnails
             .Select(thumbnail => thumbnail.SourcePageNumber)
             .ToArray();
-        var hasPendingReorder = HasPendingPageReorder;
-        var structuredInputPath = currentDocumentPath;
-        var temporaryOutputPath = Path.Combine(temporaryDirectory, targetFileName);
+        bool hasPendingReorder = HasPendingPageReorder;
+        string structuredInputPath = currentDocumentPath;
+        string temporaryOutputPath = Path.Combine(temporaryDirectory, targetFileName);
         Directory.CreateDirectory(temporaryDirectory);
 
         try
@@ -1034,8 +1098,8 @@ public partial class MainWindowViewModel
 
             if (pendingRotations.Count > 0 || hasPendingReorder)
             {
-                var structuredPath = Path.Combine(temporaryDirectory, $"structured-{targetFileName}");
-                var structureResult = await SavePdfDocumentChangesAsync(
+                string structuredPath = Path.Combine(temporaryDirectory, $"structured-{targetFileName}");
+                Result<string> structureResult = await SavePdfDocumentChangesAsync(
                     currentDocumentPath,
                     structuredPath,
                     pendingRotations,
@@ -1045,14 +1109,14 @@ public partial class MainWindowViewModel
                 if (structureResult.IsFailure)
                 {
                     EnqueueLocalizedError(structureResult.Error, "error.save.pdf_structure.title", "error.save.pdf_structure.message");
-                    StatusText = L("error.save.document.title");
+                    StatusText = L(ErrorSaveDocumentTitle);
                     return;
                 }
 
                 structuredInputPath = structureResult.Value ?? structuredPath;
             }
 
-            var result = await _pdfMarkupService.ApplyAnnotationsAsync(
+            Result<string> result = await _pdfMarkupService.ApplyAnnotationsAsync(
                 new ApplyPdfAnnotationsRequest(
                     session,
                     structuredInputPath,
@@ -1061,8 +1125,8 @@ public partial class MainWindowViewModel
 
             if (result.IsFailure)
             {
-                EnqueueLocalizedError(result.Error, "error.save.document.title", "error.save.document.message");
-                StatusText = L("error.save.document.title");
+                EnqueueLocalizedError(result.Error, ErrorSaveDocumentTitle, ErrorSaveDocumentMessage);
+                StatusText = L(ErrorSaveDocumentTitle);
                 return;
             }
 
@@ -1078,8 +1142,8 @@ public partial class MainWindowViewModel
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            EnqueueLocalizedError(AppError.Infrastructure("document.save.copy_failed", exception.Message), "error.save.document.title", "error.save.document.message");
-            StatusText = L("error.save.document.title");
+            EnqueueLocalizedError(AppError.Infrastructure("document.save.copy_failed", exception.Message), ErrorSaveDocumentTitle, ErrorSaveDocumentMessage);
+            StatusText = L(ErrorSaveDocumentTitle);
         }
         finally
         {
@@ -1108,20 +1172,20 @@ public partial class MainWindowViewModel
 
         if (!TryResolveRequestedSavePath(
                 currentDocumentPath,
-                out var targetDocumentPath,
-                out var targetFileName,
-                out var validationError))
+                out string targetDocumentPath,
+                out string targetFileName,
+                out string? validationError))
         {
-            EnqueueWarning(L("status.save_name.invalid"), validationError ?? L("validation.file_name.save_default"));
-            StatusText = L("status.save_name.invalid");
+            EnqueueWarning(L(StatusSaveNameInvalid), validationError ?? L("validation.file_name.save_default"));
+            StatusText = L(StatusSaveNameInvalid);
             return;
         }
 
-        var temporaryDirectory = Path.Combine(
+        string temporaryDirectory = Path.Combine(
             Path.GetTempPath(),
             "velune-image-save",
             Guid.NewGuid().ToString("N"));
-        var temporaryOutputPath = Path.Combine(temporaryDirectory, targetFileName);
+        string temporaryOutputPath = Path.Combine(temporaryDirectory, targetFileName);
         Directory.CreateDirectory(temporaryDirectory);
 
         try
@@ -1140,13 +1204,13 @@ public partial class MainWindowViewModel
             else
             {
                 File.Copy(currentDocumentPath, temporaryOutputPath, overwrite: true);
-                result = Velune.Application.Results.ResultFactory.Success(temporaryOutputPath);
+                result = ResultFactory.Success(temporaryOutputPath);
             }
 
             if (result.IsFailure)
             {
-                EnqueueLocalizedError(result.Error, "error.save.document.title", "error.save.document.message");
-                StatusText = L("error.save.document.title");
+                EnqueueLocalizedError(result.Error, ErrorSaveDocumentTitle, ErrorSaveDocumentMessage);
+                StatusText = L(ErrorSaveDocumentTitle);
                 return;
             }
 
@@ -1162,8 +1226,8 @@ public partial class MainWindowViewModel
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            EnqueueLocalizedError(AppError.Infrastructure("image.save.copy_failed", exception.Message), "error.save.document.title", "error.save.document.message");
-            StatusText = L("error.save.document.title");
+            EnqueueLocalizedError(AppError.Infrastructure("image.save.copy_failed", exception.Message), ErrorSaveDocumentTitle, ErrorSaveDocumentMessage);
+            StatusText = L(ErrorSaveDocumentTitle);
         }
         finally
         {
@@ -1187,7 +1251,7 @@ public partial class MainWindowViewModel
     {
         var rotations = new Dictionary<int, Rotation>();
 
-        for (var pageNumber = 1; pageNumber <= TotalPages; pageNumber++)
+        for (int pageNumber = 1; pageNumber <= TotalPages; pageNumber++)
         {
             var pageIndex = new PageIndex(pageNumber - 1);
             rotations[pageNumber] = _pageViewportStore.GetRotation(pageIndex);

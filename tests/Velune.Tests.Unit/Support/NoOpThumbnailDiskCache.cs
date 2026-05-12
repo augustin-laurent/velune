@@ -3,18 +3,15 @@ using Velune.Application.DTOs;
 using Velune.Domain.Abstractions;
 using Velune.Domain.Documents;
 
-namespace Velune.Application.Rendering;
+namespace Velune.Tests.Unit.Support;
 
-public sealed class NullThumbnailDiskCache : IThumbnailDiskCache
+internal sealed class NoOpThumbnailDiskCache : IThumbnailDiskCache
 {
     public bool TryGet(
         IDocumentSession session,
         RenderRequest request,
         out RenderedPage? renderedPage)
     {
-        ArgumentNullException.ThrowIfNull(session);
-        ArgumentNullException.ThrowIfNull(request);
-
         renderedPage = null;
         return false;
     }
@@ -24,8 +21,5 @@ public sealed class NullThumbnailDiskCache : IThumbnailDiskCache
         RenderRequest request,
         RenderedPage renderedPage)
     {
-        ArgumentNullException.ThrowIfNull(session);
-        ArgumentNullException.ThrowIfNull(request);
-        ArgumentNullException.ThrowIfNull(renderedPage);
     }
 }

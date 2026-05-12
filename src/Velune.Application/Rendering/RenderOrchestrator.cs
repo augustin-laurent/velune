@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Velune.Application.Abstractions;
 using Velune.Application.DTOs;
+using Velune.Application.Orchestration;
 using Velune.Application.Results;
 using Velune.Domain.Abstractions;
 using Velune.Domain.Documents;
@@ -9,22 +10,24 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Application.Rendering;
 
-public sealed class RenderOrchestrator : IRenderOrchestrator
+/// <summary>Queues, prioritizes, and executes render jobs with caching support.</summary>
+public sealed class RenderOrchestrator
+    : BackgroundJobOrchestrator<RenderRequest, RenderResult>,
+      IRenderOrchestrator
 {
-    private readonly object _gate = new();
     private readonly Queue<Guid> _viewerQueue = [];
     private readonly Queue<Guid> _thumbnailQueue = [];
-    private readonly Dictionary<Guid, QueuedRenderJob> _jobs = [];
     private readonly IPerformanceMetrics _performanceMetrics;
     private readonly IRenderMemoryCache _renderMemoryCache;
     private readonly IThumbnailDiskCache _thumbnailDiskCache;
-    private readonly IDocumentSessionStore _sessionStore;
     private readonly IRenderService _renderService;
-    private readonly CancellationTokenSource _shutdownCancellationTokenSource = new();
-    private readonly SemaphoreSlim _signal = new(0);
-    private readonly Task _worker;
-    private bool _disposed;
 
+    /// <summary>Initializes a new instance of the <see cref="RenderOrchestrator"/> class.</summary>
+    /// <param name="performanceMetrics">The performance metrics recorder.</param>
+    /// <param name="renderMemoryCache">The in-memory render cache.</param>
+    /// <param name="thumbnailDiskCache">The on-disk thumbnail cache.</param>
+    /// <param name="sessionStore">The document session store.</param>
+    /// <param name="renderService">The render service implementation.</param>
     public RenderOrchestrator(
         IPerformanceMetrics performanceMetrics,
         IRenderMemoryCache renderMemoryCache,
@@ -41,11 +44,11 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
         _performanceMetrics = performanceMetrics;
         _renderMemoryCache = renderMemoryCache;
         _thumbnailDiskCache = thumbnailDiskCache;
-        _sessionStore = sessionStore;
+        SessionStore = sessionStore;
         _renderService = renderService;
-        _worker = Task.Run(ProcessQueueAsync);
     }
 
+    /// <inheritdoc />
     public RenderJobHandle Submit(RenderRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -73,7 +76,7 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
                         "Zoom factor must be greater than zero.")));
         }
 
-        var session = _sessionStore.Current;
+        IDocumentSession? session = SessionStore.Current;
         if (session is null)
         {
             return CreateCompletedHandle(
@@ -85,7 +88,7 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
                         "No active document session.")));
         }
 
-        var pageCount = session.Metadata.PageCount;
+        int? pageCount = session.Metadata.PageCount;
         if (pageCount.HasValue &&
             (request.PageIndex.Value < 0 || request.PageIndex.Value >= pageCount.Value))
         {
@@ -98,48 +101,9 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
                         "The requested page is out of range.")));
         }
 
-        List<QueuedRenderJob> obsoleteJobs = [];
-        List<QueuedRenderJob> supersededThumbnailJobs = [];
+        FindAndCancelObsoleteJobs(request.JobKey);
 
-        lock (_gate)
-        {
-            foreach (var existingJob in _jobs.Values.Where(existingJob => existingJob.Request.JobKey == request.JobKey))
-            {
-                obsoleteJobs.Add(existingJob);
-            }
-
-            if (request.Priority == RenderPriority.Viewer)
-            {
-                foreach (var existingThumbnailJob in _jobs.Values.Where(existingJob =>
-                             existingJob.Session.Id == session.Id &&
-                             existingJob.Request.Priority == RenderPriority.Thumbnail))
-                {
-                    supersededThumbnailJobs.Add(existingThumbnailJob);
-                }
-            }
-
-            foreach (var obsoleteJob in obsoleteJobs.Where(obsoleteJob => !obsoleteJob.IsRunning))
-            {
-                _jobs.Remove(obsoleteJob.Id);
-            }
-
-            foreach (var supersededThumbnailJob in supersededThumbnailJobs.Where(job => !job.IsRunning))
-            {
-                _jobs.Remove(supersededThumbnailJob.Id);
-            }
-        }
-
-        foreach (var obsoleteJob in obsoleteJobs)
-        {
-            CancelJob(obsoleteJob, isObsolete: true);
-        }
-
-        foreach (var supersededThumbnailJob in supersededThumbnailJobs)
-        {
-            CancelJob(supersededThumbnailJob, isObsolete: true);
-        }
-
-        if (_renderMemoryCache.TryGet(session.Id, request, out var cachedPage) &&
+        if (_renderMemoryCache.TryGet(session.Id, request, out RenderedPage? cachedPage) &&
             cachedPage is not null)
         {
             var cachedJobId = Guid.NewGuid();
@@ -161,222 +125,70 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
                 Task.FromResult(cachedResult));
         }
 
-        var job = new QueuedRenderJob(
-            Guid.NewGuid(),
-            request,
-            session,
-            TaskCompletionSourceFactory.Create<RenderResult>(),
-            CancellationTokenSource.CreateLinkedTokenSource(_shutdownCancellationTokenSource.Token));
+        QueuedJob job = CreateJob(request, session);
+        RegisterAndEnqueue(job);
 
-        lock (_gate)
-        {
-            _jobs[job.Id] = job;
-            if (job.Request.Priority == RenderPriority.Thumbnail)
-            {
-                _thumbnailQueue.Enqueue(job.Id);
-            }
-            else
-            {
-                _viewerQueue.Enqueue(job.Id);
-            }
-        }
-
-        _signal.Release();
         return new RenderJobHandle(job.Id, job.CompletionSource.Task);
     }
 
-    public bool Cancel(Guid jobId)
-    {
-        ThrowIfDisposed();
-
-        QueuedRenderJob? job;
-
-        lock (_gate)
-        {
-            if (!_jobs.TryGetValue(jobId, out job))
-            {
-                return false;
-            }
-
-            if (!job.IsRunning)
-            {
-                _jobs.Remove(jobId);
-            }
-        }
-
-        return CancelJob(job, isObsolete: false);
-    }
-
+    /// <inheritdoc />
     public async Task CancelDocumentJobsAsync(
         DocumentId documentId,
         CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
 
-        List<QueuedRenderJob> jobsToCancel;
-
-        lock (_gate)
-        {
-            jobsToCancel = [.. _jobs.Values.Where(job => job.Session.Id == documentId)];
-
-            foreach (var job in jobsToCancel.Where(job => !job.IsRunning))
-            {
-                _jobs.Remove(job.Id);
-            }
-        }
+        List<QueuedJob> jobsToCancel = GetJobsForDocument(documentId);
+        RemoveNonRunningJobs(jobsToCancel);
 
         if (jobsToCancel.Count == 0)
         {
             return;
         }
 
-        foreach (var job in jobsToCancel)
+        foreach (QueuedJob job in jobsToCancel)
         {
-            CancelJob(job, isObsolete: false);
+            Cancel(job.Id);
         }
 
         await Task.WhenAll(jobsToCancel.Select(job => job.CompletionSource.Task)).WaitAsync(cancellationToken);
     }
 
-    public void Dispose()
+    protected override string GetJobKey(RenderRequest request) => request.JobKey;
+
+    protected override void Enqueue(QueuedJob job)
     {
-        if (_disposed)
+        if (job.Request.Priority == RenderPriority.Thumbnail)
         {
-            return;
+            _thumbnailQueue.Enqueue(job.Id);
         }
-
-        _disposed = true;
-        _shutdownCancellationTokenSource.Cancel();
-
-        List<QueuedRenderJob> jobsToCancel;
-        lock (_gate)
+        else
         {
-            jobsToCancel = [.. _jobs.Values];
-            _jobs.Clear();
-        }
-
-        foreach (var job in jobsToCancel)
-        {
-            CancelJob(job, isObsolete: false);
-        }
-
-        try
-        {
-            _worker.GetAwaiter().GetResult();
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        finally
-        {
-            _signal.Dispose();
-            _shutdownCancellationTokenSource.Dispose();
+            _viewerQueue.Enqueue(job.Id);
         }
     }
 
-    private bool CancelJob(QueuedRenderJob job, bool isObsolete)
+    protected override QueuedJob? DequeueNextJob()
     {
-        ArgumentNullException.ThrowIfNull(job);
-
-        job.IsObsolete |= isObsolete;
-        job.CancellationTokenSource.Cancel();
-
-        if (job.IsRunning)
+        lock (Gate)
         {
-            return true;
-        }
-
-        if (job.TryComplete(CreateCanceledResult(job, TimeSpan.Zero)))
-        {
-            job.Dispose();
-        }
-
-        return true;
-    }
-
-    private RenderJobHandle CreateCompletedHandle(
-        RenderRequest request,
-        DocumentId documentId,
-        Result<RenderedPage> result)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-        ArgumentNullException.ThrowIfNull(result);
-
-        var jobId = Guid.NewGuid();
-        var renderResult = CreateResult(
-            jobId,
-            documentId,
-            request,
-            TimeSpan.Zero,
-            result,
-            isCanceled: false,
-            isObsolete: false);
-
-        return new RenderJobHandle(jobId, Task.FromResult(renderResult));
-    }
-
-    private async Task ProcessQueueAsync()
-    {
-        while (true)
-        {
-            try
+            if (TryDequeueFromQueue(_viewerQueue, out QueuedJob? job))
             {
-                await _signal.WaitAsync(_shutdownCancellationTokenSource.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-
-            var job = DequeueNextJob();
-            if (job is null)
-            {
-                continue;
-            }
-
-            await ExecuteJobAsync(job);
-        }
-    }
-
-    private QueuedRenderJob? DequeueNextJob()
-    {
-        lock (_gate)
-        {
-            while (_viewerQueue.Count > 0 || _thumbnailQueue.Count > 0)
-            {
-                var activeQueue = _viewerQueue.Count > 0
-                    ? _viewerQueue
-                    : _thumbnailQueue;
-                var jobId = activeQueue.Dequeue();
-                if (!_jobs.TryGetValue(jobId, out var job))
-                {
-                    continue;
-                }
-
-                if (job.CompletionSource.Task.IsCompleted)
-                {
-                    _jobs.Remove(jobId);
-                    job.Dispose();
-                    continue;
-                }
-
-                job.IsRunning = true;
                 return job;
             }
-        }
 
-        return null;
+            return TryDequeueFromQueue(_thumbnailQueue, out job) ? job : null;
+        }
     }
 
-    private async Task ExecuteJobAsync(QueuedRenderJob job)
+    protected override async Task<RenderResult> ExecuteJobAsync(QueuedJob job, Stopwatch stopwatch)
     {
-        var stopwatch = Stopwatch.StartNew();
         RenderResult result;
 
         try
         {
-            if (IsThumbnailRequest(job.Request) &&
-                _thumbnailDiskCache.TryGet(job.Session, job.Request, out var cachedThumbnail) &&
+            if (ShouldUseThumbnailDiskCache(job.Request) &&
+                _thumbnailDiskCache.TryGet(job.Session, job.Request, out RenderedPage? cachedThumbnail) &&
                 cachedThumbnail is not null)
             {
                 result = CreateResult(
@@ -395,7 +207,7 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
             }
             else
             {
-                var renderedPage = await _renderService.RenderPageAsync(
+                RenderedPage renderedPage = await _renderService.RenderPageAsync(
                     job.Session,
                     job.Request.PageIndex,
                     job.Request.ZoomFactor,
@@ -416,7 +228,7 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
                     job.Request,
                     renderedPage);
 
-                if (IsThumbnailRequest(job.Request))
+                if (ShouldUseThumbnailDiskCache(job.Request))
                 {
                     _thumbnailDiskCache.Store(
                         job.Session,
@@ -440,27 +252,12 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
                 isCanceled: false,
                 isObsolete: job.IsObsolete);
         }
-        finally
-        {
-            stopwatch.Stop();
-
-            lock (_gate)
-            {
-                _jobs.Remove(job.Id);
-            }
-        }
 
         RecordPerformanceMetric(job.Session, job.Request, result);
-
-        if (job.TryComplete(result))
-        {
-            job.Dispose();
-        }
+        return result;
     }
 
-    private static RenderResult CreateCanceledResult(
-        QueuedRenderJob job,
-        TimeSpan duration)
+    protected override RenderResult CreateCanceledResult(QueuedJob job, TimeSpan duration)
     {
         return new RenderResult(
             job.Id,
@@ -472,6 +269,27 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
             Error: null,
             IsCanceled: true,
             IsObsolete: job.IsObsolete);
+    }
+
+    private RenderJobHandle CreateCompletedHandle(
+        RenderRequest request,
+        DocumentId documentId,
+        Result<RenderedPage> result)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(result);
+
+        var jobId = Guid.NewGuid();
+        RenderResult renderResult = CreateResult(
+            jobId,
+            documentId,
+            request,
+            TimeSpan.Zero,
+            result,
+            isCanceled: false,
+            isObsolete: false);
+
+        return new RenderJobHandle(jobId, Task.FromResult(renderResult));
     }
 
     private static RenderResult CreateResult(
@@ -499,16 +317,16 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void ThrowIfDisposed()
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-    }
-
     private static bool IsThumbnailRequest(RenderRequest request)
     {
-        ArgumentNullException.ThrowIfNull(request);
         return request.Priority == RenderPriority.Thumbnail ||
                (request.RequestedWidth.HasValue && request.RequestedHeight.HasValue);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool ShouldUseThumbnailDiskCache(RenderRequest request)
+    {
+        return request.UseThumbnailDiskCache && IsThumbnailRequest(request);
     }
 
     private void RecordPerformanceMetric(
@@ -516,10 +334,6 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
         RenderRequest request,
         RenderResult result)
     {
-        ArgumentNullException.ThrowIfNull(session);
-        ArgumentNullException.ThrowIfNull(request);
-        ArgumentNullException.ThrowIfNull(result);
-
         if (!result.IsSuccess)
         {
             return;
@@ -532,87 +346,5 @@ public sealed class RenderOrchestrator : IRenderOrchestrator
         }
 
         _performanceMetrics.RecordViewerRenderCompleted(session, result);
-    }
-
-    private sealed class QueuedRenderJob : IDisposable
-    {
-        private bool _disposed;
-
-        public QueuedRenderJob(
-            Guid id,
-            RenderRequest request,
-            IDocumentSession session,
-            TaskCompletionSource<RenderResult> completionSource,
-            CancellationTokenSource cancellationTokenSource)
-        {
-            ArgumentNullException.ThrowIfNull(request);
-            ArgumentNullException.ThrowIfNull(session);
-            ArgumentNullException.ThrowIfNull(completionSource);
-            ArgumentNullException.ThrowIfNull(cancellationTokenSource);
-
-            Id = id;
-            Request = request;
-            Session = session;
-            CompletionSource = completionSource;
-            CancellationTokenSource = cancellationTokenSource;
-        }
-
-        public Guid Id
-        {
-            get;
-        }
-
-        public RenderRequest Request
-        {
-            get;
-        }
-
-        public IDocumentSession Session
-        {
-            get;
-        }
-
-        public TaskCompletionSource<RenderResult> CompletionSource
-        {
-            get;
-        }
-
-        public CancellationTokenSource CancellationTokenSource
-        {
-            get;
-        }
-
-        public bool IsRunning
-        {
-            get; set;
-        }
-
-        public bool IsObsolete
-        {
-            get; set;
-        }
-
-        public bool TryComplete(RenderResult result)
-        {
-            ArgumentNullException.ThrowIfNull(result);
-            return CompletionSource.TrySetResult(result);
-        }
-
-        public void Dispose()
-        {
-            if (_disposed)
-            {
-                return;
-            }
-
-            CancellationTokenSource.Dispose();
-            _disposed = true;
-        }
-    }
-
-    private static class TaskCompletionSourceFactory
-    {
-        public static TaskCompletionSource<T> Create<T>() =>
-            new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 }

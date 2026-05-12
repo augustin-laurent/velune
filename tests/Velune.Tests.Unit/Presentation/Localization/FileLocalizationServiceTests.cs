@@ -1,5 +1,5 @@
-using System.Globalization;
 using System.ComponentModel;
+using System.Globalization;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Velune.Application.Abstractions;
@@ -22,7 +22,7 @@ public sealed class FileLocalizationServiceTests
             message=Line 1\nLine 2\tTabbed\\Path
             """);
 
-        using var service = CreateService(
+        using FileLocalizationService service = CreateService(
             workspace.Path,
             new StubUserPreferencesService(new UserPreferences
             {
@@ -50,7 +50,7 @@ public sealed class FileLocalizationServiceTests
             greeting=Bonjour
             """);
 
-        using var service = CreateService(
+        using FileLocalizationService service = CreateService(
             workspace.Path,
             new StubUserPreferencesService(new UserPreferences
             {
@@ -84,8 +84,8 @@ public sealed class FileLocalizationServiceTests
             Language = AppLanguagePreference.English
         });
 
-        using var service = CreateService(workspace.Path, userPreferencesService);
-        var languageChangedCount = 0;
+        using FileLocalizationService service = CreateService(workspace.Path, userPreferencesService);
+        int languageChangedCount = 0;
         service.LanguageChanged += (_, _) => languageChangedCount++;
 
         await userPreferencesService.SaveAsync(userPreferencesService.Current with
@@ -120,7 +120,7 @@ public sealed class FileLocalizationServiceTests
             Language = AppLanguagePreference.English
         });
 
-        using var service = CreateService(workspace.Path, userPreferencesService);
+        using FileLocalizationService service = CreateService(workspace.Path, userPreferencesService);
         var propertyChangedNames = new List<string>();
         ((INotifyPropertyChanged)service).PropertyChanged += (_, eventArgs) =>
         {
@@ -159,7 +159,7 @@ public sealed class FileLocalizationServiceTests
             greeting=Bonjour
             """);
 
-        using var service = CreateService(
+        using FileLocalizationService service = CreateService(
             workspace.Path,
             new StubUserPreferencesService(new UserPreferences
             {
@@ -182,7 +182,7 @@ public sealed class FileLocalizationServiceTests
             greeting=Hello
             """);
 
-        using var service = CreateService(
+        using FileLocalizationService service = CreateService(
             workspace.Path,
             new StubUserPreferencesService(new UserPreferences
             {
@@ -220,7 +220,10 @@ public sealed class FileLocalizationServiceTests
             Current = current;
         }
 
-        public UserPreferences Current { get; private set; }
+        public UserPreferences Current
+        {
+            get; private set;
+        }
 
         public event EventHandler? PreferencesChanged;
 
@@ -242,7 +245,10 @@ public sealed class FileLocalizationServiceTests
             Directory.CreateDirectory(Path);
         }
 
-        public string Path { get; }
+        public string Path
+        {
+            get;
+        }
 
         public void Dispose()
         {

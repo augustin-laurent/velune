@@ -12,6 +12,7 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Application.Text;
 
+/// <summary>Persists extracted document text indexes to disk as JSON for caching.</summary>
 public sealed partial class DocumentTextDiskCache : IDocumentTextCache
 {
     private const int CacheFileVersion = 2;
@@ -23,6 +24,9 @@ public sealed partial class DocumentTextDiskCache : IDocumentTextCache
     private readonly ILogger<DocumentTextDiskCache> _logger;
     private readonly string _rootPath;
 
+    /// <summary>Initializes a new instance of the <see cref="DocumentTextDiskCache"/> class.</summary>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="options">The application options for cache path configuration.</param>
     public DocumentTextDiskCache(
         ILogger<DocumentTextDiskCache> logger,
         IOptions<AppOptions> options)
@@ -34,6 +38,7 @@ public sealed partial class DocumentTextDiskCache : IDocumentTextCache
         _rootPath = ResolveRootPath(options.Value);
     }
 
+    /// <inheritdoc />
     public bool TryGet(
         IDocumentSession session,
         string engineFingerprint,
@@ -46,7 +51,7 @@ public sealed partial class DocumentTextDiskCache : IDocumentTextCache
 
         index = null;
 
-        if (!TryCreateCachePath(session, engineFingerprint, languages, forceOcr, out var cacheFilePath))
+        if (!TryCreateCachePath(session, engineFingerprint, languages, forceOcr, out string cacheFilePath))
         {
             return false;
         }
@@ -58,8 +63,8 @@ public sealed partial class DocumentTextDiskCache : IDocumentTextCache
 
         try
         {
-            var payload = File.ReadAllText(cacheFilePath);
-            var cacheEntry = JsonSerializer.Deserialize<CacheEntry>(payload, SerializerOptions);
+            string payload = File.ReadAllText(cacheFilePath);
+            CacheEntry? cacheEntry = JsonSerializer.Deserialize<CacheEntry>(payload, SerializerOptions);
             if (cacheEntry is null || cacheEntry.Version != CacheFileVersion)
             {
                 DeleteFile(cacheFilePath);
@@ -77,6 +82,7 @@ public sealed partial class DocumentTextDiskCache : IDocumentTextCache
         }
     }
 
+    /// <inheritdoc />
     public void Store(
         IDocumentSession session,
         string engineFingerprint,
@@ -88,12 +94,12 @@ public sealed partial class DocumentTextDiskCache : IDocumentTextCache
         ArgumentNullException.ThrowIfNull(languages);
         ArgumentNullException.ThrowIfNull(index);
 
-        if (!TryCreateCachePath(session, engineFingerprint, languages, forceOcr, out var cacheFilePath))
+        if (!TryCreateCachePath(session, engineFingerprint, languages, forceOcr, out string cacheFilePath))
         {
             return;
         }
 
-        var tempPath = $"{cacheFilePath}.{Guid.NewGuid():N}.tmp";
+        string tempPath = $"{cacheFilePath}.{Guid.NewGuid():N}.tmp";
 
         try
         {
@@ -102,7 +108,7 @@ public sealed partial class DocumentTextDiskCache : IDocumentTextCache
             var cacheEntry = new CacheEntry(
                 CacheFileVersion,
                 ToCacheIndex(index));
-            var payload = JsonSerializer.Serialize(cacheEntry, SerializerOptions);
+            string payload = JsonSerializer.Serialize(cacheEntry, SerializerOptions);
             File.WriteAllText(tempPath, payload, Encoding.UTF8);
             File.Move(tempPath, cacheFilePath, overwrite: true);
         }
@@ -122,7 +128,7 @@ public sealed partial class DocumentTextDiskCache : IDocumentTextCache
     {
         cacheFilePath = string.Empty;
 
-        var filePath = session.Metadata.FilePath;
+        string filePath = session.Metadata.FilePath;
         if (string.IsNullOrWhiteSpace(filePath))
         {
             return false;
@@ -134,9 +140,9 @@ public sealed partial class DocumentTextDiskCache : IDocumentTextCache
             return false;
         }
 
-        var documentKey = ComputeHash(
+        string documentKey = ComputeHash(
             $"{session.Metadata.DocumentType}|{Path.GetFullPath(fileInfo.FullName)}");
-        var fingerprint = ComputeHash(
+        string fingerprint = ComputeHash(
             $"{fileInfo.Length}|{fileInfo.LastWriteTimeUtc.Ticks}|{forceOcr}|{engineFingerprint}|{string.Join(",", languages)}");
 
         cacheFilePath = Path.Combine(_rootPath, documentKey, $"{fingerprint}.json");
@@ -150,16 +156,16 @@ public sealed partial class DocumentTextDiskCache : IDocumentTextCache
             return Path.GetFullPath(options.OcrCachePath);
         }
 
-        var basePath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        string basePath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         return Path.Combine(basePath, "Velune", "OcrCache");
     }
 
     private static string ComputeHash(string value)
     {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(value));
+        byte[] bytes = SHA256.HashData(Encoding.UTF8.GetBytes(value));
         var builder = new StringBuilder(bytes.Length * 2);
 
-        foreach (var current in bytes)
+        foreach (byte current in bytes)
         {
             builder.Append(current.ToString("x2", CultureInfo.InvariantCulture));
         }

@@ -15,7 +15,7 @@ public sealed class ChangeZoomUseCaseTests
         var store = new InMemoryDocumentSessionStore();
         var useCase = new ChangeZoomUseCase(store);
 
-        var result = useCase.Execute(new ChangeZoomRequest(1.5, ZoomMode.FitToWidth));
+        Result<ViewportState> result = useCase.Execute(new ChangeZoomRequest(1.5, ZoomMode.FitToWidth));
 
         Assert.True(result.IsFailure);
         Assert.NotNull(result.Error);
@@ -26,10 +26,10 @@ public sealed class ChangeZoomUseCaseTests
     [Fact]
     public void Execute_ShouldUpdateViewportZoom_WhenSessionExists()
     {
-        var store = CreateStore();
+        InMemoryDocumentSessionStore store = CreateStore();
         var useCase = new ChangeZoomUseCase(store);
 
-        var result = useCase.Execute(new ChangeZoomRequest(1.75, ZoomMode.FitToPage));
+        Result<ViewportState> result = useCase.Execute(new ChangeZoomRequest(1.75, ZoomMode.FitToPage));
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(store.Current);

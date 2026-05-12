@@ -1,5 +1,5 @@
-using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Styling;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,17 +11,22 @@ using Velune.Presentation.Views;
 
 namespace Velune.App;
 
-public partial class App : Avalonia.Application
+/// <summary>
+/// Avalonia application class that manages theming, menus, and the main window lifecycle.
+/// </summary>
+public class App : Avalonia.Application
 {
     private IUserPreferencesService? _userPreferencesService;
     private ILocalizationService? _localizationService;
     private NativeMenuLocalizationBinding? _appMenuLocalizationBinding;
 
+    /// <inheritdoc />
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
     }
 
+    /// <inheritdoc />
     public override void OnFrameworkInitializationCompleted()
     {
         _userPreferencesService = Program.AppHost.Services.GetRequiredService<IUserPreferencesService>();
@@ -38,6 +43,9 @@ public partial class App : Avalonia.Application
         base.OnFrameworkInitializationCompleted();
     }
 
+    /// <summary>
+    /// Releases event subscriptions and localization bindings during shutdown.
+    /// </summary>
     internal void DisposeResources()
     {
         if (_userPreferencesService is null)
@@ -81,7 +89,7 @@ public partial class App : Avalonia.Application
             return;
         }
 
-        var aboutWindow = AboutWindowFactory.Create(_localizationService);
+        Window aboutWindow = AboutWindowFactory.Create(_localizationService);
         await aboutWindow.ShowDialog(mainWindow);
     }
 

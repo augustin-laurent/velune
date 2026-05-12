@@ -14,16 +14,16 @@ public sealed class ThumbnailDiskCacheTests
     public void StoreAndTryGet_ShouldReuseThumbnailAcrossSessions()
     {
         using var workspace = new TemporaryDirectory();
-        var documentPath = Path.Combine(workspace.Path, "document.pdf");
+        string documentPath = Path.Combine(workspace.Path, "document.pdf");
         File.WriteAllText(documentPath, "original-document");
 
-        var cache = CreateCache(workspace.Path, maxAgeDays: 30);
-        var request = CreateThumbnailRequest(pageIndex: 0);
-        var renderedPage = CreatePage(pageIndex: 0, width: 2, height: 1);
+        ThumbnailDiskCache cache = CreateCache(workspace.Path, maxAgeDays: 30);
+        RenderRequest request = CreateThumbnailRequest(pageIndex: 0);
+        RenderedPage renderedPage = CreatePage(pageIndex: 0, width: 2, height: 1);
 
         cache.Store(CreateSession(documentPath), request, renderedPage);
 
-        var reused = cache.TryGet(CreateSession(documentPath), request, out var cachedPage);
+        bool reused = cache.TryGet(CreateSession(documentPath), request, out RenderedPage? cachedPage);
 
         Assert.True(reused);
         Assert.NotNull(cachedPage);
@@ -36,18 +36,18 @@ public sealed class ThumbnailDiskCacheTests
     public void TryGet_ShouldMiss_WhenDocumentChanges()
     {
         using var workspace = new TemporaryDirectory();
-        var documentPath = Path.Combine(workspace.Path, "document.pdf");
+        string documentPath = Path.Combine(workspace.Path, "document.pdf");
         File.WriteAllText(documentPath, "original-document");
 
-        var cache = CreateCache(workspace.Path, maxAgeDays: 30);
-        var request = CreateThumbnailRequest(pageIndex: 0);
+        ThumbnailDiskCache cache = CreateCache(workspace.Path, maxAgeDays: 30);
+        RenderRequest request = CreateThumbnailRequest(pageIndex: 0);
 
         cache.Store(CreateSession(documentPath), request, CreatePage(pageIndex: 0, width: 2, height: 1));
 
         File.WriteAllText(documentPath, "updated-document-with-a-new-signature");
         File.SetLastWriteTimeUtc(documentPath, DateTime.UtcNow.AddMinutes(1));
 
-        var reused = cache.TryGet(CreateSession(documentPath), request, out var cachedPage);
+        bool reused = cache.TryGet(CreateSession(documentPath), request, out RenderedPage? cachedPage);
 
         Assert.False(reused);
         Assert.Null(cachedPage);
@@ -57,16 +57,16 @@ public sealed class ThumbnailDiskCacheTests
     public void Constructor_ShouldDeleteExpiredCacheEntries()
     {
         using var workspace = new TemporaryDirectory();
-        var documentPath = Path.Combine(workspace.Path, "document.pdf");
+        string documentPath = Path.Combine(workspace.Path, "document.pdf");
         File.WriteAllText(documentPath, "original-document");
 
-        var cacheRootPath = Path.Combine(workspace.Path, "thumbnail-cache");
-        var request = CreateThumbnailRequest(pageIndex: 0);
+        string cacheRootPath = Path.Combine(workspace.Path, "thumbnail-cache");
+        RenderRequest request = CreateThumbnailRequest(pageIndex: 0);
 
-        var initialCache = CreateCache(workspace.Path, maxAgeDays: 1);
+        ThumbnailDiskCache initialCache = CreateCache(workspace.Path, maxAgeDays: 1);
         initialCache.Store(CreateSession(documentPath), request, CreatePage(pageIndex: 0, width: 2, height: 1));
 
-        var cacheFilePath = Directory
+        string cacheFilePath = Directory
             .EnumerateFiles(cacheRootPath, "*", SearchOption.AllDirectories)
             .Single();
 
@@ -118,7 +118,7 @@ public sealed class ThumbnailDiskCacheTests
 
     private static RenderedPage CreatePage(int pageIndex, int width, int height)
     {
-        var pixelData = new byte[width * height * 4];
+        byte[] pixelData = new byte[width * height * 4];
         Array.Fill<byte>(pixelData, 255);
 
         return new RenderedPage(

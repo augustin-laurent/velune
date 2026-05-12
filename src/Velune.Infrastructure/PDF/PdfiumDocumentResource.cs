@@ -1,5 +1,8 @@
 namespace Velune.Infrastructure.Pdf;
 
+/// <summary>
+/// Wraps a native PDFium document handle with deterministic disposal.
+/// </summary>
 internal sealed class PdfiumDocumentResource : IDisposable
 {
     private int _disposed;
@@ -39,7 +42,7 @@ internal sealed class PdfiumDocumentResource : IDisposable
             return;
         }
 
-        var handle = Interlocked.Exchange(ref _handle, nint.Zero);
+        IntPtr handle = Interlocked.Exchange(ref _handle, nint.Zero);
         if (handle != nint.Zero)
         {
             PdfiumNative.FPDF_CloseDocument(handle);

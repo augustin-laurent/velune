@@ -14,13 +14,13 @@ public sealed class DocumentTextDiskCacheTests
     {
         using var temporaryDirectory = new TemporaryDirectory();
         using var temporaryFile = new TemporaryFile(".png");
-        var cache = CreateCache(temporaryDirectory.Path);
-        var session = CreateSession(temporaryFile.Path);
-        var index = CreateIndex(temporaryFile.Path, "Velune OCR");
+        DocumentTextDiskCache cache = CreateCache(temporaryDirectory.Path);
+        DocumentSession session = CreateSession(temporaryFile.Path);
+        DocumentTextIndex index = CreateIndex(temporaryFile.Path, "Velune OCR");
 
         cache.Store(session, "tesseract-5", ["eng"], forceOcr: true, index);
 
-        var found = cache.TryGet(session, "tesseract-5", ["eng"], forceOcr: true, out var cachedIndex);
+        bool found = cache.TryGet(session, "tesseract-5", ["eng"], forceOcr: true, out DocumentTextIndex? cachedIndex);
 
         Assert.True(found);
         Assert.NotNull(cachedIndex);
@@ -32,15 +32,15 @@ public sealed class DocumentTextDiskCacheTests
     {
         using var temporaryDirectory = new TemporaryDirectory();
         using var temporaryFile = new TemporaryFile(".png");
-        var cache = CreateCache(temporaryDirectory.Path);
-        var index = CreateIndex(temporaryFile.Path, "Velune OCR");
+        DocumentTextDiskCache cache = CreateCache(temporaryDirectory.Path);
+        DocumentTextIndex index = CreateIndex(temporaryFile.Path, "Velune OCR");
 
         cache.Store(CreateSession(temporaryFile.Path), "tesseract-5", ["eng"], forceOcr: true, index);
 
         File.WriteAllText(temporaryFile.Path, "changed-content");
         File.SetLastWriteTimeUtc(temporaryFile.Path, DateTime.UtcNow.AddMinutes(1));
 
-        var found = cache.TryGet(CreateSession(temporaryFile.Path), "tesseract-5", ["eng"], forceOcr: true, out _);
+        bool found = cache.TryGet(CreateSession(temporaryFile.Path), "tesseract-5", ["eng"], forceOcr: true, out _);
 
         Assert.False(found);
     }
@@ -50,8 +50,8 @@ public sealed class DocumentTextDiskCacheTests
     {
         using var temporaryDirectory = new TemporaryDirectory();
         using var temporaryFile = new TemporaryFile(".png");
-        var cache = CreateCache(temporaryDirectory.Path);
-        var session = CreateSession(temporaryFile.Path);
+        DocumentTextDiskCache cache = CreateCache(temporaryDirectory.Path);
+        DocumentSession session = CreateSession(temporaryFile.Path);
 
         cache.Store(session, "tesseract-5", ["eng"], forceOcr: true, CreateIndex(temporaryFile.Path, "Velune OCR"));
 
@@ -117,7 +117,10 @@ public sealed class DocumentTextDiskCacheTests
             Directory.CreateDirectory(Path);
         }
 
-        public string Path { get; }
+        public string Path
+        {
+            get;
+        }
 
         public void Dispose()
         {
@@ -130,6 +133,7 @@ public sealed class DocumentTextDiskCacheTests
             }
             catch
             {
+                // Do nothing
             }
         }
     }
@@ -142,7 +146,10 @@ public sealed class DocumentTextDiskCacheTests
             File.WriteAllText(Path, "seed");
         }
 
-        public string Path { get; }
+        public string Path
+        {
+            get;
+        }
 
         public void Dispose()
         {
@@ -155,6 +162,7 @@ public sealed class DocumentTextDiskCacheTests
             }
             catch
             {
+                // Do nothing
             }
         }
     }

@@ -8,6 +8,9 @@ using Velune.Application.Configuration;
 
 namespace Velune.Presentation.Localization;
 
+/// <summary>
+/// File-based localization service that loads translations from .lang catalog files.
+/// </summary>
 public sealed partial class FileLocalizationService : ILocalizationService, INotifyPropertyChanged, IDisposable
 {
     private static readonly Dictionary<AppLanguagePreference, string> LanguageCodes =
@@ -31,6 +34,12 @@ public sealed partial class FileLocalizationService : ILocalizationService, INot
     private int _version;
     private bool _disposed;
 
+    /// <summary>
+    /// Initializes the localization service and loads the initial catalog.
+    /// </summary>
+    /// <param name="logger">Logger instance.</param>
+    /// <param name="userPreferencesService">User preferences for language selection.</param>
+    /// <param name="options">Application options specifying catalog path.</param>
     public FileLocalizationService(
         ILogger<FileLocalizationService> logger,
         IUserPreferencesService userPreferencesService,
@@ -49,6 +58,7 @@ public sealed partial class FileLocalizationService : ILocalizationService, INot
         _userPreferencesService.PreferencesChanged += OnPreferencesChanged;
     }
 
+    /// <inheritdoc />
     public string CurrentLanguageCode
     {
         get
@@ -60,6 +70,7 @@ public sealed partial class FileLocalizationService : ILocalizationService, INot
         }
     }
 
+    /// <inheritdoc />
     public AppLanguagePreference CurrentLanguagePreference
     {
         get
@@ -71,6 +82,7 @@ public sealed partial class FileLocalizationService : ILocalizationService, INot
         }
     }
 
+    /// <inheritdoc />
     public int Version
     {
         get
@@ -82,15 +94,18 @@ public sealed partial class FileLocalizationService : ILocalizationService, INot
         }
     }
 
+    /// <inheritdoc />
     public event EventHandler? LanguageChanged;
 
+    /// <inheritdoc />
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    /// <inheritdoc />
     public string GetString(string key)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
 
-        if (TryGetValue(key, out var value))
+        if (TryGetValue(key, out string? value))
         {
             return value;
         }
@@ -103,11 +118,12 @@ public sealed partial class FileLocalizationService : ILocalizationService, INot
         return key;
     }
 
+    /// <inheritdoc />
     public string GetString(string key, params object?[] arguments)
     {
         ArgumentNullException.ThrowIfNull(arguments);
 
-        var format = GetString(key);
+        string format = GetString(key);
         if (arguments.Length == 0)
         {
             return format;
@@ -116,12 +132,14 @@ public sealed partial class FileLocalizationService : ILocalizationService, INot
         return string.Format(CultureInfo.CurrentCulture, format, arguments);
     }
 
+    /// <inheritdoc />
     public bool HasKey(string key)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
         return TryGetValue(key, out _);
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         if (_disposed)
@@ -142,13 +160,13 @@ public sealed partial class FileLocalizationService : ILocalizationService, INot
     {
         lock (_gate)
         {
-            if (_activeCatalog.TryGetValue(key, out var activeValue))
+            if (_activeCatalog.TryGetValue(key, out string? activeValue))
             {
                 value = activeValue;
                 return true;
             }
 
-            if (_fallbackCatalog.TryGetValue(key, out var fallbackValue))
+            if (_fallbackCatalog.TryGetValue(key, out string? fallbackValue))
             {
                 value = fallbackValue;
                 return true;
@@ -166,9 +184,9 @@ public sealed partial class FileLocalizationService : ILocalizationService, INot
 
     private void ReloadCatalogs(AppLanguagePreference preference)
     {
-        var fallbackCatalog = LoadCatalog("en");
-        var languageCode = ResolveLanguageCode(preference, fallbackCatalog);
-        var activeCatalog = string.Equals(languageCode, "en", StringComparison.OrdinalIgnoreCase)
+        Dictionary<string, string> fallbackCatalog = LoadCatalog("en");
+        string languageCode = ResolveLanguageCode(preference, fallbackCatalog);
+        Dictionary<string, string> activeCatalog = string.Equals(languageCode, "en", StringComparison.OrdinalIgnoreCase)
             ? fallbackCatalog
             : LoadCatalog(languageCode);
 
@@ -195,7 +213,7 @@ public sealed partial class FileLocalizationService : ILocalizationService, INot
 
     private Dictionary<string, string> LoadCatalog(string languageCode)
     {
-        var path = Path.Combine(_catalogRootPath, $"{languageCode}.lang");
+        string path = Path.Combine(_catalogRootPath, $"{languageCode}.lang");
         if (!File.Exists(path))
         {
             LogMissingCatalog(_logger, languageCode, path);
@@ -207,7 +225,7 @@ public sealed partial class FileLocalizationService : ILocalizationService, INot
 
     private static void ApplyCurrentCulture(string languageCode)
     {
-        var culture = CreateCulture(languageCode);
+        CultureInfo culture = CreateCulture(languageCode);
         CultureInfo.CurrentCulture = culture;
         CultureInfo.CurrentUICulture = culture;
         CultureInfo.DefaultThreadCurrentCulture = culture;
@@ -229,12 +247,12 @@ public sealed partial class FileLocalizationService : ILocalizationService, INot
         Dictionary<string, string> fallbackCatalog)
     {
         if (preference is not AppLanguagePreference.System &&
-            LanguageCodes.TryGetValue(preference, out var configuredLanguageCode))
+            LanguageCodes.TryGetValue(preference, out string? configuredLanguageCode))
         {
             return configuredLanguageCode;
         }
 
-        var candidate = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+        string candidate = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
         if (string.Equals(candidate, "fr", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(candidate, "es", StringComparison.OrdinalIgnoreCase))
         {

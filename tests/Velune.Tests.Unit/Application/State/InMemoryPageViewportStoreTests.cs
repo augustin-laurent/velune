@@ -15,9 +15,9 @@ public sealed class InMemoryPageViewportStoreTests
         store.SetRotation(new PageIndex(0), Rotation.Deg90);
         store.SetRotation(new PageIndex(1), Rotation.Deg270);
 
-        var firstPageRotation = store.GetRotation(new PageIndex(0));
-        var secondPageRotation = store.GetRotation(new PageIndex(1));
-        var thirdPageRotation = store.GetRotation(new PageIndex(2));
+        Rotation firstPageRotation = store.GetRotation(new PageIndex(0));
+        Rotation secondPageRotation = store.GetRotation(new PageIndex(1));
+        Rotation thirdPageRotation = store.GetRotation(new PageIndex(2));
 
         Assert.Equal(Rotation.Deg90, firstPageRotation);
         Assert.Equal(Rotation.Deg270, secondPageRotation);

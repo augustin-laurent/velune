@@ -4,16 +4,26 @@ using Velune.Presentation.Localization;
 
 namespace Velune.Presentation.ViewModels;
 
+/// <summary>
+/// View model representing a page thumbnail in the sidebar.
+/// </summary>
 public partial class PageThumbnailItemViewModel : ObservableObject, IDisposable
 {
     private bool _disposed;
 
+    /// <summary>
+    /// Initializes a new thumbnail item for the given source page number.
+    /// </summary>
+    /// <param name="sourcePageNumber">The 1-based page number.</param>
     public PageThumbnailItemViewModel(int sourcePageNumber)
     {
         SourcePageNumber = sourcePageNumber;
         DisplayPageNumber = sourcePageNumber;
     }
 
+    /// <summary>
+    /// Gets the original 1-based page number from the document.
+    /// </summary>
     public int SourcePageNumber
     {
         get;
@@ -37,6 +47,10 @@ public partial class PageThumbnailItemViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _pageLabel = string.Empty;
 
+    /// <summary>
+    /// Updates the page label text to reflect the current language.
+    /// </summary>
+    /// <param name="localizationService">The localization service.</param>
     public void UpdateLocalization(ILocalizationService localizationService)
     {
         ArgumentNullException.ThrowIfNull(localizationService);
@@ -44,6 +58,7 @@ public partial class PageThumbnailItemViewModel : ObservableObject, IDisposable
         PageLabel = localizationService.GetString("sidebar.page", DisplayPageNumber);
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         Dispose(true);

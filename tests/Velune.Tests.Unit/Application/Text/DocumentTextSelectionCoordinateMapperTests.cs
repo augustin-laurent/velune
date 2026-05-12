@@ -1,3 +1,4 @@
+using Velune.Application.DTOs;
 using Velune.Application.Text;
 using Velune.Domain.ValueObjects;
 
@@ -8,7 +9,7 @@ public sealed class DocumentTextSelectionCoordinateMapperTests
     [Fact]
     public void TryMapVisualToDocument_ShouldScalePointsInAutoFitMode()
     {
-        var mapped = DocumentTextSelectionCoordinateMapper.TryMapVisualToDocument(
+        bool mapped = DocumentTextSelectionCoordinateMapper.TryMapVisualToDocument(
             visualX: 300,
             visualY: 210,
             layerWidth: 600,
@@ -16,7 +17,7 @@ public sealed class DocumentTextSelectionCoordinateMapperTests
             sourceWidth: 1000,
             sourceHeight: 1400,
             Rotation.Deg0,
-            out var point);
+            out DocumentTextSelectionPoint point);
 
         Assert.True(mapped);
         Assert.Equal(500, point.X, precision: 6);
@@ -26,7 +27,7 @@ public sealed class DocumentTextSelectionCoordinateMapperTests
     [Fact]
     public void TryMapVisualToDocument_ShouldPreservePointsInScrollableMode()
     {
-        var mapped = DocumentTextSelectionCoordinateMapper.TryMapVisualToDocument(
+        bool mapped = DocumentTextSelectionCoordinateMapper.TryMapVisualToDocument(
             visualX: 250,
             visualY: 640,
             layerWidth: 1000,
@@ -34,7 +35,7 @@ public sealed class DocumentTextSelectionCoordinateMapperTests
             sourceWidth: 1000,
             sourceHeight: 1400,
             Rotation.Deg0,
-            out var point);
+            out DocumentTextSelectionPoint point);
 
         Assert.True(mapped);
         Assert.Equal(250, point.X, precision: 6);
@@ -44,7 +45,7 @@ public sealed class DocumentTextSelectionCoordinateMapperTests
     [Fact]
     public void TryMapVisualToDocument_ShouldInvertRotationForQuarterTurn()
     {
-        var mapped = DocumentTextSelectionCoordinateMapper.TryMapVisualToDocument(
+        bool mapped = DocumentTextSelectionCoordinateMapper.TryMapVisualToDocument(
             visualX: 1400,
             visualY: 0,
             layerWidth: 1400,
@@ -52,7 +53,7 @@ public sealed class DocumentTextSelectionCoordinateMapperTests
             sourceWidth: 1000,
             sourceHeight: 1400,
             Rotation.Deg90,
-            out var point);
+            out DocumentTextSelectionPoint point);
 
         Assert.True(mapped);
         Assert.Equal(0, point.X, precision: 6);

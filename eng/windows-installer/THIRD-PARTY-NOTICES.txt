@@ -1,0 +1,53 @@
+Velune Third-Party Notices
+
+This application bundles the following third-party software:
+
+================================================================================
+qpdf
+================================================================================
+
+Copyright (c) 2005-2024 Jay Berkenbilt
+License: Apache License 2.0
+Source: https://github.com/qpdf/qpdf
+
+================================================================================
+Tesseract OCR
+================================================================================
+
+Copyright (c) 2006-2024 Google LLC
+License: Apache License 2.0
+Source: https://github.com/tesseract-ocr/tesseract
+
+Tesseract Windows binaries provided by UB Mannheim:
+https://github.com/UB-Mannheim/tesseract
+
+================================================================================
+Tesseract Trained Data (tessdata_fast)
+================================================================================
+
+License: Apache License 2.0
+Source: https://github.com/tesseract-ocr/tessdata_fast
+
+================================================================================
+PDFium
+================================================================================
+
+Copyright (c) 2014 The PDFium Authors
+License: BSD 3-Clause
+Source: https://pdfium.googlesource.com/pdfium/
+
+================================================================================
+SkiaSharp
+================================================================================
+
+Copyright (c) 2015-2024 Microsoft Corporation
+License: MIT License
+Source: https://github.com/mono/SkiaSharp
+
+================================================================================
+.NET Runtime
+================================================================================
+
+Copyright (c) .NET Foundation and Contributors
+License: MIT License
+Source: https://github.com/dotnet/runtime

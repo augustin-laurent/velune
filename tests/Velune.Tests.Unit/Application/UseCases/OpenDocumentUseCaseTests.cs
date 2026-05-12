@@ -1,8 +1,8 @@
 using Microsoft.Extensions.Options;
 using Velune.Application.Abstractions;
 using Velune.Application.Configuration;
-using Velune.Application.Instrumentation;
 using Velune.Application.DTOs;
+using Velune.Application.Instrumentation;
 using Velune.Application.Results;
 using Velune.Application.UseCases;
 using Velune.Domain.Abstractions;
@@ -22,7 +22,7 @@ public sealed class OpenDocumentUseCaseTests
         using var renderOrchestrator = new NoOpRenderOrchestrator();
         var useCase = new OpenDocumentUseCase(opener, store, NoOpPerformanceMetrics.Instance, renderOrchestrator);
 
-        var result = await useCase.ExecuteAsync(new OpenDocumentRequest(string.Empty));
+        Result<IDocumentSession> result = await useCase.ExecuteAsync(new OpenDocumentRequest(string.Empty));
 
         Assert.True(result.IsFailure);
         Assert.NotNull(result.Error);
@@ -38,7 +38,7 @@ public sealed class OpenDocumentUseCaseTests
         using var renderOrchestrator = new NoOpRenderOrchestrator();
         var useCase = new OpenDocumentUseCase(opener, store, NoOpPerformanceMetrics.Instance, renderOrchestrator);
 
-        var result = await useCase.ExecuteAsync(new OpenDocumentRequest("/tmp/missing.pdf"));
+        Result<IDocumentSession> result = await useCase.ExecuteAsync(new OpenDocumentRequest("/tmp/missing.pdf"));
 
         Assert.True(result.IsFailure);
         Assert.NotNull(result.Error);
@@ -54,7 +54,7 @@ public sealed class OpenDocumentUseCaseTests
         using var renderOrchestrator = new NoOpRenderOrchestrator();
         var useCase = new OpenDocumentUseCase(opener, store, NoOpPerformanceMetrics.Instance, renderOrchestrator);
 
-        var result = await useCase.ExecuteAsync(new OpenDocumentRequest("/tmp/file.xyz"));
+        Result<IDocumentSession> result = await useCase.ExecuteAsync(new OpenDocumentRequest("/tmp/file.xyz"));
 
         Assert.True(result.IsFailure);
         Assert.NotNull(result.Error);
@@ -70,7 +70,7 @@ public sealed class OpenDocumentUseCaseTests
         using var renderOrchestrator = new NoOpRenderOrchestrator();
         var useCase = new OpenDocumentUseCase(opener, store, NoOpPerformanceMetrics.Instance, renderOrchestrator);
 
-        var result = await useCase.ExecuteAsync(new OpenDocumentRequest("/tmp/file.pdf"));
+        Result<IDocumentSession> result = await useCase.ExecuteAsync(new OpenDocumentRequest("/tmp/file.pdf"));
 
         Assert.True(result.IsFailure);
         Assert.NotNull(result.Error);
@@ -94,7 +94,7 @@ public sealed class OpenDocumentUseCaseTests
         using var renderOrchestrator = new NoOpRenderOrchestrator();
         var useCase = new OpenDocumentUseCase(opener, store, metrics, renderOrchestrator);
 
-        var result = await useCase.ExecuteAsync(new OpenDocumentRequest("/tmp/test.pdf"));
+        Result<IDocumentSession> result = await useCase.ExecuteAsync(new OpenDocumentRequest("/tmp/test.pdf"));
 
         Assert.True(result.IsSuccess);
         Assert.Same(session, store.Current);
@@ -122,12 +122,38 @@ public sealed class OpenDocumentUseCaseTests
         using var renderOrchestrator = new NoOpRenderOrchestrator();
         var useCase = new OpenDocumentUseCase(opener, store, NoOpPerformanceMetrics.Instance, renderOrchestrator);
 
-        var result = await useCase.ExecuteAsync(new OpenDocumentRequest("/tmp/new.pdf"));
+        Result<IDocumentSession> result = await useCase.ExecuteAsync(new OpenDocumentRequest("/tmp/new.pdf"));
 
         Assert.True(result.IsSuccess);
         Assert.Same(nextSession, store.Current);
         Assert.Equal(previousSession.Id, renderOrchestrator.CancelledDocumentId);
         Assert.True(previousSession.ResourcesReleased);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_AddToTabs_ShouldKeepPreviousSessionLoaded()
+    {
+        var previousSession = new ReleasableDocumentSession(
+            DocumentId.New(),
+            new DocumentMetadata("old.pdf", "/tmp/old.pdf", DocumentType.Pdf, 2048, 2),
+            ViewportState.Default);
+        var nextSession = new DocumentSession(
+            DocumentId.New(),
+            new DocumentMetadata("new.pdf", "/tmp/new.pdf", DocumentType.Pdf, 1024, 1),
+            ViewportState.Default);
+        var opener = new ReturningDocumentOpener(nextSession);
+        var store = new InMemoryDocumentSessionStore();
+        store.SetCurrent(previousSession);
+        using var renderOrchestrator = new NoOpRenderOrchestrator();
+        var useCase = new OpenDocumentUseCase(opener, store, NoOpPerformanceMetrics.Instance, renderOrchestrator);
+
+        Result<IDocumentSession> result = await useCase.ExecuteAsync(new OpenDocumentRequest("/tmp/new.pdf", DocumentOpenMode.AddToTabs));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, store.Sessions.Count);
+        Assert.Same(nextSession, store.Current);
+        Assert.Null(renderOrchestrator.CancelledDocumentId);
+        Assert.False(previousSession.ResourcesReleased);
     }
 
     private sealed class ThrowingDocumentOpener : IDocumentOpener
@@ -182,13 +208,25 @@ public sealed class OpenDocumentUseCaseTests
             Viewport = viewport;
         }
 
-        public DocumentId Id { get; }
+        public DocumentId Id
+        {
+            get;
+        }
 
-        public DocumentMetadata Metadata { get; }
+        public DocumentMetadata Metadata
+        {
+            get;
+        }
 
-        public ViewportState Viewport { get; private set; }
+        public ViewportState Viewport
+        {
+            get; private set;
+        }
 
-        public bool ResourcesReleased { get; private set; }
+        public bool ResourcesReleased
+        {
+            get; private set;
+        }
 
         public IDocumentSession WithViewport(ViewportState viewport)
         {

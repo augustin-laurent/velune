@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using SkiaSharp;
 using Velune.Application.Configuration;
 using Velune.Application.DTOs;
+using Velune.Application.Results;
 using Velune.Application.UseCases;
 using Velune.Domain.ValueObjects;
 using Velune.Infrastructure.Pdf;
@@ -15,34 +16,34 @@ public sealed class PdfDocumentStructureIntegrationTests
     [RequiresQpdfFact]
     public async Task RotatePdfPages_ShouldPersistRotationOnSelectedPages()
     {
-        await using var workspace = await PdfStructureTestWorkspace.CreateAsync();
-        var useCase = workspace.CreateRotateUseCase();
+        await using PdfStructureTestWorkspace workspace = await PdfStructureTestWorkspace.CreateAsync();
+        RotatePdfPagesUseCase useCase = workspace.CreateRotateUseCase();
 
-        var outputPath = workspace.GetOutputPath("rotated.pdf");
+        string outputPath = workspace.GetOutputPath("rotated.pdf");
 
-        var result = await useCase.ExecuteAsync(
+        Result<string> result = await useCase.ExecuteAsync(
             new RotatePdfPagesRequest(workspace.SourcePdfPath, outputPath, [2], Rotation.Deg90));
 
         Assert.True(result.IsSuccess, result.Error?.Message);
 
-        var documentInfo = PdfInspection.Load(outputPath);
+        PdfDocumentInfo documentInfo = PdfInspection.Load(outputPath);
         Assert.Equal([0, 90, 0], documentInfo.Pages.Select(page => page.RotationDegrees).ToArray());
     }
 
     [RequiresQpdfFact]
     public async Task ExtractPdfPages_ShouldCreateDocumentWithRequestedPagesInOrder()
     {
-        await using var workspace = await PdfStructureTestWorkspace.CreateAsync();
-        var useCase = workspace.CreateExtractUseCase();
+        await using PdfStructureTestWorkspace workspace = await PdfStructureTestWorkspace.CreateAsync();
+        ExtractPdfPagesUseCase useCase = workspace.CreateExtractUseCase();
 
-        var outputPath = workspace.GetOutputPath("extracted.pdf");
+        string outputPath = workspace.GetOutputPath("extracted.pdf");
 
-        var result = await useCase.ExecuteAsync(
+        Result<string> result = await useCase.ExecuteAsync(
             new ExtractPdfPagesRequest(workspace.SourcePdfPath, outputPath, [3, 1]));
 
         Assert.True(result.IsSuccess, result.Error?.Message);
 
-        var documentInfo = PdfInspection.Load(outputPath);
+        PdfDocumentInfo documentInfo = PdfInspection.Load(outputPath);
         Assert.Equal(2, documentInfo.PageCount);
         Assert.Equal([(90, 90), (100, 200)], documentInfo.Pages.Select(page => (page.Width, page.Height)).ToArray());
     }
@@ -50,17 +51,17 @@ public sealed class PdfDocumentStructureIntegrationTests
     [RequiresQpdfFact]
     public async Task DeletePdfPages_ShouldRemoveRequestedPages()
     {
-        await using var workspace = await PdfStructureTestWorkspace.CreateAsync();
-        var useCase = workspace.CreateDeleteUseCase();
+        await using PdfStructureTestWorkspace workspace = await PdfStructureTestWorkspace.CreateAsync();
+        DeletePdfPagesUseCase useCase = workspace.CreateDeleteUseCase();
 
-        var outputPath = workspace.GetOutputPath("trimmed.pdf");
+        string outputPath = workspace.GetOutputPath("trimmed.pdf");
 
-        var result = await useCase.ExecuteAsync(
+        Result<string> result = await useCase.ExecuteAsync(
             new DeletePdfPagesRequest(workspace.SourcePdfPath, outputPath, [2]));
 
         Assert.True(result.IsSuccess, result.Error?.Message);
 
-        var documentInfo = PdfInspection.Load(outputPath);
+        PdfDocumentInfo documentInfo = PdfInspection.Load(outputPath);
         Assert.Equal(2, documentInfo.PageCount);
         Assert.Equal([(100, 200), (90, 90)], documentInfo.Pages.Select(page => (page.Width, page.Height)).ToArray());
     }
@@ -68,17 +69,17 @@ public sealed class PdfDocumentStructureIntegrationTests
     [RequiresQpdfFact]
     public async Task MergePdfDocuments_ShouldAppendSourceDocuments()
     {
-        await using var workspace = await PdfStructureTestWorkspace.CreateAsync();
-        var useCase = workspace.CreateMergeUseCase();
+        await using PdfStructureTestWorkspace workspace = await PdfStructureTestWorkspace.CreateAsync();
+        MergePdfDocumentsUseCase useCase = workspace.CreateMergeUseCase();
 
-        var outputPath = workspace.GetOutputPath("merged.pdf");
+        string outputPath = workspace.GetOutputPath("merged.pdf");
 
-        var result = await useCase.ExecuteAsync(
+        Result<string> result = await useCase.ExecuteAsync(
             new MergePdfDocumentsRequest([workspace.SourcePdfPath, workspace.SecondaryPdfPath], outputPath));
 
         Assert.True(result.IsSuccess, result.Error?.Message);
 
-        var documentInfo = PdfInspection.Load(outputPath);
+        PdfDocumentInfo documentInfo = PdfInspection.Load(outputPath);
         Assert.Equal(5, documentInfo.PageCount);
         Assert.Equal(
             [(100, 200), (200, 100), (90, 90), (60, 60), (140, 80)],
@@ -88,17 +89,17 @@ public sealed class PdfDocumentStructureIntegrationTests
     [RequiresQpdfFact]
     public async Task MergePdfDocuments_ShouldAppendImageSourcesAsPages()
     {
-        await using var workspace = await PdfStructureTestWorkspace.CreateAsync();
-        var useCase = workspace.CreateMergeUseCase();
+        await using PdfStructureTestWorkspace workspace = await PdfStructureTestWorkspace.CreateAsync();
+        MergePdfDocumentsUseCase useCase = workspace.CreateMergeUseCase();
 
-        var outputPath = workspace.GetOutputPath("merged-with-image.pdf");
+        string outputPath = workspace.GetOutputPath("merged-with-image.pdf");
 
-        var result = await useCase.ExecuteAsync(
+        Result<string> result = await useCase.ExecuteAsync(
             new MergePdfDocumentsRequest([workspace.SourcePdfPath, workspace.ImagePath, workspace.SecondaryPdfPath], outputPath));
 
         Assert.True(result.IsSuccess, result.Error?.Message);
 
-        var documentInfo = PdfInspection.Load(outputPath);
+        PdfDocumentInfo documentInfo = PdfInspection.Load(outputPath);
         Assert.Equal(6, documentInfo.PageCount);
         Assert.Equal(
             [(100, 200), (200, 100), (90, 90), (32, 48), (60, 60), (140, 80)],
@@ -106,19 +107,47 @@ public sealed class PdfDocumentStructureIntegrationTests
     }
 
     [RequiresQpdfFact]
+    public async Task MergePdfDocuments_ShouldInsertImageAndPdfBetweenSplitCurrentPages()
+    {
+        await using PdfStructureTestWorkspace workspace = await PdfStructureTestWorkspace.CreateAsync();
+        ExtractPdfPagesUseCase extractUseCase = workspace.CreateExtractUseCase();
+        MergePdfDocumentsUseCase mergeUseCase = workspace.CreateMergeUseCase();
+
+        string beforePath = workspace.GetOutputPath("before.pdf");
+        string afterPath = workspace.GetOutputPath("after.pdf");
+        string outputPath = workspace.GetOutputPath("inserted.pdf");
+
+        Result<string> beforeResult = await extractUseCase.ExecuteAsync(
+            new ExtractPdfPagesRequest(workspace.SourcePdfPath, beforePath, [1]));
+        Result<string> afterResult = await extractUseCase.ExecuteAsync(
+            new ExtractPdfPagesRequest(workspace.SourcePdfPath, afterPath, [2, 3]));
+        Result<string> mergeResult = await mergeUseCase.ExecuteAsync(
+            new MergePdfDocumentsRequest([beforePath, workspace.ImagePath, workspace.SecondaryPdfPath, afterPath], outputPath));
+
+        Assert.True(beforeResult.IsSuccess, beforeResult.Error?.Message);
+        Assert.True(afterResult.IsSuccess, afterResult.Error?.Message);
+        Assert.True(mergeResult.IsSuccess, mergeResult.Error?.Message);
+
+        PdfDocumentInfo documentInfo = PdfInspection.Load(outputPath);
+        Assert.Equal(
+            [(100, 200), (32, 48), (60, 60), (140, 80), (200, 100), (90, 90)],
+            documentInfo.Pages.Select(page => (page.Width, page.Height)).ToArray());
+    }
+
+    [RequiresQpdfFact]
     public async Task ReorderPdfPages_ShouldPersistRequestedOrder()
     {
-        await using var workspace = await PdfStructureTestWorkspace.CreateAsync();
-        var useCase = workspace.CreateReorderUseCase();
+        await using PdfStructureTestWorkspace workspace = await PdfStructureTestWorkspace.CreateAsync();
+        ReorderPdfPagesUseCase useCase = workspace.CreateReorderUseCase();
 
-        var outputPath = workspace.GetOutputPath("reordered.pdf");
+        string outputPath = workspace.GetOutputPath("reordered.pdf");
 
-        var result = await useCase.ExecuteAsync(
+        Result<string> result = await useCase.ExecuteAsync(
             new ReorderPdfPagesRequest(workspace.SourcePdfPath, outputPath, [3, 1, 2]));
 
         Assert.True(result.IsSuccess, result.Error?.Message);
 
-        var documentInfo = PdfInspection.Load(outputPath);
+        PdfDocumentInfo documentInfo = PdfInspection.Load(outputPath);
         Assert.Equal(
             [(90, 90), (100, 200), (200, 100)],
             documentInfo.Pages.Select(page => (page.Width, page.Height)).ToArray());
@@ -141,7 +170,7 @@ public sealed class PdfDocumentStructureIntegrationTests
 
         public static async Task<PdfStructureTestWorkspace> CreateAsync()
         {
-            var workspacePath = Path.Combine(
+            string workspacePath = Path.Combine(
                 Path.GetTempPath(),
                 "velune-qpdf-tests",
                 Guid.NewGuid().ToString("N"));
@@ -191,8 +220,8 @@ public sealed class PdfDocumentStructureIntegrationTests
             using var canvas = new SKCanvas(bitmap);
             canvas.Clear(SKColors.CornflowerBlue);
             using var image = SKImage.FromBitmap(bitmap);
-            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-            using var stream = File.Create(outputPath);
+            using SKData? data = image.Encode(SKEncodedImageFormat.Png, 100);
+            using FileStream stream = File.Create(outputPath);
             data.SaveTo(stream);
         }
 
@@ -227,7 +256,7 @@ public sealed class PdfDocumentStructureIntegrationTests
             ArgumentNullException.ThrowIfNull(outputPath);
             ArgumentNullException.ThrowIfNull(pages);
 
-            using var stream = File.Create(outputPath);
+            using FileStream stream = File.Create(outputPath);
             using var writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), leaveOpen: true);
 
             writer.NewLine = "\n";
@@ -235,7 +264,7 @@ public sealed class PdfDocumentStructureIntegrationTests
             writer.WriteLine("%VELUNE");
 
             var offsets = new List<long> { 0 };
-            var totalObjectCount = 2 + (pages.Length * 2);
+            int totalObjectCount = 2 + (pages.Length * 2);
 
             WriteObject(writer, stream, offsets, 1, "<< /Type /Catalog /Pages 2 0 R >>");
             WriteObject(
@@ -245,11 +274,11 @@ public sealed class PdfDocumentStructureIntegrationTests
                 2,
                 $"<< /Type /Pages /Kids [{string.Join(" ", Enumerable.Range(0, pages.Length).Select(index => $"{3 + (index * 2)} 0 R"))}] /Count {pages.Length} >>");
 
-            for (var index = 0; index < pages.Length; index++)
+            for (int index = 0; index < pages.Length; index++)
             {
-                var pageObjectNumber = 3 + (index * 2);
-                var contentObjectNumber = pageObjectNumber + 1;
-                var page = pages[index];
+                int pageObjectNumber = 3 + (index * 2);
+                int contentObjectNumber = pageObjectNumber + 1;
+                PdfPageSpec page = pages[index];
 
                 WriteObject(
                     writer,
@@ -267,13 +296,13 @@ public sealed class PdfDocumentStructureIntegrationTests
             }
 
             writer.Flush();
-            var startXref = stream.Position;
+            long startXref = stream.Position;
 
             writer.WriteLine("xref");
             writer.WriteLine($"0 {totalObjectCount + 1}");
             writer.WriteLine("0000000000 65535 f ");
 
-            for (var objectNumber = 1; objectNumber <= totalObjectCount; objectNumber++)
+            for (int objectNumber = 1; objectNumber <= totalObjectCount; objectNumber++)
             {
                 writer.WriteLine($"{offsets[objectNumber]:D10} 00000 n ");
             }
@@ -309,17 +338,17 @@ public sealed class PdfDocumentStructureIntegrationTests
         {
             EnsureInitialized();
 
-            var documentHandle = TestPdfiumNative.FPDF_LoadDocument(pdfPath, null);
+            IntPtr documentHandle = TestPdfiumNative.FPDF_LoadDocument(pdfPath, null);
             Assert.NotEqual(nint.Zero, documentHandle);
 
             try
             {
-                var pageCount = TestPdfiumNative.FPDF_GetPageCount(documentHandle);
+                int pageCount = TestPdfiumNative.FPDF_GetPageCount(documentHandle);
                 var pages = new List<PdfPageInfo>(pageCount);
 
-                for (var pageIndex = 0; pageIndex < pageCount; pageIndex++)
+                for (int pageIndex = 0; pageIndex < pageCount; pageIndex++)
                 {
-                    var pageHandle = TestPdfiumNative.FPDF_LoadPage(documentHandle, pageIndex);
+                    IntPtr pageHandle = TestPdfiumNative.FPDF_LoadPage(documentHandle, pageIndex);
                     Assert.NotEqual(nint.Zero, pageHandle);
 
                     try
@@ -354,7 +383,7 @@ public sealed class PdfDocumentStructureIntegrationTests
         }
     }
 
-    private static partial class TestPdfiumNative
+    private static class TestPdfiumNative
     {
         private const string LibraryName = "pdfium";
 

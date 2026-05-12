@@ -7,7 +7,8 @@ Velune uses a layered architecture:
 - `Velune.Presentation -> Velune.Application`
 - `Velune.Application -> Velune.Domain`
 - `Velune.Infrastructure -> Velune.Application + Velune.Domain`
-- `Velune.App` composes dependencies
+- `Velune.App` composes dependencies for macOS and Linux
+- `Velune.Windows` composes dependencies for Windows
 
 The domain layer must not depend on UI, filesystem, native tooling or infrastructure packages.
 

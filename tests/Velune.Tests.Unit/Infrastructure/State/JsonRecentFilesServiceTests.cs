@@ -17,13 +17,13 @@ public sealed class JsonRecentFilesServiceTests : IDisposable
     public void Add_ShouldPersistRecentFilesBetweenInstances()
     {
         Directory.CreateDirectory(_temporaryDirectory);
-        var filePath = Path.Combine(_temporaryDirectory, "recent-files.json");
-        var service = CreateService(filePath, limit: 5);
+        string filePath = Path.Combine(_temporaryDirectory, "recent-files.json");
+        JsonRecentFilesService service = CreateService(filePath, limit: 5);
 
         service.Add(new RecentFileItem("a.pdf", "/tmp/a.pdf", "Pdf"));
         service.Add(new RecentFileItem("b.png", "/tmp/b.png", "Image"));
 
-        var reloadedService = CreateService(filePath, limit: 5);
+        JsonRecentFilesService reloadedService = CreateService(filePath, limit: 5);
 
         Assert.Equal(2, reloadedService.GetAll().Count);
         Assert.Equal("b.png", reloadedService.GetAll()[0].FileName);
@@ -34,15 +34,15 @@ public sealed class JsonRecentFilesServiceTests : IDisposable
     public void Add_ShouldDeduplicateAndRespectLimit_WhenPersisting()
     {
         Directory.CreateDirectory(_temporaryDirectory);
-        var filePath = Path.Combine(_temporaryDirectory, "recent-files.json");
-        var service = CreateService(filePath, limit: 2);
+        string filePath = Path.Combine(_temporaryDirectory, "recent-files.json");
+        JsonRecentFilesService service = CreateService(filePath, limit: 2);
 
         service.Add(new RecentFileItem("a.pdf", "/tmp/a.pdf", "Pdf"));
         service.Add(new RecentFileItem("b.pdf", "/tmp/b.pdf", "Pdf"));
         service.Add(new RecentFileItem("a.pdf", "/tmp/a.pdf", "Pdf"));
         service.Add(new RecentFileItem("c.pdf", "/tmp/c.pdf", "Pdf"));
 
-        var reloadedItems = CreateService(filePath, limit: 2).GetAll();
+        IReadOnlyList<RecentFileItem> reloadedItems = CreateService(filePath, limit: 2).GetAll();
 
         Assert.Equal(2, reloadedItems.Count);
         Assert.Equal("c.pdf", reloadedItems[0].FileName);
@@ -53,8 +53,8 @@ public sealed class JsonRecentFilesServiceTests : IDisposable
     public void Clear_ShouldPersistEmptyRecentFiles()
     {
         Directory.CreateDirectory(_temporaryDirectory);
-        var filePath = Path.Combine(_temporaryDirectory, "recent-files.json");
-        var service = CreateService(filePath, limit: 5);
+        string filePath = Path.Combine(_temporaryDirectory, "recent-files.json");
+        JsonRecentFilesService service = CreateService(filePath, limit: 5);
 
         service.Add(new RecentFileItem("a.pdf", "/tmp/a.pdf", "Pdf"));
         service.Clear();

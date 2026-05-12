@@ -5,6 +5,9 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Infrastructure.Image;
 
+/// <summary>
+/// Document session backed by an in-memory decoded image.
+/// </summary>
 public sealed record ImageDocumentSession : IImageDocumentSession, IReleasableDocumentSession
 {
     internal ImageDocumentSession(
@@ -26,21 +29,25 @@ public sealed record ImageDocumentSession : IImageDocumentSession, IReleasableDo
         Resource = resource;
     }
 
+    /// <inheritdoc />
     public DocumentId Id
     {
         get;
     }
 
+    /// <inheritdoc />
     public DocumentMetadata Metadata
     {
         get;
     }
 
+    /// <inheritdoc />
     public ViewportState Viewport
     {
         get;
     }
 
+    /// <inheritdoc />
     public ImageMetadata ImageMetadata
     {
         get;
@@ -51,6 +58,7 @@ public sealed record ImageDocumentSession : IImageDocumentSession, IReleasableDo
         get;
     }
 
+    /// <inheritdoc />
     public IDocumentSession WithViewport(ViewportState viewport)
     {
         ArgumentNullException.ThrowIfNull(viewport);
@@ -63,8 +71,8 @@ public sealed record ImageDocumentSession : IImageDocumentSession, IReleasableDo
             Resource);
     }
 
+    /// <inheritdoc />
     public void ReleaseResources()
     {
-        Resource.Dispose();
     }
 }

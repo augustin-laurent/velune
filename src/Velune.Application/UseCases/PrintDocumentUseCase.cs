@@ -4,16 +4,23 @@ using Velune.Application.Results;
 
 namespace Velune.Application.UseCases;
 
+/// <summary>Prints a document using the configured print service.</summary>
 public sealed class PrintDocumentUseCase
 {
     private readonly IPrintService _printService;
 
+    /// <summary>Initializes a new instance of the <see cref="PrintDocumentUseCase"/> class.</summary>
+    /// <param name="printService">The print service implementation.</param>
     public PrintDocumentUseCase(IPrintService printService)
     {
         ArgumentNullException.ThrowIfNull(printService);
         _printService = printService;
     }
 
+    /// <summary>Validates and executes the print request.</summary>
+    /// <param name="request">The print document request details.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A result indicating success or failure of the print operation.</returns>
     public Task<Result> ExecuteAsync(
         PrintDocumentRequest request,
         CancellationToken cancellationToken = default)

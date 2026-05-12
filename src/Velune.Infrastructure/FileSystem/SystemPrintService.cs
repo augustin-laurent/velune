@@ -3,22 +3,32 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
-using Avalonia.Threading;
 using Velune.Application.Abstractions;
 using Velune.Application.DTOs;
 using Velune.Application.Results;
 
 namespace Velune.Infrastructure.FileSystem;
 
+/// <summary>
+/// Implements printing via the operating system's native print dialogs and CUPS commands.
+/// </summary>
 public sealed partial class SystemPrintService : IPrintService
 {
-    public bool SupportsSystemPrintDialog => OperatingSystem.IsMacOS();
+    /// <inheritdoc />
+    public bool SupportsSystemPrintDialog => OperatingSystem.IsMacOS() || OperatingSystem.IsWindows();
 
+    /// <inheritdoc />
     public async Task<Result> ShowSystemPrintDialogAsync(
         string filePath,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (OperatingSystem.IsWindows())
+        {
+            return ShowWindowsSystemPrintDialog(filePath);
+        }
 
         if (!OperatingSystem.IsMacOS())
         {
@@ -32,7 +42,7 @@ public sealed partial class SystemPrintService : IPrintService
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var outcome = await ShowMacOsSystemPrintDialogAsync(filePath);
+            PrintDialogOutcome outcome = await ShowMacOsSystemPrintDialogAsync(filePath);
 
             return outcome switch
             {
@@ -70,11 +80,44 @@ public sealed partial class SystemPrintService : IPrintService
     [SupportedOSPlatform("macos")]
     private static Task<PrintDialogOutcome> ShowMacOsSystemPrintDialogAsync(string filePath)
     {
-        return Dispatcher.UIThread.InvokeAsync(
-            () => MacOsPrintDialog.Show(filePath),
-            DispatcherPriority.Send).GetTask();
+        return Task.FromResult(MacOsPrintDialog.Show(filePath));
     }
 
+    private static Result ShowWindowsSystemPrintDialog(string filePath)
+    {
+        try
+        {
+            using var process = Process.Start(new ProcessStartInfo(filePath)
+            {
+                UseShellExecute = true,
+                Verb = "print",
+                CreateNoWindow = true
+            });
+
+            return process is null
+                ? ResultFactory.Failure(
+                    AppError.Infrastructure(
+                        "print.dialog.failed",
+                        "The system print dialog could not be opened."))
+                : ResultFactory.Success();
+        }
+        catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
+        {
+            return ResultFactory.Failure(
+                AppError.Validation(
+                    "print.cancelled",
+                    "Printing was cancelled."));
+        }
+        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException)
+        {
+            return ResultFactory.Failure(
+                AppError.Infrastructure(
+                    "print.dialog.failed",
+                    "The system print dialog could not be opened."));
+        }
+    }
+
+    /// <inheritdoc />
     public async Task<Result<IReadOnlyList<PrintDestinationInfo>>> GetAvailablePrintersAsync(
         CancellationToken cancellationToken = default)
     {
@@ -86,7 +129,7 @@ public sealed partial class SystemPrintService : IPrintService
                     "Advanced printing is not available on this platform yet."));
         }
 
-        var printerNamesResult = await TryRunCommandAsync("lpstat", ["-e"], cancellationToken);
+        CommandResult printerNamesResult = await TryRunCommandAsync("lpstat", ["-e"], cancellationToken);
         if (printerNamesResult.CommandMissing)
         {
             return ResultFactory.Failure<IReadOnlyList<PrintDestinationInfo>>(
@@ -100,17 +143,18 @@ public sealed partial class SystemPrintService : IPrintService
             return ResultFactory.Failure<IReadOnlyList<PrintDestinationInfo>>(printerNamesResult.Result.Error!);
         }
 
-        var defaultPrinterResult = await TryRunCommandAsync("lpstat", ["-d"], cancellationToken);
+        CommandResult defaultPrinterResult = await TryRunCommandAsync("lpstat", ["-d"], cancellationToken);
         string? defaultPrinter = null;
         if (!defaultPrinterResult.CommandMissing && defaultPrinterResult.Result.IsSuccess)
         {
             defaultPrinter = ParseDefaultPrinter(defaultPrinterResult.Result.Value);
         }
 
-        var printers = ParsePrinters(printerNamesResult.Result.Value, defaultPrinter);
+        PrintDestinationInfo[] printers = ParsePrinters(printerNamesResult.Result.Value, defaultPrinter);
         return ResultFactory.Success<IReadOnlyList<PrintDestinationInfo>>(printers);
     }
 
+    /// <inheritdoc />
     public async Task<Result> PrintAsync(
         PrintDocumentRequest request,
         CancellationToken cancellationToken = default)
@@ -125,13 +169,13 @@ public sealed partial class SystemPrintService : IPrintService
                     "Printing is not available on this platform yet."));
         }
 
-        var arguments = BuildPrintArguments(request);
+        List<string> arguments = BuildPrintArguments(request);
 
-        var lpResult = await TryRunCommandAsync("lp", arguments, cancellationToken);
+        CommandResult lpResult = await TryRunCommandAsync("lp", arguments, cancellationToken);
         if (lpResult.CommandMissing)
         {
-            var lprArguments = BuildLprArguments(request);
-            var lprResult = await TryRunCommandAsync("lpr", lprArguments, cancellationToken);
+            List<string> lprArguments = BuildLprArguments(request);
+            CommandResult lprResult = await TryRunCommandAsync("lpr", lprArguments, cancellationToken);
             if (lprResult.CommandMissing)
             {
                 return ResultFactory.Failure(
@@ -179,8 +223,8 @@ public sealed partial class SystemPrintService : IPrintService
             return null;
         }
 
-        var prefix = "system default destination:";
-        foreach (var line in output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        string prefix = "system default destination:";
+        foreach (string line in output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
             if (line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             {
@@ -290,7 +334,7 @@ public sealed partial class SystemPrintService : IPrintService
                 UseShellExecute = false
             };
 
-            foreach (var argument in arguments)
+            foreach (string argument in arguments)
             {
                 startInfo.ArgumentList.Add(argument);
             }
@@ -307,8 +351,8 @@ public sealed partial class SystemPrintService : IPrintService
             }
 
             await process.WaitForExitAsync(cancellationToken);
-            var standardOutput = await process.StandardOutput.ReadToEndAsync(cancellationToken);
-            var standardError = await process.StandardError.ReadToEndAsync(cancellationToken);
+            string standardOutput = await process.StandardOutput.ReadToEndAsync(cancellationToken);
+            string standardError = await process.StandardError.ReadToEndAsync(cancellationToken);
 
             if (process.ExitCode == 0)
             {
@@ -380,7 +424,7 @@ public sealed partial class SystemPrintService : IPrintService
                 return PrintDialogOutcome.Unsupported;
             }
 
-            var autoreleasePool = CreateAutoreleasePool();
+            IntPtr autoreleasePool = CreateAutoreleasePool();
             if (autoreleasePool == IntPtr.Zero)
             {
                 return PrintDialogOutcome.Failed;
@@ -388,7 +432,7 @@ public sealed partial class SystemPrintService : IPrintService
 
             try
             {
-                var printableDocument = CreatePrintableDocument(filePath);
+                IntPtr printableDocument = CreatePrintableDocument(filePath);
                 if (printableDocument == IntPtr.Zero)
                 {
                     return PrintDialogOutcome.Failed;
@@ -396,7 +440,7 @@ public sealed partial class SystemPrintService : IPrintService
 
                 try
                 {
-                    var printInfo = ObjectiveC.SendIntPtr(
+                    IntPtr printInfo = ObjectiveC.SendIntPtr(
                         ObjectiveC.GetClass("NSPrintInfo"),
                         "sharedPrintInfo");
                     if (printInfo == IntPtr.Zero)
@@ -404,7 +448,7 @@ public sealed partial class SystemPrintService : IPrintService
                         return PrintDialogOutcome.Failed;
                     }
 
-                    var printOperation = ObjectiveC.SendIntPtr(
+                    IntPtr printOperation = ObjectiveC.SendIntPtr(
                         printableDocument,
                         "printOperationForPrintInfo:scalingMode:autoRotate:",
                         printInfo,
@@ -418,7 +462,7 @@ public sealed partial class SystemPrintService : IPrintService
                     ObjectiveC.SendVoid(printOperation, "setShowsPrintPanel:", Yes);
                     ObjectiveC.SendVoid(printOperation, "setShowsProgressPanel:", Yes);
 
-                    var jobTitle = CreateNSString(Path.GetFileName(filePath));
+                    IntPtr jobTitle = CreateNSString(Path.GetFileName(filePath));
                     if (jobTitle != IntPtr.Zero)
                     {
                         ObjectiveC.SendVoid(printOperation, "setJobTitle:", jobTitle);
@@ -456,13 +500,13 @@ public sealed partial class SystemPrintService : IPrintService
 
         private static IntPtr CreateAutoreleasePool()
         {
-            var poolClass = ObjectiveC.GetClass("NSAutoreleasePool");
+            IntPtr poolClass = ObjectiveC.GetClass("NSAutoreleasePool");
             if (poolClass == IntPtr.Zero)
             {
                 return IntPtr.Zero;
             }
 
-            var allocatedPool = ObjectiveC.SendIntPtr(poolClass, "alloc");
+            IntPtr allocatedPool = ObjectiveC.SendIntPtr(poolClass, "alloc");
             return allocatedPool == IntPtr.Zero
                 ? IntPtr.Zero
                 : ObjectiveC.SendIntPtr(allocatedPool, "init");
@@ -477,25 +521,25 @@ public sealed partial class SystemPrintService : IPrintService
 
         private static IntPtr CreatePdfDocumentFromPdf(string filePath)
         {
-            var fileUrl = CreateFileUrl(filePath);
+            IntPtr fileUrl = CreateFileUrl(filePath);
             if (fileUrl == IntPtr.Zero)
             {
                 return IntPtr.Zero;
             }
 
-            var pdfDocumentClass = ObjectiveC.GetClass("PDFDocument");
+            IntPtr pdfDocumentClass = ObjectiveC.GetClass("PDFDocument");
             if (pdfDocumentClass == IntPtr.Zero)
             {
                 return IntPtr.Zero;
             }
 
-            var allocatedDocument = ObjectiveC.SendIntPtr(pdfDocumentClass, "alloc");
+            IntPtr allocatedDocument = ObjectiveC.SendIntPtr(pdfDocumentClass, "alloc");
             if (allocatedDocument == IntPtr.Zero)
             {
                 return IntPtr.Zero;
             }
 
-            var document = ObjectiveC.SendIntPtr(allocatedDocument, "initWithURL:", fileUrl);
+            IntPtr document = ObjectiveC.SendIntPtr(allocatedDocument, "initWithURL:", fileUrl);
             if (document != IntPtr.Zero)
             {
                 return document;
@@ -507,15 +551,15 @@ public sealed partial class SystemPrintService : IPrintService
 
         private static IntPtr CreatePdfDocumentFromImage(string filePath)
         {
-            var imagePath = CreateNSString(filePath);
+            IntPtr imagePath = CreateNSString(filePath);
             if (imagePath == IntPtr.Zero)
             {
                 return IntPtr.Zero;
             }
 
-            var nsImageClass = ObjectiveC.GetClass("NSImage");
-            var pdfPageClass = ObjectiveC.GetClass("PDFPage");
-            var pdfDocumentClass = ObjectiveC.GetClass("PDFDocument");
+            IntPtr nsImageClass = ObjectiveC.GetClass("NSImage");
+            IntPtr pdfPageClass = ObjectiveC.GetClass("PDFPage");
+            IntPtr pdfDocumentClass = ObjectiveC.GetClass("PDFDocument");
             if (nsImageClass == IntPtr.Zero ||
                 pdfPageClass == IntPtr.Zero ||
                 pdfDocumentClass == IntPtr.Zero)
@@ -523,13 +567,13 @@ public sealed partial class SystemPrintService : IPrintService
                 return IntPtr.Zero;
             }
 
-            var allocatedImage = ObjectiveC.SendIntPtr(nsImageClass, "alloc");
+            IntPtr allocatedImage = ObjectiveC.SendIntPtr(nsImageClass, "alloc");
             if (allocatedImage == IntPtr.Zero)
             {
                 return IntPtr.Zero;
             }
 
-            var image = ObjectiveC.SendIntPtr(allocatedImage, "initWithContentsOfFile:", imagePath);
+            IntPtr image = ObjectiveC.SendIntPtr(allocatedImage, "initWithContentsOfFile:", imagePath);
             if (image == IntPtr.Zero)
             {
                 ObjectiveC.SendVoid(allocatedImage, "release");
@@ -538,13 +582,13 @@ public sealed partial class SystemPrintService : IPrintService
 
             try
             {
-                var allocatedPage = ObjectiveC.SendIntPtr(pdfPageClass, "alloc");
+                IntPtr allocatedPage = ObjectiveC.SendIntPtr(pdfPageClass, "alloc");
                 if (allocatedPage == IntPtr.Zero)
                 {
                     return IntPtr.Zero;
                 }
 
-                var page = ObjectiveC.SendIntPtr(allocatedPage, "initWithImage:", image);
+                IntPtr page = ObjectiveC.SendIntPtr(allocatedPage, "initWithImage:", image);
                 if (page == IntPtr.Zero)
                 {
                     ObjectiveC.SendVoid(allocatedPage, "release");
@@ -553,13 +597,13 @@ public sealed partial class SystemPrintService : IPrintService
 
                 try
                 {
-                    var allocatedDocument = ObjectiveC.SendIntPtr(pdfDocumentClass, "alloc");
+                    IntPtr allocatedDocument = ObjectiveC.SendIntPtr(pdfDocumentClass, "alloc");
                     if (allocatedDocument == IntPtr.Zero)
                     {
                         return IntPtr.Zero;
                     }
 
-                    var document = ObjectiveC.SendIntPtr(allocatedDocument, "init");
+                    IntPtr document = ObjectiveC.SendIntPtr(allocatedDocument, "init");
                     if (document == IntPtr.Zero)
                     {
                         ObjectiveC.SendVoid(allocatedDocument, "release");
@@ -582,7 +626,7 @@ public sealed partial class SystemPrintService : IPrintService
 
         private static IntPtr CreateFileUrl(string filePath)
         {
-            var pathString = CreateNSString(filePath);
+            IntPtr pathString = CreateNSString(filePath);
             if (pathString == IntPtr.Zero)
             {
                 return IntPtr.Zero;
@@ -601,7 +645,7 @@ public sealed partial class SystemPrintService : IPrintService
                 return IntPtr.Zero;
             }
 
-            var utf8Value = Marshal.StringToCoTaskMemUTF8(value);
+            IntPtr utf8Value = Marshal.StringToCoTaskMemUTF8(value);
             try
             {
                 return ObjectiveC.SendIntPtr(

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using Velune.Application.Abstractions;
 using Velune.Application.Configuration;
 using Velune.Application.DTOs;
+using Velune.Application.Results;
 using Velune.Application.Text;
 using Velune.Application.UseCases;
 using Velune.Domain.Abstractions;
@@ -23,28 +24,28 @@ public sealed class DocumentTextSelectionIntegrationTests
     public async Task SamplePdf_ShouldSelectExactEmbeddedTextFromDocumentSpace()
     {
         using var temporaryDirectory = new TemporaryDirectory();
-        var pdfPath = Path.Combine(AppContext.BaseDirectory, "Fixtures", "sample.pdf");
-        var textService = CreateTextService(temporaryDirectory.Path);
+        string pdfPath = Path.Combine(AppContext.BaseDirectory, "Fixtures", "sample.pdf");
+        IDocumentTextService textService = CreateTextService(temporaryDirectory.Path);
         var selectionService = new DocumentTextSelectionService();
         var searchUseCase = new SearchDocumentTextUseCase();
-        var session = await OpenSessionAsync(pdfPath);
+        IDocumentSession session = await OpenSessionAsync(pdfPath);
 
         try
         {
-            var loadResult = await textService.LoadAsync(session, ["eng"]);
+            Result<DocumentTextLoadResult> loadResult = await textService.LoadAsync(session, ["eng"]);
             Assert.True(loadResult.IsSuccess, loadResult.Error?.Message);
             Assert.NotNull(loadResult.Value?.Index);
 
-            var index = loadResult.Value!.Index!;
-            var hitResult = searchUseCase.Execute(
+            DocumentTextIndex index = loadResult.Value!.Index!;
+            Result<IReadOnlyList<SearchHit>> hitResult = searchUseCase.Execute(
                 new SearchDocumentTextRequest(
                     index,
                     new SearchQuery("Velune")));
 
             Assert.True(hitResult.IsSuccess);
             Assert.NotNull(hitResult.Value);
-            var hit = Assert.Single(hitResult.Value);
-            var region = Assert.Single(hit.Regions);
+            SearchHit hit = Assert.Single(hitResult.Value);
+            NormalizedTextRegion region = Assert.Single(hit.Regions);
             var request = new DocumentTextSelectionRequest(
                 session,
                 index,
@@ -52,15 +53,15 @@ public sealed class DocumentTextSelectionIntegrationTests
                 CreatePoint(index.Pages[0], region, 0.15),
                 CreatePoint(index.Pages[0], region, 0.85));
 
-            var selectionResult = selectionService.Resolve(request);
+            Result<DocumentTextSelectionResult> selectionResult = selectionService.Resolve(request);
 
             Assert.True(selectionResult.IsSuccess, selectionResult.Error?.Message);
             Assert.NotNull(selectionResult.Value);
             Assert.Equal("Velune", NormalizeText(selectionResult.Value!.SelectedText));
             Assert.NotEmpty(selectionResult.Value.Regions);
 
-            var selectionBounds = ComputeBounds(selectionResult.Value.Regions);
-            var expectedBounds = ComputeBounds(hit.Regions);
+            NormalizedTextRegion selectionBounds = ComputeBounds(selectionResult.Value.Regions);
+            NormalizedTextRegion expectedBounds = ComputeBounds(hit.Regions);
             Assert.InRange(Math.Abs(selectionBounds.X - expectedBounds.X), 0, 0.02);
             Assert.InRange(Math.Abs(selectionBounds.Y - expectedBounds.Y), 0, 0.02);
             Assert.InRange(Math.Abs(selectionBounds.Width - expectedBounds.Width), 0, 0.04);
@@ -76,23 +77,23 @@ public sealed class DocumentTextSelectionIntegrationTests
     public async Task OcrImage_ShouldSelectRecognizedWordFromDocumentSpace()
     {
         using var temporaryDirectory = new TemporaryDirectory();
-        var imagePath = Path.Combine(temporaryDirectory.Path, "ocr-image.pgm");
-        var raster = OcrTestAssetBuilder.CreateRaster("TEST");
+        string imagePath = Path.Combine(temporaryDirectory.Path, "ocr-image.pgm");
+        TextRaster raster = OcrTestAssetBuilder.CreateRaster("TEST");
         OcrTestAssetBuilder.WritePgm(imagePath, raster);
 
-        var textService = CreateTextService(temporaryDirectory.Path);
+        IDocumentTextService textService = CreateTextService(temporaryDirectory.Path);
         var selectionService = new DocumentTextSelectionService();
-        var session = CreateImageSession(imagePath, raster);
+        IDocumentSession session = CreateImageSession(imagePath, raster);
 
         try
         {
-            var ocrResult = await textService.RunOcrAsync(session, ["eng"]);
+            Result<DocumentTextIndex> ocrResult = await textService.RunOcrAsync(session, ["eng"]);
             Assert.True(ocrResult.IsSuccess, ocrResult.Error?.Message);
             Assert.NotNull(ocrResult.Value);
 
-            var page = ocrResult.Value!.Pages[0];
-            var run = Assert.Single(page.Runs);
-            var region = Assert.Single(run.Regions);
+            PageTextContent page = ocrResult.Value!.Pages[0];
+            TextRun run = Assert.Single(page.Runs);
+            NormalizedTextRegion region = Assert.Single(run.Regions);
             var request = new DocumentTextSelectionRequest(
                 session,
                 ocrResult.Value,
@@ -100,7 +101,7 @@ public sealed class DocumentTextSelectionIntegrationTests
                 CreatePoint(page, region, 0.2),
                 CreatePoint(page, region, 0.8));
 
-            var selectionResult = selectionService.Resolve(request);
+            Result<DocumentTextSelectionResult> selectionResult = selectionService.Resolve(request);
 
             Assert.True(selectionResult.IsSuccess, selectionResult.Error?.Message);
             Assert.NotNull(selectionResult.Value);
@@ -125,7 +126,7 @@ public sealed class DocumentTextSelectionIntegrationTests
 
     private static IDocumentTextService CreateTextService(string cachePath)
     {
-        var options = Options.Create(new AppOptions
+        IOptions<AppOptions> options = Options.Create(new AppOptions
         {
             OcrCachePath = cachePath,
             TesseractExecutablePath = TesseractTestSupport.GetExecutablePath(),
@@ -135,7 +136,7 @@ public sealed class DocumentTextSelectionIntegrationTests
             new DocumentTextDiskCache(NullLogger<DocumentTextDiskCache>.Instance, options),
             new TesseractOcrEngine(options),
             new DispatchingRenderService(
-                new PdfiumRenderService(IntegrationPdfium.Initializer),
+                new PdfiumRenderService(IntegrationPdfium.Initializer, IntegrationPdfium.ExecutionGate),
                 new ImageRenderService()),
             options);
     }
@@ -144,11 +145,11 @@ public sealed class DocumentTextSelectionIntegrationTests
     {
         if (string.Equals(Path.GetExtension(filePath), ".pdf", StringComparison.OrdinalIgnoreCase))
         {
-            return new PdfiumDocumentOpener(IntegrationPdfium.Initializer).Open(filePath);
+            return new PdfiumDocumentOpener(IntegrationPdfium.Initializer, IntegrationPdfium.ExecutionGate).Open(filePath);
         }
 
         var fileInfo = new FileInfo(filePath);
-        var imageInfo = ImageInfoReader.ReadPng(filePath);
+        ImageInfo imageInfo = ImageInfoReader.ReadPng(filePath);
 
         return new TestImageDocumentSession(
             DocumentId.New(),
@@ -208,10 +209,10 @@ public sealed class DocumentTextSelectionIntegrationTests
 
     private static NormalizedTextRegion ComputeBounds(IReadOnlyList<NormalizedTextRegion> regions)
     {
-        var left = regions.Min(region => region.X);
-        var top = regions.Min(region => region.Y);
-        var right = regions.Max(region => region.X + region.Width);
-        var bottom = regions.Max(region => region.Y + region.Height);
+        double left = regions.Min(region => region.X);
+        double top = regions.Min(region => region.Y);
+        double right = regions.Max(region => region.X + region.Width);
+        double bottom = regions.Max(region => region.Y + region.Height);
 
         return new NormalizedTextRegion(left, top, right - left, bottom - top);
     }

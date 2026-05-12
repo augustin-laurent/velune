@@ -1,5 +1,8 @@
 namespace Velune.Domain.Documents;
 
+/// <summary>
+/// Immutable metadata describing an opened document (name, path, size, page count, etc.).
+/// </summary>
 public sealed record DocumentMetadata
 {
     public string FileName
@@ -18,18 +21,30 @@ public sealed record DocumentMetadata
     {
         get; init;
     }
+    /// <summary>
+    /// Total number of pages; null for single-page documents like images.
+    /// </summary>
     public int? PageCount
     {
         get; init;
     }
+    /// <summary>
+    /// Native pixel width of the document; null if not applicable.
+    /// </summary>
     public int? PixelWidth
     {
         get; init;
     }
+    /// <summary>
+    /// Native pixel height of the document; null if not applicable.
+    /// </summary>
     public int? PixelHeight
     {
         get; init;
     }
+    /// <summary>
+    /// Human-readable format label (e.g. "PDF 1.7", "PNG").
+    /// </summary>
     public string? FormatLabel
     {
         get; init;
@@ -42,6 +57,9 @@ public sealed record DocumentMetadata
     {
         get; init;
     }
+    /// <summary>
+    /// Title embedded in the document metadata; null if absent.
+    /// </summary>
     public string? DocumentTitle
     {
         get; init;
@@ -50,14 +68,23 @@ public sealed record DocumentMetadata
     {
         get; init;
     }
+    /// <summary>
+    /// Application that created the document.
+    /// </summary>
     public string? Creator
     {
         get; init;
     }
+    /// <summary>
+    /// Application that produced the file (e.g. PDF producer).
+    /// </summary>
     public string? Producer
     {
         get; init;
     }
+    /// <summary>
+    /// Warning message shown in the details panel (e.g. unsupported features).
+    /// </summary>
     public string? DetailsWarning
     {
         get; init;

@@ -1,7 +1,11 @@
 namespace Velune.Application.DTOs;
 
+/// <summary>Represents a normalized coordinate point for text selection.</summary>
 public sealed record DocumentTextSelectionPoint
 {
+    /// <summary>Creates a selection point with validated coordinates.</summary>
+    /// <param name="x">Non-negative X coordinate.</param>
+    /// <param name="y">Non-negative Y coordinate.</param>
     public DocumentTextSelectionPoint(double x, double y)
     {
         if (double.IsNaN(x) || double.IsInfinity(x) || x < 0)

@@ -1,22 +1,99 @@
+using System.Text;
 using Velune.Application.Abstractions;
 using Velune.Application.DTOs;
 using Velune.Application.Results;
 using Velune.Domain.Documents;
-using Velune.Infrastructure.Pdf;
-using System.Text;
+using Velune.Domain.ValueObjects;
 
 namespace Velune.Infrastructure.Text;
 
+/// <summary>
+/// Resolves text selections from anchor/active point pairs within a page's text content.
+/// </summary>
 public sealed class DocumentTextSelectionService : IDocumentTextSelectionService
 {
-    private const double PdfHitToleranceFactor = 0.015;
-    private const double MinimumPdfHitTolerance = 4.0;
+    /// <inheritdoc />
+    public Result<DocumentTextSelectionResult> ResolveByRange(
+        DocumentTextIndex index,
+        PageIndex pageIndex,
+        int startCharacterIndex,
+        int endCharacterIndex)
+    {
+        ArgumentNullException.ThrowIfNull(index);
 
+        PageTextContent? pageContent = index.Pages
+            .FirstOrDefault(page => page.PageIndex == pageIndex);
+        if (pageContent is null)
+        {
+            return ResultFactory.Failure<DocumentTextSelectionResult>(
+                AppError.Validation(
+                    "document.text.selection.page.missing",
+                    "The selected page has no searchable text content."));
+        }
+
+        startCharacterIndex = Math.Max(0, startCharacterIndex);
+        endCharacterIndex = Math.Min(pageContent.Text.Length - 1, endCharacterIndex);
+        if (startCharacterIndex > endCharacterIndex)
+        {
+            return ResultFactory.Success(CreateEmptySelection(pageContent));
+        }
+
+        if (pageContent.SourceKind is TextSourceKind.EmbeddedPdfText &&
+            pageContent.CharacterRegionsByIndex.Count > 0)
+        {
+            List<SelectableCharacter> selectableCharacters = ResolveSelectableCharacters(pageContent);
+            NormalizedTextRegion[] selectedRegions = selectableCharacters
+                .Where(c => c.TextIndex >= startCharacterIndex && c.TextIndex <= endCharacterIndex)
+                .OrderBy(c => c.TextIndex)
+                .Select(c => c.Region)
+                .ToArray();
+
+            if (selectedRegions.Length == 0)
+            {
+                return ResultFactory.Success(CreateEmptySelection(pageContent));
+            }
+
+            string? selectedText = NormalizeSelectedText(
+                pageContent.Text[startCharacterIndex..Math.Min(pageContent.Text.Length, endCharacterIndex + 1)]);
+            List<NormalizedTextRegion> regions = MergeNearbyRegions(
+                selectedRegions, pageContent.SourceWidth, pageContent.SourceHeight);
+
+            return ResultFactory.Success(
+                new DocumentTextSelectionResult(
+                    pageContent.PageIndex, selectedText, regions,
+                    pageContent.SourceKind, startCharacterIndex, endCharacterIndex));
+        }
+
+        // Run-based: select runs that overlap the character range
+        List<SelectableRun> selectableRuns = ResolveSelectableRuns(pageContent);
+        SelectableRun[] overlapping = selectableRuns
+            .Where(r => r.Run.StartIndex + r.Run.Length > startCharacterIndex &&
+                        r.Run.StartIndex <= endCharacterIndex)
+            .OrderBy(r => r.OrderedIndex)
+            .ToArray();
+
+        if (overlapping.Length == 0)
+        {
+            return ResultFactory.Success(CreateEmptySelection(pageContent));
+        }
+
+        List<NormalizedTextRegion> runRegions = MergeNearbyRegions(
+            overlapping.SelectMany(r => r.Run.Regions), pageContent.SourceWidth, pageContent.SourceHeight);
+        string? runText = NormalizeSelectedText(
+            pageContent.Text[startCharacterIndex..Math.Min(pageContent.Text.Length, endCharacterIndex + 1)]);
+
+        return ResultFactory.Success(
+            new DocumentTextSelectionResult(
+                pageContent.PageIndex, runText, runRegions,
+                pageContent.SourceKind, startCharacterIndex, endCharacterIndex));
+    }
+
+    /// <inheritdoc />
     public Result<DocumentTextSelectionResult> Resolve(DocumentTextSelectionRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var pageContent = request.Index.Pages
+        PageTextContent? pageContent = request.Index.Pages
             .FirstOrDefault(page => page.PageIndex == request.PageIndex);
         if (pageContent is null)
         {
@@ -27,34 +104,82 @@ public sealed class DocumentTextSelectionService : IDocumentTextSelectionService
         }
 
         if (pageContent.SourceKind is TextSourceKind.EmbeddedPdfText &&
-            request.Session is PdfiumDocumentSession pdfSession)
+            pageContent.CharacterRegionsByIndex.Count > 0)
         {
-            return SelectPdfText(pdfSession, pageContent, request);
+            return SelectCharacterBasedText(pageContent, request);
         }
 
         return SelectRunBasedText(pageContent, request);
+    }
+
+    private static Result<DocumentTextSelectionResult> SelectCharacterBasedText(
+        PageTextContent pageContent,
+        DocumentTextSelectionRequest request)
+    {
+        List<SelectableCharacter> selectableCharacters = ResolveSelectableCharacters(pageContent);
+        if (selectableCharacters.Count == 0)
+        {
+            return ResultFactory.Success(CreateEmptySelection(pageContent));
+        }
+
+        SelectableCharacter? anchorCharacter = FindNearestCharacter(selectableCharacters, request.AnchorPoint);
+        SelectableCharacter? activeCharacter = FindNearestCharacter(selectableCharacters, request.ActivePoint) ?? anchorCharacter;
+        if (anchorCharacter is null || activeCharacter is null)
+        {
+            return ResultFactory.Success(CreateEmptySelection(pageContent));
+        }
+
+        int startIndex = Math.Min(anchorCharacter.TextIndex, activeCharacter.TextIndex);
+        int endIndex = Math.Max(anchorCharacter.TextIndex, activeCharacter.TextIndex);
+        NormalizedTextRegion[] selectedRegions = selectableCharacters
+            .Where(character => character.TextIndex >= startIndex && character.TextIndex <= endIndex)
+            .OrderBy(character => character.TextIndex)
+            .Select(character => character.Region)
+            .ToArray();
+
+        if (selectedRegions.Length == 0)
+        {
+            return ResultFactory.Success(CreateEmptySelection(pageContent));
+        }
+
+        string? selectedText = endIndex >= startIndex && startIndex < pageContent.Text.Length
+            ? NormalizeSelectedText(pageContent.Text[startIndex..Math.Min(pageContent.Text.Length, endIndex + 1)])
+            : null;
+        List<NormalizedTextRegion> regions = MergeNearbyRegions(
+            selectedRegions,
+            pageContent.SourceWidth,
+            pageContent.SourceHeight);
+
+        return ResultFactory.Success(
+            new DocumentTextSelectionResult(
+                pageContent.PageIndex,
+                selectedText,
+                regions,
+                pageContent.SourceKind,
+                startIndex,
+                endIndex));
     }
 
     private static Result<DocumentTextSelectionResult> SelectRunBasedText(
         PageTextContent pageContent,
         DocumentTextSelectionRequest request)
     {
-        var selectableRuns = ResolveSelectableRuns(pageContent);
+        List<SelectableRun> selectableRuns = ResolveSelectableRuns(pageContent);
         if (selectableRuns.Count == 0)
         {
             return ResultFactory.Success(CreateEmptySelection(pageContent));
         }
 
-        var anchorRun = FindNearestRun(selectableRuns, request.AnchorPoint);
-        var activeRun = FindNearestRun(selectableRuns, request.ActivePoint);
+        SelectableRun? anchorRun = FindNearestRun(selectableRuns, request.AnchorPoint);
+        SelectableRun? activeRun = FindNearestRun(selectableRuns, request.ActivePoint);
         if (anchorRun is null || activeRun is null)
         {
             return ResultFactory.Success(CreateEmptySelection(pageContent));
         }
 
-        var startIndex = Math.Min(anchorRun.OrderedIndex, activeRun.OrderedIndex);
-        var endIndex = Math.Max(anchorRun.OrderedIndex, activeRun.OrderedIndex);
-        var selectedRuns = selectableRuns
+        int startIndex = Math.Min(anchorRun.OrderedIndex, activeRun.OrderedIndex);
+        int endIndex = Math.Max(anchorRun.OrderedIndex, activeRun.OrderedIndex);
+        SelectableRun[] selectedRuns = selectableRuns
             .Where(run => run.OrderedIndex >= startIndex && run.OrderedIndex <= endIndex)
             .OrderBy(run => run.OrderedIndex)
             .ToArray();
@@ -64,17 +189,17 @@ public sealed class DocumentTextSelectionService : IDocumentTextSelectionService
             return ResultFactory.Success(CreateEmptySelection(pageContent));
         }
 
-        var regions = MergeNearbyRegions(
+        List<NormalizedTextRegion> regions = MergeNearbyRegions(
             selectedRuns.SelectMany(run => run.Run.Regions),
             pageContent.SourceWidth,
             pageContent.SourceHeight);
 
-        var selectionStart = selectedRuns[0].Run.StartIndex;
-        var selectionEnd = Math.Min(
+        int selectionStart = selectedRuns[0].Run.StartIndex;
+        int selectionEnd = Math.Min(
             pageContent.Text.Length,
             selectedRuns[^1].Run.StartIndex + selectedRuns[^1].Run.Length);
 
-        var selectedText = selectionEnd > selectionStart
+        string? selectedText = selectionEnd > selectionStart
             ? NormalizeSelectedText(pageContent.Text[selectionStart..selectionEnd])
             : null;
 
@@ -83,133 +208,9 @@ public sealed class DocumentTextSelectionService : IDocumentTextSelectionService
                 pageContent.PageIndex,
                 selectedText,
                 regions,
-                pageContent.SourceKind));
-    }
-
-    private static Result<DocumentTextSelectionResult> SelectPdfText(
-        PdfiumDocumentSession session,
-        PageTextContent pageContent,
-        DocumentTextSelectionRequest request)
-    {
-        var pageHandle = PdfiumNative.FPDF_LoadPage(session.Resource.Handle, request.PageIndex.Value);
-        if (pageHandle == nint.Zero)
-        {
-            return ResultFactory.Failure<DocumentTextSelectionResult>(
-                AppError.Infrastructure(
-                    "document.text.selection.pdf.page_load_failed",
-                    "The PDF page could not be loaded for text selection."));
-        }
-
-        try
-        {
-            var textPageHandle = PdfiumNative.FPDFText_LoadPage(pageHandle);
-            if (textPageHandle == nint.Zero)
-            {
-                return ResultFactory.Failure<DocumentTextSelectionResult>(
-                    AppError.Infrastructure(
-                        "document.text.selection.pdf.text_page_load_failed",
-                        "The PDF text layer could not be loaded for selection."));
-            }
-
-            try
-            {
-                var anchorIndex = FindNearestPdfCharIndex(textPageHandle, pageContent, request.AnchorPoint);
-                if (anchorIndex < 0)
-                {
-                    return ResultFactory.Success(CreateEmptySelection(pageContent));
-                }
-
-                var activeIndex = FindNearestPdfCharIndex(textPageHandle, pageContent, request.ActivePoint);
-                if (activeIndex < 0)
-                {
-                    activeIndex = anchorIndex;
-                }
-
-                var startIndex = Math.Min(anchorIndex, activeIndex);
-                var count = Math.Abs(activeIndex - anchorIndex) + 1;
-                var selectedText = NormalizeSelectedText(ExtractPdfText(textPageHandle, startIndex, count));
-                var regions = ExtractPdfSelectionRegions(pageContent, startIndex, count);
-
-                return ResultFactory.Success(
-                    new DocumentTextSelectionResult(
-                        pageContent.PageIndex,
-                        selectedText,
-                        regions,
-                        pageContent.SourceKind));
-            }
-            finally
-            {
-                PdfiumNative.FPDFText_ClosePage(textPageHandle);
-            }
-        }
-        finally
-        {
-            PdfiumNative.FPDF_ClosePage(pageHandle);
-        }
-    }
-
-    private static int FindNearestPdfCharIndex(
-        nint textPageHandle,
-        PageTextContent pageContent,
-        DocumentTextSelectionPoint point)
-    {
-        var xTolerance = Math.Max(MinimumPdfHitTolerance, pageContent.SourceWidth * PdfHitToleranceFactor);
-        var yTolerance = Math.Max(MinimumPdfHitTolerance, pageContent.SourceHeight * PdfHitToleranceFactor);
-        var pdfX = Math.Clamp(point.X, 0, pageContent.SourceWidth);
-        var pdfY = Math.Clamp(pageContent.SourceHeight - point.Y, 0, pageContent.SourceHeight);
-
-        return PdfiumNative.FPDFText_GetCharIndexAtPos(
-            textPageHandle,
-            pdfX,
-            pdfY,
-            xTolerance,
-            yTolerance);
-    }
-
-    private static string? ExtractPdfText(nint textPageHandle, int startIndex, int count)
-    {
-        if (count <= 0)
-        {
-            return null;
-        }
-
-        var buffer = new ushort[count + 1];
-        var written = PdfiumNative.FPDFText_GetText(textPageHandle, startIndex, count, buffer);
-        if (written <= 1)
-        {
-            return null;
-        }
-
-        return new string(buffer[..(written - 1)].Select(value => (char)value).ToArray()).Trim();
-    }
-
-    private static List<NormalizedTextRegion> ExtractPdfSelectionRegions(
-        PageTextContent pageContent,
-        int startIndex,
-        int count)
-    {
-        if (count <= 0)
-        {
-            return [];
-        }
-
-        if (pageContent.CharacterRegionsByIndex.Count == 0)
-        {
-            return [];
-        }
-
-        var selectedRegions = new List<NormalizedTextRegion>(count);
-        for (var characterIndex = startIndex; characterIndex < startIndex + count; characterIndex++)
-        {
-            if (!pageContent.CharacterRegionsByIndex.TryGetValue(characterIndex, out var region))
-            {
-                continue;
-            }
-
-            selectedRegions.Add(region);
-        }
-
-        return MergeNearbyRegions(selectedRegions, pageContent.SourceWidth, pageContent.SourceHeight);
+                pageContent.SourceKind,
+                selectionStart,
+                selectionEnd - 1));
     }
 
     private static List<NormalizedTextRegion> MergeNearbyRegions(
@@ -233,11 +234,11 @@ public sealed class DocumentTextSelectionService : IDocumentTextSelectionService
         }
 
         var merged = new List<SourceBox>(boxes.Count);
-        var current = boxes[0];
+        SourceBox current = boxes[0];
 
-        for (var index = 1; index < boxes.Count; index++)
+        for (int index = 1; index < boxes.Count; index++)
         {
-            var next = boxes[index];
+            SourceBox next = boxes[index];
             if (ShouldMergeIntoSameLine(current, next))
             {
                 current = new SourceBox(
@@ -262,10 +263,10 @@ public sealed class DocumentTextSelectionService : IDocumentTextSelectionService
 
     private static bool ShouldMergeIntoSameLine(SourceBox current, SourceBox next)
     {
-        var verticalOverlap = Math.Min(current.Bottom, next.Bottom) - Math.Max(current.Top, next.Top);
-        var minimumHeight = Math.Min(current.Height, next.Height);
-        var maximumHeight = Math.Max(current.Height, next.Height);
-        var centerDistance = Math.Abs(current.CenterY - next.CenterY);
+        double verticalOverlap = Math.Min(current.Bottom, next.Bottom) - Math.Max(current.Top, next.Top);
+        double minimumHeight = Math.Min(current.Height, next.Height);
+        double maximumHeight = Math.Max(current.Height, next.Height);
+        double centerDistance = Math.Abs(current.CenterY - next.CenterY);
 
         if (verticalOverlap >= minimumHeight * 0.2)
         {
@@ -280,14 +281,14 @@ public sealed class DocumentTextSelectionService : IDocumentTextSelectionService
         double sourceWidth,
         double sourceHeight)
     {
-        var boxHeight = Math.Max(0, box.Bottom - box.Top);
-        var horizontalPadding = Math.Max(1.5, boxHeight * 0.12);
-        var verticalPadding = Math.Max(1.5, boxHeight * 0.18);
+        double boxHeight = Math.Max(0, box.Bottom - box.Top);
+        double horizontalPadding = Math.Max(1.5, boxHeight * 0.12);
+        double verticalPadding = Math.Max(1.5, boxHeight * 0.18);
 
-        var left = Math.Max(0, box.Left - horizontalPadding);
-        var top = Math.Max(0, box.Top - verticalPadding);
-        var right = Math.Min(sourceWidth, box.Right + horizontalPadding);
-        var bottom = Math.Min(sourceHeight, box.Bottom + verticalPadding);
+        double left = Math.Max(0, box.Left - horizontalPadding);
+        double top = Math.Max(0, box.Top - verticalPadding);
+        double right = Math.Min(sourceWidth, box.Right + horizontalPadding);
+        double bottom = Math.Min(sourceHeight, box.Bottom + verticalPadding);
 
         return new NormalizedTextRegion(
             left / sourceWidth,
@@ -304,9 +305,9 @@ public sealed class DocumentTextSelectionService : IDocumentTextSelectionService
         }
 
         var buffer = new StringBuilder(text.Length);
-        var previousWasWhitespace = false;
+        bool previousWasWhitespace = false;
 
-        foreach (var character in text.Trim())
+        foreach (char character in text.Trim())
         {
             if (char.IsWhiteSpace(character))
             {
@@ -331,15 +332,15 @@ public sealed class DocumentTextSelectionService : IDocumentTextSelectionService
 
     private static List<SelectableRun> ResolveSelectableRuns(PageTextContent pageContent)
     {
-        var orderedRuns = pageContent.Runs
+        TextRun[] orderedRuns = pageContent.Runs
             .OrderBy(run => run.StartIndex)
             .ToArray();
 
         var selectableRuns = new List<SelectableRun>(orderedRuns.Length);
 
-        for (var index = 0; index < orderedRuns.Length; index++)
+        for (int index = 0; index < orderedRuns.Length; index++)
         {
-            if (!TryGetRunBounds(pageContent, orderedRuns[index], out var left, out var top, out var right, out var bottom))
+            if (!TryGetRunBounds(pageContent, orderedRuns[index], out double left, out double top, out double right, out double bottom))
             {
                 continue;
             }
@@ -386,21 +387,21 @@ public sealed class DocumentTextSelectionService : IDocumentTextSelectionService
         }
 
         SelectableRun? nearestRun = null;
-        var nearestDistance = double.MaxValue;
+        double nearestDistance = double.MaxValue;
 
-        foreach (var run in selectableRuns)
+        foreach (SelectableRun run in selectableRuns)
         {
-            var horizontalDistance = point.X < run.Left
+            double horizontalDistance = point.X < run.Left
                 ? run.Left - point.X
                 : point.X > run.Right
                     ? point.X - run.Right
                     : 0;
-            var verticalDistance = point.Y < run.Top
+            double verticalDistance = point.Y < run.Top
                 ? run.Top - point.Y
                 : point.Y > run.Bottom
                     ? point.Y - run.Bottom
                     : 0;
-            var distance = (horizontalDistance * horizontalDistance) + (verticalDistance * verticalDistance);
+            double distance = (horizontalDistance * horizontalDistance) + (verticalDistance * verticalDistance);
 
             if (distance < nearestDistance)
             {
@@ -410,6 +411,68 @@ public sealed class DocumentTextSelectionService : IDocumentTextSelectionService
         }
 
         return nearestRun;
+    }
+
+    private static List<SelectableCharacter> ResolveSelectableCharacters(PageTextContent pageContent)
+    {
+        var selectableCharacters = new List<SelectableCharacter>(pageContent.CharacterRegionsByIndex.Count);
+
+        foreach ((int textIndex, NormalizedTextRegion region) in pageContent.CharacterRegionsByIndex.OrderBy(entry => entry.Key))
+        {
+            if (textIndex < 0 || textIndex >= pageContent.Text.Length)
+            {
+                continue;
+            }
+
+            double left = region.X * pageContent.SourceWidth;
+            double top = region.Y * pageContent.SourceHeight;
+            double right = (region.X + region.Width) * pageContent.SourceWidth;
+            double bottom = (region.Y + region.Height) * pageContent.SourceHeight;
+            if (right <= left || bottom <= top)
+            {
+                continue;
+            }
+
+            selectableCharacters.Add(new SelectableCharacter(textIndex, region, left, top, right, bottom));
+        }
+
+        return selectableCharacters;
+    }
+
+    private static SelectableCharacter? FindNearestCharacter(
+        IReadOnlyList<SelectableCharacter> selectableCharacters,
+        DocumentTextSelectionPoint point)
+    {
+        if (selectableCharacters.Count == 0)
+        {
+            return null;
+        }
+
+        SelectableCharacter? nearestCharacter = null;
+        double nearestDistance = double.MaxValue;
+
+        foreach (SelectableCharacter character in selectableCharacters)
+        {
+            double horizontalDistance = point.X < character.Left
+                ? character.Left - point.X
+                : point.X > character.Right
+                    ? point.X - character.Right
+                    : 0;
+            double verticalDistance = point.Y < character.Top
+                ? character.Top - point.Y
+                : point.Y > character.Bottom
+                    ? point.Y - character.Bottom
+                    : 0;
+            double distance = (horizontalDistance * horizontalDistance) + (verticalDistance * verticalDistance);
+
+            if (distance < nearestDistance)
+            {
+                nearestDistance = distance;
+                nearestCharacter = character;
+            }
+        }
+
+        return nearestCharacter;
     }
 
     private static DocumentTextSelectionResult CreateEmptySelection(PageTextContent pageContent)
@@ -424,6 +487,14 @@ public sealed class DocumentTextSelectionService : IDocumentTextSelectionService
     private sealed record SelectableRun(
         int OrderedIndex,
         TextRun Run,
+        double Left,
+        double Top,
+        double Right,
+        double Bottom);
+
+    private sealed record SelectableCharacter(
+        int TextIndex,
+        NormalizedTextRegion Region,
         double Left,
         double Top,
         double Right,

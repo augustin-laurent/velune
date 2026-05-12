@@ -6,8 +6,16 @@ using Velune.Presentation.Views;
 
 namespace Velune.Presentation.DependencyInjection;
 
+/// <summary>
+/// Extension methods for registering presentation layer services.
+/// </summary>
 public static class ServiceCollectionExtensions
 {
+    /// <summary>
+    /// Registers all presentation layer services into the container.
+    /// </summary>
+    /// <param name="services">The service collection to populate.</param>
+    /// <returns>The same service collection for chaining.</returns>
     public static IServiceCollection AddPresentation(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);

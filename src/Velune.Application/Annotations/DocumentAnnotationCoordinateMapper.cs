@@ -4,8 +4,20 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Application.Annotations;
 
+/// <summary>
+/// Maps coordinates between visual (screen) space and normalized (0-1) document space for annotations.
+/// </summary>
 public static class DocumentAnnotationCoordinateMapper
 {
+    /// <summary>
+    /// Converts a visual point to a normalized coordinate, accounting for rotation.
+    /// </summary>
+    /// <param name="visualX">X position in visual layer pixels.</param>
+    /// <param name="visualY">Y position in visual layer pixels.</param>
+    /// <param name="layerWidth">Width of the visual layer.</param>
+    /// <param name="layerHeight">Height of the visual layer.</param>
+    /// <param name="rotation">Current page rotation.</param>
+    /// <returns>A normalized point in the range [0,1].</returns>
     public static NormalizedPoint MapVisualPointToNormalized(
         double visualX,
         double visualY,
@@ -18,8 +30,8 @@ public static class DocumentAnnotationCoordinateMapper
             throw new ArgumentOutOfRangeException(nameof(layerWidth), "Layer dimensions must be greater than zero.");
         }
 
-        var xRatio = Math.Clamp(visualX / layerWidth, 0, 1);
-        var yRatio = Math.Clamp(visualY / layerHeight, 0, 1);
+        double xRatio = Math.Clamp(visualX / layerWidth, 0, 1);
+        double yRatio = Math.Clamp(visualY / layerHeight, 0, 1);
 
         return rotation switch
         {
@@ -40,7 +52,7 @@ public static class DocumentAnnotationCoordinateMapper
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(targetWidth);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(targetHeight);
 
-        var (xRatio, yRatio) = rotation switch
+        (double xRatio, double yRatio) = rotation switch
         {
             Rotation.Deg90 => (1 - point.Y, point.X),
             Rotation.Deg180 => (1 - point.X, 1 - point.Y),
@@ -60,13 +72,13 @@ public static class DocumentAnnotationCoordinateMapper
         ArgumentNullException.ThrowIfNull(start);
         ArgumentNullException.ThrowIfNull(end);
 
-        var left = Math.Min(start.X, end.X);
-        var top = Math.Min(start.Y, end.Y);
-        var right = Math.Max(start.X, end.X);
-        var bottom = Math.Max(start.Y, end.Y);
+        double left = Math.Min(start.X, end.X);
+        double top = Math.Min(start.Y, end.Y);
+        double right = Math.Max(start.X, end.X);
+        double bottom = Math.Max(start.Y, end.Y);
 
-        var width = Math.Max(0.001, right - left);
-        var height = Math.Max(0.001, bottom - top);
+        double width = Math.Max(0.001, right - left);
+        double height = Math.Max(0.001, bottom - top);
 
         return new NormalizedTextRegion(left, top, Math.Min(1 - left, width), Math.Min(1 - top, height));
     }
@@ -78,10 +90,10 @@ public static class DocumentAnnotationCoordinateMapper
     {
         ArgumentNullException.ThrowIfNull(point);
 
-        var width = Math.Clamp(widthRatio, 0.02, 1);
-        var height = Math.Clamp(heightRatio, 0.02, 1);
-        var left = Math.Clamp(point.X, 0, Math.Max(0, 1 - width));
-        var top = Math.Clamp(point.Y, 0, Math.Max(0, 1 - height));
+        double width = Math.Clamp(widthRatio, 0.02, 1);
+        double height = Math.Clamp(heightRatio, 0.02, 1);
+        double left = Math.Clamp(point.X, 0, Math.Max(0, 1 - width));
+        double top = Math.Clamp(point.Y, 0, Math.Max(0, 1 - height));
 
         return new NormalizedTextRegion(left, top, width, height);
     }
@@ -92,7 +104,7 @@ public static class DocumentAnnotationCoordinateMapper
     {
         ArgumentNullException.ThrowIfNull(region);
 
-        var points = new[]
+        NormalizedPoint[] points = new[]
         {
             new NormalizedPoint(region.X, region.Y),
             new NormalizedPoint(region.X + region.Width, region.Y),
@@ -100,14 +112,14 @@ public static class DocumentAnnotationCoordinateMapper
             new NormalizedPoint(region.X + region.Width, region.Y + region.Height)
         };
 
-        var visualPoints = points
+        (double X, double Y)[] visualPoints = points
             .Select(point => MapNormalizedPointToVisual(point, 1, 1, rotation))
             .ToArray();
 
-        var left = visualPoints.Min(point => point.X);
-        var top = visualPoints.Min(point => point.Y);
-        var right = visualPoints.Max(point => point.X);
-        var bottom = visualPoints.Max(point => point.Y);
+        double left = visualPoints.Min(point => point.X);
+        double top = visualPoints.Min(point => point.Y);
+        double right = visualPoints.Max(point => point.X);
+        double bottom = visualPoints.Max(point => point.Y);
 
         return new NormalizedTextRegion(left, top, Math.Max(0.001, right - left), Math.Max(0.001, bottom - top));
     }

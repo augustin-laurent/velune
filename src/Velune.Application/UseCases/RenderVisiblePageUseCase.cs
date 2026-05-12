@@ -7,11 +7,15 @@ using Velune.Domain.Documents;
 
 namespace Velune.Application.UseCases;
 
+/// <summary>Renders the currently visible page of the active document session.</summary>
 public sealed class RenderVisiblePageUseCase
 {
     private readonly IDocumentSessionStore _sessionStore;
     private readonly IRenderService _renderService;
 
+    /// <summary>Initializes a new instance of the <see cref="RenderVisiblePageUseCase"/> class.</summary>
+    /// <param name="sessionStore">The document session store.</param>
+    /// <param name="renderService">The render service implementation.</param>
     public RenderVisiblePageUseCase(
         IDocumentSessionStore sessionStore,
         IRenderService renderService)
@@ -23,6 +27,10 @@ public sealed class RenderVisiblePageUseCase
         _renderService = renderService;
     }
 
+    /// <summary>Renders the requested page at the specified zoom and rotation.</summary>
+    /// <param name="request">The render page request details.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A result containing the rendered page or an error.</returns>
     public async Task<Result<RenderedPage>> ExecuteAsync(
         RenderPageRequest request,
         CancellationToken cancellationToken = default)
@@ -30,7 +38,7 @@ public sealed class RenderVisiblePageUseCase
         ArgumentNullException.ThrowIfNull(request);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(request.ZoomFactor);
 
-        var session = _sessionStore.Current;
+        IDocumentSession? session = _sessionStore.Current;
         if (session is null)
         {
             return ResultFactory.Failure<RenderedPage>(
@@ -39,7 +47,7 @@ public sealed class RenderVisiblePageUseCase
                     "No active document session."));
         }
 
-        var pageCount = session.Metadata.PageCount;
+        int? pageCount = session.Metadata.PageCount;
         if (pageCount.HasValue &&
             (request.PageIndex.Value < 0 || request.PageIndex.Value >= pageCount.Value))
         {
@@ -51,7 +59,7 @@ public sealed class RenderVisiblePageUseCase
 
         try
         {
-            var renderedPage = await _renderService.RenderPageAsync(
+            RenderedPage renderedPage = await _renderService.RenderPageAsync(
                 session,
                 request.PageIndex,
                 request.ZoomFactor,

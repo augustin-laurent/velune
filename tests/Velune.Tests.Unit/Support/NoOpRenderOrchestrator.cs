@@ -6,7 +6,10 @@ namespace Velune.Tests.Unit.Support;
 
 public sealed class NoOpRenderOrchestrator : IRenderOrchestrator
 {
-    public DocumentId? CancelledDocumentId { get; private set; }
+    public DocumentId? CancelledDocumentId
+    {
+        get; private set;
+    }
 
     public RenderJobHandle Submit(RenderRequest request)
     {

@@ -20,7 +20,7 @@ public sealed class RenderVisiblePageUseCaseTests
             store,
             new ThrowingRenderService(new InvalidOperationException("render failed")));
 
-        var result = await useCase.ExecuteAsync(
+        Result<RenderedPage> result = await useCase.ExecuteAsync(
             new RenderPageRequest(new PageIndex(0), 1.0, Rotation.Deg0));
 
         Assert.True(result.IsFailure);
@@ -39,7 +39,7 @@ public sealed class RenderVisiblePageUseCaseTests
             store,
             new ThrowingRenderService(new ObjectDisposedException("PdfiumDocumentResource")));
 
-        var result = await useCase.ExecuteAsync(
+        Result<RenderedPage> result = await useCase.ExecuteAsync(
             new RenderPageRequest(new PageIndex(0), 1.0, Rotation.Deg0));
 
         Assert.True(result.IsFailure);

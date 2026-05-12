@@ -15,7 +15,7 @@ public sealed class RotateDocumentUseCaseTests
         var store = new InMemoryDocumentSessionStore();
         var useCase = new RotateDocumentUseCase(store);
 
-        var result = useCase.Execute(new RotateDocumentRequest(Rotation.Deg90));
+        Result<ViewportState> result = useCase.Execute(new RotateDocumentRequest(Rotation.Deg90));
 
         Assert.True(result.IsFailure);
         Assert.NotNull(result.Error);
@@ -26,10 +26,10 @@ public sealed class RotateDocumentUseCaseTests
     [Fact]
     public void Execute_ShouldUpdateViewportRotation_WhenSessionExists()
     {
-        var store = CreateStore();
+        InMemoryDocumentSessionStore store = CreateStore();
         var useCase = new RotateDocumentUseCase(store);
 
-        var result = useCase.Execute(new RotateDocumentRequest(Rotation.Deg270));
+        Result<ViewportState> result = useCase.Execute(new RotateDocumentRequest(Rotation.Deg270));
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(store.Current);

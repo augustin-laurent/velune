@@ -19,8 +19,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\src\Velune.Presentation\Velune.Presentation.csproj"/>
-        <ProjectReference Include="..\..\src\Velune.App\Velune.App.csproj"/>
         <ProjectReference Include="..\Velune.Tests.Render.Host\Velune.Tests.Render.Host.csproj"
                           ReferenceOutputAssembly="false"/>
     </ItemGroup>

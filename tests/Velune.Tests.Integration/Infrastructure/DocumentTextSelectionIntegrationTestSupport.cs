@@ -10,7 +10,10 @@ internal sealed class TemporaryDirectory : IDisposable
         Directory.CreateDirectory(Path);
     }
 
-    public string Path { get; }
+    public string Path
+    {
+        get;
+    }
 
     public void Dispose()
     {
@@ -23,6 +26,7 @@ internal sealed class TemporaryDirectory : IDisposable
         }
         catch
         {
+            // Do nothing
         }
     }
 }
@@ -35,21 +39,21 @@ internal static class ImageInfoReader
 {
     public static ImageInfo ReadPng(string filePath)
     {
-        using var stream = File.OpenRead(filePath);
+        using FileStream stream = File.OpenRead(filePath);
         Span<byte> header = stackalloc byte[24];
-        var read = stream.Read(header);
+        int read = stream.Read(header);
 
         if (read < 24)
         {
             throw new InvalidOperationException("The PNG header is incomplete.");
         }
 
-        var width =
+        int width =
             (header[16] << 24) |
             (header[17] << 16) |
             (header[18] << 8) |
             header[19];
-        var height =
+        int height =
             (header[20] << 24) |
             (header[21] << 16) |
             (header[22] << 8) |
@@ -61,7 +65,6 @@ internal static class ImageInfoReader
 
 internal static class OcrTestAssetBuilder
 {
-    private const int GlyphWidth = 5;
     private const int GlyphHeight = 7;
     private const int Scale = 18;
     private const int Margin = 24;
@@ -89,36 +92,36 @@ internal static class OcrTestAssetBuilder
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(text);
 
-        var uppercase = text.ToUpperInvariant();
-        var totalWidth = Margin * 2;
+        string uppercase = text.ToUpperInvariant();
+        int totalWidth = Margin * 2;
 
-        foreach (var character in uppercase)
+        foreach (char character in uppercase)
         {
-            var glyph = GetGlyph(character);
+            string[] glyph = GetGlyph(character);
             totalWidth += (glyph[0].Length * Scale) + Spacing;
         }
 
         totalWidth -= Spacing;
 
-        var totalHeight = Margin * 2 + (GlyphHeight * Scale);
-        var pixels = Enumerable.Repeat((byte)255, totalWidth * totalHeight).ToArray();
-        var currentX = Margin;
+        int totalHeight = Margin * 2 + (GlyphHeight * Scale);
+        byte[] pixels = Enumerable.Repeat((byte)255, totalWidth * totalHeight).ToArray();
+        int currentX = Margin;
 
-        foreach (var character in uppercase)
+        foreach (char character in uppercase)
         {
-            var glyph = GetGlyph(character);
+            string[] glyph = GetGlyph(character);
 
-            for (var row = 0; row < glyph.Length; row++)
+            for (int row = 0; row < glyph.Length; row++)
             {
-                for (var column = 0; column < glyph[row].Length; column++)
+                for (int column = 0; column < glyph[row].Length; column++)
                 {
                     if (glyph[row][column] != '1')
                     {
                         continue;
                     }
 
-                    var pixelX = currentX + (column * Scale);
-                    var pixelY = Margin + (row * Scale);
+                    int pixelX = currentX + (column * Scale);
+                    int pixelY = Margin + (row * Scale);
 
                     PaintGlyphBlock(pixels, totalWidth, totalHeight, pixelX, pixelY);
                 }
@@ -132,32 +135,32 @@ internal static class OcrTestAssetBuilder
 
     public static void WritePgm(string filePath, TextRaster raster)
     {
-        using var stream = File.Create(filePath);
+        using FileStream stream = File.Create(filePath);
         using var writer = new BinaryWriter(stream);
-        var header = $"P5\n{raster.Width} {raster.Height}\n255\n";
+        string header = $"P5\n{raster.Width} {raster.Height}\n255\n";
         writer.Write(System.Text.Encoding.ASCII.GetBytes(header));
         writer.Write(raster.GrayscalePixels);
     }
 
     public static void WriteScannedPdf(string pdfPath, TextRaster raster)
     {
-        var temporaryDirectory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "velune-ocr-pdf", Guid.NewGuid().ToString("N"));
+        string temporaryDirectory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "velune-ocr-pdf", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(temporaryDirectory);
 
         try
         {
-            var imagePath = System.IO.Path.Combine(temporaryDirectory, "page.pgm");
+            string imagePath = System.IO.Path.Combine(temporaryDirectory, "page.pgm");
             WritePgm(imagePath, raster);
 
-            var content = CreatePdfContent();
-            var pdfDirectory = System.IO.Path.GetDirectoryName(pdfPath);
+            string content = CreatePdfContent();
+            string? pdfDirectory = System.IO.Path.GetDirectoryName(pdfPath);
             if (!string.IsNullOrEmpty(pdfDirectory))
             {
                 Directory.CreateDirectory(pdfDirectory);
             }
 
             File.WriteAllText(pdfPath, content);
-            using var archive = ZipFile.Open(pdfPath, ZipArchiveMode.Update);
+            using ZipArchive archive = ZipFile.Open(pdfPath, ZipArchiveMode.Update);
             archive.CreateEntryFromFile(imagePath, "page.pgm");
         }
         finally
@@ -168,20 +171,21 @@ internal static class OcrTestAssetBuilder
             }
             catch
             {
+                // Do nothing
             }
         }
     }
 
     private static void PaintGlyphBlock(byte[] pixels, int width, int height, int startX, int startY)
     {
-        for (var y = startY; y < startY + Scale; y++)
+        for (int y = startY; y < startY + Scale; y++)
         {
             if (y < 0 || y >= height)
             {
                 continue;
             }
 
-            for (var x = startX; x < startX + Scale; x++)
+            for (int x = startX; x < startX + Scale; x++)
             {
                 if (x < 0 || x >= width)
                 {
@@ -195,7 +199,7 @@ internal static class OcrTestAssetBuilder
 
     private static string[] GetGlyph(char character)
     {
-        if (Glyphs.TryGetValue(character, out var glyph))
+        if (Glyphs.TryGetValue(character, out string[]? glyph))
         {
             return glyph;
         }
@@ -227,11 +231,11 @@ internal static class OcrTestAssetBuilder
                endobj
                xref
                0 5
-               0000000000 65535 f 
-               0000000010 00000 n 
-               0000000062 00000 n 
-               0000000122 00000 n 
-               0000000217 00000 n 
+               0000000000 65535 f
+               0000000010 00000 n
+               0000000062 00000 n
+               0000000122 00000 n
+               0000000217 00000 n
                trailer
                << /Size 5 /Root 1 0 R >>
                startxref

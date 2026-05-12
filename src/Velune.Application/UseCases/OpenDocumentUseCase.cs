@@ -6,6 +6,7 @@ using Velune.Domain.Abstractions;
 
 namespace Velune.Application.UseCases;
 
+/// <summary>Opens a document from a file path and creates a new session.</summary>
 public sealed class OpenDocumentUseCase
 {
     private readonly IDocumentOpener _documentOpener;
@@ -13,6 +14,11 @@ public sealed class OpenDocumentUseCase
     private readonly IRenderOrchestrator _renderOrchestrator;
     private readonly IDocumentSessionStore _sessionStore;
 
+    /// <summary>Initializes a new instance of the <see cref="OpenDocumentUseCase"/> class.</summary>
+    /// <param name="documentOpener">The service that opens documents from file paths.</param>
+    /// <param name="sessionStore">The store holding active document sessions.</param>
+    /// <param name="performanceMetrics">The performance metrics tracker.</param>
+    /// <param name="renderOrchestrator">The orchestrator managing render jobs.</param>
     public OpenDocumentUseCase(
         IDocumentOpener documentOpener,
         IDocumentSessionStore sessionStore,
@@ -30,6 +36,10 @@ public sealed class OpenDocumentUseCase
         _renderOrchestrator = renderOrchestrator;
     }
 
+    /// <summary>Opens the document specified in the request and establishes a session.</summary>
+    /// <param name="request">The request containing the file path and open mode.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The created document session on success, or a failure result.</returns>
     public async Task<Result<IDocumentSession>> ExecuteAsync(
         OpenDocumentRequest request,
         CancellationToken cancellationToken = default)
@@ -48,10 +58,10 @@ public sealed class OpenDocumentUseCase
 
         try
         {
-            var session = await _documentOpener.OpenAsync(request.FilePath, cancellationToken);
-            var previousSession = _sessionStore.Current;
+            IDocumentSession session = await _documentOpener.OpenAsync(request.FilePath, cancellationToken);
+            IDocumentSession? previousSession = _sessionStore.Current;
 
-            if (previousSession is not null)
+            if (previousSession is not null && request.OpenMode is DocumentOpenMode.ReplaceCurrent)
             {
                 await _renderOrchestrator.CancelDocumentJobsAsync(previousSession.Id, cancellationToken);
                 _performanceMetrics.Clear(previousSession.Id);
@@ -62,7 +72,13 @@ public sealed class OpenDocumentUseCase
                 }
             }
 
-            _sessionStore.SetCurrent(session);
+            if (request.OpenMode is DocumentOpenMode.ReplaceCurrent && previousSession is not null)
+            {
+                _sessionStore.Remove(previousSession.Id);
+            }
+
+            _sessionStore.Add(session, makeActive: true);
+
             _performanceMetrics.RecordDocumentOpened(session, stopwatch.Elapsed);
 
             return ResultFactory.Success(session);

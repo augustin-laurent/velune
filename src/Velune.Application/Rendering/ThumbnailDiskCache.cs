@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Logging;
@@ -10,6 +11,7 @@ using Velune.Domain.Documents;
 
 namespace Velune.Application.Rendering;
 
+/// <summary>Persists rendered thumbnails to disk using content-addressable file paths.</summary>
 public sealed partial class ThumbnailDiskCache : IThumbnailDiskCache
 {
     private const int CacheFileVersion = 1;
@@ -17,6 +19,9 @@ public sealed partial class ThumbnailDiskCache : IThumbnailDiskCache
     private readonly string _rootPath;
     private readonly TimeSpan _maxAge;
 
+    /// <summary>Initializes a new instance of the <see cref="ThumbnailDiskCache"/> class.</summary>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="options">The application options for cache configuration.</param>
     public ThumbnailDiskCache(
         ILogger<ThumbnailDiskCache> logger,
         IOptions<AppOptions> options)
@@ -33,6 +38,7 @@ public sealed partial class ThumbnailDiskCache : IThumbnailDiskCache
         CleanupExpiredEntries();
     }
 
+    /// <inheritdoc />
     public bool TryGet(
         IDocumentSession session,
         RenderRequest request,
@@ -44,7 +50,7 @@ public sealed partial class ThumbnailDiskCache : IThumbnailDiskCache
         renderedPage = null;
 
         if (!IsEligible(request) ||
-            !TryCreateCacheLocation(session, request, out var location))
+            !TryCreateCacheLocation(session, request, out CacheLocation location))
         {
             return false;
         }
@@ -56,15 +62,15 @@ public sealed partial class ThumbnailDiskCache : IThumbnailDiskCache
 
         try
         {
-            using var stream = File.OpenRead(location.CacheFilePath);
+            using FileStream stream = File.OpenRead(location.CacheFilePath);
             using var reader = new BinaryReader(stream);
 
-            var version = reader.ReadInt32();
-            var width = reader.ReadInt32();
-            var height = reader.ReadInt32();
-            var pixelDataLength = reader.ReadInt32();
+            int version = reader.ReadInt32();
+            int width = reader.ReadInt32();
+            int height = reader.ReadInt32();
+            int pixelDataLength = reader.ReadInt32();
 
-            var remainingLength = stream.Length - stream.Position;
+            long remainingLength = stream.Length - stream.Position;
             if (version != CacheFileVersion ||
                 width <= 0 ||
                 height <= 0 ||
@@ -75,7 +81,7 @@ public sealed partial class ThumbnailDiskCache : IThumbnailDiskCache
                 return false;
             }
 
-            var pixelData = reader.ReadBytes(pixelDataLength);
+            byte[] pixelData = reader.ReadBytes(pixelDataLength);
             if (pixelData.Length != pixelDataLength)
             {
                 DeleteFile(location.CacheFilePath);
@@ -99,6 +105,7 @@ public sealed partial class ThumbnailDiskCache : IThumbnailDiskCache
         }
     }
 
+    /// <inheritdoc />
     public void Store(
         IDocumentSession session,
         RenderRequest request,
@@ -109,19 +116,19 @@ public sealed partial class ThumbnailDiskCache : IThumbnailDiskCache
         ArgumentNullException.ThrowIfNull(renderedPage);
 
         if (!IsEligible(request) ||
-            !TryCreateCacheLocation(session, request, out var location))
+            !TryCreateCacheLocation(session, request, out CacheLocation location))
         {
             return;
         }
 
-        var tempPath = $"{location.CacheFilePath}.{Guid.NewGuid():N}.tmp";
+        string tempPath = $"{location.CacheFilePath}.{Guid.NewGuid():N}.tmp";
 
         try
         {
             Directory.CreateDirectory(location.FingerprintDirectoryPath);
             RemoveObsoleteDocumentVersions(location);
 
-            using (var stream = File.Create(tempPath))
+            using (FileStream stream = File.Create(tempPath))
             using (var writer = new BinaryWriter(stream))
             {
                 writer.Write(CacheFileVersion);
@@ -148,9 +155,9 @@ public sealed partial class ThumbnailDiskCache : IThumbnailDiskCache
             return;
         }
 
-        var expirationThreshold = DateTime.UtcNow - _maxAge;
+        DateTime expirationThreshold = DateTime.UtcNow - _maxAge;
 
-        foreach (var filePath in Directory.EnumerateFiles(_rootPath, "*", SearchOption.AllDirectories))
+        foreach (string filePath in Directory.EnumerateFiles(_rootPath, "*", SearchOption.AllDirectories))
         {
             try
             {
@@ -177,7 +184,7 @@ public sealed partial class ThumbnailDiskCache : IThumbnailDiskCache
             return;
         }
 
-        foreach (var directoryPath in Directory.EnumerateDirectories(location.DocumentDirectoryPath))
+        foreach (string directoryPath in Directory.EnumerateDirectories(location.DocumentDirectoryPath))
         {
             if (string.Equals(directoryPath, location.FingerprintDirectoryPath, StringComparison.Ordinal))
             {
@@ -197,7 +204,7 @@ public sealed partial class ThumbnailDiskCache : IThumbnailDiskCache
 
     private void DeleteEmptyDirectories()
     {
-        foreach (var directoryPath in Directory
+        foreach (string directoryPath in Directory
                      .EnumerateDirectories(_rootPath, "*", SearchOption.AllDirectories)
                      .OrderByDescending(path => path.Length))
         {
@@ -232,7 +239,7 @@ public sealed partial class ThumbnailDiskCache : IThumbnailDiskCache
 
         location = default;
 
-        var filePath = session.Metadata.FilePath;
+        string filePath = session.Metadata.FilePath;
         if (string.IsNullOrWhiteSpace(filePath))
         {
             return false;
@@ -244,19 +251,19 @@ public sealed partial class ThumbnailDiskCache : IThumbnailDiskCache
             return false;
         }
 
-        var normalizedPath = Path.GetFullPath(fileInfo.FullName);
-        var documentDirectoryName = ComputeHash(
+        string normalizedPath = Path.GetFullPath(fileInfo.FullName);
+        string documentDirectoryName = ComputeHash(
             $"{session.Metadata.DocumentType}|{normalizedPath}");
-        var fingerprintDirectoryName = ComputeHash(
+        string fingerprintDirectoryName = ComputeHash(
             $"{fileInfo.Length}|{fileInfo.LastWriteTimeUtc.Ticks}");
 
-        var documentDirectoryPath = Path.Combine(
+        string documentDirectoryPath = Path.Combine(
             _rootPath,
             documentDirectoryName);
-        var fingerprintDirectoryPath = Path.Combine(
+        string fingerprintDirectoryPath = Path.Combine(
             documentDirectoryPath,
             fingerprintDirectoryName);
-        var cacheFilePath = Path.Combine(
+        string cacheFilePath = Path.Combine(
             fingerprintDirectoryPath,
             BuildCacheFileName(request));
 
@@ -271,19 +278,20 @@ public sealed partial class ThumbnailDiskCache : IThumbnailDiskCache
     private static bool IsEligible(RenderRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        return request.RequestedWidth.HasValue && request.RequestedHeight.HasValue;
+        return request is { RequestedWidth: not null, RequestedHeight: not null };
     }
 
     private static string BuildCacheFileName(RenderRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var roundedZoom = Math.Round(
+        double roundedZoom = Math.Round(
             request.ZoomFactor,
             4,
             MidpointRounding.AwayFromZero);
 
-        return FormattableString.Invariant(
+        return string.Create(
+            CultureInfo.InvariantCulture,
             $"page-{request.PageIndex.Value}-zoom-{roundedZoom:0.####}-rotation-{(int)request.Rotation}-width-{request.RequestedWidth!.Value}-height-{request.RequestedHeight!.Value}.thumb");
     }
 
@@ -291,8 +299,8 @@ public sealed partial class ThumbnailDiskCache : IThumbnailDiskCache
     {
         ArgumentNullException.ThrowIfNull(value);
 
-        var bytes = Encoding.UTF8.GetBytes(value);
-        var hash = SHA256.HashData(bytes);
+        byte[] bytes = Encoding.UTF8.GetBytes(value);
+        byte[] hash = SHA256.HashData(bytes);
         return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
@@ -305,13 +313,13 @@ public sealed partial class ThumbnailDiskCache : IThumbnailDiskCache
             return Path.GetFullPath(options.ThumbnailDiskCachePath);
         }
 
-        var basePath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        string basePath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         if (string.IsNullOrWhiteSpace(basePath))
         {
             basePath = Path.GetTempPath();
         }
 
-        var appName = string.IsNullOrWhiteSpace(options.Name)
+        string appName = string.IsNullOrWhiteSpace(options.Name)
             ? "Velune"
             : options.Name;
 
@@ -367,6 +375,7 @@ public sealed partial class ThumbnailDiskCache : IThumbnailDiskCache
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
+            // Do Nothing
         }
     }
 

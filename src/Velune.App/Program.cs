@@ -8,6 +8,9 @@ using Velune.Presentation.DependencyInjection;
 
 namespace Velune.App;
 
+/// <summary>
+/// Application entry point for the Avalonia desktop process.
+/// </summary>
 internal static class Program
 {
     private static IHost? _appHost;
@@ -37,7 +40,7 @@ internal static class Program
 
     private static HostApplicationBuilder CreateHost(string[] args)
     {
-        var environment =
+        string environment =
             Environment.GetEnvironmentVariable("VELUNE_ENVIRONMENT")
             ?? Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")
             ?? "Development";
@@ -48,7 +51,7 @@ internal static class Program
             EnvironmentName = environment
         };
 
-        var builder = Host.CreateApplicationBuilder(settings);
+        HostApplicationBuilder builder = Host.CreateApplicationBuilder(settings);
 
         builder.Configuration.AddEnvironmentVariables(prefix: "VELUNE_");
 
@@ -61,11 +64,18 @@ internal static class Program
         return builder;
     }
 
+    /// <summary>
+    /// Configures and returns the Avalonia application builder.
+    /// </summary>
+    /// <returns>The configured Avalonia app builder.</returns>
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .LogToTrace();
 
+    /// <summary>
+    /// Gets the built application host instance.
+    /// </summary>
     internal static IHost AppHost =>
         _appHost ?? throw new InvalidOperationException("The host has not been initialized yet.");
 }

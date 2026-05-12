@@ -5,4 +5,6 @@ namespace Velune.Tests.Integration.Infrastructure;
 internal static class IntegrationPdfium
 {
     public static PdfiumInitializer Initializer { get; } = new();
+
+    public static PdfiumExecutionGate ExecutionGate { get; } = new();
 }

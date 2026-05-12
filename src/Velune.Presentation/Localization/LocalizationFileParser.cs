@@ -8,22 +8,22 @@ internal static class LocalizationFileParser
 
         var entries = new Dictionary<string, string>(StringComparer.Ordinal);
 
-        foreach (var rawLine in File.ReadAllLines(filePath))
+        foreach (string rawLine in File.ReadAllLines(filePath))
         {
-            var line = rawLine.Trim();
+            string line = rawLine.Trim();
             if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))
             {
                 continue;
             }
 
-            var separatorIndex = rawLine.IndexOf('=');
+            int separatorIndex = rawLine.IndexOf('=');
             if (separatorIndex <= 0)
             {
                 continue;
             }
 
-            var key = rawLine[..separatorIndex].Trim();
-            var value = Unescape(rawLine[(separatorIndex + 1)..].Trim());
+            string key = rawLine[..separatorIndex].Trim();
+            string value = Unescape(rawLine[(separatorIndex + 1)..].Trim());
             if (string.IsNullOrWhiteSpace(key))
             {
                 continue;

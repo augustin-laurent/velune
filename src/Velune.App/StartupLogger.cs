@@ -4,11 +4,19 @@ using Velune.Application.Configuration;
 
 namespace Velune.App;
 
+/// <summary>
+/// Logs application startup information including environment and configuration.
+/// </summary>
 public sealed partial class StartupLogger
 {
     private readonly ILogger<StartupLogger> _logger;
     private readonly AppOptions _options;
 
+    /// <summary>
+    /// Initializes the startup logger with the configured logger and options.
+    /// </summary>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="options">Application configuration options.</param>
     public StartupLogger(
         ILogger<StartupLogger> logger,
         IOptions<AppOptions> options)
@@ -20,6 +28,9 @@ public sealed partial class StartupLogger
         _options = options.Value;
     }
 
+    /// <summary>
+    /// Emits the startup log message with application name, environment, and settings.
+    /// </summary>
     public void LogStartup()
     {
         LogStartingApplication(

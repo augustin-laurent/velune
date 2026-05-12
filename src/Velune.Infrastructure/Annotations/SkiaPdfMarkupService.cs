@@ -8,12 +8,20 @@ using Velune.Infrastructure.Pdf;
 
 namespace Velune.Infrastructure.Annotations;
 
+/// <summary>
+/// Applies annotation overlays to PDF documents using SkiaSharp and PDFium.
+/// </summary>
 public sealed class SkiaPdfMarkupService : IPdfMarkupService
 {
     private const float OverlayRenderScale = 2.25f;
     private readonly PdfiumInitializer _pdfiumInitializer;
     private readonly ISignatureAssetStore _signatureAssetStore;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SkiaPdfMarkupService"/> class.
+    /// </summary>
+    /// <param name="pdfiumInitializer">Ensures PDFium is initialized before use.</param>
+    /// <param name="signatureAssetStore">Store for resolving signature image assets.</param>
     public SkiaPdfMarkupService(
         PdfiumInitializer pdfiumInitializer,
         ISignatureAssetStore signatureAssetStore)
@@ -25,6 +33,7 @@ public sealed class SkiaPdfMarkupService : IPdfMarkupService
         _signatureAssetStore = signatureAssetStore;
     }
 
+    /// <inheritdoc />
     public async Task<Result<string>> ApplyAnnotationsAsync(
         ApplyPdfAnnotationsRequest request,
         CancellationToken cancellationToken = default)
@@ -56,7 +65,7 @@ public sealed class SkiaPdfMarkupService : IPdfMarkupService
             var signatureAssets = _signatureAssetStore.GetAll().ToDictionary(asset => asset.Id, StringComparer.Ordinal);
             using var document = new PdfiumEditableDocument(request.InputPath);
 
-            foreach (var pageAnnotations in request.Annotations
+            foreach (IGrouping<int, DocumentAnnotation> pageAnnotations in request.Annotations
                          .GroupBy(annotation => annotation.PageIndex.Value)
                          .OrderBy(group => group.Key))
             {
@@ -78,8 +87,8 @@ public sealed class SkiaPdfMarkupService : IPdfMarkupService
 #pragma warning disable CA2000
                     page = document.LoadPage(pageAnnotations.Key);
 #pragma warning restore CA2000
-                    var pageWidth = PdfiumNative.FPDF_GetPageWidthF(page.Handle);
-                    var pageHeight = PdfiumNative.FPDF_GetPageHeightF(page.Handle);
+                    float pageWidth = PdfiumNative.FPDF_GetPageWidthF(page.Handle);
+                    float pageHeight = PdfiumNative.FPDF_GetPageHeightF(page.Handle);
 #pragma warning disable CA2000
                     overlayBitmap = BuildOverlayBitmap(
                         pageWidth,
@@ -94,7 +103,7 @@ public sealed class SkiaPdfMarkupService : IPdfMarkupService
                     }
 
                     using var pdfiumBitmap = PdfiumBitmap.FromSkiaBitmap(overlayBitmap);
-                    var imageObject = PdfiumNative.FPDFPageObj_NewImageObj(document.Handle);
+                    IntPtr imageObject = PdfiumNative.FPDFPageObj_NewImageObj(document.Handle);
                     if (imageObject == nint.Zero)
                     {
                         throw new InvalidOperationException("Unable to create a PDF image object for annotations.");
@@ -179,8 +188,8 @@ public sealed class SkiaPdfMarkupService : IPdfMarkupService
             return null;
         }
 
-        var pixelWidth = Math.Max(1, (int)Math.Ceiling(pageWidth * OverlayRenderScale));
-        var pixelHeight = Math.Max(1, (int)Math.Ceiling(pageHeight * OverlayRenderScale));
+        int pixelWidth = Math.Max(1, (int)Math.Ceiling(pageWidth * OverlayRenderScale));
+        int pixelHeight = Math.Max(1, (int)Math.Ceiling(pageHeight * OverlayRenderScale));
 #pragma warning disable CA2000
         var bitmap = new SKBitmap(new SKImageInfo(pixelWidth, pixelHeight, SKColorType.Bgra8888, SKAlphaType.Premul));
 #pragma warning restore CA2000
@@ -237,7 +246,7 @@ public sealed class SkiaPdfMarkupService : IPdfMarkupService
 
         public PdfiumEditablePage LoadPage(int pageIndex)
         {
-            var pageHandle = PdfiumNative.FPDF_LoadPage(_handle, pageIndex);
+            IntPtr pageHandle = PdfiumNative.FPDF_LoadPage(_handle, pageIndex);
             if (pageHandle == nint.Zero)
             {
                 throw new InvalidOperationException($"Unable to load PDF page {pageIndex + 1}.");
@@ -248,7 +257,7 @@ public sealed class SkiaPdfMarkupService : IPdfMarkupService
 
         public void Dispose()
         {
-            var handle = Interlocked.Exchange(ref _handle, nint.Zero);
+            IntPtr handle = Interlocked.Exchange(ref _handle, nint.Zero);
             if (handle != nint.Zero)
             {
                 PdfiumNative.FPDF_CloseDocument(handle);
@@ -269,7 +278,7 @@ public sealed class SkiaPdfMarkupService : IPdfMarkupService
 
         public void Dispose()
         {
-            var handle = Interlocked.Exchange(ref _handle, nint.Zero);
+            IntPtr handle = Interlocked.Exchange(ref _handle, nint.Zero);
             if (handle != nint.Zero)
             {
                 PdfiumNative.FPDF_ClosePage(handle);
@@ -290,7 +299,7 @@ public sealed class SkiaPdfMarkupService : IPdfMarkupService
 
         public static PdfiumBitmap FromSkiaBitmap(SKBitmap source)
         {
-            var handle = PdfiumNative.FPDFBitmap_CreateEx(
+            IntPtr handle = PdfiumNative.FPDFBitmap_CreateEx(
                 source.Width,
                 source.Height,
                 PdfiumNative.FPDFBitmap_BGRA,
@@ -302,13 +311,13 @@ public sealed class SkiaPdfMarkupService : IPdfMarkupService
                 throw new InvalidOperationException("Unable to allocate a PDFium bitmap for annotations.");
             }
 
-            var targetBuffer = PdfiumNative.FPDFBitmap_GetBuffer(handle);
-            var targetStride = PdfiumNative.FPDFBitmap_GetStride(handle);
-            var sourceStride = source.RowBytes;
-            var rowLength = source.Width * 4;
-            var rowBuffer = new byte[rowLength];
+            IntPtr targetBuffer = PdfiumNative.FPDFBitmap_GetBuffer(handle);
+            int targetStride = PdfiumNative.FPDFBitmap_GetStride(handle);
+            int sourceStride = source.RowBytes;
+            int rowLength = source.Width * 4;
+            byte[] rowBuffer = new byte[rowLength];
 
-            for (var row = 0; row < source.Height; row++)
+            for (int row = 0; row < source.Height; row++)
             {
                 Marshal.Copy(
                     nint.Add(source.GetPixels(), row * sourceStride),
@@ -327,7 +336,7 @@ public sealed class SkiaPdfMarkupService : IPdfMarkupService
 
         public void Dispose()
         {
-            var handle = Interlocked.Exchange(ref _handle, nint.Zero);
+            IntPtr handle = Interlocked.Exchange(ref _handle, nint.Zero);
             if (handle != nint.Zero)
             {
                 PdfiumNative.FPDFBitmap_Destroy(handle);
@@ -341,13 +350,18 @@ public sealed class SkiaPdfMarkupService : IPdfMarkupService
     private sealed class PdfiumFileWriter : IDisposable
     {
         private static readonly Dictionary<nint, PdfiumFileWriter> Writers = [];
-        private static readonly Lock WritersGate = new();
+        private static readonly object WritersGate = new();
         private static readonly PdfiumWriteBlockCallback WriteBlockCallbackInstance = WriteBlock;
 
         private readonly Stream _stream;
         private readonly nint _nativeHandle;
         private readonly GCHandle _callbackHandle;
         private bool _disposed;
+
+        ~PdfiumFileWriter()
+        {
+            Dispose();
+        }
 
         public PdfiumFileWriter(Stream stream)
         {
@@ -380,6 +394,7 @@ public sealed class SkiaPdfMarkupService : IPdfMarkupService
             }
 
             _disposed = true;
+            GC.SuppressFinalize(this);
 
             lock (WritersGate)
             {
@@ -416,8 +431,8 @@ public sealed class SkiaPdfMarkupService : IPdfMarkupService
             {
                 checked
                 {
-                    var length = (int)size;
-                    var buffer = new byte[length];
+                    int length = (int)size;
+                    byte[] buffer = new byte[length];
                     Marshal.Copy(data, buffer, 0, length);
                     writer._stream.Write(buffer, 0, length);
                     return 1;

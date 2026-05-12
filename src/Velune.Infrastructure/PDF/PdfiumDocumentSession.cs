@@ -5,6 +5,9 @@ using Velune.Domain.ValueObjects;
 
 namespace Velune.Infrastructure.Pdf;
 
+/// <summary>
+/// Document session backed by a PDFium-loaded PDF document.
+/// </summary>
 public sealed record PdfiumDocumentSession : IReleasableDocumentSession
 {
     internal PdfiumDocumentSession(
@@ -23,16 +26,19 @@ public sealed record PdfiumDocumentSession : IReleasableDocumentSession
         Resource = resource;
     }
 
+    /// <inheritdoc />
     public DocumentId Id
     {
         get;
     }
 
+    /// <inheritdoc />
     public DocumentMetadata Metadata
     {
         get;
     }
 
+    /// <inheritdoc />
     public ViewportState Viewport
     {
         get;
@@ -43,6 +49,7 @@ public sealed record PdfiumDocumentSession : IReleasableDocumentSession
         get;
     }
 
+    /// <inheritdoc />
     public IDocumentSession WithViewport(ViewportState viewport)
     {
         ArgumentNullException.ThrowIfNull(viewport);
@@ -54,6 +61,7 @@ public sealed record PdfiumDocumentSession : IReleasableDocumentSession
             Resource);
     }
 
+    /// <inheritdoc />
     public void ReleaseResources()
     {
         Resource.Dispose();

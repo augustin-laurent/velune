@@ -384,17 +384,17 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
         set;
     }
 
-    public SolidColorBrush TabBackground
+    public string TabBackgroundHex
     {
         get;
         private set;
-    } = CreateBrush(White);
+    } = White;
 
-    public SolidColorBrush TabBorderBrush
+    public string TabBorderHex
     {
         get;
         private set;
-    } = CreateBrush(White);
+    } = White;
 
     /// <summary>
     /// Raises property-changed for thumbnail loading status.
@@ -906,22 +906,22 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
 
         if (IsActive)
         {
-            TabBackground = CreateBrush(_isLightTheme ? "#FFFFFF" : "#2C2C2C");
-            TabBorderBrush = CreateBrush(_isLightTheme ? "#E5E5E5" : "#3D3D3D");
+            TabBackgroundHex = _isLightTheme ? "#FFFFFF" : "#2C2C2C";
+            TabBorderHex = _isLightTheme ? "#E5E5E5" : "#3D3D3D";
         }
         else if (isPointerOver)
         {
-            TabBackground = CreateBrush(_isLightTheme ? "#F5F5F5" : "#1F1F1F");
-            TabBorderBrush = CreateBrush(_isLightTheme ? "#E5E5E5" : "#333333");
+            TabBackgroundHex = _isLightTheme ? "#F5F5F5" : "#1F1F1F";
+            TabBorderHex = _isLightTheme ? "#E5E5E5" : "#333333";
         }
         else
         {
-            TabBackground = CreateBrush(White);
-            TabBorderBrush = CreateBrush(White);
+            TabBackgroundHex = White;
+            TabBorderHex = White;
         }
 
-        OnPropertyChanged(nameof(TabBackground));
-        OnPropertyChanged(nameof(TabBorderBrush));
+        OnPropertyChanged(nameof(TabBackgroundHex));
+        OnPropertyChanged(nameof(TabBorderHex));
     }
 
     partial void OnCurrentPageChanged(int value)
@@ -1240,13 +1240,4 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
         return value?.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
     }
 
-    private static SolidColorBrush CreateBrush(string hex)
-    {
-        string normalized = hex.Trim().TrimStart('#');
-        return new SolidColorBrush(global::Windows.UI.Color.FromArgb(
-            255,
-            Convert.ToByte(normalized[..2], 16),
-            Convert.ToByte(normalized.Substring(2, 2), 16),
-            Convert.ToByte(normalized.Substring(4, 2), 16)));
-    }
 }

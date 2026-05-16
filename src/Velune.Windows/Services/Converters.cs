@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Media;
 using Velune.Domain.Annotations;
+using Windows.Foundation;
 
 namespace Velune.Windows.Services;
 
@@ -202,6 +203,8 @@ public sealed partial class SubtractConverter : IValueConverter
 /// </summary>
 public sealed partial class RecentFileOpenedAtConverter : IValueConverter
 {
+    public static IWindowsTextCatalog? TextCatalog { get; set; }
+
     /// <inheritdoc />
     public object Convert(object value, Type targetType, object parameter, string language)
     {
@@ -218,22 +221,24 @@ public sealed partial class RecentFileOpenedAtConverter : IValueConverter
 
         if (local.Date == today)
         {
-            return languageName switch
-            {
-                "fr" => $"Aujourd'hui à {local:HH:mm}",
-                "es" => $"Hoy a las {local:HH:mm}",
-                _ => $"Today at {local.ToString("h:mm tt", culture)}"
-            };
+            string timeStr = languageName is "en"
+                ? local.ToString("h:mm tt", culture)
+                : local.ToString("HH:mm", culture);
+
+            return TextCatalog is not null
+                ? TextCatalog.Format("time.today_at", timeStr)
+                : $"Today at {timeStr}";
         }
 
         if (local.Date == today.AddDays(-1))
         {
-            return languageName switch
-            {
-                "fr" => $"Hier à {local:HH:mm}",
-                "es" => $"Ayer a las {local:HH:mm}",
-                _ => $"Yesterday at {local.ToString("h:mm tt", culture)}"
-            };
+            string timeStr = languageName is "en"
+                ? local.ToString("h:mm tt", culture)
+                : local.ToString("HH:mm", culture);
+
+            return TextCatalog is not null
+                ? TextCatalog.Format("time.yesterday_at", timeStr)
+                : $"Yesterday at {timeStr}";
         }
 
         return languageName switch
@@ -245,6 +250,111 @@ public sealed partial class RecentFileOpenedAtConverter : IValueConverter
     }
 
     /// <inheritdoc />
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+    {
+        return DependencyProperty.UnsetValue;
+    }
+}
+
+/// <summary>
+/// Converts a hex color string (e.g. "#FF0000" or "FF0000") to a <see cref="SolidColorBrush"/>.
+/// </summary>
+public sealed partial class HexToSolidColorBrushConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+    {
+        if (value is not string hex || string.IsNullOrWhiteSpace(hex))
+        {
+            return new SolidColorBrush(global::Windows.UI.Color.FromArgb(0, 0, 0, 0));
+        }
+
+        string normalized = hex.Trim().TrimStart('#');
+
+        byte alpha = 255;
+        if (normalized.Length == 8)
+        {
+            alpha = System.Convert.ToByte(normalized[..2], 16);
+            normalized = normalized[2..];
+        }
+        else if (normalized.Length != 6)
+        {
+            return new SolidColorBrush(global::Windows.UI.Color.FromArgb(0, 0, 0, 0));
+        }
+
+        return new SolidColorBrush(global::Windows.UI.Color.FromArgb(
+            alpha,
+            System.Convert.ToByte(normalized[..2], 16),
+            System.Convert.ToByte(normalized.Substring(2, 2), 16),
+            System.Convert.ToByte(normalized.Substring(4, 2), 16)));
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+    {
+        return DependencyProperty.UnsetValue;
+    }
+}
+
+/// <summary>
+/// Converts a double value to a uniform <see cref="Thickness"/>.
+/// </summary>
+public sealed partial class DoubleToThicknessConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+    {
+        if (value is double d)
+        {
+            return new Thickness(d);
+        }
+
+        return new Thickness(0);
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+    {
+        return DependencyProperty.UnsetValue;
+    }
+}
+
+/// <summary>
+/// Converts a double value to a uniform <see cref="CornerRadius"/>.
+/// </summary>
+public sealed partial class DoubleToCornerRadiusConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+    {
+        if (value is double d)
+        {
+            return new CornerRadius(d);
+        }
+
+        return new CornerRadius(0);
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+    {
+        return DependencyProperty.UnsetValue;
+    }
+}
+
+/// <summary>
+/// Converts a list of (double X, double Y) tuples to a <see cref="PointCollection"/> for Polyline rendering.
+/// </summary>
+public sealed partial class PointListToPointCollectionConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+    {
+        var collection = new Microsoft.UI.Xaml.Media.PointCollection();
+        if (value is IReadOnlyList<(double X, double Y)> points)
+        {
+            foreach ((double x, double y) in points)
+            {
+                collection.Add(new Point(x, y));
+            }
+        }
+
+        return collection;
+    }
+
     public object ConvertBack(object value, Type targetType, object parameter, string language)
     {
         return DependencyProperty.UnsetValue;

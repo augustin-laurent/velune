@@ -21,6 +21,8 @@ namespace Velune.Windows;
 public sealed partial class WelcomeWindow
 {
     private readonly WindowsMainViewModel _viewModel;
+
+    public WindowsMainViewModel ViewModel => _viewModel;
     private readonly WindowsWindowContext _windowContext;
     private readonly WindowsWindowCoordinator _windowCoordinator;
     private readonly IWindowsFileDialogService _fileDialogService;
@@ -51,11 +53,12 @@ public sealed partial class WelcomeWindow
         InitializeComponent();
 
         _windowContext.SetActiveWindow(this);
-        Root.DataContext = viewModel;
         Title = viewModel.Labels.AppName;
 
         ConfigureWindow();
         ApplyTheme();
+        ApplySelectedLanguageIndicator();
+        ApplySelectedThemeIndicator();
         _viewModel.PropertyChanged += OnViewModelPropertyChanged;
         Activated += OnActivated;
         Closed += OnClosed;
@@ -127,9 +130,9 @@ public sealed partial class WelcomeWindow
                 ? global::Windows.UI.Color.FromArgb(31, 0, 0, 0)
                 : global::Windows.UI.Color.FromArgb(24, 255, 255, 255);
         }
-        catch
+        catch (Exception ex)
         {
-            // Do nothing
+            System.Diagnostics.Debug.WriteLine($"[Velune] Welcome TitleBar apply failed: {ex.Message}");
         }
     }
 
@@ -158,9 +161,9 @@ public sealed partial class WelcomeWindow
                 return intValue == 1;
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Do nothing
+            System.Diagnostics.Debug.WriteLine($"[Velune] System theme detection failed: {ex.Message}");
         }
 
         return false;
@@ -298,6 +301,8 @@ public sealed partial class WelcomeWindow
             "es" => _viewModel.Labels.PreferencesSpanish,
             _ => _viewModel.Labels.PreferencesSystem
         };
+
+        ApplySelectedLanguageIndicator();
     }
 
     private void OnThemeClicked(object sender, RoutedEventArgs e)
@@ -313,6 +318,24 @@ public sealed partial class WelcomeWindow
             "Dark" => _viewModel.Labels.PreferencesDark,
             _ => _viewModel.Labels.PreferencesSystem
         };
+
+        ApplySelectedThemeIndicator();
+    }
+
+    private void ApplySelectedLanguageIndicator()
+    {
+        string selected = _viewModel.SelectedPreferenceLanguage;
+        LanguageEnglishItem.IsChecked = string.Equals(selected, _viewModel.Labels.PreferencesEnglish, StringComparison.Ordinal);
+        LanguageFrenchItem.IsChecked = string.Equals(selected, _viewModel.Labels.PreferencesFrench, StringComparison.Ordinal);
+        LanguageSpanishItem.IsChecked = string.Equals(selected, _viewModel.Labels.PreferencesSpanish, StringComparison.Ordinal);
+    }
+
+    private void ApplySelectedThemeIndicator()
+    {
+        string selected = _viewModel.SelectedPreferenceTheme;
+        ThemeSystemItem.IsChecked = string.Equals(selected, _viewModel.Labels.PreferencesSystem, StringComparison.Ordinal);
+        ThemeLightItem.IsChecked = string.Equals(selected, _viewModel.Labels.PreferencesLight, StringComparison.Ordinal);
+        ThemeDarkItem.IsChecked = string.Equals(selected, _viewModel.Labels.PreferencesDark, StringComparison.Ordinal);
     }
 
     private async Task OpenPathsThroughDropPipelineAsync(IReadOnlyList<string> paths)

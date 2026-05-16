@@ -28,6 +28,8 @@ namespace Velune.Windows;
 public sealed partial class MainWindow : Window
 {
     private readonly WindowsMainViewModel _viewModel;
+
+    public WindowsMainViewModel ViewModel => _viewModel;
     private readonly WindowsWindowContext _windowContext;
     private readonly WindowsWindowCoordinator _windowCoordinator;
     private readonly TaskCompletionSource _loadedCompletionSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -60,7 +62,6 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
 
         windowContext.SetActiveWindow(this);
-        Root.DataContext = viewModel;
         Title = viewModel.Labels.AppName;
 
         ContextMenuDeleteItem.Text = viewModel.Labels.AnnotationMenuDelete;
@@ -179,9 +180,9 @@ public sealed partial class MainWindow : Window
         {
             ApplyTitleBarColors(isLight);
         }
-        catch
+        catch (Exception ex)
         {
-            // Window is not ready.
+            System.Diagnostics.Debug.WriteLine($"[Velune] TitleBar theme apply failed: {ex.Message}");
         }
 
         foreach (WindowsDocumentTabViewModel tab in _viewModel.DocumentTabs)
@@ -223,9 +224,9 @@ public sealed partial class MainWindow : Window
                 ? global::Windows.UI.Color.FromArgb(31, 0, 0, 0)
                 : global::Windows.UI.Color.FromArgb(24, 255, 255, 255);
         }
-        catch
+        catch (Exception ex)
         {
-            // Do nothing
+            System.Diagnostics.Debug.WriteLine($"[Velune] TitleBar colors apply failed: {ex.Message}");
         }
     }
 

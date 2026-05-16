@@ -6,7 +6,6 @@ using Velune.Application.Annotations;
 using Velune.Domain.Annotations;
 using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
-using Windows.Foundation;
 
 namespace Velune.Windows.ViewModels;
 
@@ -54,29 +53,23 @@ public sealed class WindowsAnnotationOverlayViewModel
             : Text;
         TimeText = annotation.CreatedAt.ToLocalTime().ToString("HH:mm", System.Globalization.CultureInfo.CurrentCulture);
         Opacity = annotation.Appearance.Opacity;
-        StrokeBrush = CreateBrush(annotation.Appearance.StrokeHex, 255);
-        FillBrush = CreateBrush(ResolveFillHex(annotation), ResolveFillAlpha(annotation));
-        TextBrush = CreateBrush(annotation.Kind is DocumentAnnotationKind.Text
+        StrokeHex = FormatArgbHex(annotation.Appearance.StrokeHex, 255);
+        FillHex = FormatArgbHex(ResolveFillHex(annotation), ResolveFillAlpha(annotation));
+        TextHex = FormatArgbHex(annotation.Kind is DocumentAnnotationKind.Text
             ? annotation.Appearance.StrokeHex : "#111827", 255);
         TextFontSize = annotation.Appearance.FontSize;
         TextFontFamily = annotation.Appearance.FontFamily ?? "Segoe UI";
         RotationAngle = annotation.Appearance.RotationAngle;
         InkPoints = CreateInkPoints(annotation, pageWidth, pageHeight, rotation);
         SignatureImageSource = CreateSignatureImageSource(annotation, signatureAssets);
-        BorderThickness = annotation.Kind is DocumentAnnotationKind.Highlight or DocumentAnnotationKind.Text ? new Thickness(0) : new Thickness(2);
-        CornerRadius = annotation.Kind is DocumentAnnotationKind.Stamp ? new CornerRadius(2) : new CornerRadius(6);
-        TextVisibility = annotation.Kind is DocumentAnnotationKind.Text or DocumentAnnotationKind.Stamp ||
-                         annotation.Kind is DocumentAnnotationKind.Signature && SignatureImageSource is null
-            ? Visibility.Visible
-            : Visibility.Collapsed;
-        GlyphVisibility = annotation.Kind is DocumentAnnotationKind.Signature && SignatureImageSource is null
-            ? Visibility.Visible
-            : Visibility.Collapsed;
-        SignatureImageVisibility = SignatureImageSource is null
-            ? Visibility.Collapsed
-            : Visibility.Visible;
-        InkVisibility = annotation.Kind is DocumentAnnotationKind.Ink ? Visibility.Visible : Visibility.Collapsed;
-        BoxVisibility = annotation.Kind is DocumentAnnotationKind.Ink ? Visibility.Collapsed : Visibility.Visible;
+        BorderThicknessValue = annotation.Kind is DocumentAnnotationKind.Highlight or DocumentAnnotationKind.Text ? 0 : 2;
+        CornerRadiusValue = annotation.Kind is DocumentAnnotationKind.Stamp ? 2 : 6;
+        IsTextVisible = annotation.Kind is DocumentAnnotationKind.Text or DocumentAnnotationKind.Stamp ||
+                         annotation.Kind is DocumentAnnotationKind.Signature && SignatureImageSource is null;
+        IsGlyphVisible = annotation.Kind is DocumentAnnotationKind.Signature && SignatureImageSource is null;
+        IsSignatureImageVisible = SignatureImageSource is not null;
+        IsInkVisible = annotation.Kind is DocumentAnnotationKind.Ink;
+        IsBoxVisible = annotation.Kind is not DocumentAnnotationKind.Ink;
         StrokeThickness = Math.Max(2, annotation.Appearance.StrokeThickness);
 
         NormalizedTextRegion bounds = ResolveBounds(annotation, rotation);
@@ -109,9 +102,9 @@ public sealed class WindowsAnnotationOverlayViewModel
         Height = pageHeight;
         RotationCenterX = SelectionLeft + SelectionWidth / 2;
         RotationCenterY = SelectionTop + SelectionHeight / 2;
-        BorderThickness = new Thickness(Math.Max(2, annotation.Appearance.StrokeThickness));
-        FillBrush = CreateBrush("#000000", 0);
-        CornerRadius = new CornerRadius(0);
+        BorderThicknessValue = Math.Max(2, annotation.Appearance.StrokeThickness);
+        FillHex = FormatArgbHex("#000000", 0);
+        CornerRadiusValue = 0;
     }
 
     private static NormalizedTextRegion ComputeInkBounds(DocumentAnnotation annotation, Rotation rotation)
@@ -191,6 +184,8 @@ public sealed class WindowsAnnotationOverlayViewModel
         get;
     }
 
+    public Thickness Margin => new(Left, Top, 0, 0);
+
     public double Width
     {
         get;
@@ -221,26 +216,26 @@ public sealed class WindowsAnnotationOverlayViewModel
         get;
     }
 
-    public Thickness Margin => new(Left, Top, 0, 0);
+    public double SelectionMarginLeft => SelectionLeft - Left;
 
-    public Thickness SelectionMargin => new(SelectionLeft - Left, SelectionTop - Top, 0, 0);
+    public double SelectionMarginTop => SelectionTop - Top;
 
     public double Opacity
     {
         get;
     }
 
-    public SolidColorBrush StrokeBrush
+    public string StrokeHex
     {
         get;
     }
 
-    public SolidColorBrush FillBrush
+    public string FillHex
     {
         get;
     }
 
-    public SolidColorBrush TextBrush
+    public string TextHex
     {
         get;
     }
@@ -255,32 +250,32 @@ public sealed class WindowsAnnotationOverlayViewModel
         get;
     }
 
-    public Thickness BorderThickness
+    public double BorderThicknessValue
     {
         get;
     }
 
-    public CornerRadius CornerRadius
+    public double CornerRadiusValue
     {
         get;
     }
 
-    public Visibility TextVisibility
+    public bool IsTextVisible
     {
         get;
     }
 
-    public Visibility GlyphVisibility
+    public bool IsGlyphVisible
     {
         get;
     }
 
-    public Visibility InkVisibility
+    public bool IsInkVisible
     {
         get;
     }
 
-    public Visibility BoxVisibility
+    public bool IsBoxVisible
     {
         get;
     }
@@ -313,7 +308,7 @@ public sealed class WindowsAnnotationOverlayViewModel
 
     public double RotateStemLeft => SelectionWidth / 2;
 
-    public PointCollection InkPoints
+    public IReadOnlyList<(double X, double Y)> InkPoints
     {
         get;
     }
@@ -323,7 +318,7 @@ public sealed class WindowsAnnotationOverlayViewModel
         get;
     }
 
-    public Visibility SignatureImageVisibility
+    public bool IsSignatureImageVisible
     {
         get;
     }
@@ -333,7 +328,7 @@ public sealed class WindowsAnnotationOverlayViewModel
         get; set;
     }
 
-    public Visibility SelectionVisibility => IsSelected ? Visibility.Visible : Visibility.Collapsed;
+    public bool IsSelectionVisible => IsSelected;
 
     public bool IsHidden
     {
@@ -359,9 +354,9 @@ public sealed class WindowsAnnotationOverlayViewModel
 
     public string LockGlyph => IsLocked ? "" : string.Empty;
 
-    public Visibility LockIconVisibility => IsLocked ? Visibility.Visible : Visibility.Collapsed;
+    public bool IsLockIconVisible => IsLocked;
 
-    public Visibility HiddenIconVisibility => IsHidden ? Visibility.Visible : Visibility.Collapsed;
+    public bool IsHiddenIconVisible => IsHidden;
 
     private static BitmapImage? CreateSignatureImageSource(
         DocumentAnnotation annotation,
@@ -379,13 +374,13 @@ public sealed class WindowsAnnotationOverlayViewModel
         return new BitmapImage(new Uri(asset.FilePath, UriKind.Absolute));
     }
 
-    private static PointCollection CreateInkPoints(
+    private static List<(double X, double Y)> CreateInkPoints(
         DocumentAnnotation annotation,
         double pageWidth,
         double pageHeight,
         Rotation rotation)
     {
-        var points = new PointCollection();
+        var points = new List<(double X, double Y)>();
         foreach (NormalizedPoint point in annotation.Points)
         {
             (double X, double Y) mapped = DocumentAnnotationCoordinateMapper.MapNormalizedPointToVisual(
@@ -393,7 +388,7 @@ public sealed class WindowsAnnotationOverlayViewModel
                 pageWidth,
                 pageHeight,
                 rotation);
-            points.Add(new Point(mapped.X, mapped.Y));
+            points.Add((mapped.X, mapped.Y));
         }
 
         return points;
@@ -448,7 +443,7 @@ public sealed class WindowsAnnotationOverlayViewModel
         };
     }
 
-    private static SolidColorBrush CreateBrush(string hex, byte alpha)
+    private static string FormatArgbHex(string hex, byte alpha)
     {
         string normalized = hex.Trim().TrimStart('#');
         if (normalized.Length != 6)
@@ -456,11 +451,7 @@ public sealed class WindowsAnnotationOverlayViewModel
             normalized = "EEF1FF";
         }
 
-        return new SolidColorBrush(global::Windows.UI.Color.FromArgb(
-            alpha,
-            Convert.ToByte(normalized[..2], 16),
-            Convert.ToByte(normalized.Substring(2, 2), 16),
-            Convert.ToByte(normalized.Substring(4, 2), 16)));
+        return $"#{alpha:X2}{normalized}";
     }
 }
 
@@ -497,17 +488,15 @@ public sealed partial class WindowsCommentOverlayViewModel : ObservableObject
         EditText = Text;
         PageLabel = pageLabel;
         TimeText = annotation.CreatedAt.ToLocalTime().ToString("HH:mm", System.Globalization.CultureInfo.CurrentCulture);
-        StrokeBrush = CreateBrush(annotation.Appearance.StrokeHex, 255);
+        StrokeHex = FormatArgbHex(annotation.Appearance.StrokeHex, 255);
 
         NormalizedTextRegion bounds = annotation.Bounds is { } annotationBounds
             ? DocumentAnnotationCoordinateMapper.MapRegionToVisualBounds(annotationBounds, rotation)
             : new NormalizedTextRegion(0.08, 0.08, 0.2, 0.08);
-        double top = Math.Clamp(
+        MarginTop = Math.Clamp(
             bounds.Y * pageHeight - 18,
             0,
             Math.Max(0, pageHeight - CardHeightEstimate));
-
-        Margin = new Thickness(0, top, 0, 0);
     }
 
     public Guid Id
@@ -532,9 +521,9 @@ public sealed partial class WindowsCommentOverlayViewModel : ObservableObject
         get; set;
     }
 
-    public Visibility ReadVisibility => IsEditing ? Visibility.Collapsed : Visibility.Visible;
+    public bool IsReadVisible => !IsEditing;
 
-    public Visibility EditVisibility => IsEditing ? Visibility.Visible : Visibility.Collapsed;
+    public bool IsEditVisible => IsEditing;
 
     public string PageLabel
     {
@@ -546,25 +535,27 @@ public sealed partial class WindowsCommentOverlayViewModel : ObservableObject
         get;
     }
 
-    public Thickness Margin
+    public double MarginTop
     {
         get;
     }
 
+    public Thickness Margin => new(0, MarginTop, 0, 0);
+
     public double LaneWidth => LaneWidthValue;
 
-    public SolidColorBrush StrokeBrush
+    public string StrokeHex
     {
         get;
     }
 
     partial void OnIsEditingChanged(bool value)
     {
-        OnPropertyChanged(nameof(ReadVisibility));
-        OnPropertyChanged(nameof(EditVisibility));
+        OnPropertyChanged(nameof(IsReadVisible));
+        OnPropertyChanged(nameof(IsEditVisible));
     }
 
-    private static SolidColorBrush CreateBrush(string hex, byte alpha)
+    private static string FormatArgbHex(string hex, byte alpha)
     {
         string normalized = hex.Trim().TrimStart('#');
         if (normalized.Length != 6)
@@ -572,11 +563,7 @@ public sealed partial class WindowsCommentOverlayViewModel : ObservableObject
             normalized = "EEF1FF";
         }
 
-        return new SolidColorBrush(global::Windows.UI.Color.FromArgb(
-            alpha,
-            Convert.ToByte(normalized[..2], 16),
-            Convert.ToByte(normalized.Substring(2, 2), 16),
-            Convert.ToByte(normalized.Substring(4, 2), 16)));
+        return $"#{alpha:X2}{normalized}";
     }
 }
 
@@ -606,8 +593,8 @@ public sealed partial class WindowsInlineTextEditorViewModel : ObservableObject
         Text = annotation.Text ?? string.Empty;
         FontSize = annotation.Appearance.FontSize;
         FontFamily = annotation.Appearance.FontFamily ?? "Segoe UI";
-        StrokeBrush = CreateBrush(annotation.Appearance.StrokeHex, 255);
-        FillBrush = CreateBrush(annotation.Appearance.FillHex ?? "#EEF1FF", 238);
+        StrokeHex = FormatArgbHex(annotation.Appearance.StrokeHex, 255);
+        FillHex = FormatArgbHex(annotation.Appearance.FillHex ?? "#EEF1FF", 238);
 
         NormalizedTextRegion bounds = annotation.Bounds is { } annotationBounds
             ? DocumentAnnotationCoordinateMapper.MapRegionToVisualBounds(annotationBounds, rotation)
@@ -640,15 +627,17 @@ public sealed partial class WindowsInlineTextEditorViewModel : ObservableObject
         get;
     }
 
-    private double Left
+    public double Left
     {
         get;
     }
 
-    private double Top
+    public double Top
     {
         get;
     }
+
+    public Thickness Margin => new(Left, Top, 0, 0);
 
     public double Width
     {
@@ -660,19 +649,17 @@ public sealed partial class WindowsInlineTextEditorViewModel : ObservableObject
         get;
     }
 
-    public Thickness Margin => new(Left, Top, 0, 0);
-
-    public SolidColorBrush StrokeBrush
+    public string StrokeHex
     {
         get;
     }
 
-    public SolidColorBrush FillBrush
+    public string FillHex
     {
         get;
     }
 
-    private static SolidColorBrush CreateBrush(string hex, byte alpha)
+    private static string FormatArgbHex(string hex, byte alpha)
     {
         string normalized = hex.Trim().TrimStart('#');
         if (normalized.Length != 6)
@@ -680,11 +667,7 @@ public sealed partial class WindowsInlineTextEditorViewModel : ObservableObject
             normalized = "EEF1FF";
         }
 
-        return new SolidColorBrush(global::Windows.UI.Color.FromArgb(
-            alpha,
-            Convert.ToByte(normalized[..2], 16),
-            Convert.ToByte(normalized.Substring(2, 2), 16),
-            Convert.ToByte(normalized.Substring(4, 2), 16)));
+        return $"#{alpha:X2}{normalized}";
     }
 }
 
@@ -702,19 +685,9 @@ public sealed partial class WindowsAnnotationColorItem : ObservableObject
         ArgumentException.ThrowIfNullOrWhiteSpace(hex);
 
         Hex = hex;
-        Brush = new SolidColorBrush(global::Windows.UI.Color.FromArgb(
-            255,
-            Convert.ToByte(hex.Substring(1, 2), 16),
-            Convert.ToByte(hex.Substring(3, 2), 16),
-            Convert.ToByte(hex.Substring(5, 2), 16)));
     }
 
     public string Hex
-    {
-        get;
-    }
-
-    public SolidColorBrush Brush
     {
         get;
     }

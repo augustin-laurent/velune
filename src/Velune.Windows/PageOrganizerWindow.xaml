@@ -3,7 +3,8 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:services="using:Velune.Windows.Services"
-    Title="{Binding WindowTitle}">
+    xmlns:vm="using:Velune.Windows.ViewModels"
+    Title="{x:Bind ViewModel.WindowTitle}">
 
   <Window.SystemBackdrop>
     <MicaBackdrop />
@@ -22,7 +23,7 @@
           <Setter Property="Height" Value="36" />
           <Setter Property="MinWidth" Value="36" />
           <Setter Property="Padding" Value="0" />
-          <Setter Property="CornerRadius" Value="6" />
+          <Setter Property="CornerRadius" Value="{StaticResource MediumCornerRadius}" />
           <Setter Property="Background" Value="Transparent" />
           <Setter Property="BorderThickness" Value="0" />
           <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
@@ -32,7 +33,7 @@
           <Setter Property="Height" Value="26" />
           <Setter Property="MinWidth" Value="36" />
           <Setter Property="Padding" Value="10,0" />
-          <Setter Property="CornerRadius" Value="13" />
+          <Setter Property="CornerRadius" Value="{StaticResource PillCornerRadius}" />
           <Setter Property="Background" Value="{ThemeResource ControlFillColorDefaultBrush}" />
           <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
           <Setter Property="BorderThickness" Value="1" />
@@ -67,8 +68,9 @@
         <!-- Actions Row -->
         <StackPanel Orientation="Horizontal"
                     Spacing="2">
-          <Button ToolTipService.ToolTip="{Binding RotateLeftLabel}"
-                  AutomationProperties.Name="{Binding RotateLeftLabel}"
+          <Button ToolTipService.ToolTip="{x:Bind ViewModel.RotateLeftLabel}"
+                  AutomationProperties.Name="{x:Bind ViewModel.RotateLeftLabel}"
+                  AutomationProperties.AutomationId="PageOrganizerRotateLeftButton"
                   Click="OnRotateLeftClick"
                   Style="{StaticResource SubtleButtonStyle}">
             <FontIcon Glyph="&#xE7AD;"
@@ -80,8 +82,9 @@
               </FontIcon.RenderTransform>
             </FontIcon>
           </Button>
-          <Button ToolTipService.ToolTip="{Binding RotateRightLabel}"
-                  AutomationProperties.Name="{Binding RotateRightLabel}"
+          <Button ToolTipService.ToolTip="{x:Bind ViewModel.RotateRightLabel}"
+                  AutomationProperties.Name="{x:Bind ViewModel.RotateRightLabel}"
+                  AutomationProperties.AutomationId="PageOrganizerRotateRightButton"
                   Click="OnRotateRightClick"
                   Style="{StaticResource SubtleButtonStyle}">
             <FontIcon Glyph="&#xE7AD;"
@@ -94,24 +97,27 @@
                      Fill="{ThemeResource DividerBrush}"
                      Margin="8,0" />
 
-          <Button ToolTipService.ToolTip="{Binding DeleteLabel}"
-                  AutomationProperties.Name="{Binding DeleteLabel}"
+          <Button ToolTipService.ToolTip="{x:Bind ViewModel.DeleteLabel}"
+                  AutomationProperties.Name="{x:Bind ViewModel.DeleteLabel}"
+                  AutomationProperties.AutomationId="PageOrganizerDeleteButton"
                   Click="OnDeleteClick"
                   Style="{StaticResource SubtleButtonStyle}">
             <FontIcon Glyph="&#xE107;"
                       FontFamily="Segoe Fluent Icons"
                       FontSize="16" />
           </Button>
-          <Button ToolTipService.ToolTip="{Binding DuplicateLabel}"
-                  AutomationProperties.Name="{Binding DuplicateLabel}"
+          <Button ToolTipService.ToolTip="{x:Bind ViewModel.DuplicateLabel}"
+                  AutomationProperties.Name="{x:Bind ViewModel.DuplicateLabel}"
+                  AutomationProperties.AutomationId="PageOrganizerDuplicateButton"
                   Click="OnDuplicateClick"
                   Style="{StaticResource SubtleButtonStyle}">
             <FontIcon Glyph="&#xE8C8;"
                       FontFamily="Segoe Fluent Icons"
                       FontSize="16" />
           </Button>
-          <Button ToolTipService.ToolTip="{Binding ReverseLabel}"
-                  AutomationProperties.Name="{Binding ReverseLabel}"
+          <Button ToolTipService.ToolTip="{x:Bind ViewModel.ReverseLabel}"
+                  AutomationProperties.Name="{x:Bind ViewModel.ReverseLabel}"
+                  AutomationProperties.AutomationId="PageOrganizerReverseButton"
                   Click="OnReverseClick"
                   Style="{StaticResource SubtleButtonStyle}">
             <FontIcon Glyph="&#xE174;"
@@ -124,19 +130,21 @@
                      Fill="{ThemeResource DividerBrush}"
                      Margin="8,0" />
 
-          <Button ToolTipService.ToolTip="{Binding UndoLabel}"
-                  AutomationProperties.Name="{Binding UndoLabel}"
+          <Button ToolTipService.ToolTip="{x:Bind ViewModel.UndoLabel}"
+                  AutomationProperties.Name="{x:Bind ViewModel.UndoLabel}"
+                  AutomationProperties.AutomationId="PageOrganizerUndoButton"
                   Click="OnUndoClick"
-                  IsEnabled="{Binding CanUndo, Mode=OneWay}"
+                  IsEnabled="{x:Bind ViewModel.CanUndo, Mode=OneWay}"
                   Style="{StaticResource SubtleButtonStyle}">
             <FontIcon Glyph="&#xE10E;"
                       FontFamily="Segoe Fluent Icons"
                       FontSize="16" />
           </Button>
-          <Button ToolTipService.ToolTip="{Binding RedoLabel}"
-                  AutomationProperties.Name="{Binding RedoLabel}"
+          <Button ToolTipService.ToolTip="{x:Bind ViewModel.RedoLabel}"
+                  AutomationProperties.Name="{x:Bind ViewModel.RedoLabel}"
+                  AutomationProperties.AutomationId="PageOrganizerRedoButton"
                   Click="OnRedoClick"
-                  IsEnabled="{Binding CanRedo, Mode=OneWay}"
+                  IsEnabled="{x:Bind ViewModel.CanRedo, Mode=OneWay}"
                   Style="{StaticResource SubtleButtonStyle}">
             <FontIcon Glyph="&#xE10D;"
                       FontFamily="Segoe Fluent Icons"
@@ -147,30 +155,30 @@
         <!-- Selection Helpers Row -->
         <StackPanel Orientation="Horizontal"
                     Spacing="6">
-          <TextBlock Text="{Binding SelectionLabel}"
+          <TextBlock Text="{x:Bind ViewModel.SelectionLabel}"
                      VerticalAlignment="Center"
                      Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                      FontSize="12"
                      Margin="0,0,2,0" />
-          <Button Content="{Binding SelectAllLabel}"
+          <Button Content="{x:Bind ViewModel.SelectAllLabel}"
                   Click="OnSelectAllClick"
-                  AutomationProperties.Name="{Binding SelectAllLabel}"
+                  AutomationProperties.Name="{x:Bind ViewModel.SelectAllLabel}"
                   Style="{StaticResource ChipButtonStyle}" />
-          <Button Content="{Binding SelectOddLabel}"
+          <Button Content="{x:Bind ViewModel.SelectOddLabel}"
                   Click="OnSelectOddClick"
-                  AutomationProperties.Name="{Binding SelectOddLabel}"
+                  AutomationProperties.Name="{x:Bind ViewModel.SelectOddLabel}"
                   Style="{StaticResource ChipButtonStyle}" />
-          <Button Content="{Binding SelectEvenLabel}"
+          <Button Content="{x:Bind ViewModel.SelectEvenLabel}"
                   Click="OnSelectEvenClick"
-                  AutomationProperties.Name="{Binding SelectEvenLabel}"
+                  AutomationProperties.Name="{x:Bind ViewModel.SelectEvenLabel}"
                   Style="{StaticResource ChipButtonStyle}" />
-          <Button Content="{Binding SelectInvertLabel}"
+          <Button Content="{x:Bind ViewModel.SelectInvertLabel}"
                   Click="OnInvertSelectionClick"
-                  AutomationProperties.Name="{Binding SelectInvertLabel}"
+                  AutomationProperties.Name="{x:Bind ViewModel.SelectInvertLabel}"
                   Style="{StaticResource ChipButtonStyle}" />
-          <Button Content="{Binding SelectNoneLabel}"
+          <Button Content="{x:Bind ViewModel.SelectNoneLabel}"
                   Click="OnDeselectAllClick"
-                  AutomationProperties.Name="{Binding SelectNoneLabel}"
+                  AutomationProperties.Name="{x:Bind ViewModel.SelectNoneLabel}"
                   Style="{StaticResource ChipButtonStyle}" />
         </StackPanel>
       </StackPanel>
@@ -184,7 +192,7 @@
                   Padding="16">
       <Grid>
         <ItemsRepeater x:Name="PageGridRepeater"
-                       ItemsSource="{Binding Pages, Mode=OneWay}">
+                       ItemsSource="{x:Bind ViewModel.Pages, Mode=OneWay}">
           <ItemsRepeater.Layout>
             <UniformGridLayout MinItemWidth="164"
                                MinItemHeight="224"
@@ -193,11 +201,11 @@
                                ItemsStretch="None" />
           </ItemsRepeater.Layout>
           <ItemsRepeater.ItemTemplate>
-            <DataTemplate>
+            <DataTemplate x:DataType="vm:PageOrganizerItemViewModel">
               <Grid x:Name="PageItemRoot"
                     Width="164"
                     Height="224"
-                    CornerRadius="8"
+                    CornerRadius="{StaticResource LargeCornerRadius}"
                     Padding="10"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
@@ -235,12 +243,12 @@
                           VerticalAlignment="Center"
                           RenderTransformOrigin="0.5,0.5">
                       <Grid.RenderTransform>
-                        <RotateTransform Angle="{Binding RotationAngle, Mode=OneWay}" />
+                        <RotateTransform Angle="{x:Bind RotationAngle, Mode=OneWay}" />
                       </Grid.RenderTransform>
 
                       <Border Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
                               CornerRadius="4" />
-                      <Image Source="{Binding Thumbnail, Mode=OneWay}"
+                      <Image Source="{x:Bind Thumbnail, Mode=OneWay}"
                              Stretch="Uniform"
                              HorizontalAlignment="Center"
                              VerticalAlignment="Center" />
@@ -248,7 +256,7 @@
                       <Border CornerRadius="4"
                               BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
                               BorderThickness="2.5"
-                              Visibility="{Binding IsSelected, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"
+                              Visibility="{x:Bind IsSelected, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"
                               IsHitTestVisible="False">
                         <Border.OpacityTransition>
                           <ScalarTransition Duration="0:0:0.15" />
@@ -262,7 +270,7 @@
                               HorizontalAlignment="Right"
                               VerticalAlignment="Top"
                               Margin="0,-10,-10,0"
-                              Visibility="{Binding IsSelected, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"
+                              Visibility="{x:Bind IsSelected, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"
                               IsHitTestVisible="False">
                         <FontIcon Glyph="&#xE73E;"
                                   FontFamily="Segoe Fluent Icons"
@@ -277,12 +285,12 @@
                 <ProgressRing Grid.Row="0"
                               Width="24"
                               Height="24"
-                              IsActive="{Binding IsLoading, Mode=OneWay}"
-                              Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
+                              IsActive="{x:Bind IsLoading, Mode=OneWay}"
+                              Visibility="{x:Bind IsLoading, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
 
                 <!-- Page Number -->
                 <TextBlock Grid.Row="1"
-                           Text="{Binding PageNumber, Mode=OneWay}"
+                           Text="{x:Bind PageNumber, Mode=OneWay}"
                            FontSize="12"
                            HorizontalAlignment="Center"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -319,7 +327,7 @@
         </Grid.ColumnDefinitions>
 
         <TextBlock Grid.Column="0"
-                   Text="{Binding StatusText, Mode=OneWay}"
+                   Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
                    VerticalAlignment="Center"
                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                    FontSize="12" />
@@ -327,17 +335,19 @@
         <StackPanel Grid.Column="1"
                     Orientation="Horizontal"
                     Spacing="8">
-          <Button Content="{Binding CancelLabel}"
+          <Button Content="{x:Bind ViewModel.CancelLabel}"
                   Click="OnCancelClick"
-                  AutomationProperties.Name="{Binding CancelLabel}"
+                  AutomationProperties.Name="{x:Bind ViewModel.CancelLabel}"
+                  AutomationProperties.AutomationId="PageOrganizerCancelButton"
                   MinWidth="88"
-                  CornerRadius="6" />
-          <Button Content="{Binding ApplyLabel}"
+                  CornerRadius="{StaticResource MediumCornerRadius}" />
+          <Button Content="{x:Bind ViewModel.ApplyLabel}"
                   Click="OnApplyClick"
-                  AutomationProperties.Name="{Binding ApplyLabel}"
+                  AutomationProperties.Name="{x:Bind ViewModel.ApplyLabel}"
+                  AutomationProperties.AutomationId="PageOrganizerApplyButton"
                   Style="{ThemeResource AccentButtonStyle}"
                   MinWidth="88"
-                  CornerRadius="6" />
+                  CornerRadius="{StaticResource MediumCornerRadius}" />
         </StackPanel>
       </Grid>
     </Border>

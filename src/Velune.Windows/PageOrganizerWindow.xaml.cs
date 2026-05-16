@@ -26,6 +26,8 @@ public sealed partial class PageOrganizerWindow : Window
 
     private readonly PageOrganizerViewModel _viewModel;
     private readonly Action<bool>? _onClosed;
+
+    public PageOrganizerViewModel ViewModel => _viewModel;
     private Point _dragStartPoint;
     private bool _isDragging;
     private int _dragSourceIndex = -1;
@@ -45,7 +47,6 @@ public sealed partial class PageOrganizerWindow : Window
 
         InitializeComponent();
 
-        Root.DataContext = viewModel;
         Title = viewModel.WindowTitle;
 
         ConfigureWindow();

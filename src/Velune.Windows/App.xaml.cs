@@ -36,17 +36,26 @@ public sealed partial class App
 
     protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
-        VeluneTempDirectory.CleanupStale();
-        _host = CreateHost(_args).Build();
-        string[] startupPaths = _args.Where(File.Exists).ToArray();
-        WindowsWindowCoordinator windowCoordinator = _host.Services.GetRequiredService<WindowsWindowCoordinator>();
-        if (startupPaths.Length == 0)
+        try
         {
-            windowCoordinator.ShowWelcome();
-            return;
-        }
+            VeluneTempDirectory.CleanupStale();
+            _host = CreateHost(_args).Build();
+            RecentFileOpenedAtConverter.TextCatalog = _host.Services.GetRequiredService<IWindowsTextCatalog>();
+            string[] startupPaths = _args.Where(File.Exists).ToArray();
+            WindowsWindowCoordinator windowCoordinator = _host.Services.GetRequiredService<WindowsWindowCoordinator>();
+            if (startupPaths.Length == 0)
+            {
+                windowCoordinator.ShowWelcome();
+                return;
+            }
 
-        await windowCoordinator.OpenWorkspaceWithFilesAsync(startupPaths);
+            await windowCoordinator.OpenWorkspaceWithFilesAsync(startupPaths);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Velune] Fatal launch error: {ex}");
+            throw;
+        }
     }
 
     private static HostApplicationBuilder CreateHost(string[] args)

@@ -232,6 +232,13 @@
           <SolidColorBrush x:Key="WelcomeClearButtonFgBrush" Color="#FFFFFF" />
         </ResourceDictionary>
       </ResourceDictionary.ThemeDictionaries>
+
+      <CornerRadius x:Key="SmallCornerRadius">4</CornerRadius>
+      <CornerRadius x:Key="MediumCornerRadius">6</CornerRadius>
+      <CornerRadius x:Key="LargeCornerRadius">8</CornerRadius>
+      <CornerRadius x:Key="ExtraLargeCornerRadius">12</CornerRadius>
+      <CornerRadius x:Key="PillCornerRadius">13</CornerRadius>
+      <x:Double x:Key="NavigationFontSize">14</x:Double>
     </ResourceDictionary>
   </Application.Resources>
 </Application>

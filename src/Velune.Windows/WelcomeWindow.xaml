@@ -2,7 +2,9 @@
     x:Class="Velune.Windows.WelcomeWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:services="using:Velune.Windows.Services">
+    xmlns:services="using:Velune.Windows.Services"
+    xmlns:vm="using:Velune.Windows.ViewModels"
+    xmlns:dto="using:Velune.Application.DTOs">
 
   <Window.SystemBackdrop>
     <MicaBackdrop Kind="BaseAlt" />
@@ -27,7 +29,7 @@
           <Setter Property="Background" Value="{ThemeResource WelcomeButtonBgBrush}" />
           <Setter Property="BorderBrush" Value="{ThemeResource WelcomeButtonBorderBrush}" />
           <Setter Property="BorderThickness" Value="1" />
-          <Setter Property="CornerRadius" Value="5" />
+          <Setter Property="CornerRadius" Value="{StaticResource SmallCornerRadius}" />
           <Setter Property="Foreground" Value="{ThemeResource WelcomeButtonFgBrush}" />
           <Setter Property="FontSize" Value="13" />
           <Setter Property="HorizontalContentAlignment" Value="Center" />
@@ -63,7 +65,7 @@
           <Setter Property="HorizontalContentAlignment" Value="Stretch" />
           <Setter Property="VerticalContentAlignment" Value="Stretch" />
           <Setter Property="UseSystemFocusVisuals" Value="False" />
-          <Setter Property="CornerRadius" Value="6" />
+          <Setter Property="CornerRadius" Value="{StaticResource MediumCornerRadius}" />
         </Style>
 
         <Style x:Key="ClearRecentButtonStyle" TargetType="Button">
@@ -95,7 +97,7 @@
         <Image Source="Assets/Brand/velune-app-icon.png"
                Width="26"
                Height="26" />
-        <TextBlock Text="{Binding Labels.AppName}"
+        <TextBlock Text="{x:Bind ViewModel.Labels.AppName}"
                    Foreground="{ThemeResource WelcomeTextPrimaryBrush}"
                    FontSize="13"
                    VerticalAlignment="Center" />
@@ -131,11 +133,11 @@
         <StackPanel Grid.Column="1"
                     VerticalAlignment="Center"
                     Spacing="5">
-          <TextBlock Text="{Binding Labels.AppName}"
+          <TextBlock Text="{x:Bind ViewModel.Labels.AppName}"
                      Foreground="{ThemeResource WelcomeTextPrimaryBrush}"
                      FontSize="20"
                      FontWeight="SemiBold" />
-          <TextBlock Text="{Binding Labels.WindowSubtitle}"
+          <TextBlock Text="{x:Bind ViewModel.Labels.WindowSubtitle}"
                      Style="{StaticResource BodyTextBlockStyle}"
                      Foreground="{ThemeResource WelcomeTextSecondaryBrush}" />
         </StackPanel>
@@ -144,21 +146,22 @@
                 Style="{StaticResource IconButtonStyle}"
                 VerticalAlignment="Center"
                 Click="OnSettingsClicked"
-                AutomationProperties.Name="{Binding Labels.Settings}">
+                AutomationProperties.AutomationId="WelcomeSettingsButton"
+                AutomationProperties.Name="{x:Bind ViewModel.Labels.Settings}">
           <FontIcon Glyph="&#xE713;"
                     FontFamily="Segoe Fluent Icons"
                     FontSize="17" />
           <Button.Flyout>
             <MenuFlyout>
-              <MenuFlyoutSubItem Text="{Binding Labels.PreferencesLanguage}">
-                <MenuFlyoutItem Text="{Binding Labels.PreferencesEnglish}" Click="OnLanguageClicked" Tag="en" />
-                <MenuFlyoutItem Text="{Binding Labels.PreferencesFrench}" Click="OnLanguageClicked" Tag="fr" />
-                <MenuFlyoutItem Text="{Binding Labels.PreferencesSpanish}" Click="OnLanguageClicked" Tag="es" />
+              <MenuFlyoutSubItem Text="{x:Bind ViewModel.Labels.PreferencesLanguage}">
+                <RadioMenuFlyoutItem Text="{x:Bind ViewModel.Labels.PreferencesEnglish}" Click="OnLanguageClicked" Tag="en" GroupName="Language" x:Name="LanguageEnglishItem" />
+                <RadioMenuFlyoutItem Text="{x:Bind ViewModel.Labels.PreferencesFrench}" Click="OnLanguageClicked" Tag="fr" GroupName="Language" x:Name="LanguageFrenchItem" />
+                <RadioMenuFlyoutItem Text="{x:Bind ViewModel.Labels.PreferencesSpanish}" Click="OnLanguageClicked" Tag="es" GroupName="Language" x:Name="LanguageSpanishItem" />
               </MenuFlyoutSubItem>
-              <MenuFlyoutSubItem Text="{Binding Labels.PreferencesTheme}">
-                <MenuFlyoutItem Text="{Binding Labels.PreferencesSystem}" Click="OnThemeClicked" Tag="System" />
-                <MenuFlyoutItem Text="{Binding Labels.PreferencesLight}" Click="OnThemeClicked" Tag="Light" />
-                <MenuFlyoutItem Text="{Binding Labels.PreferencesDark}" Click="OnThemeClicked" Tag="Dark" />
+              <MenuFlyoutSubItem Text="{x:Bind ViewModel.Labels.PreferencesTheme}">
+                <RadioMenuFlyoutItem Text="{x:Bind ViewModel.Labels.PreferencesSystem}" Click="OnThemeClicked" Tag="System" GroupName="Theme" x:Name="ThemeSystemItem" />
+                <RadioMenuFlyoutItem Text="{x:Bind ViewModel.Labels.PreferencesLight}" Click="OnThemeClicked" Tag="Light" GroupName="Theme" x:Name="ThemeLightItem" />
+                <RadioMenuFlyoutItem Text="{x:Bind ViewModel.Labels.PreferencesDark}" Click="OnThemeClicked" Tag="Dark" GroupName="Theme" x:Name="ThemeDarkItem" />
               </MenuFlyoutSubItem>
             </MenuFlyout>
           </Button.Flyout>
@@ -172,7 +175,7 @@
             Drop="OnHomeDropZoneDrop">
         <Rectangle RadiusX="6"
                    RadiusY="6"
-                   Fill="#00FFFFFF"
+                   Fill="Transparent"
                    Stroke="{ThemeResource WelcomeDropZoneStrokeBrush}"
                    StrokeDashArray="4,4"
                    StrokeThickness="1" />
@@ -208,13 +211,13 @@
                      Fill="Transparent" />
           </Canvas>
 
-          <TextBlock Text="{Binding Labels.WelcomeDropTitle}"
+          <TextBlock Text="{x:Bind ViewModel.Labels.WelcomeDropTitle}"
                      Style="{StaticResource SubtitleTextBlockStyle}"
                      Foreground="{ThemeResource WelcomeTextPrimaryBrush}"
                      HorizontalAlignment="Center"
                      TextAlignment="Center" />
 
-          <TextBlock Text="{Binding Labels.WelcomeSupportedFormats}"
+          <TextBlock Text="{x:Bind ViewModel.Labels.WelcomeSupportedFormats}"
                      Foreground="{ThemeResource WelcomeTextSubtleBrush}"
                      FontSize="13"
                      HorizontalAlignment="Center"
@@ -226,30 +229,32 @@
                       Margin="0,6,0,0">
             <Button Click="OnOpenFilesClicked"
                     Style="{StaticResource PrimaryWelcomeButtonStyle}"
-                    AutomationProperties.Name="{Binding Labels.WelcomeOpenFiles}">
+                    AutomationProperties.AutomationId="WelcomeOpenFilesButton"
+                    AutomationProperties.Name="{x:Bind ViewModel.Labels.WelcomeOpenFiles}">
               <StackPanel Orientation="Horizontal"
                           Spacing="10"
                           VerticalAlignment="Center">
                 <FontIcon Glyph="&#xE8E5;"
                           FontFamily="Segoe Fluent Icons"
                           FontSize="17" />
-                <TextBlock Text="{Binding Labels.WelcomeOpenFiles}"
+                <TextBlock Text="{x:Bind ViewModel.Labels.WelcomeOpenFiles}"
                            FontSize="13"
                            FontWeight="SemiBold"
                            VerticalAlignment="Center" />
               </StackPanel>
             </Button>
 
-            <Button Command="{Binding MergeCommand}"
+            <Button Command="{x:Bind ViewModel.MergeCommand}"
                     Style="{StaticResource SecondaryWelcomeButtonStyle}"
-                    AutomationProperties.Name="{Binding Labels.WelcomeMergePdf}">
+                    AutomationProperties.AutomationId="WelcomeMergeButton"
+                    AutomationProperties.Name="{x:Bind ViewModel.Labels.WelcomeMergePdf}">
               <StackPanel Orientation="Horizontal"
                           Spacing="10"
                           VerticalAlignment="Center">
                 <FontIcon Glyph="&#xE8B7;"
                           FontFamily="Segoe Fluent Icons"
                           FontSize="17" />
-                <TextBlock Text="{Binding Labels.WelcomeMergePdf}"
+                <TextBlock Text="{x:Bind ViewModel.Labels.WelcomeMergePdf}"
                            FontSize="13"
                            VerticalAlignment="Center" />
               </StackPanel>
@@ -263,14 +268,15 @@
                   BorderThickness="0"
                   HorizontalAlignment="Center"
                   Foreground="{ThemeResource WelcomeAccentTextBrush}"
-                  AutomationProperties.Name="{Binding Labels.WelcomeBrowseDevice}">
+                  AutomationProperties.AutomationId="WelcomeBrowseDeviceButton"
+                  AutomationProperties.Name="{x:Bind ViewModel.Labels.WelcomeBrowseDevice}">
             <StackPanel Orientation="Horizontal"
                         Spacing="8">
               <FontIcon Glyph="&#xE838;"
                         FontFamily="Segoe Fluent Icons"
                         FontSize="14"
                         Foreground="{ThemeResource WelcomeAccentTextBrush}" />
-              <TextBlock Text="{Binding Labels.WelcomeBrowseDevice}"
+              <TextBlock Text="{x:Bind ViewModel.Labels.WelcomeBrowseDevice}"
                          FontSize="13"
                          FontWeight="SemiBold"
                          VerticalAlignment="Center" />
@@ -280,13 +286,13 @@
       </Grid>
 
       <Grid Grid.Row="4"
-            Visibility="{Binding ShowRecentFilesFooter, Converter={StaticResource BoolToVisibility}}">
+            Visibility="{x:Bind ViewModel.ShowRecentFilesFooter, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
         <Grid.RowDefinitions>
           <RowDefinition Height="30" />
           <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock Text="{Binding Labels.RecentTitle}"
+        <TextBlock Text="{x:Bind ViewModel.Labels.RecentTitle}"
                    Foreground="{ThemeResource WelcomeTextPrimaryBrush}"
                    FontSize="14"
                    FontWeight="SemiBold"
@@ -295,31 +301,33 @@
         <Button Grid.Row="0"
                 Style="{StaticResource ClearRecentButtonStyle}"
                 HorizontalAlignment="Right"
-                Command="{Binding ClearRecentFilesCommand}"
-                AutomationProperties.Name="{Binding Labels.RecentClear}">
+                Command="{x:Bind ViewModel.ClearRecentFilesCommand}"
+                AutomationProperties.AutomationId="WelcomeClearRecentButton"
+                AutomationProperties.Name="{x:Bind ViewModel.Labels.RecentClear}">
           <StackPanel Orientation="Horizontal"
                       Spacing="6"
                       VerticalAlignment="Center">
             <FontIcon Glyph="&#xE74D;"
                       FontFamily="Segoe Fluent Icons"
                       FontSize="15" />
-            <TextBlock Text="{Binding Labels.RecentClear}"
+            <TextBlock Text="{x:Bind ViewModel.Labels.RecentClear}"
                        FontSize="11"
                        VerticalAlignment="Center" />
           </StackPanel>
         </Button>
 
         <ListView Grid.Row="1"
-                  ItemsSource="{Binding RecentFiles}"
+                  ItemsSource="{x:Bind ViewModel.RecentFiles, Mode=OneWay}"
                   ItemContainerStyle="{StaticResource RecentListViewItemStyle}"
                   IsItemClickEnabled="True"
                   ItemClick="OnRecentFileItemClick"
                   SelectionMode="None"
                   Background="Transparent"
                   BorderThickness="0"
-                  Padding="0">
+                  Padding="0"
+                  AutomationProperties.AutomationId="WelcomeRecentFilesList">
           <ListView.ItemTemplate>
-            <DataTemplate>
+            <DataTemplate x:DataType="dto:RecentFileItem">
               <Grid Height="58"
                     Margin="0,0,0,4"
                     PointerEntered="OnRecentFilePointerEntered"
@@ -327,7 +335,7 @@
                 <Border Background="{ThemeResource WelcomeCardBgBrush}"
                         BorderBrush="{ThemeResource WelcomeCardBorderBrush}"
                         BorderThickness="1"
-                        CornerRadius="6" />
+                        CornerRadius="{StaticResource MediumCornerRadius}" />
                 <Rectangle x:Name="AccentBar"
                            Width="3"
                            Height="28"
@@ -352,7 +360,7 @@
                         Height="26"
                         HorizontalAlignment="Left"
                         VerticalAlignment="Center">
-                    <Grid Visibility="{Binding FileName, Converter={StaticResource RecentFilePdfVisibility}}">
+                    <Grid Visibility="{x:Bind FileName, Converter={StaticResource RecentFilePdfVisibility}}">
                       <Path Data="M5,1 H17 L24,8 V31 H5 Z M17,1 V8 H24"
                             Stroke="{ThemeResource PdfBadgeBrush}"
                             StrokeThickness="1.2"
@@ -366,7 +374,7 @@
                               VerticalAlignment="Bottom"
                               Margin="0,0,0,2">
                         <TextBlock Text="PDF"
-                                   Foreground="#FFFFFF"
+                                   Foreground="{ThemeResource WelcomePrimaryFgBrush}"
                                    FontSize="6"
                                    FontWeight="Bold"
                                    HorizontalAlignment="Center"
@@ -376,25 +384,25 @@
 
                     <FontIcon Glyph="&#xEB9F;"
                               FontFamily="Segoe Fluent Icons"
-                              Foreground="{Binding FileName, Converter={StaticResource RecentFileBrush}}"
+                              Foreground="{x:Bind FileName, Converter={StaticResource RecentFileBrush}}"
                               FontSize="22"
                               Width="22"
                               Height="22"
                               HorizontalAlignment="Left"
                               VerticalAlignment="Center"
-                              Visibility="{Binding FileName, Converter={StaticResource RecentFileImageVisibility}}" />
+                              Visibility="{x:Bind FileName, Converter={StaticResource RecentFileImageVisibility}}" />
                   </Grid>
 
                   <StackPanel Grid.Column="1"
                               VerticalAlignment="Center"
                               Spacing="2">
-                    <TextBlock Text="{Binding FileName}"
+                    <TextBlock Text="{x:Bind FileName}"
                                Foreground="{ThemeResource WelcomeTextPrimaryBrush}"
                                FontSize="12"
                                FontWeight="SemiBold"
                                TextTrimming="CharacterEllipsis"
                                TextWrapping="NoWrap" />
-                    <TextBlock Text="{Binding DocumentType}"
+                    <TextBlock Text="{x:Bind DocumentType}"
                                Foreground="{ThemeResource WelcomeTextSecondaryBrush}"
                                FontSize="12"
                                TextTrimming="CharacterEllipsis"
@@ -402,7 +410,7 @@
                   </StackPanel>
 
                   <TextBlock Grid.Column="2"
-                             Text="{Binding OpenedAt, Converter={StaticResource RecentFileOpenedAt}}"
+                             Text="{x:Bind OpenedAt, Converter={StaticResource RecentFileOpenedAt}}"
                              Foreground="{ThemeResource WelcomeTextSecondaryBrush}"
                              FontSize="12"
                              HorizontalAlignment="Right"
@@ -423,11 +431,11 @@
       </Grid>
 
       <TextBlock Grid.Row="4"
-                 Text="{Binding StatusText}"
+                 Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
                  Foreground="{ThemeResource WelcomeTextSecondaryBrush}"
                  FontSize="12"
                  VerticalAlignment="Top"
-                 Visibility="{Binding ShowStatusFooter, Converter={StaticResource BoolToVisibility}}" />
+                 Visibility="{x:Bind ViewModel.ShowStatusFooter, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
     </Grid>
   </Grid>
 </Window>

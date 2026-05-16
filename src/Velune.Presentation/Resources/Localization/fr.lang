@@ -596,3 +596,6 @@ organizer.select_none=Aucune
 organizer.selection=Sélection :
 organizer.cancel=Annuler
 organizer.apply=Appliquer
+
+time.today_at=Aujourd'hui à {0}
+time.yesterday_at=Hier à {0}

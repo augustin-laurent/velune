@@ -5,6 +5,7 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Media;
 using Velune.Application.Abstractions;
 using Velune.Application.Annotations;
+using Velune.Application.Configuration;
 using Velune.Application.Documents;
 using Velune.Application.DTOs;
 using Velune.Application.Results;
@@ -72,6 +73,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     private NormalizedPoint? _activeAnnotationStartPoint;
     private Guid? _previewAnnotationId;
     private readonly bool _isApplyingThumbnailPreference;
+    private bool _isApplyingPreferenceSelection;
     private Guid? _movingAnnotationId;
     private NormalizedPoint? _movingAnnotationStartPoint;
     private NormalizedTextRegion? _movingAnnotationOriginalBounds;
@@ -191,9 +193,11 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         PreferenceLanguageOptions = [Labels.PreferencesSystem, Labels.PreferencesEnglish, Labels.PreferencesFrench, Labels.PreferencesSpanish];
         PreferenceThemeOptions = [Labels.PreferencesSystem, Labels.PreferencesLight, Labels.PreferencesDark];
         PreferenceZoomOptions = [Labels.PreferencesFitPage, Labels.PreferencesFitWidth, Labels.PreferencesActualSize];
-        SelectedPreferenceLanguage = Labels.PreferencesSystem;
-        SelectedPreferenceTheme = Labels.PreferencesSystem;
-        SelectedPreferenceZoom = Labels.PreferencesFitPage;
+        _isApplyingPreferenceSelection = true;
+        SelectedPreferenceLanguage = MapLanguageToLabel(_userPreferencesService.Current.Language);
+        SelectedPreferenceTheme = MapThemeToLabel(_userPreferencesService.Current.Theme);
+        SelectedPreferenceZoom = MapZoomToLabel(_userPreferencesService.Current.DefaultZoom);
+        _isApplyingPreferenceSelection = false;
         _isApplyingThumbnailPreference = true;
         ShowThumbnails = _userPreferencesService.Current.ShowThumbnailsPanel;
         _isApplyingThumbnailPreference = false;
@@ -4304,6 +4308,100 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         }
     }
 
+    private async Task SavePreferenceAsync(Func<UserPreferences, UserPreferences> transform)
+    {
+        try
+        {
+            UserPreferences updated = transform(_userPreferencesService.Current);
+            await _userPreferencesService.SaveAsync(updated);
+        }
+        catch (Exception exception)
+        {
+            await RunOnUiThreadAsync(() => StatusText = exception.Message);
+        }
+    }
+
+    private string MapLanguageToLabel(AppLanguagePreference language)
+    {
+        return language switch
+        {
+            AppLanguagePreference.English => Labels.PreferencesEnglish,
+            AppLanguagePreference.French => Labels.PreferencesFrench,
+            AppLanguagePreference.Spanish => Labels.PreferencesSpanish,
+            _ => Labels.PreferencesSystem
+        };
+    }
+
+    private AppLanguagePreference MapLabelToLanguage(string label)
+    {
+        if (string.Equals(label, Labels.PreferencesEnglish, StringComparison.Ordinal))
+        {
+            return AppLanguagePreference.English;
+        }
+
+        if (string.Equals(label, Labels.PreferencesFrench, StringComparison.Ordinal))
+        {
+            return AppLanguagePreference.French;
+        }
+
+        if (string.Equals(label, Labels.PreferencesSpanish, StringComparison.Ordinal))
+        {
+            return AppLanguagePreference.Spanish;
+        }
+
+        return AppLanguagePreference.System;
+    }
+
+    private string MapThemeToLabel(AppThemePreference theme)
+    {
+        return theme switch
+        {
+            AppThemePreference.Light => Labels.PreferencesLight,
+            AppThemePreference.Dark => Labels.PreferencesDark,
+            _ => Labels.PreferencesSystem
+        };
+    }
+
+    private AppThemePreference MapLabelToTheme(string label)
+    {
+        if (string.Equals(label, Labels.PreferencesLight, StringComparison.Ordinal))
+        {
+            return AppThemePreference.Light;
+        }
+
+        if (string.Equals(label, Labels.PreferencesDark, StringComparison.Ordinal))
+        {
+            return AppThemePreference.Dark;
+        }
+
+        return AppThemePreference.System;
+    }
+
+    private string MapZoomToLabel(DefaultZoomPreference zoom)
+    {
+        return zoom switch
+        {
+            DefaultZoomPreference.FitToWidth => Labels.PreferencesFitWidth,
+            DefaultZoomPreference.ActualSize => Labels.PreferencesActualSize,
+            _ => Labels.PreferencesFitPage
+        };
+    }
+
+    private DefaultZoomPreference MapLabelToZoom(string label)
+    {
+        if (string.Equals(label, Labels.PreferencesFitWidth, StringComparison.Ordinal))
+        {
+            return DefaultZoomPreference.FitToWidth;
+        }
+
+        if (string.Equals(label, Labels.PreferencesActualSize, StringComparison.Ordinal))
+        {
+            return DefaultZoomPreference.ActualSize;
+        }
+
+        return DefaultZoomPreference.FitToPage;
+    }
+
     private async Task MergeDocumentSourcesAsync(string[] sourcePaths)
     {
         if (sourcePaths.Length < 2)
@@ -4835,6 +4933,30 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         if (!_isApplyingThumbnailPreference)
         {
             _ = SaveThumbnailPreferenceAsync(value);
+        }
+    }
+
+    partial void OnSelectedPreferenceLanguageChanged(string value)
+    {
+        if (!_isApplyingPreferenceSelection)
+        {
+            _ = SavePreferenceAsync(p => p with { Language = MapLabelToLanguage(value) });
+        }
+    }
+
+    partial void OnSelectedPreferenceThemeChanged(string value)
+    {
+        if (!_isApplyingPreferenceSelection)
+        {
+            _ = SavePreferenceAsync(p => p with { Theme = MapLabelToTheme(value) });
+        }
+    }
+
+    partial void OnSelectedPreferenceZoomChanged(string value)
+    {
+        if (!_isApplyingPreferenceSelection)
+        {
+            _ = SavePreferenceAsync(p => p with { DefaultZoom = MapLabelToZoom(value) });
         }
     }
 

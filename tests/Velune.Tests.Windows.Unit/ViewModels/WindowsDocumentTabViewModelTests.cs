@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using Velune.Application.Configuration;
 using Velune.Domain.Annotations;
 using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
@@ -110,8 +111,15 @@ public sealed class WindowsDocumentTabViewModelTests
 
     private sealed class StubWindowsTextCatalog : IWindowsTextCatalog
     {
+        public event EventHandler? LanguageChanged;
+
         public string GetString(string key) => key;
 
         public string Format(string key, params object[] args) => $"{key}: {string.Join(", ", args)}";
+
+        public void Reload(AppLanguagePreference preference)
+        {
+            LanguageChanged?.Invoke(this, EventArgs.Empty);
+        }
     }
 }

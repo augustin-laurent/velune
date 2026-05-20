@@ -151,14 +151,14 @@
           <Button.Flyout>
             <MenuFlyout>
               <MenuFlyoutSubItem Text="{Binding Labels.PreferencesLanguage}">
-                <MenuFlyoutItem Text="{Binding Labels.PreferencesEnglish}" Click="OnLanguageClicked" Tag="en" />
-                <MenuFlyoutItem Text="{Binding Labels.PreferencesFrench}" Click="OnLanguageClicked" Tag="fr" />
-                <MenuFlyoutItem Text="{Binding Labels.PreferencesSpanish}" Click="OnLanguageClicked" Tag="es" />
+                <RadioMenuFlyoutItem Text="{Binding Labels.PreferencesEnglish}" Click="OnLanguageClicked" Tag="en" GroupName="Language" x:Name="LanguageEnglishItem" />
+                <RadioMenuFlyoutItem Text="{Binding Labels.PreferencesFrench}" Click="OnLanguageClicked" Tag="fr" GroupName="Language" x:Name="LanguageFrenchItem" />
+                <RadioMenuFlyoutItem Text="{Binding Labels.PreferencesSpanish}" Click="OnLanguageClicked" Tag="es" GroupName="Language" x:Name="LanguageSpanishItem" />
               </MenuFlyoutSubItem>
               <MenuFlyoutSubItem Text="{Binding Labels.PreferencesTheme}">
-                <MenuFlyoutItem Text="{Binding Labels.PreferencesSystem}" Click="OnThemeClicked" Tag="System" />
-                <MenuFlyoutItem Text="{Binding Labels.PreferencesLight}" Click="OnThemeClicked" Tag="Light" />
-                <MenuFlyoutItem Text="{Binding Labels.PreferencesDark}" Click="OnThemeClicked" Tag="Dark" />
+                <RadioMenuFlyoutItem Text="{Binding Labels.PreferencesSystem}" Click="OnThemeClicked" Tag="System" GroupName="Theme" x:Name="ThemeSystemItem" />
+                <RadioMenuFlyoutItem Text="{Binding Labels.PreferencesLight}" Click="OnThemeClicked" Tag="Light" GroupName="Theme" x:Name="ThemeLightItem" />
+                <RadioMenuFlyoutItem Text="{Binding Labels.PreferencesDark}" Click="OnThemeClicked" Tag="Dark" GroupName="Theme" x:Name="ThemeDarkItem" />
               </MenuFlyoutSubItem>
             </MenuFlyout>
           </Button.Flyout>

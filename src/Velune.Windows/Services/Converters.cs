@@ -2,7 +2,10 @@ using System.Globalization;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Velune.Domain.Annotations;
+using Velune.Windows.ViewModels;
+using Windows.Foundation;
 
 namespace Velune.Windows.Services;
 
@@ -68,6 +71,60 @@ public static class XamlBindingHelpers
     public static double Subtract(double value, double subtract)
     {
         return value - subtract;
+    }
+
+    public static Thickness CreateThickness(double left, double top, double right, double bottom)
+    {
+        return new Thickness(left, top, right, bottom);
+    }
+
+    public static Thickness CreateUniformThickness(double value)
+    {
+        return new Thickness(value);
+    }
+
+    public static CornerRadius CreateCornerRadius(double value)
+    {
+        return new CornerRadius(value);
+    }
+
+    public static Brush BrushFromHex(string? hex, int alpha)
+    {
+        string normalized = (hex ?? string.Empty).Trim().TrimStart('#');
+        if (normalized.Length != 6)
+        {
+            normalized = "EEF1FF";
+        }
+
+        byte clampedAlpha = (byte)Math.Clamp(alpha, 0, 255);
+        return new SolidColorBrush(global::Windows.UI.Color.FromArgb(
+            clampedAlpha,
+            Convert.ToByte(normalized[..2], 16),
+            Convert.ToByte(normalized.Substring(2, 2), 16),
+            Convert.ToByte(normalized.Substring(4, 2), 16)));
+    }
+
+    public static PointCollection PointCollectionFromOverlayPoints(IReadOnlyList<AnnotationOverlayPoint>? points)
+    {
+        var pointCollection = new PointCollection();
+        if (points is null)
+        {
+            return pointCollection;
+        }
+
+        foreach (AnnotationOverlayPoint point in points)
+        {
+            pointCollection.Add(new Point(point.X, point.Y));
+        }
+
+        return pointCollection;
+    }
+
+    public static ImageSource? ImageSourceFromPath(string? filePath)
+    {
+        return string.IsNullOrWhiteSpace(filePath)
+            ? null
+            : new BitmapImage(new Uri(filePath, UriKind.Absolute));
     }
 
     public static string RecentFileOpenedAt(DateTimeOffset openedAt)

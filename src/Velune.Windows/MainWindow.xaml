@@ -1408,7 +1408,7 @@
                       <DataTemplate x:DataType="vm:WindowsAnnotationOverlayViewModel">
                         <Canvas Width="{x:Bind Width, Mode=OneWay}"
                                 Height="{x:Bind Height, Mode=OneWay}"
-                                Margin="{x:Bind Margin, Mode=OneWay}"
+                                Margin="{x:Bind services:XamlBindingHelpers.CreateThickness(Left, Top, 0, 0), Mode=OneWay}"
                                 HorizontalAlignment="Left"
                                 VerticalAlignment="Top"
                                 Opacity="{x:Bind Opacity, Mode=OneWay}"
@@ -1423,38 +1423,38 @@
                             </Canvas.RenderTransform>
                             <Border Width="{x:Bind Width, Mode=OneWay}"
                                     Height="{x:Bind Height, Mode=OneWay}"
-                                    Background="{x:Bind FillBrush, Mode=OneWay}"
-                                    BorderBrush="{x:Bind StrokeBrush, Mode=OneWay}"
-                                    BorderThickness="{x:Bind BorderThickness, Mode=OneWay}"
-                                    CornerRadius="{x:Bind CornerRadius, Mode=OneWay}"
-                                    Visibility="{x:Bind BoxVisibility, Mode=OneWay}" />
-                            <Polyline Points="{x:Bind InkPoints, Mode=OneWay}"
-                                      Stroke="{x:Bind StrokeBrush, Mode=OneWay}"
+                                    Background="{x:Bind services:XamlBindingHelpers.BrushFromHex(FillHex, FillAlpha), Mode=OneWay}"
+                                    BorderBrush="{x:Bind services:XamlBindingHelpers.BrushFromHex(StrokeHex, StrokeAlpha), Mode=OneWay}"
+                                    BorderThickness="{x:Bind services:XamlBindingHelpers.CreateUniformThickness(BorderThicknessValue), Mode=OneWay}"
+                                    CornerRadius="{x:Bind services:XamlBindingHelpers.CreateCornerRadius(CornerRadiusValue), Mode=OneWay}"
+                                    Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsBoxVisible), Mode=OneWay}" />
+                            <Polyline Points="{x:Bind services:XamlBindingHelpers.PointCollectionFromOverlayPoints(InkPoints), Mode=OneWay}"
+                                      Stroke="{x:Bind services:XamlBindingHelpers.BrushFromHex(StrokeHex, StrokeAlpha), Mode=OneWay}"
                                       StrokeThickness="{x:Bind StrokeThickness, Mode=OneWay}"
-                                      Visibility="{x:Bind InkVisibility, Mode=OneWay}" />
+                                      Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsInkVisible), Mode=OneWay}" />
                             <Image Width="{x:Bind Width, Mode=OneWay}"
                                    Height="{x:Bind Height, Mode=OneWay}"
-                                   Source="{x:Bind SignatureImageSource, Mode=OneWay}"
+                                   Source="{x:Bind services:XamlBindingHelpers.ImageSourceFromPath(SignatureImagePath), Mode=OneWay}"
                                    Stretch="Uniform"
-                                   Visibility="{x:Bind SignatureImageVisibility, Mode=OneWay}" />
+                                   Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsSignatureImageVisible), Mode=OneWay}" />
                             <TextBlock Text="{x:Bind Text, Mode=OneWay}"
-                                       Foreground="{x:Bind TextBrush, Mode=OneWay}"
+                                       Foreground="{x:Bind services:XamlBindingHelpers.BrushFromHex(TextHex, TextAlpha), Mode=OneWay}"
                                        FontSize="{x:Bind TextFontSize, Mode=OneWay}"
                                        FontFamily="{x:Bind TextFontFamily, Mode=OneWay}"
                                        Width="{x:Bind Width, Mode=OneWay}"
                                        Padding="4,2"
                                        TextWrapping="Wrap"
-                                       Visibility="{x:Bind TextVisibility, Mode=OneWay}" />
+                                       Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsTextVisible), Mode=OneWay}" />
                             <FontIcon Glyph="{x:Bind Glyph, Mode=OneWay}"
                                       FontFamily="Segoe Fluent Icons"
-                                      Foreground="{x:Bind TextBrush, Mode=OneWay}"
+                                      Foreground="{x:Bind services:XamlBindingHelpers.BrushFromHex(TextHex, TextAlpha), Mode=OneWay}"
                                       FontSize="16"
-                                      Visibility="{x:Bind GlyphVisibility, Mode=OneWay}" />
+                                      Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsGlyphVisible), Mode=OneWay}" />
                             <!-- Selection box + rotate button (all rotate with content) -->
                             <Canvas Width="{x:Bind SelectionWidth, Mode=OneWay}"
                                     Height="{x:Bind SelectionHeight, Mode=OneWay}"
-                                    Margin="{x:Bind SelectionMargin, Mode=OneWay}"
-                                    Visibility="{x:Bind SelectionVisibility, Mode=OneWay}">
+                                    Margin="{x:Bind services:XamlBindingHelpers.CreateThickness(SelectionOffsetLeft, SelectionOffsetTop, 0, 0), Mode=OneWay}"
+                                    Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsSelected), Mode=OneWay}">
                               <Rectangle Width="{x:Bind SelectionWidth, Mode=OneWay}"
                                          Height="{x:Bind SelectionHeight, Mode=OneWay}"
                                          Stroke="{ThemeResource AccentBrush}"
@@ -2224,7 +2224,7 @@
                                     Margin="0,2,0,0">
                                 <FontIcon Glyph="{x:Bind Glyph, Mode=OneWay}"
                                           FontFamily="Segoe Fluent Icons"
-                                          Foreground="{x:Bind StrokeBrush, Mode=OneWay}"
+                                          Foreground="{x:Bind services:XamlBindingHelpers.BrushFromHex(StrokeHex, StrokeAlpha), Mode=OneWay}"
                                           FontSize="18" />
                                 <FontIcon Glyph="&#xE72E;"
                                           FontFamily="Segoe Fluent Icons"
@@ -2233,7 +2233,7 @@
                                           HorizontalAlignment="Right"
                                           VerticalAlignment="Bottom"
                                           Margin="0,0,-4,-4"
-                                          Visibility="{x:Bind LockIconVisibility, Mode=OneWay}" />
+                                          Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsLockIconVisible), Mode=OneWay}" />
                                 <FontIcon Glyph="&#xED1A;"
                                           FontFamily="Segoe Fluent Icons"
                                           Foreground="{ThemeResource TextSecondaryBrush}"
@@ -2241,7 +2241,7 @@
                                           HorizontalAlignment="Left"
                                           VerticalAlignment="Bottom"
                                           Margin="-4,0,0,-4"
-                                          Visibility="{x:Bind HiddenIconVisibility, Mode=OneWay}" />
+                                          Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsHiddenIconVisible), Mode=OneWay}" />
                               </Grid>
 
                               <StackPanel Grid.Column="1" Spacing="1">

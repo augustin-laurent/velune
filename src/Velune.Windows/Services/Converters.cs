@@ -47,6 +47,24 @@ public static class XamlBindingHelpers
         return value is true ? AccentBrush() : CardBrush();
     }
 
+    public static Brush DocumentTabBackground(object? value, bool isLightTheme)
+    {
+        return value is WindowsDocumentTabChromeState.Active
+            ? BrushFromHex(isLightTheme ? "#FFFFFF" : "#2C2C2C", 255)
+            : value is WindowsDocumentTabChromeState.PointerOver
+                ? BrushFromHex(isLightTheme ? "#F5F5F5" : "#1F1F1F", 255)
+                : BrushFromHex("#000000", 255);
+    }
+
+    public static Brush DocumentTabBorderBrush(object? value, bool isLightTheme)
+    {
+        return value is WindowsDocumentTabChromeState.Active
+            ? BrushFromHex(isLightTheme ? "#E5E5E5" : "#3D3D3D", 255)
+            : value is WindowsDocumentTabChromeState.PointerOver
+                ? BrushFromHex(isLightTheme ? "#E5E5E5" : "#333333", 255)
+                : BrushFromHex("#000000", 255);
+    }
+
     public static Visibility RecentFilePdfVisibility(string? fileName)
     {
         return IsPdf(fileName) ? Visibility.Visible : Visibility.Collapsed;

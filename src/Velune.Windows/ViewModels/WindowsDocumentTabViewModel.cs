@@ -12,19 +12,26 @@ using Velune.Windows.Services;
 namespace Velune.Windows.ViewModels;
 
 /// <summary>
+/// UI-neutral visual state for the document tab chrome.
+/// </summary>
+public enum WindowsDocumentTabChromeState
+{
+    Resting,
+    PointerOver,
+    Active
+}
+
+/// <summary>
 /// View model representing a single open document tab with its page state, annotations, and search context.
 /// </summary>
 public sealed partial class WindowsDocumentTabViewModel : ObservableObject
 {
-    private const string White = "#00000000";
-
     private readonly IWindowsTextCatalog _textCatalog;
     private readonly Dictionary<int, Rotation> _pendingPageRotations = [];
     private readonly Dictionary<Guid, double> _originalRotationAngles = [];
     private readonly HashSet<Guid> _hiddenAnnotations = [];
     private readonly HashSet<Guid> _lockedAnnotations = [];
     private IReadOnlyDictionary<string, SignatureAsset> _signatureAssets = new Dictionary<string, SignatureAsset>(StringComparer.Ordinal);
-    private bool _isLightTheme;
     private bool _isPointerOver;
     private int _selectedSearchResultIndex = -1;
 
@@ -391,17 +398,17 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
         set;
     }
 
-    public SolidColorBrush TabBackground
+    public bool IsLightTheme
     {
         get;
         private set;
-    } = CreateBrush(White);
+    }
 
-    public SolidColorBrush TabBorderBrush
+    public WindowsDocumentTabChromeState TabChromeState
     {
         get;
         private set;
-    } = CreateBrush(White);
+    } = WindowsDocumentTabChromeState.Resting;
 
     /// <summary>
     /// Raises property-changed for thumbnail loading status.
@@ -902,7 +909,12 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
     /// <param name="isLightTheme">True for light theme, false for dark.</param>
     public void SetTheme(bool isLightTheme)
     {
-        _isLightTheme = isLightTheme;
+        if (IsLightTheme != isLightTheme)
+        {
+            IsLightTheme = isLightTheme;
+            OnPropertyChanged(nameof(IsLightTheme));
+        }
+
         RefreshTabChrome(_isPointerOver);
     }
 
@@ -913,25 +925,19 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
     public void RefreshTabChrome(bool isPointerOver)
     {
         _isPointerOver = isPointerOver;
+        WindowsDocumentTabChromeState nextState = IsActive
+            ? WindowsDocumentTabChromeState.Active
+            : isPointerOver
+                ? WindowsDocumentTabChromeState.PointerOver
+                : WindowsDocumentTabChromeState.Resting;
 
-        if (IsActive)
+        if (TabChromeState == nextState)
         {
-            TabBackground = CreateBrush(_isLightTheme ? "#FFFFFF" : "#2C2C2C");
-            TabBorderBrush = CreateBrush(_isLightTheme ? "#E5E5E5" : "#3D3D3D");
-        }
-        else if (isPointerOver)
-        {
-            TabBackground = CreateBrush(_isLightTheme ? "#F5F5F5" : "#1F1F1F");
-            TabBorderBrush = CreateBrush(_isLightTheme ? "#E5E5E5" : "#333333");
-        }
-        else
-        {
-            TabBackground = CreateBrush(White);
-            TabBorderBrush = CreateBrush(White);
+            return;
         }
 
-        OnPropertyChanged(nameof(TabBackground));
-        OnPropertyChanged(nameof(TabBorderBrush));
+        TabChromeState = nextState;
+        OnPropertyChanged(nameof(TabChromeState));
     }
 
     partial void OnCurrentPageChanged(int value)
@@ -1250,13 +1256,4 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
         return value?.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
     }
 
-    private static SolidColorBrush CreateBrush(string hex)
-    {
-        string normalized = hex.Trim().TrimStart('#');
-        return new SolidColorBrush(global::Windows.UI.Color.FromArgb(
-            255,
-            Convert.ToByte(normalized[..2], 16),
-            Convert.ToByte(normalized.Substring(2, 2), 16),
-            Convert.ToByte(normalized.Substring(4, 2), 16)));
-    }
 }

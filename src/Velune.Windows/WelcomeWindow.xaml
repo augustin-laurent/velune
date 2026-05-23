@@ -28,7 +28,7 @@
           <Setter Property="Background" Value="{ThemeResource WelcomeButtonBgBrush}" />
           <Setter Property="BorderBrush" Value="{ThemeResource WelcomeButtonBorderBrush}" />
           <Setter Property="BorderThickness" Value="1" />
-          <Setter Property="CornerRadius" Value="5" />
+          <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
           <Setter Property="Foreground" Value="{ThemeResource WelcomeButtonFgBrush}" />
           <Setter Property="FontSize" Value="13" />
           <Setter Property="HorizontalContentAlignment" Value="Center" />
@@ -64,7 +64,7 @@
           <Setter Property="HorizontalContentAlignment" Value="Stretch" />
           <Setter Property="VerticalContentAlignment" Value="Stretch" />
           <Setter Property="UseSystemFocusVisuals" Value="False" />
-          <Setter Property="CornerRadius" Value="6" />
+          <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
         </Style>
 
         <Style x:Key="ClearRecentButtonStyle" TargetType="Button">
@@ -361,7 +361,7 @@
                 <Border Background="{ThemeResource WelcomeCardBgBrush}"
                         BorderBrush="{ThemeResource WelcomeCardBorderBrush}"
                         BorderThickness="1"
-                        CornerRadius="6" />
+                        CornerRadius="{ThemeResource OverlayCornerRadius}" />
                 <Rectangle x:Name="AccentBar"
                            Width="3"
                            Height="28"
@@ -395,7 +395,7 @@
                       <Border Width="22"
                               Height="10"
                               Background="{ThemeResource PdfBadgeBrush}"
-                              CornerRadius="2"
+                              CornerRadius="{ThemeResource ControlCornerRadius}"
                               HorizontalAlignment="Center"
                               VerticalAlignment="Bottom"
                               Margin="0,0,0,2">

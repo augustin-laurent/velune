@@ -23,7 +23,7 @@
           <Setter Property="Height" Value="36" />
           <Setter Property="MinWidth" Value="36" />
           <Setter Property="Padding" Value="0" />
-          <Setter Property="CornerRadius" Value="6" />
+          <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
           <Setter Property="Background" Value="Transparent" />
           <Setter Property="BorderThickness" Value="0" />
           <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
@@ -33,7 +33,7 @@
           <Setter Property="Height" Value="26" />
           <Setter Property="MinWidth" Value="36" />
           <Setter Property="Padding" Value="10,0" />
-          <Setter Property="CornerRadius" Value="13" />
+          <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
           <Setter Property="Background" Value="{ThemeResource ControlFillColorDefaultBrush}" />
           <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
           <Setter Property="BorderThickness" Value="1" />
@@ -53,13 +53,24 @@
     </Grid.KeyboardAccelerators>
 
     <Grid.RowDefinitions>
+      <RowDefinition Height="50" />
       <RowDefinition Height="Auto" />
       <RowDefinition Height="*" />
       <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
 
+    <Border x:Name="TitleBarDragRegion"
+            Grid.Row="0"
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            Padding="16,0,150,0">
+      <TextBlock Text="{x:Bind ViewModel.WindowTitle, Mode=OneWay}"
+                 VerticalAlignment="Center"
+                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                 FontSize="12" />
+    </Border>
+
     <!-- Command Bar -->
-    <Border Grid.Row="0"
+    <Border Grid.Row="1"
             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             BorderThickness="0,0,0,1"
@@ -190,7 +201,7 @@
     </Border>
 
     <!-- Page Grid -->
-    <ScrollViewer Grid.Row="1"
+    <ScrollViewer Grid.Row="2"
                   x:Name="PageGridScrollViewer"
                   VerticalScrollBarVisibility="Auto"
                   HorizontalScrollBarVisibility="Disabled"
@@ -200,8 +211,8 @@
                        AutomationProperties.AutomationId="PageOrganizerPagesRepeater"
                        ItemsSource="{x:Bind ViewModel.Pages, Mode=OneWay}">
           <ItemsRepeater.Layout>
-            <UniformGridLayout MinItemWidth="164"
-                               MinItemHeight="224"
+            <UniformGridLayout MinItemWidth="160"
+                               MinItemHeight="220"
                                MinColumnSpacing="12"
                                MinRowSpacing="12"
                                ItemsStretch="None" />
@@ -210,9 +221,10 @@
             <DataTemplate x:DataType="vm:PageOrganizerItemViewModel">
               <Grid x:Name="PageItemRoot"
                     AutomationProperties.AutomationId="PageOrganizerPageItem"
-                    Width="164"
-                    Height="224"
-                    CornerRadius="8"
+                    Tag="{x:Bind PageNumber, Mode=OneWay}"
+                    Width="160"
+                    Height="220"
+                    CornerRadius="{ThemeResource OverlayCornerRadius}"
                     Padding="10"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
@@ -242,7 +254,8 @@
                 <Viewbox Grid.Row="0"
                          Stretch="Uniform"
                          MaxWidth="150"
-                         MaxHeight="172">
+                         MaxHeight="172"
+                         IsHitTestVisible="False">
                   <Grid Width="172" Height="172">
                     <Grid Width="140"
                           Height="172"
@@ -254,13 +267,13 @@
                       </Grid.RenderTransform>
 
                       <Border Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
-                              CornerRadius="4" />
+                              CornerRadius="{ThemeResource ControlCornerRadius}" />
                       <Image Source="{x:Bind Thumbnail, Mode=OneWay}"
                              Stretch="Uniform"
                              HorizontalAlignment="Center"
                              VerticalAlignment="Center" />
 
-                      <Border CornerRadius="4"
+                      <Border CornerRadius="{ThemeResource ControlCornerRadius}"
                               BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
                               BorderThickness="2.5"
                               Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsSelected), Mode=OneWay}"
@@ -270,22 +283,21 @@
                         </Border.OpacityTransition>
                       </Border>
 
-                      <Border Width="24"
+                      <Grid Width="24"
                               Height="24"
-                              CornerRadius="12"
-                              Background="{ThemeResource AccentFillColorDefaultBrush}"
                               HorizontalAlignment="Right"
                               VerticalAlignment="Top"
                               Margin="0,-10,-10,0"
                               Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsSelected), Mode=OneWay}"
                               IsHitTestVisible="False">
+                        <Ellipse Fill="{ThemeResource AccentFillColorDefaultBrush}" />
                         <FontIcon Glyph="&#xE73E;"
                                   FontFamily="Segoe Fluent Icons"
                                   FontSize="12"
                                   Foreground="White"
                                   HorizontalAlignment="Center"
                                   VerticalAlignment="Center" />
-                      </Border>
+                      </Grid>
                     </Grid>
                   </Grid>
                 </Viewbox>
@@ -293,7 +305,8 @@
                               Width="24"
                               Height="24"
                               IsActive="{x:Bind IsLoading, Mode=OneWay}"
-                              Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsLoading), Mode=OneWay}" />
+                              Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsLoading), Mode=OneWay}"
+                              IsHitTestVisible="False" />
 
                 <!-- Page Number -->
                 <TextBlock Grid.Row="1"
@@ -301,7 +314,8 @@
                            FontSize="12"
                            HorizontalAlignment="Center"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                           Margin="0,4,0,0" />
+                           Margin="0,4,0,0"
+                           IsHitTestVisible="False" />
 
               </Grid>
             </DataTemplate>
@@ -322,7 +336,7 @@
     </ScrollViewer>
 
     <!-- Status Bar + Actions -->
-    <Border Grid.Row="2"
+    <Border Grid.Row="3"
             Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             BorderThickness="0,1,0,0"
@@ -347,14 +361,13 @@
                   AutomationProperties.AutomationId="PageOrganizerCancelButton"
                   AutomationProperties.Name="{x:Bind ViewModel.CancelLabel, Mode=OneWay}"
                   MinWidth="88"
-                  CornerRadius="6" />
+                  CornerRadius="{ThemeResource ControlCornerRadius}" />
           <Button Content="{x:Bind ViewModel.ApplyLabel, Mode=OneWay}"
                   Click="OnApplyClick"
                   AutomationProperties.AutomationId="PageOrganizerApplyButton"
                   AutomationProperties.Name="{x:Bind ViewModel.ApplyLabel, Mode=OneWay}"
-                  Style="{ThemeResource AccentButtonStyle}"
                   MinWidth="88"
-                  CornerRadius="6" />
+                  CornerRadius="{ThemeResource ControlCornerRadius}" />
         </StackPanel>
       </Grid>
     </Border>

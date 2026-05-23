@@ -755,16 +755,21 @@ public sealed partial class MainWindow : Window
     private Point _thumbnailDragStartPoint;
     private int _thumbnailDropTargetIndex = -1;
 
-    private async void OnThumbnailItemTapped(object sender, TappedRoutedEventArgs e)
+    private void OnThumbnailItemLoaded(object sender, RoutedEventArgs e)
     {
-        if (_isDraggingThumbnail)
-        {
-            return;
-        }
+        QueueThumbnailRenderFromElement(sender as FrameworkElement);
+    }
 
-        if (sender is FrameworkElement { DataContext: WindowsPageThumbnailViewModel thumbnail })
+    private void OnThumbnailElementPrepared(ItemsRepeater sender, ItemsRepeaterElementPreparedEventArgs args)
+    {
+        QueueThumbnailRenderFromElement(args.Element as FrameworkElement);
+    }
+
+    private void QueueThumbnailRenderFromElement(FrameworkElement? element)
+    {
+        if (element is not null && ResolveThumbnailItem(element) is WindowsPageThumbnailViewModel thumbnail)
         {
-            await ViewModel.ChangePageAsync(thumbnail.PageNumber);
+            _ = ViewModel.EnsureThumbnailRenderedAsync(thumbnail);
         }
     }
 
@@ -793,7 +798,8 @@ public sealed partial class MainWindow : Window
 
     private void OnThumbnailItemRightTapped(object sender, RightTappedRoutedEventArgs e)
     {
-        if (sender is FrameworkElement { DataContext: WindowsPageThumbnailViewModel thumbnail })
+        if (sender is FrameworkElement element &&
+            ResolveThumbnailItem(element) is WindowsPageThumbnailViewModel thumbnail)
         {
             ViewModel.SelectedThumbnailPageNumber = thumbnail.PageNumber;
         }
@@ -837,7 +843,14 @@ public sealed partial class MainWindow : Window
     private void OnThumbnailItemPointerPressed(object sender, PointerRoutedEventArgs e)
     {
         if (sender is not UIElement element ||
-            element is not FrameworkElement { DataContext: WindowsPageThumbnailViewModel thumbnail })
+            element is not FrameworkElement frameworkElement ||
+            ResolveThumbnailItem(frameworkElement) is not WindowsPageThumbnailViewModel thumbnail)
+        {
+            return;
+        }
+
+        PointerPointProperties? properties = e.GetCurrentPoint(element).Properties;
+        if (!properties.IsLeftButtonPressed)
         {
             return;
         }
@@ -892,20 +905,32 @@ public sealed partial class MainWindow : Window
 
     private async void OnThumbnailItemPointerReleased(object sender, PointerRoutedEventArgs e)
     {
+        e.Handled = true;
+
         if (sender is UIElement element)
         {
             element.ReleasePointerCapture(e.Pointer);
         }
 
+        bool wasDragging = _isDraggingThumbnail;
+        int sourceIndex = _thumbnailDragSourceIndex;
+        int targetIndex = _thumbnailDropTargetIndex;
+        WindowsPageThumbnailViewModel? clickedThumbnail = !wasDragging &&
+            sourceIndex >= 0 &&
+            sender is FrameworkElement releasedElement
+                ? ResolveThumbnailItem(releasedElement)
+                : null;
+
         ThumbnailDragGhost.Visibility = Visibility.Collapsed;
         ThumbnailDropIndicator.Visibility = Visibility.Collapsed;
         ResetThumbnailDisplacement();
 
-        if (_isDraggingThumbnail && _thumbnailDragSourceIndex >= 0 && _thumbnailDropTargetIndex >= 0)
-        {
-            int sourceIndex = _thumbnailDragSourceIndex;
-            int targetIndex = _thumbnailDropTargetIndex;
+        _thumbnailDragSourceIndex = -1;
+        _thumbnailDropTargetIndex = -1;
+        _isDraggingThumbnail = false;
 
+        if (wasDragging && sourceIndex >= 0 && targetIndex >= 0)
+        {
             if (sourceIndex != targetIndex && targetIndex != sourceIndex + 1)
             {
                 WindowsDocumentTabViewModel? tab = ViewModel.ActiveDocumentTab;
@@ -917,11 +942,34 @@ public sealed partial class MainWindow : Window
                 }
             }
         }
+        else if (clickedThumbnail is not null)
+        {
+            await ViewModel.ChangePageAsync(clickedThumbnail.PageNumber);
+        }
+    }
 
-        _thumbnailDragSourceIndex = -1;
-        _thumbnailDropTargetIndex = -1;
-        _isDraggingThumbnail = false;
-        e.Handled = true;
+    private WindowsPageThumbnailViewModel? ResolveThumbnailItem(FrameworkElement element)
+    {
+        if (element.DataContext is WindowsPageThumbnailViewModel thumbnail)
+        {
+            return thumbnail;
+        }
+
+        if (element.Tag is int pageNumber &&
+            ViewModel.ActiveDocumentTab is { } tab)
+        {
+            int index = pageNumber - 1;
+            if (index >= 0 &&
+                index < tab.Thumbnails.Count &&
+                tab.Thumbnails[index].PageNumber == pageNumber)
+            {
+                return tab.Thumbnails[index];
+            }
+
+            return tab.Thumbnails.FirstOrDefault(item => item.PageNumber == pageNumber);
+        }
+
+        return null;
     }
 
     private void UpdateThumbnailDropIndicator(double pointerY)
@@ -952,58 +1000,39 @@ public sealed partial class MainWindow : Window
     private void AnimateThumbnailDisplacement()
     {
         const float gapSize = 20f;
-        Panel? panel = GetThumbnailPanel();
-        if (panel is null)
+        WindowsDocumentTabViewModel? tab = ViewModel.ActiveDocumentTab;
+        if (tab is null)
         {
             return;
         }
 
-        for (int i = 0; i < panel.Children.Count; i++)
+        for (int i = 0; i < tab.Thumbnails.Count; i++)
         {
-            UIElement? templateRoot = GetTemplateRootFromContainer(panel.Children[i]);
-            if (templateRoot is null)
+            if (ThumbnailListView.TryGetElement(i) is not UIElement element)
             {
                 continue;
             }
 
             bool shouldDisplace = i >= _thumbnailDropTargetIndex && i != _thumbnailDragSourceIndex;
-            templateRoot.Translation = new System.Numerics.Vector3(0, shouldDisplace ? gapSize : 0f, 0);
+            element.Translation = new System.Numerics.Vector3(0, shouldDisplace ? gapSize : 0f, 0);
         }
     }
 
     private void ResetThumbnailDisplacement()
     {
-        Panel? panel = GetThumbnailPanel();
-        if (panel is null)
+        WindowsDocumentTabViewModel? tab = ViewModel.ActiveDocumentTab;
+        if (tab is null)
         {
             return;
         }
 
-        foreach (UIElement? child in panel.Children)
+        for (int i = 0; i < tab.Thumbnails.Count; i++)
         {
-            UIElement? templateRoot = GetTemplateRootFromContainer(child);
-            if (templateRoot is not null)
+            if (ThumbnailListView.TryGetElement(i) is UIElement element)
             {
-                templateRoot.Translation = System.Numerics.Vector3.Zero;
+                element.Translation = System.Numerics.Vector3.Zero;
             }
         }
-    }
-
-    private Panel? GetThumbnailPanel()
-    {
-        if (VisualTreeHelper.GetChildrenCount(ThumbnailListView) == 0)
-        {
-            return null;
-        }
-
-        DependencyObject? child = VisualTreeHelper.GetChild(ThumbnailListView, 0);
-        return child as Panel;
-    }
-
-    private static UIElement? GetTemplateRootFromContainer(UIElement container)
-    {
-        int count = VisualTreeHelper.GetChildrenCount(container);
-        return count == 0 ? null : VisualTreeHelper.GetChild(container, 0) as UIElement;
     }
 
     private void AutoScrollThumbnails(double pointerY)
@@ -1120,26 +1149,16 @@ public sealed partial class MainWindow : Window
         }
 
         WindowsDocumentTabViewModel? tab = ViewModel.ActiveDocumentTab;
-        Panel? panel = GetThumbnailPanel();
-        if (panel is not null)
+        for (int i = 0; i < tab.Thumbnails.Count; i++)
         {
-            int childCount = VisualTreeHelper.GetChildrenCount(panel);
-            for (int i = 0; i < childCount; i++)
+            if (GetThumbnailItemBounds(i) is not { } bounds)
             {
-                if (GetThumbnailItemBounds(panel, i) is not { } bounds)
-                {
-                    continue;
-                }
-
-                if (position.Y < bounds.Y + (bounds.Height / 2))
-                {
-                    return Math.Clamp(i, 0, tab.Thumbnails.Count);
-                }
+                continue;
             }
 
-            if (childCount > 0)
+            if (position.Y < bounds.Y + (bounds.Height / 2))
             {
-                return tab.Thumbnails.Count;
+                return Math.Clamp(i, 0, tab.Thumbnails.Count);
             }
         }
 
@@ -1150,31 +1169,24 @@ public sealed partial class MainWindow : Window
 
     private double ResolveThumbnailDropIndicatorY(int insertionIndex)
     {
-        Panel? panel = GetThumbnailPanel();
-        if (panel is null)
+        if (ViewModel.ActiveDocumentTab is not { } tab)
         {
             return Math.Max(0, insertionIndex * ThumbnailItemHeight - ThumbnailScrollViewer.VerticalOffset);
         }
 
-        int childCount = VisualTreeHelper.GetChildrenCount(panel);
-        if (childCount == 0)
-        {
-            return 0;
-        }
-
         if (insertionIndex <= 0 &&
-            GetThumbnailItemBounds(panel, 0) is { } firstBounds)
+            GetThumbnailItemBounds(0) is { } firstBounds)
         {
             return Math.Max(0, firstBounds.Y);
         }
 
-        if (insertionIndex >= childCount &&
-            GetThumbnailItemBounds(panel, childCount - 1) is { } lastBounds)
+        if (insertionIndex >= tab.Thumbnails.Count &&
+            GetThumbnailItemBounds(tab.Thumbnails.Count - 1) is { } lastBounds)
         {
             return Math.Max(0, lastBounds.Y + lastBounds.Height);
         }
 
-        if (GetThumbnailItemBounds(panel, insertionIndex) is { } targetBounds)
+        if (GetThumbnailItemBounds(insertionIndex) is { } targetBounds)
         {
             return Math.Max(0, targetBounds.Y);
         }
@@ -1182,14 +1194,16 @@ public sealed partial class MainWindow : Window
         return Math.Max(0, insertionIndex * ThumbnailItemHeight - ThumbnailScrollViewer.VerticalOffset);
     }
 
-    private Rect? GetThumbnailItemBounds(Panel panel, int index)
+    private Rect? GetThumbnailItemBounds(int index)
     {
-        if (index < 0 || index >= VisualTreeHelper.GetChildrenCount(panel))
+        if (index < 0 ||
+            ViewModel.ActiveDocumentTab is not { } tab ||
+            index >= tab.Thumbnails.Count)
         {
             return null;
         }
 
-        if (VisualTreeHelper.GetChild(panel, index) is not FrameworkElement element)
+        if (ThumbnailListView.TryGetElement(index) is not FrameworkElement element)
         {
             return null;
         }

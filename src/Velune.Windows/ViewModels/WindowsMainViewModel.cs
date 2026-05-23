@@ -63,6 +63,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     private readonly List<NormalizedPoint> _activeAnnotationPoints = [];
     private readonly List<NormalizedPoint> _signatureCapturePoints = [];
     private readonly Dictionary<string, SignatureAsset> _signatureAssetLookup = new(StringComparer.Ordinal);
+    private readonly HashSet<WindowsPageThumbnailViewModel> _thumbnailRenderInFlight = [];
     private readonly ISignatureAssetStore _signatureAssetStore;
     private readonly IPdfMarkupService _pdfMarkupService;
     private readonly IPdfAnnotationStore _pdfAnnotationStore;
@@ -502,6 +503,63 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     public Task EnsureActiveTabHydratedAsync()
     {
         return HydrateActiveTabAsync();
+    }
+
+    /// <summary>
+    /// Renders a thumbnail if it has not already been generated.
+    /// </summary>
+    /// <param name="thumbnail">The thumbnail item that became visible.</param>
+    /// <returns>A task representing the thumbnail render.</returns>
+    public async Task EnsureThumbnailRenderedAsync(WindowsPageThumbnailViewModel thumbnail)
+    {
+        ArgumentNullException.ThrowIfNull(thumbnail);
+
+        WindowsDocumentTabViewModel? tab = ActiveDocumentTab;
+        if (tab is null || !tab.Thumbnails.Contains(thumbnail))
+        {
+            return;
+        }
+
+        await RenderThumbnailIfMissingAsync(tab, thumbnail);
+    }
+
+    private async Task RenderThumbnailIfMissingAsync(
+        WindowsDocumentTabViewModel tab,
+        WindowsPageThumbnailViewModel thumbnail)
+    {
+        if (thumbnail.Image is not null ||
+            thumbnail.IsLoading ||
+            !SessionExists(tab.SessionId))
+        {
+            return;
+        }
+
+        bool shouldRender;
+        lock (_thumbnailRenderInFlight)
+        {
+            shouldRender = _thumbnailRenderInFlight.Add(thumbnail);
+        }
+
+        if (!shouldRender)
+        {
+            return;
+        }
+
+        try
+        {
+            await RefreshThumbnailAsync(tab, thumbnail);
+        }
+        catch (Exception exception)
+        {
+            await RunOnUiThreadAsync(() => StatusText = $"{_textCatalog.GetString(RenderFailed)}: {exception.Message}");
+        }
+        finally
+        {
+            lock (_thumbnailRenderInFlight)
+            {
+                _thumbnailRenderInFlight.Remove(thumbnail);
+            }
+        }
     }
 
     /// <inheritdoc />
@@ -2771,6 +2829,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             UpdateSelectedThumbnail(tab);
         });
         await RenderActivePageAsync(tab);
+        QueueMissingThumbnailGeneration(tab);
     }
 
     /// <summary>
@@ -3862,14 +3921,11 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             UpdateAnnotationToolSelection();
         });
 
+        QueueMissingThumbnailGeneration(tab);
+
         if (tab.CurrentPageImage is null)
         {
             await RenderActivePageAsync(tab);
-        }
-
-        if (tab.HasMissingThumbnails)
-        {
-            QueueMissingThumbnailGeneration(tab);
         }
     }
 
@@ -4082,56 +4138,6 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         tab.IsSettingsPanelOpen = panel is RightPanel.Settings;
     }
 
-    private async Task GenerateMissingThumbnailsAsync(WindowsDocumentTabViewModel tab)
-    {
-        if (tab.IsGeneratingThumbnails || !SessionExists(tab.SessionId))
-        {
-            return;
-        }
-
-        await RunOnUiThreadAsync(() => tab.IsGeneratingThumbnails = true);
-        try
-        {
-            foreach (WindowsPageThumbnailViewModel thumbnail in tab.Thumbnails.Where(item => item.Image is null).ToArray())
-            {
-                if (!SessionExists(tab.SessionId))
-                {
-                    return;
-                }
-
-                await RunOnUiThreadAsync(() => thumbnail.BeginRender());
-                ThumbnailRenderOutcome outcome = await RenderThumbnailWithRetryAsync(tab, thumbnail);
-                await RunOnUiThreadAsync(() =>
-                {
-                    if (outcome == ThumbnailRenderOutcome.Failed && thumbnail.Image is null)
-                    {
-                        thumbnail.MarkRenderFailed(_textCatalog.GetString("windows.thumbnail.unavailable"));
-                        return;
-                    }
-
-                    thumbnail.IsLoading = false;
-                });
-            }
-        }
-        catch (Exception exception)
-        {
-            await RunOnUiThreadAsync(() => StatusText = $"{_textCatalog.GetString(RenderFailed)}: {exception.Message}");
-        }
-        finally
-        {
-            await RunOnUiThreadAsync(() =>
-            {
-                foreach (WindowsPageThumbnailViewModel thumbnail in tab.Thumbnails)
-                {
-                    thumbnail.IsLoading = false;
-                }
-
-                tab.IsGeneratingThumbnails = false;
-                tab.NotifyThumbnailStatusChanged();
-            });
-        }
-    }
-
     private void QueueMissingThumbnailGeneration(WindowsDocumentTabViewModel tab)
     {
         _ = GenerateMissingThumbnailsSafelyAsync(tab);
@@ -4146,6 +4152,36 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         catch (Exception exception)
         {
             await RunOnUiThreadAsync(() => StatusText = $"{_textCatalog.GetString(RenderFailed)}: {exception.Message}");
+        }
+    }
+
+    private async Task GenerateMissingThumbnailsAsync(WindowsDocumentTabViewModel tab)
+    {
+        if (tab.IsGeneratingThumbnails || !SessionExists(tab.SessionId))
+        {
+            return;
+        }
+
+        await RunOnUiThreadAsync(() => tab.IsGeneratingThumbnails = true);
+        try
+        {
+            foreach (WindowsPageThumbnailViewModel thumbnail in tab.Thumbnails.ToArray())
+            {
+                if (!SessionExists(tab.SessionId))
+                {
+                    return;
+                }
+
+                await RenderThumbnailIfMissingAsync(tab, thumbnail);
+            }
+        }
+        finally
+        {
+            await RunOnUiThreadAsync(() =>
+            {
+                tab.IsGeneratingThumbnails = false;
+                tab.NotifyThumbnailStatusChanged();
+            });
         }
     }
 

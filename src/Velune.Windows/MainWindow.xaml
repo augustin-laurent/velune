@@ -87,7 +87,7 @@
           <Setter Property="Height" Value="42" />
           <Setter Property="MinWidth" Value="42" />
           <Setter Property="Padding" Value="0" />
-          <Setter Property="CornerRadius" Value="4" />
+          <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
           <Setter Property="Background" Value="Transparent" />
           <Setter Property="BorderThickness" Value="0" />
           <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
@@ -98,7 +98,7 @@
           <Setter Property="Height" Value="40" />
           <Setter Property="MinWidth" Value="40" />
           <Setter Property="Padding" Value="0" />
-          <Setter Property="CornerRadius" Value="4" />
+          <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
           <Setter Property="Background" Value="Transparent" />
           <Setter Property="BorderThickness" Value="0" />
           <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
@@ -108,7 +108,7 @@
           <Setter Property="Height" Value="40" />
           <Setter Property="MinWidth" Value="40" />
           <Setter Property="Padding" Value="10,0" />
-          <Setter Property="CornerRadius" Value="4" />
+          <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
           <Setter Property="Background" Value="Transparent" />
           <Setter Property="BorderThickness" Value="0" />
           <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
@@ -145,7 +145,7 @@
           <Setter Property="Background" Value="{ThemeResource InputBrush}" />
           <Setter Property="BorderBrush" Value="{ThemeResource InputBorderBrush}" />
           <Setter Property="BorderThickness" Value="1" />
-          <Setter Property="CornerRadius" Value="4" />
+          <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
           <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
@@ -156,7 +156,7 @@
           <Setter Property="Background" Value="Transparent" />
           <Setter Property="BorderBrush" Value="Transparent" />
           <Setter Property="BorderThickness" Value="0" />
-          <Setter Property="CornerRadius" Value="4" />
+          <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
           <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
           <Setter Property="HorizontalContentAlignment" Value="Center" />
           <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -269,7 +269,7 @@
           <Setter Property="Width" Value="78" />
           <Setter Property="Height" Value="58" />
           <Setter Property="Margin" Value="0" />
-          <Setter Property="CornerRadius" Value="4" />
+          <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
           <Setter Property="Background" Value="{ThemeResource CardBrush}" />
           <Setter Property="BorderBrush" Value="{ThemeResource ButtonBorderBrush}" />
           <Setter Property="BorderThickness" Value="1" />
@@ -380,7 +380,7 @@
                       Background="{x:Bind services:XamlBindingHelpers.DocumentTabBackground(TabChromeState, IsLightTheme), Mode=OneWay}"
                       BorderBrush="{x:Bind services:XamlBindingHelpers.DocumentTabBorderBrush(TabChromeState, IsLightTheme), Mode=OneWay}"
                       BorderThickness="1"
-                      CornerRadius="6"
+                      CornerRadius="{ThemeResource OverlayCornerRadius}"
                       PointerEntered="OnTabPointerEntered"
                       PointerExited="OnTabPointerExited">
                 <Grid>
@@ -587,7 +587,7 @@
             Background="{ThemeResource RibbonBrush}"
             BorderBrush="{ThemeResource RibbonBorderBrush}"
             BorderThickness="1"
-            CornerRadius="8"
+            CornerRadius="{ThemeResource OverlayCornerRadius}"
             Translation="0,0,32">
       <Border.Shadow>
         <ThemeShadow />
@@ -671,7 +671,7 @@
                     Background="{ThemeResource InputBrush}"
                     BorderBrush="{ThemeResource InputBorderBrush}"
                     BorderThickness="1"
-                    CornerRadius="8">
+                    CornerRadius="{ThemeResource OverlayCornerRadius}">
               <TextBlock Text="{x:Bind ViewModel.ActiveDocumentTab.PageText, Mode=OneWay}"
                          Foreground="{ThemeResource TextPrimaryBrush}"
                          FontWeight="SemiBold"
@@ -733,7 +733,7 @@
                     Background="{ThemeResource InputBrush}"
                     BorderBrush="{ThemeResource InputBorderBrush}"
                     BorderThickness="1"
-                    CornerRadius="8">
+                    CornerRadius="{ThemeResource OverlayCornerRadius}">
               <Button.Flyout>
                 <MenuFlyout>
                   <MenuFlyoutItem AutomationProperties.AutomationId="Zoom50MenuItem" Text="50%" Command="{x:Bind ViewModel.SetZoomCommand, Mode=OneWay}" CommandParameter="0.5" />
@@ -821,7 +821,7 @@
                   Background="{ThemeResource SearchBrush}"
                   BorderBrush="{ThemeResource InputBorderBrush}"
                   BorderThickness="1"
-                  CornerRadius="8">
+                  CornerRadius="{ThemeResource OverlayCornerRadius}">
             <Grid>
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
@@ -1020,7 +1020,7 @@
               Background="{ThemeResource PanelDeepBrush}"
               BorderBrush="{ThemeResource PanelLineBrush}"
               BorderThickness="1"
-              CornerRadius="8"
+              CornerRadius="{ThemeResource OverlayCornerRadius}"
               Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.IsPagesPanelVisible), Mode=OneWay, FallbackValue=Collapsed}">
         <Border.TranslationTransition>
           <Vector3Transition Duration="0:0:0.2" />
@@ -1091,20 +1091,27 @@
             <ScrollViewer x:Name="ThumbnailScrollViewer"
                            VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled">
-              <ItemsControl x:Name="ThumbnailListView"
-                            AutomationProperties.AutomationId="PageThumbnailsList"
-                            ItemsSource="{x:Bind ViewModel.ActiveDocumentTab.Thumbnails, Mode=OneWay}">
-                <ItemsControl.ItemTemplate>
+              <ItemsRepeater x:Name="ThumbnailListView"
+                             AutomationProperties.AutomationId="PageThumbnailsList"
+                             ElementPrepared="OnThumbnailElementPrepared"
+                             ItemsSource="{x:Bind ViewModel.ActiveDocumentTab.Thumbnails, Mode=OneWay}">
+                <ItemsRepeater.Layout>
+                  <StackLayout Orientation="Vertical" />
+                </ItemsRepeater.Layout>
+                <ItemsRepeater.ItemTemplate>
                   <DataTemplate x:DataType="vm:WindowsPageThumbnailViewModel">
                     <Grid AutomationProperties.AutomationId="PageThumbnailItem"
+                          Tag="{x:Bind PageNumber, Mode=OneWay}"
+                          Height="172"
                           Padding="0,4"
                           HorizontalAlignment="Stretch"
+                          Background="Transparent"
+                          Loaded="OnThumbnailItemLoaded"
                           PointerPressed="OnThumbnailItemPointerPressed"
                           PointerMoved="OnThumbnailItemPointerMoved"
                           PointerReleased="OnThumbnailItemPointerReleased"
                           PointerEntered="OnThumbnailPointerEntered"
                           PointerExited="OnThumbnailPointerExited"
-                          Tapped="OnThumbnailItemTapped"
                           RightTapped="OnThumbnailItemRightTapped">
                       <Grid.ContextFlyout>
                         <MenuFlyout>
@@ -1168,7 +1175,8 @@
                       <StackPanel Grid.Column="1"
                                   Margin="4,0,0,0"
                                   HorizontalAlignment="Center"
-                                  Spacing="4">
+                                  Spacing="4"
+                                  IsHitTestVisible="False">
                         <Grid Width="110" Height="144">
                           <Image Source="{x:Bind Image, Mode=OneWay}"
                                  Stretch="Uniform"
@@ -1195,8 +1203,8 @@
                       </StackPanel>
                     </Grid>
                   </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
+                </ItemsRepeater.ItemTemplate>
+              </ItemsRepeater>
             </ScrollViewer>
 
             <!-- Drag ghost overlay -->
@@ -1233,7 +1241,7 @@
               Background="{ThemeResource ViewerBackgroundBrush}"
               BorderBrush="{ThemeResource PanelLineBrush}"
               BorderThickness="1"
-              CornerRadius="8">
+              CornerRadius="{ThemeResource OverlayCornerRadius}">
         <Grid>
           <Grid.ChildrenTransitions>
             <EntranceThemeTransition />
@@ -1282,7 +1290,7 @@
                                   AutomationProperties.AutomationId="CommentOverlayCard"
                                   BorderBrush="{ThemeResource CardBorderBrush}"
                                   BorderThickness="1"
-                                  CornerRadius="6"
+                                  CornerRadius="{ThemeResource OverlayCornerRadius}"
                                   Padding="12,10"
                                   DoubleTapped="OnCommentCardDoubleTapped">
                             <StackPanel Spacing="6">
@@ -1341,7 +1349,7 @@
                       Background="{ThemeResource PaperBrush}"
                       BorderBrush="{ThemeResource PaperBorderBrush}"
                       BorderThickness="1"
-                      CornerRadius="2">
+                      CornerRadius="{ThemeResource ControlCornerRadius}">
                 <Grid x:Name="DocumentPageLayer"
                       AutomationProperties.AutomationId="DocumentPageLayer"
                       Width="{x:Bind ViewModel.ActiveDocumentTab.CurrentPagePixelWidth, Mode=OneWay}"
@@ -1483,13 +1491,12 @@
                                     Canvas.Top="0"
                                     Canvas.Left="{x:Bind RotateStemLeft, Mode=OneWay}" />
                               <!-- Rotation handle at top-center -->
-                              <Border Width="20" Height="20"
+                              <Grid Width="20" Height="20"
                                       Canvas.Left="{x:Bind RotateButtonLeft, Mode=OneWay}"
-                                      Canvas.Top="{x:Bind RotateButtonTop, Mode=OneWay}"
-                                      CornerRadius="10"
-                                      Background="{ThemeResource AccentBrush}">
+                                      Canvas.Top="{x:Bind RotateButtonTop, Mode=OneWay}">
+                                <Ellipse Fill="{ThemeResource AccentBrush}" />
                                 <FontIcon Glyph="&#xE7AD;" FontSize="11" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                              </Border>
+                              </Grid>
                             </Canvas>
                           </Canvas>
                         </Canvas>
@@ -1575,17 +1582,19 @@
         </Grid>
       </Border>
 
-      <Grid Grid.Column="3" HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="8,0,0,0"
+      <Grid Grid.Column="3"
+            HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="8,0,0,0"
             Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.ActiveDocumentTab.IsAnyRightPanelOpen), Mode=OneWay}">
         <Grid.TranslationTransition>
           <Vector3Transition Duration="0:0:0.2" />
         </Grid.TranslationTransition>
-        <Border Width="420"
+        <Border x:Name="AnnotationsPanel"
+                Width="420"
                 VerticalAlignment="Stretch"
                 Background="{ThemeResource PanelDeepBrush}"
                 BorderBrush="{ThemeResource PanelLineBrush}"
                 BorderThickness="1"
-                CornerRadius="8"
+                CornerRadius="{ThemeResource OverlayCornerRadius}"
                 Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.ActiveDocumentTab.IsAnnotationsPanelOpen), Mode=OneWay}">
           <Grid Padding="20,20,20,12">
             <Grid.RowDefinitions>
@@ -1634,7 +1643,7 @@
                     Background="{ThemeResource CardBrush}"
                     BorderBrush="{ThemeResource CardBorderBrush}"
                     BorderThickness="1"
-                    CornerRadius="6">
+                    CornerRadius="{ThemeResource OverlayCornerRadius}">
               <Grid Margin="3">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="*" />
@@ -1643,7 +1652,7 @@
 
                 <Border Grid.Column="0"
                         Background="{ThemeResource ActiveToolBgBrush}"
-                        CornerRadius="8"
+                        CornerRadius="{ThemeResource OverlayCornerRadius}"
                         Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.IsAnnotationToolsTabSelected), Mode=OneWay}">
                   <Rectangle Height="2"
                              Width="40"
@@ -1661,7 +1670,7 @@
                         Padding="0"
                         Background="Transparent"
                         BorderThickness="0"
-                        CornerRadius="8"
+                        CornerRadius="{ThemeResource OverlayCornerRadius}"
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Center"
                         Command="{x:Bind ViewModel.SelectAnnotationPanelTabCommand, Mode=OneWay}"
@@ -1675,7 +1684,7 @@
 
                 <Border Grid.Column="1"
                         Background="{ThemeResource ActiveToolBgBrush}"
-                        CornerRadius="8"
+                        CornerRadius="{ThemeResource OverlayCornerRadius}"
                         Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.IsAnnotationCommentsTabSelected), Mode=OneWay}">
                   <Rectangle Height="2"
                              Width="40"
@@ -1693,7 +1702,7 @@
                         Padding="0"
                         Background="Transparent"
                         BorderThickness="0"
-                        CornerRadius="8"
+                        CornerRadius="{ThemeResource OverlayCornerRadius}"
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Center"
                         Command="{x:Bind ViewModel.SelectAnnotationPanelTabCommand, Mode=OneWay}"
@@ -1724,7 +1733,7 @@
                       Background="{ThemeResource CardBrush}"
                       BorderBrush="{ThemeResource CardBorderBrush}"
                       BorderThickness="1"
-                      CornerRadius="8"
+                      CornerRadius="{ThemeResource OverlayCornerRadius}"
                       Padding="14,0"
                       HorizontalAlignment="Stretch"
                       HorizontalContentAlignment="Stretch"
@@ -1752,7 +1761,7 @@
                   <Border Width="22"
                           Height="22"
                           Background="{x:Bind services:XamlBindingHelpers.BrushFromHex(ViewModel.SelectedAnnotationColorHex, 255), Mode=OneWay}"
-                          CornerRadius="8"
+                          CornerRadius="{ThemeResource OverlayCornerRadius}"
                           VerticalAlignment="Center" />
 
                   <TextBlock Grid.Column="1"
@@ -1796,7 +1805,7 @@
                             AutomationProperties.AutomationId="AnnotationQuickToolButton"
                             Height="58"
                             Margin="0"
-                            CornerRadius="8"
+                            CornerRadius="{ThemeResource OverlayCornerRadius}"
                             Background="{x:Bind services:XamlBindingHelpers.BoolToSelectedToolBackground(IsSelected), Mode=OneWay}"
                             BorderBrush="{ThemeResource ButtonBorderBrush}"
                             BorderThickness="1"
@@ -1826,7 +1835,7 @@
                          Background="{ThemeResource InputBrush}"
                          BorderBrush="{ThemeResource InputBorderBrush}"
                          BorderThickness="1"
-                         CornerRadius="8"
+                         CornerRadius="{ThemeResource OverlayCornerRadius}"
                          Foreground="{ThemeResource TextPrimaryBrush}"
                          PlaceholderText="{x:Bind ViewModel.Labels.AnnotationTextPlaceholder, Mode=OneWay}"
                          Text="{x:Bind ViewModel.AnnotationTextDraft, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -1846,7 +1855,7 @@
                           Background="{ThemeResource InputBrush}"
                           BorderBrush="{ThemeResource InputBorderBrush}"
                           BorderThickness="1"
-                          CornerRadius="8" />
+                          CornerRadius="{ThemeResource OverlayCornerRadius}" />
                 <Grid ColumnSpacing="8">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -1864,7 +1873,7 @@
                             Background="{ThemeResource InputBrush}"
                             BorderBrush="{ThemeResource InputBorderBrush}"
                             BorderThickness="1"
-                            CornerRadius="8" />
+                            CornerRadius="{ThemeResource OverlayCornerRadius}" />
                 </Grid>
               </StackPanel>
 
@@ -1885,7 +1894,7 @@
                           Height="32"
                           MinWidth="0"
                           Padding="10,0"
-                          CornerRadius="8"
+                          CornerRadius="{ThemeResource OverlayCornerRadius}"
                           Background="{ThemeResource CardBrush}"
                           BorderBrush="{ThemeResource CardBorderBrush}"
                           BorderThickness="1"
@@ -1903,7 +1912,7 @@
                           Width="32"
                           Height="32"
                           Padding="0"
-                          CornerRadius="8"
+                          CornerRadius="{ThemeResource OverlayCornerRadius}"
                           Background="Transparent"
                           BorderBrush="{ThemeResource CardBorderBrush}"
                           BorderThickness="1"
@@ -1927,7 +1936,7 @@
                         <Border Background="{ThemeResource CardBrush}"
                                 BorderBrush="{ThemeResource CardBorderBrush}"
                                 BorderThickness="1"
-                                CornerRadius="6"
+                                CornerRadius="{ThemeResource OverlayCornerRadius}"
                                 Padding="10,8"
                                 Margin="0,0,0,6">
                           <Grid ColumnSpacing="8">
@@ -1983,7 +1992,7 @@
                          Background="{ThemeResource InputBrush}"
                          BorderBrush="{ThemeResource InputBorderBrush}"
                          BorderThickness="1"
-                         CornerRadius="8"
+                         CornerRadius="{ThemeResource OverlayCornerRadius}"
                          Foreground="{ThemeResource TextPrimaryBrush}"
                          PlaceholderText="{x:Bind ViewModel.Labels.SignatureNamePlaceholder, Mode=OneWay}"
                          Text="{x:Bind ViewModel.SignatureAssetNameInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
@@ -1992,7 +2001,7 @@
                         Background="{ThemeResource CardBrush}"
                         BorderBrush="{ThemeResource CardBorderBrush}"
                         BorderThickness="1"
-                        CornerRadius="6"
+                        CornerRadius="{ThemeResource OverlayCornerRadius}"
                         Padding="10">
                   <Grid HorizontalAlignment="Center"
                         VerticalAlignment="Center">
@@ -2026,7 +2035,7 @@
                           AutomationProperties.AutomationId="SignatureClearDrawingButton"
                           MinWidth="0"
                           Padding="10,0"
-                          CornerRadius="8"
+                          CornerRadius="{ThemeResource OverlayCornerRadius}"
                           Background="{ThemeResource CardBrush}"
                           BorderBrush="{ThemeResource CardBorderBrush}"
                           BorderThickness="1"
@@ -2036,7 +2045,7 @@
                           AutomationProperties.AutomationId="SignatureSaveButton"
                           MinWidth="0"
                           Padding="10,0"
-                          CornerRadius="8"
+                          CornerRadius="{ThemeResource OverlayCornerRadius}"
                           Background="{ThemeResource AccentBgBrush}"
                           BorderBrush="{ThemeResource AccentBrush}"
                           BorderThickness="1"
@@ -2181,7 +2190,7 @@
                           Background="{ThemeResource CardBrush}"
                           BorderBrush="{ThemeResource CardBorderBrush}"
                           BorderThickness="1"
-                          CornerRadius="6">
+                          CornerRadius="{ThemeResource OverlayCornerRadius}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                       <TextBlock Text="{x:Bind ViewModel.Labels.AnnotationRecent, Mode=OneWay}"
                                  Foreground="{ThemeResource TextPrimaryBrush}"
@@ -2207,7 +2216,7 @@
                                   AutomationProperties.AutomationId="AnnotationListItem"
                                   BorderBrush="{ThemeResource CardBorderBrush}"
                                   BorderThickness="1"
-                                  CornerRadius="6"
+                                  CornerRadius="{ThemeResource OverlayCornerRadius}"
                                   Padding="12,10"
                                   Margin="0,0,0,8"
                                   Opacity="{x:Bind ListItemOpacity, Mode=OneWay}"
@@ -2371,7 +2380,7 @@
                           Background="{ThemeResource CardBrush}"
                           BorderBrush="{ThemeResource CardBorderBrush}"
                           BorderThickness="1"
-                          CornerRadius="6">
+                          CornerRadius="{ThemeResource OverlayCornerRadius}">
                     <TextBlock Text="{x:Bind ViewModel.ActiveDocumentTab.CurrentPageCommentCountText, Mode=OneWay}"
                                Foreground="{ThemeResource TextPrimaryBrush}"
                                FontSize="12" />
@@ -2389,7 +2398,7 @@
                           <Border Background="{ThemeResource CardBrush}"
                                   BorderBrush="{ThemeResource CardBorderBrush}"
                                   BorderThickness="1"
-                                  CornerRadius="6"
+                                  CornerRadius="{ThemeResource OverlayCornerRadius}"
                                   Padding="12,10"
                                   Margin="0,0,0,8">
                             <Grid ColumnSpacing="12">
@@ -2485,7 +2494,7 @@
                     Background="{ThemeResource CardBrush}"
                     BorderBrush="{ThemeResource CardBorderBrush}"
                     BorderThickness="1"
-                    CornerRadius="8"
+                    CornerRadius="{ThemeResource OverlayCornerRadius}"
                     Command="{x:Bind ViewModel.ToggleAnnotationsPanelCommand, Mode=OneWay}"
                     ToolTipService.ToolTip="{x:Bind ViewModel.Labels.Annotations, Mode=OneWay}"
                     AutomationProperties.Name="{x:Bind ViewModel.Labels.Annotations, Mode=OneWay}">
@@ -2496,7 +2505,8 @@
           </Grid>
         </Border>
 
-        <Border Width="356"
+        <Border x:Name="SettingsPanel"
+                Width="356"
                 Background="{ThemeResource PanelDeepBrush}"
                 BorderBrush="{ThemeResource PanelLineBrush}"
                 BorderThickness="1,0,0,0"
@@ -2514,7 +2524,7 @@
             <Border Background="{ThemeResource CardBrush}"
                     BorderBrush="{ThemeResource CardBorderBrush}"
                     BorderThickness="1"
-                    CornerRadius="8"
+                    CornerRadius="{ThemeResource OverlayCornerRadius}"
                     Padding="14">
               <StackPanel Spacing="14">
                 <Grid ColumnSpacing="12">
@@ -2597,12 +2607,13 @@
           </StackPanel>
         </Border>
 
-        <Border Width="420"
+        <Border x:Name="InfoPanel"
+                Width="420"
                 VerticalAlignment="Stretch"
                 Background="{ThemeResource PanelDeepBrush}"
                 BorderBrush="{ThemeResource PanelLineBrush}"
                 BorderThickness="1"
-                CornerRadius="8"
+                CornerRadius="{ThemeResource OverlayCornerRadius}"
                 Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.ActiveDocumentTab.IsInfoPanelOpen), Mode=OneWay}">
           <Grid Padding="20,20,20,12">
             <Grid.RowDefinitions>
@@ -2642,7 +2653,7 @@
                     Background="{ThemeResource CardBrush}"
                     BorderBrush="{ThemeResource CardBorderBrush}"
                     BorderThickness="1"
-                    CornerRadius="8"
+                    CornerRadius="{ThemeResource OverlayCornerRadius}"
                     Padding="14">
               <StackPanel Spacing="10">
                 <TextBlock Text="{x:Bind ViewModel.ActiveDocumentTab.Title, Mode=OneWay}"
@@ -2718,7 +2729,8 @@
           </Grid>
         </Border>
 
-        <Border Width="356"
+        <Border x:Name="SearchPanel"
+                Width="356"
                 VerticalAlignment="Stretch"
                 Background="{ThemeResource PanelDeepBrush}"
                 BorderBrush="{ThemeResource PanelLineBrush}"
@@ -2747,7 +2759,7 @@
                     Background="{ThemeResource CardBrush}"
                     BorderBrush="{ThemeResource CardBorderBrush}"
                     BorderThickness="1"
-                    CornerRadius="8"
+                    CornerRadius="{ThemeResource OverlayCornerRadius}"
                     Padding="10,8"
                     Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.ActiveDocumentTab.HasSearchPanelNotice), Mode=OneWay}">
               <TextBlock Text="{x:Bind ViewModel.ActiveDocumentTab.SearchPanelNotice, Mode=OneWay}"
@@ -2768,7 +2780,7 @@
                         Background="{ThemeResource SearchBrush}"
                         BorderBrush="{ThemeResource InputBorderBrush}"
                         BorderThickness="1"
-                        CornerRadius="8">
+                        CornerRadius="{ThemeResource OverlayCornerRadius}">
                   <Grid>
                     <Grid.ColumnDefinitions>
                       <ColumnDefinition Width="Auto" />
@@ -2815,7 +2827,7 @@
                     Background="{ThemeResource CardBrush}"
                     BorderBrush="{ThemeResource CardBorderBrush}"
                     BorderThickness="1"
-                    CornerRadius="8"
+                    CornerRadius="{ThemeResource OverlayCornerRadius}"
                     Padding="10"
                     Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.ActiveDocumentTab.HasSearchResults), Mode=OneWay}">
               <Grid>
@@ -2869,7 +2881,7 @@
                     <Border Background="{ThemeResource CardBrush}"
                             BorderBrush="{ThemeResource CardBorderBrush}"
                             BorderThickness="1"
-                            CornerRadius="8"
+                            CornerRadius="{ThemeResource OverlayCornerRadius}"
                             Padding="10"
                             Margin="0,0,0,8">
                       <StackPanel Spacing="5">

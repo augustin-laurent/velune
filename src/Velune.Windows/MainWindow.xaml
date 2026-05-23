@@ -363,7 +363,8 @@
                   HorizontalAlignment="Left"
                   VerticalAlignment="Bottom"
                   Spacing="4">
-        <ItemsControl ItemsSource="{x:Bind ViewModel.DocumentTabs, Mode=OneWay}"
+        <ItemsControl AutomationProperties.AutomationId="DocumentTabsList"
+                      ItemsSource="{x:Bind ViewModel.DocumentTabs, Mode=OneWay}"
                       Height="46"
                       VerticalAlignment="Bottom">
           <ItemsControl.ItemsPanel>
@@ -405,6 +406,7 @@
                              VerticalAlignment="Center" />
 
                   <Button Grid.Column="0"
+                          AutomationProperties.AutomationId="DocumentTabSelectButton"
                           Grid.ColumnSpan="2"
                           MinWidth="0"
                           Padding="0"
@@ -415,6 +417,7 @@
                           Click="OnTabClicked" />
 
                   <Button Grid.Column="2"
+                          AutomationProperties.AutomationId="DocumentTabCloseButton"
                           Width="30"
                           Height="30"
                           Margin="4,0,8,0"
@@ -438,6 +441,7 @@
         <Button Style="{StaticResource TitleBarIconButtonStyle}"
                 Command="{x:Bind ViewModel.OpenCommand, Mode=OneWay}"
                 ToolTipService.ToolTip="{x:Bind ViewModel.Labels.Open, Mode=OneWay}"
+                AutomationProperties.AutomationId="TitleBarOpenButton"
                 AutomationProperties.Name="{x:Bind ViewModel.Labels.Open, Mode=OneWay}">
           <FontIcon Glyph="&#xE710;"
                     FontFamily="Segoe Fluent Icons"
@@ -455,23 +459,25 @@
                   Spacing="4"
                   VerticalAlignment="Center">
         <Button Content="{x:Bind ViewModel.Labels.File, Mode=OneWay}"
+                AutomationProperties.AutomationId="TopNavFileButton"
                 Style="{StaticResource TopNavButtonStyle}">
           <Button.Flyout>
             <MenuFlyout>
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Open, Mode=OneWay}" Command="{x:Bind ViewModel.OpenCommand, Mode=OneWay}" />
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Save, Mode=OneWay}" Command="{x:Bind ViewModel.SaveDocumentCommand, Mode=OneWay}" />
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.SaveAs, Mode=OneWay}" Command="{x:Bind ViewModel.SaveDocumentAsCommand, Mode=OneWay}" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="FileOpenMenuItem" Text="{x:Bind ViewModel.Labels.Open, Mode=OneWay}" Command="{x:Bind ViewModel.OpenCommand, Mode=OneWay}" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="FileSaveMenuItem" Text="{x:Bind ViewModel.Labels.Save, Mode=OneWay}" Command="{x:Bind ViewModel.SaveDocumentCommand, Mode=OneWay}" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="FileSaveAsMenuItem" Text="{x:Bind ViewModel.Labels.SaveAs, Mode=OneWay}" Command="{x:Bind ViewModel.SaveDocumentAsCommand, Mode=OneWay}" />
               <MenuFlyoutSeparator />
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Merge, Mode=OneWay}" Command="{x:Bind ViewModel.MergeCommand, Mode=OneWay}" />
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Print, Mode=OneWay}" Command="{x:Bind ViewModel.PrintCommand, Mode=OneWay}" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="FileMergeMenuItem" Text="{x:Bind ViewModel.Labels.Merge, Mode=OneWay}" Command="{x:Bind ViewModel.MergeCommand, Mode=OneWay}" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="FilePrintMenuItem" Text="{x:Bind ViewModel.Labels.Print, Mode=OneWay}" Command="{x:Bind ViewModel.PrintCommand, Mode=OneWay}" />
               <MenuFlyoutSeparator />
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.CloseTab, Mode=OneWay}" Click="OnCloseActiveTabMenuClicked" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="FileCloseTabMenuItem" Text="{x:Bind ViewModel.Labels.CloseTab, Mode=OneWay}" Click="OnCloseActiveTabMenuClicked" />
             </MenuFlyout>
           </Button.Flyout>
         </Button>
 
         <Grid>
           <Button Content="{x:Bind ViewModel.Labels.RibbonHome, Mode=OneWay}"
+                  AutomationProperties.AutomationId="TopNavHomeButton"
                   Style="{StaticResource TopNavButtonStyle}"
                   FontWeight="SemiBold" />
           <Rectangle Height="3"
@@ -488,26 +494,28 @@
         </Grid>
 
         <Button Content="{x:Bind ViewModel.Labels.View, Mode=OneWay}"
+                AutomationProperties.AutomationId="TopNavViewButton"
                 Style="{StaticResource TopNavButtonStyle}">
           <Button.Flyout>
             <MenuFlyout>
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Pages, Mode=OneWay}" Command="{x:Bind ViewModel.TogglePagesPanelCommand, Mode=OneWay}" />
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Info, Mode=OneWay}" Command="{x:Bind ViewModel.ToggleInfoPanelCommand, Mode=OneWay}" />
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Search, Mode=OneWay}" Command="{x:Bind ViewModel.OpenSearchCommand, Mode=OneWay}" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="ViewPagesMenuItem" Text="{x:Bind ViewModel.Labels.Pages, Mode=OneWay}" Command="{x:Bind ViewModel.TogglePagesPanelCommand, Mode=OneWay}" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="ViewInfoMenuItem" Text="{x:Bind ViewModel.Labels.Info, Mode=OneWay}" Command="{x:Bind ViewModel.ToggleInfoPanelCommand, Mode=OneWay}" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="ViewSearchMenuItem" Text="{x:Bind ViewModel.Labels.Search, Mode=OneWay}" Command="{x:Bind ViewModel.OpenSearchCommand, Mode=OneWay}" />
               <MenuFlyoutSeparator />
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.PageOrganizer, Mode=OneWay}" Click="OnOpenPageOrganizerClicked" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="ViewPageOrganizerMenuItem" Text="{x:Bind ViewModel.Labels.PageOrganizer, Mode=OneWay}" Click="OnOpenPageOrganizerClicked" />
               <MenuFlyoutSeparator />
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.ZoomFit, Mode=OneWay}" Command="{x:Bind ViewModel.FitPageCommand, Mode=OneWay}" />
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.ZoomActual, Mode=OneWay}" Command="{x:Bind ViewModel.ActualSizeCommand, Mode=OneWay}" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="ViewZoomFitMenuItem" Text="{x:Bind ViewModel.Labels.ZoomFit, Mode=OneWay}" Command="{x:Bind ViewModel.FitPageCommand, Mode=OneWay}" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="ViewZoomActualMenuItem" Text="{x:Bind ViewModel.Labels.ZoomActual, Mode=OneWay}" Command="{x:Bind ViewModel.ActualSizeCommand, Mode=OneWay}" />
             </MenuFlyout>
           </Button.Flyout>
         </Button>
 
         <Button Content="{x:Bind ViewModel.Labels.MenuSelection, Mode=OneWay}"
+                AutomationProperties.AutomationId="TopNavSelectionButton"
                 Style="{StaticResource TopNavButtonStyle}">
           <Button.Flyout>
             <MenuFlyout>
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.PageRotateLeft, Mode=OneWay}" Click="OnRibbonRotateLeftClick">
+              <MenuFlyoutItem AutomationProperties.AutomationId="SelectionRotateLeftMenuItem" Text="{x:Bind ViewModel.Labels.PageRotateLeft, Mode=OneWay}" Click="OnRibbonRotateLeftClick">
                 <MenuFlyoutItem.Icon>
                   <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe Fluent Icons" RenderTransformOrigin="0.5,0.5">
                     <FontIcon.RenderTransform>
@@ -516,24 +524,24 @@
                   </FontIcon>
                 </MenuFlyoutItem.Icon>
               </MenuFlyoutItem>
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.PageRotateRight, Mode=OneWay}" Click="OnRibbonRotateRightClick">
+              <MenuFlyoutItem AutomationProperties.AutomationId="SelectionRotateRightMenuItem" Text="{x:Bind ViewModel.Labels.PageRotateRight, Mode=OneWay}" Click="OnRibbonRotateRightClick">
                 <MenuFlyoutItem.Icon>
                   <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe Fluent Icons" />
                 </MenuFlyoutItem.Icon>
               </MenuFlyoutItem>
               <MenuFlyoutSeparator />
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.PageMoveUp, Mode=OneWay}" Click="OnThumbnailMoveUpClick">
+              <MenuFlyoutItem AutomationProperties.AutomationId="SelectionMoveUpMenuItem" Text="{x:Bind ViewModel.Labels.PageMoveUp, Mode=OneWay}" Click="OnThumbnailMoveUpClick">
                 <MenuFlyoutItem.Icon>
                   <FontIcon Glyph="&#xE74A;" FontFamily="Segoe Fluent Icons" />
                 </MenuFlyoutItem.Icon>
               </MenuFlyoutItem>
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.PageMoveDown, Mode=OneWay}" Click="OnThumbnailMoveDownClick">
+              <MenuFlyoutItem AutomationProperties.AutomationId="SelectionMoveDownMenuItem" Text="{x:Bind ViewModel.Labels.PageMoveDown, Mode=OneWay}" Click="OnThumbnailMoveDownClick">
                 <MenuFlyoutItem.Icon>
                   <FontIcon Glyph="&#xE74B;" FontFamily="Segoe Fluent Icons" />
                 </MenuFlyoutItem.Icon>
               </MenuFlyoutItem>
               <MenuFlyoutSeparator />
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.PageDelete, Mode=OneWay}" Click="OnThumbnailDeleteClick">
+              <MenuFlyoutItem AutomationProperties.AutomationId="SelectionDeleteMenuItem" Text="{x:Bind ViewModel.Labels.PageDelete, Mode=OneWay}" Click="OnThumbnailDeleteClick">
                 <MenuFlyoutItem.Icon>
                   <FontIcon Glyph="&#xE107;" FontFamily="Segoe Fluent Icons" />
                 </MenuFlyoutItem.Icon>
@@ -543,29 +551,31 @@
         </Button>
 
         <Button Content="{x:Bind ViewModel.Labels.Annotate, Mode=OneWay}"
+                AutomationProperties.AutomationId="TopNavAnnotateButton"
                 Style="{StaticResource TopNavButtonStyle}">
           <Button.Flyout>
             <MenuFlyout>
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Select, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Select" />
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Highlight, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Highlight" />
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Ink, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Ink" />
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Text, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Text" />
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Note, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Note" />
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Rectangle, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Rectangle" />
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Signature, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Signature" />
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Stamp, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Stamp" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="AnnotateSelectMenuItem" Text="{x:Bind ViewModel.Labels.Select, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Select" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="AnnotateHighlightMenuItem" Text="{x:Bind ViewModel.Labels.Highlight, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Highlight" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="AnnotateInkMenuItem" Text="{x:Bind ViewModel.Labels.Ink, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Ink" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="AnnotateTextMenuItem" Text="{x:Bind ViewModel.Labels.Text, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Text" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="AnnotateNoteMenuItem" Text="{x:Bind ViewModel.Labels.Note, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Note" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="AnnotateRectangleMenuItem" Text="{x:Bind ViewModel.Labels.Rectangle, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Rectangle" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="AnnotateSignatureMenuItem" Text="{x:Bind ViewModel.Labels.Signature, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Signature" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="AnnotateStampMenuItem" Text="{x:Bind ViewModel.Labels.Stamp, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Stamp" />
               <MenuFlyoutSeparator />
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Annotations, Mode=OneWay}" Command="{x:Bind ViewModel.ToggleAnnotationsPanelCommand, Mode=OneWay}" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="AnnotatePanelMenuItem" Text="{x:Bind ViewModel.Labels.Annotations, Mode=OneWay}" Command="{x:Bind ViewModel.ToggleAnnotationsPanelCommand, Mode=OneWay}" />
             </MenuFlyout>
           </Button.Flyout>
         </Button>
 
         <Button Content="{x:Bind ViewModel.Labels.RibbonHelp, Mode=OneWay}"
+                AutomationProperties.AutomationId="TopNavHelpButton"
                 Style="{StaticResource TopNavButtonStyle}">
           <Button.Flyout>
             <MenuFlyout>
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Settings, Mode=OneWay}" Command="{x:Bind ViewModel.ToggleSettingsPanelCommand, Mode=OneWay}" />
-              <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Info, Mode=OneWay}" Command="{x:Bind ViewModel.ToggleInfoPanelCommand, Mode=OneWay}" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="HelpSettingsMenuItem" Text="{x:Bind ViewModel.Labels.Settings, Mode=OneWay}" Command="{x:Bind ViewModel.ToggleSettingsPanelCommand, Mode=OneWay}" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="HelpInfoMenuItem" Text="{x:Bind ViewModel.Labels.Info, Mode=OneWay}" Command="{x:Bind ViewModel.ToggleInfoPanelCommand, Mode=OneWay}" />
             </MenuFlyout>
           </Button.Flyout>
         </Button>
@@ -604,6 +614,7 @@
                 <Button Style="{StaticResource RibbonPillButtonStyle}"
                         Command="{x:Bind ViewModel.OpenCommand, Mode=OneWay}"
                         ToolTipService.ToolTip="{x:Bind ViewModel.Labels.Open, Mode=OneWay}"
+                        AutomationProperties.AutomationId="RibbonOpenButton"
                         AutomationProperties.Name="{x:Bind ViewModel.Labels.Open, Mode=OneWay}">
                   <StackPanel Orientation="Horizontal" Spacing="6">
                     <FontIcon Glyph="&#xE838;" FontFamily="Segoe Fluent Icons" FontSize="16" />
@@ -614,6 +625,7 @@
                 <Button Style="{StaticResource RibbonPillButtonStyle}"
                         Command="{x:Bind ViewModel.MergeCommand, Mode=OneWay}"
                         ToolTipService.ToolTip="{x:Bind ViewModel.Labels.Merge, Mode=OneWay}"
+                        AutomationProperties.AutomationId="RibbonMergeButton"
                         AutomationProperties.Name="{x:Bind ViewModel.Labels.Merge, Mode=OneWay}">
                   <StackPanel Orientation="Horizontal" Spacing="6">
                     <FontIcon Glyph="&#xE8A5;" FontFamily="Segoe Fluent Icons" FontSize="16" />
@@ -627,6 +639,7 @@
               <Button Style="{StaticResource RibbonPillButtonStyle}"
                       Command="{x:Bind ViewModel.PrintCommand, Mode=OneWay}"
                       ToolTipService.ToolTip="{x:Bind ViewModel.Labels.Print, Mode=OneWay}"
+                      AutomationProperties.AutomationId="RibbonPrintButton"
                       AutomationProperties.Name="{x:Bind ViewModel.Labels.Print, Mode=OneWay}">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                   <FontIcon Glyph="&#xE749;" FontFamily="Segoe Fluent Icons" FontSize="16" />
@@ -647,6 +660,7 @@
             <Button Style="{StaticResource RibbonIconButtonStyle}"
                     Command="{x:Bind ViewModel.PreviousPageCommand, Mode=OneWay}"
                     ToolTipService.ToolTip="{x:Bind ViewModel.Labels.PreviousPage, Mode=OneWay}"
+                    AutomationProperties.AutomationId="RibbonPreviousPageButton"
                     AutomationProperties.Name="{x:Bind ViewModel.Labels.PreviousPage, Mode=OneWay}">
               <FontIcon Glyph="&#xE76B;" FontFamily="Segoe Fluent Icons" />
             </Button>
@@ -668,6 +682,7 @@
             <Button Style="{StaticResource RibbonIconButtonStyle}"
                     Command="{x:Bind ViewModel.NextPageCommand, Mode=OneWay}"
                     ToolTipService.ToolTip="{x:Bind ViewModel.Labels.NextPage, Mode=OneWay}"
+                    AutomationProperties.AutomationId="RibbonNextPageButton"
                     AutomationProperties.Name="{x:Bind ViewModel.Labels.NextPage, Mode=OneWay}">
               <FontIcon Glyph="&#xE76C;" FontFamily="Segoe Fluent Icons" />
             </Button>
@@ -677,6 +692,7 @@
             <Button Style="{StaticResource RibbonIconButtonStyle}"
                     Click="OnRibbonRotateLeftClick"
                     ToolTipService.ToolTip="{x:Bind ViewModel.Labels.PageRotateLeft, Mode=OneWay}"
+                    AutomationProperties.AutomationId="RibbonRotateLeftButton"
                     AutomationProperties.Name="{x:Bind ViewModel.Labels.PageRotateLeft, Mode=OneWay}">
               <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe Fluent Icons" RenderTransformOrigin="0.5,0.5">
                 <FontIcon.RenderTransform>
@@ -688,6 +704,7 @@
             <Button Style="{StaticResource RibbonIconButtonStyle}"
                     Click="OnRibbonRotateRightClick"
                     ToolTipService.ToolTip="{x:Bind ViewModel.Labels.PageRotateRight, Mode=OneWay}"
+                    AutomationProperties.AutomationId="RibbonRotateRightButton"
                     AutomationProperties.Name="{x:Bind ViewModel.Labels.PageRotateRight, Mode=OneWay}">
               <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe Fluent Icons" />
             </Button>
@@ -704,11 +721,13 @@
             <Button Style="{StaticResource RibbonIconButtonStyle}"
                     Command="{x:Bind ViewModel.ZoomOutCommand, Mode=OneWay}"
                     ToolTipService.ToolTip="{x:Bind ViewModel.Labels.ZoomOut, Mode=OneWay}"
+                    AutomationProperties.AutomationId="RibbonZoomOutButton"
                     AutomationProperties.Name="{x:Bind ViewModel.Labels.ZoomOut, Mode=OneWay}">
               <FontIcon Glyph="&#xE738;" FontFamily="Segoe Fluent Icons" FontSize="16" />
             </Button>
 
             <Button Height="40"
+                    AutomationProperties.AutomationId="RibbonZoomMenuButton"
                     MinWidth="92"
                     Padding="14,0"
                     Background="{ThemeResource InputBrush}"
@@ -717,17 +736,17 @@
                     CornerRadius="8">
               <Button.Flyout>
                 <MenuFlyout>
-                  <MenuFlyoutItem Text="50%" Command="{x:Bind ViewModel.SetZoomCommand, Mode=OneWay}" CommandParameter="0.5" />
-                  <MenuFlyoutItem Text="75%" Command="{x:Bind ViewModel.SetZoomCommand, Mode=OneWay}" CommandParameter="0.75" />
-                  <MenuFlyoutItem Text="100%" Command="{x:Bind ViewModel.SetZoomCommand, Mode=OneWay}" CommandParameter="1.0" />
-                  <MenuFlyoutItem Text="125%" Command="{x:Bind ViewModel.SetZoomCommand, Mode=OneWay}" CommandParameter="1.25" />
-                  <MenuFlyoutItem Text="135%" Command="{x:Bind ViewModel.SetZoomCommand, Mode=OneWay}" CommandParameter="1.35" />
-                  <MenuFlyoutItem Text="150%" Command="{x:Bind ViewModel.SetZoomCommand, Mode=OneWay}" CommandParameter="1.5" />
-                  <MenuFlyoutItem Text="200%" Command="{x:Bind ViewModel.SetZoomCommand, Mode=OneWay}" CommandParameter="2.0" />
-                  <MenuFlyoutItem Text="300%" Command="{x:Bind ViewModel.SetZoomCommand, Mode=OneWay}" CommandParameter="3.0" />
+                  <MenuFlyoutItem AutomationProperties.AutomationId="Zoom50MenuItem" Text="50%" Command="{x:Bind ViewModel.SetZoomCommand, Mode=OneWay}" CommandParameter="0.5" />
+                  <MenuFlyoutItem AutomationProperties.AutomationId="Zoom75MenuItem" Text="75%" Command="{x:Bind ViewModel.SetZoomCommand, Mode=OneWay}" CommandParameter="0.75" />
+                  <MenuFlyoutItem AutomationProperties.AutomationId="Zoom100MenuItem" Text="100%" Command="{x:Bind ViewModel.SetZoomCommand, Mode=OneWay}" CommandParameter="1.0" />
+                  <MenuFlyoutItem AutomationProperties.AutomationId="Zoom125MenuItem" Text="125%" Command="{x:Bind ViewModel.SetZoomCommand, Mode=OneWay}" CommandParameter="1.25" />
+                  <MenuFlyoutItem AutomationProperties.AutomationId="Zoom135MenuItem" Text="135%" Command="{x:Bind ViewModel.SetZoomCommand, Mode=OneWay}" CommandParameter="1.35" />
+                  <MenuFlyoutItem AutomationProperties.AutomationId="Zoom150MenuItem" Text="150%" Command="{x:Bind ViewModel.SetZoomCommand, Mode=OneWay}" CommandParameter="1.5" />
+                  <MenuFlyoutItem AutomationProperties.AutomationId="Zoom200MenuItem" Text="200%" Command="{x:Bind ViewModel.SetZoomCommand, Mode=OneWay}" CommandParameter="2.0" />
+                  <MenuFlyoutItem AutomationProperties.AutomationId="Zoom300MenuItem" Text="300%" Command="{x:Bind ViewModel.SetZoomCommand, Mode=OneWay}" CommandParameter="3.0" />
                   <MenuFlyoutSeparator />
-                  <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.ZoomFit, Mode=OneWay}" Command="{x:Bind ViewModel.FitPageCommand, Mode=OneWay}" />
-                  <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.ZoomActual, Mode=OneWay}" Command="{x:Bind ViewModel.ActualSizeCommand, Mode=OneWay}" />
+                  <MenuFlyoutItem AutomationProperties.AutomationId="ZoomFitMenuItem" Text="{x:Bind ViewModel.Labels.ZoomFit, Mode=OneWay}" Command="{x:Bind ViewModel.FitPageCommand, Mode=OneWay}" />
+                  <MenuFlyoutItem AutomationProperties.AutomationId="ZoomActualMenuItem" Text="{x:Bind ViewModel.Labels.ZoomActual, Mode=OneWay}" Command="{x:Bind ViewModel.ActualSizeCommand, Mode=OneWay}" />
                 </MenuFlyout>
               </Button.Flyout>
               <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -742,6 +761,7 @@
             <Button Style="{StaticResource RibbonIconButtonStyle}"
                     Command="{x:Bind ViewModel.ZoomInCommand, Mode=OneWay}"
                     ToolTipService.ToolTip="{x:Bind ViewModel.Labels.ZoomIn, Mode=OneWay}"
+                    AutomationProperties.AutomationId="RibbonZoomInButton"
                     AutomationProperties.Name="{x:Bind ViewModel.Labels.ZoomIn, Mode=OneWay}">
               <FontIcon Glyph="&#xE710;" FontFamily="Segoe Fluent Icons" FontSize="16" />
             </Button>
@@ -749,6 +769,7 @@
             <Button Style="{StaticResource RibbonTextButtonStyle}"
                     Command="{x:Bind ViewModel.FitPageCommand, Mode=OneWay}"
                     ToolTipService.ToolTip="{x:Bind ViewModel.Labels.ZoomFit, Mode=OneWay}"
+                    AutomationProperties.AutomationId="RibbonFitPageButton"
                     AutomationProperties.Name="{x:Bind ViewModel.Labels.ZoomFit, Mode=OneWay}">
               <StackPanel Spacing="2">
                 <FontIcon Glyph="&#xE9A6;"
@@ -764,6 +785,7 @@
             <Button Style="{StaticResource RibbonTextButtonStyle}"
                     Command="{x:Bind ViewModel.ActualSizeCommand, Mode=OneWay}"
                     ToolTipService.ToolTip="{x:Bind ViewModel.Labels.ZoomActual, Mode=OneWay}"
+                    AutomationProperties.AutomationId="RibbonActualSizeButton"
                     AutomationProperties.Name="{x:Bind ViewModel.Labels.ZoomActual, Mode=OneWay}">
               <StackPanel Spacing="2">
                 <FontIcon Glyph="&#xE740;"
@@ -814,6 +836,7 @@
                         VerticalAlignment="Center" />
 
               <TextBox Grid.Column="1"
+                       AutomationProperties.AutomationId="RibbonSearchTextBox"
                        Background="Transparent"
                        BorderThickness="0"
                        VerticalAlignment="Center"
@@ -844,6 +867,7 @@
               <Button Style="{StaticResource RibbonPillIconButtonStyle}"
                       Command="{x:Bind ViewModel.TogglePagesPanelCommand, Mode=OneWay}"
                       ToolTipService.ToolTip="{x:Bind ViewModel.Labels.Pages, Mode=OneWay}"
+                      AutomationProperties.AutomationId="RibbonPagesPanelButton"
                       AutomationProperties.Name="{x:Bind ViewModel.Labels.Pages, Mode=OneWay}">
                 <FontIcon Glyph="&#xE8FE;" FontFamily="Segoe Fluent Icons" />
               </Button>
@@ -851,6 +875,7 @@
               <Button Style="{StaticResource RibbonPillIconButtonStyle}"
                       Command="{x:Bind ViewModel.ToggleInfoPanelCommand, Mode=OneWay}"
                       ToolTipService.ToolTip="{x:Bind ViewModel.Labels.Info, Mode=OneWay}"
+                      AutomationProperties.AutomationId="RibbonInfoPanelButton"
                       AutomationProperties.Name="{x:Bind ViewModel.Labels.Info, Mode=OneWay}">
                 <FontIcon Glyph="&#xE946;" FontFamily="Segoe Fluent Icons" />
               </Button>
@@ -868,6 +893,7 @@
             <Border Style="{StaticResource RibbonPillBorderStyle}">
               <StackPanel Orientation="Horizontal" Spacing="0">
                 <Button x:Name="AnnotateBtnSelect"
+                        AutomationProperties.AutomationId="RibbonAnnotationSelectButton"
                         Style="{StaticResource RibbonPillIconButtonStyle}"
                         Background="{x:Bind services:XamlBindingHelpers.AnnotationToolBackground(ViewModel.ActiveDocumentTab.SelectedAnnotationTool, 'Select'), Mode=OneWay}"
                         Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}"
@@ -878,6 +904,7 @@
                 </Button>
 
                 <Button x:Name="AnnotateBtnHighlight"
+                        AutomationProperties.AutomationId="RibbonAnnotationHighlightButton"
                         Style="{StaticResource RibbonPillIconButtonStyle}"
                         Background="{x:Bind services:XamlBindingHelpers.AnnotationToolBackground(ViewModel.ActiveDocumentTab.SelectedAnnotationTool, 'Highlight'), Mode=OneWay}"
                         Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}"
@@ -888,6 +915,7 @@
                 </Button>
 
                 <Button x:Name="AnnotateBtnText"
+                        AutomationProperties.AutomationId="RibbonAnnotationTextButton"
                         Style="{StaticResource RibbonPillIconButtonStyle}"
                         Background="{x:Bind services:XamlBindingHelpers.AnnotationToolBackground(ViewModel.ActiveDocumentTab.SelectedAnnotationTool, 'Text'), Mode=OneWay}"
                         Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}"
@@ -898,6 +926,7 @@
                 </Button>
 
                 <Button x:Name="AnnotateBtnNote"
+                        AutomationProperties.AutomationId="RibbonAnnotationNoteButton"
                         Style="{StaticResource RibbonPillIconButtonStyle}"
                         Background="{x:Bind services:XamlBindingHelpers.AnnotationToolBackground(ViewModel.ActiveDocumentTab.SelectedAnnotationTool, 'Note'), Mode=OneWay}"
                         Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}"
@@ -908,6 +937,7 @@
                 </Button>
 
                 <Button x:Name="AnnotateBtnStamp"
+                        AutomationProperties.AutomationId="RibbonAnnotationStampButton"
                         Style="{StaticResource RibbonPillIconButtonStyle}"
                         Visibility="Collapsed"
                         Background="{x:Bind services:XamlBindingHelpers.AnnotationToolBackground(ViewModel.ActiveDocumentTab.SelectedAnnotationTool, 'Stamp'), Mode=OneWay}"
@@ -919,6 +949,7 @@
                 </Button>
 
                 <Button x:Name="AnnotateBtnInk"
+                        AutomationProperties.AutomationId="RibbonAnnotationInkButton"
                         Style="{StaticResource RibbonPillIconButtonStyle}"
                         Visibility="Collapsed"
                         Background="{x:Bind services:XamlBindingHelpers.AnnotationToolBackground(ViewModel.ActiveDocumentTab.SelectedAnnotationTool, 'Ink'), Mode=OneWay}"
@@ -930,6 +961,7 @@
                 </Button>
 
                 <Button x:Name="AnnotateBtnErase"
+                        AutomationProperties.AutomationId="RibbonAnnotationEraseButton"
                         Style="{StaticResource RibbonPillIconButtonStyle}"
                         Visibility="Collapsed"
                         Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}"
@@ -940,6 +972,7 @@
                 </Button>
 
                 <Button x:Name="AnnotateBtnPanel"
+                        AutomationProperties.AutomationId="RibbonAnnotationsPanelButton"
                         Style="{StaticResource RibbonPillIconButtonStyle}"
                         Command="{x:Bind ViewModel.ToggleAnnotationsPanelCommand, Mode=OneWay}"
                         ToolTipService.ToolTip="{x:Bind ViewModel.Labels.Annotations, Mode=OneWay}"
@@ -951,10 +984,12 @@
 
             <Button Style="{StaticResource RibbonIconButtonStyle}"
                     ToolTipService.ToolTip="{x:Bind ViewModel.Labels.Settings, Mode=OneWay}"
+                    AutomationProperties.AutomationId="RibbonSettingsMenuButton"
                     AutomationProperties.Name="{x:Bind ViewModel.Labels.Settings, Mode=OneWay}">
               <Button.Flyout>
                 <MenuFlyout>
                   <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Settings, Mode=OneWay}"
+                                  AutomationProperties.AutomationId="RibbonSettingsMenuItem"
                                   Command="{x:Bind ViewModel.ToggleSettingsPanelCommand, Mode=OneWay}">
                     <MenuFlyoutItem.Icon>
                       <FontIcon Glyph="&#xE713;" FontFamily="Segoe Fluent Icons" />
@@ -1005,6 +1040,7 @@
                         HorizontalAlignment="Right"
                         VerticalAlignment="Center">
               <Button Width="28"
+                      AutomationProperties.AutomationId="PagesPanelOrganizerButton"
                       Height="28"
                       Padding="0"
                       Background="Transparent"
@@ -1017,6 +1053,7 @@
                           FontSize="14" />
               </Button>
               <Button Width="28"
+                      AutomationProperties.AutomationId="PagesPanelFilterButton"
                       Height="28"
                       Padding="0"
                       Background="Transparent"
@@ -1028,6 +1065,7 @@
                           FontSize="14" />
               </Button>
               <Button Width="28"
+                      AutomationProperties.AutomationId="PagesPanelCloseButton"
                       Height="28"
                       Padding="0"
                       Background="Transparent"
@@ -1043,6 +1081,7 @@
           </Grid>
 
           <Grid x:Name="ThumbnailDragSurface"
+                AutomationProperties.AutomationId="ThumbnailDragSurface"
                 Grid.Row="1"
                 Background="Transparent"
                 AllowDrop="True"
@@ -1053,10 +1092,12 @@
                            VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled">
               <ItemsControl x:Name="ThumbnailListView"
+                            AutomationProperties.AutomationId="PageThumbnailsList"
                             ItemsSource="{x:Bind ViewModel.ActiveDocumentTab.Thumbnails, Mode=OneWay}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:WindowsPageThumbnailViewModel">
-                    <Grid Padding="0,4"
+                    <Grid AutomationProperties.AutomationId="PageThumbnailItem"
+                          Padding="0,4"
                           HorizontalAlignment="Stretch"
                           PointerPressed="OnThumbnailItemPointerPressed"
                           PointerMoved="OnThumbnailItemPointerMoved"
@@ -1067,31 +1108,31 @@
                           RightTapped="OnThumbnailItemRightTapped">
                       <Grid.ContextFlyout>
                         <MenuFlyout>
-                          <MenuFlyoutItem Text="{x:Bind PageRotateLeftLabel, Mode=OneWay}" Click="OnThumbnailRotateLeftClick">
+                          <MenuFlyoutItem AutomationProperties.AutomationId="ThumbnailRotateLeftMenuItem" Text="{x:Bind PageRotateLeftLabel, Mode=OneWay}" Click="OnThumbnailRotateLeftClick">
                             <MenuFlyoutItem.Icon>
                               <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe Fluent Icons" RenderTransformOrigin="0.5,0.5">
                                 <FontIcon.RenderTransform><ScaleTransform ScaleX="-1" /></FontIcon.RenderTransform>
                               </FontIcon>
                             </MenuFlyoutItem.Icon>
                           </MenuFlyoutItem>
-                          <MenuFlyoutItem Text="{x:Bind PageRotateRightLabel, Mode=OneWay}" Click="OnThumbnailRotateRightClick">
+                          <MenuFlyoutItem AutomationProperties.AutomationId="ThumbnailRotateRightMenuItem" Text="{x:Bind PageRotateRightLabel, Mode=OneWay}" Click="OnThumbnailRotateRightClick">
                             <MenuFlyoutItem.Icon>
                               <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe Fluent Icons" />
                             </MenuFlyoutItem.Icon>
                           </MenuFlyoutItem>
                           <MenuFlyoutSeparator />
-                          <MenuFlyoutItem Text="{x:Bind PageMoveUpLabel, Mode=OneWay}" Click="OnThumbnailMoveUpClick">
+                          <MenuFlyoutItem AutomationProperties.AutomationId="ThumbnailMoveUpMenuItem" Text="{x:Bind PageMoveUpLabel, Mode=OneWay}" Click="OnThumbnailMoveUpClick">
                             <MenuFlyoutItem.Icon>
                               <FontIcon Glyph="&#xE74A;" FontFamily="Segoe Fluent Icons" />
                             </MenuFlyoutItem.Icon>
                           </MenuFlyoutItem>
-                          <MenuFlyoutItem Text="{x:Bind PageMoveDownLabel, Mode=OneWay}" Click="OnThumbnailMoveDownClick">
+                          <MenuFlyoutItem AutomationProperties.AutomationId="ThumbnailMoveDownMenuItem" Text="{x:Bind PageMoveDownLabel, Mode=OneWay}" Click="OnThumbnailMoveDownClick">
                             <MenuFlyoutItem.Icon>
                               <FontIcon Glyph="&#xE74B;" FontFamily="Segoe Fluent Icons" />
                             </MenuFlyoutItem.Icon>
                           </MenuFlyoutItem>
                           <MenuFlyoutSeparator />
-                          <MenuFlyoutItem Text="{x:Bind PageDeleteLabel, Mode=OneWay}" Click="OnThumbnailDeleteClick">
+                          <MenuFlyoutItem AutomationProperties.AutomationId="ThumbnailDeleteMenuItem" Text="{x:Bind PageDeleteLabel, Mode=OneWay}" Click="OnThumbnailDeleteClick">
                             <MenuFlyoutItem.Icon>
                               <FontIcon Glyph="&#xE107;" FontFamily="Segoe Fluent Icons" />
                             </MenuFlyoutItem.Icon>
@@ -1238,6 +1279,7 @@
                           </Grid.ColumnDefinitions>
 
                           <Border Background="{ThemeResource CardBrush}"
+                                  AutomationProperties.AutomationId="CommentOverlayCard"
                                   BorderBrush="{ThemeResource CardBorderBrush}"
                                   BorderThickness="1"
                                   CornerRadius="6"
@@ -1259,7 +1301,8 @@
                                          TextWrapping="Wrap"
                                          MaxLines="4"
                                          Visibility="{x:Bind ReadVisibility, Mode=OneWay}" />
-                              <TextBox Text="{x:Bind EditText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                              <TextBox AutomationProperties.AutomationId="CommentOverlayEditTextBox"
+                                       Text="{x:Bind EditText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                        FontSize="13"
                                        TextWrapping="Wrap"
                                        AcceptsReturn="True"
@@ -1300,6 +1343,7 @@
                       BorderThickness="1"
                       CornerRadius="2">
                 <Grid x:Name="DocumentPageLayer"
+                      AutomationProperties.AutomationId="DocumentPageLayer"
                       Width="{x:Bind ViewModel.ActiveDocumentTab.CurrentPagePixelWidth, Mode=OneWay}"
                       Height="{x:Bind ViewModel.ActiveDocumentTab.CurrentPagePixelHeight, Mode=OneWay}"
                       Background="Transparent"
@@ -1310,7 +1354,7 @@
                       RightTapped="OnDocumentLayerRightTapped">
                   <Grid.ContextFlyout>
                     <MenuFlyout x:Name="AnnotationContextMenu">
-                      <MenuFlyoutItem x:Name="ContextMenuDeleteItem" Click="OnContextMenuDelete">
+                      <MenuFlyoutItem x:Name="ContextMenuDeleteItem" AutomationProperties.AutomationId="AnnotationContextDeleteMenuItem" Click="OnContextMenuDelete">
                         <MenuFlyoutItem.Icon>
                           <FontIcon Glyph="&#xE74D;" FontFamily="Segoe Fluent Icons" />
                         </MenuFlyoutItem.Icon>
@@ -1319,23 +1363,23 @@
                         </MenuFlyoutItem.KeyboardAccelerators>
                       </MenuFlyoutItem>
                       <MenuFlyoutSeparator />
-                      <MenuFlyoutItem x:Name="ContextMenuRotate90Item" Click="OnContextMenuRotate90">
+                      <MenuFlyoutItem x:Name="ContextMenuRotate90Item" AutomationProperties.AutomationId="AnnotationContextRotate90MenuItem" Click="OnContextMenuRotate90">
                         <MenuFlyoutItem.Icon>
                           <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe Fluent Icons" />
                         </MenuFlyoutItem.Icon>
                       </MenuFlyoutItem>
-                      <MenuFlyoutItem x:Name="ContextMenuResetRotationItem" Click="OnContextMenuResetRotation">
+                      <MenuFlyoutItem x:Name="ContextMenuResetRotationItem" AutomationProperties.AutomationId="AnnotationContextResetRotationMenuItem" Click="OnContextMenuResetRotation">
                         <MenuFlyoutItem.Icon>
                           <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe Fluent Icons" />
                         </MenuFlyoutItem.Icon>
                       </MenuFlyoutItem>
                       <MenuFlyoutSeparator />
-                      <MenuFlyoutItem x:Name="ContextMenuFlipHItem" Click="OnContextMenuFlipH">
+                      <MenuFlyoutItem x:Name="ContextMenuFlipHItem" AutomationProperties.AutomationId="AnnotationContextFlipHorizontalMenuItem" Click="OnContextMenuFlipH">
                         <MenuFlyoutItem.Icon>
                           <FontIcon Glyph="&#xEA4F;" FontFamily="Segoe Fluent Icons" />
                         </MenuFlyoutItem.Icon>
                       </MenuFlyoutItem>
-                      <MenuFlyoutItem x:Name="ContextMenuFlipVItem" Click="OnContextMenuFlipV">
+                      <MenuFlyoutItem x:Name="ContextMenuFlipVItem" AutomationProperties.AutomationId="AnnotationContextFlipVerticalMenuItem" Click="OnContextMenuFlipV">
                         <MenuFlyoutItem.Icon>
                           <FontIcon Glyph="&#xEA4E;" FontFamily="Segoe Fluent Icons" />
                         </MenuFlyoutItem.Icon>
@@ -1460,6 +1504,7 @@
                         VerticalAlignment="Top"
                         Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.ActiveDocumentTab.HasInlineTextEditor), Mode=OneWay}">
                     <TextBox x:Name="InlineTextEditorBox"
+                             AutomationProperties.AutomationId="InlineTextEditorTextBox"
                              Padding="4,2"
                              Background="Transparent"
                              BorderThickness="0"
@@ -1566,6 +1611,7 @@
                            TextWrapping="Wrap" />
               </StackPanel>
               <Button Width="28"
+                      AutomationProperties.AutomationId="AnnotationsPanelCloseButton"
                       Height="28"
                       Padding="0"
                       Background="Transparent"
@@ -1609,6 +1655,7 @@
                              Margin="0,0,0,2" />
                 </Border>
                 <Button Grid.Column="0"
+                        AutomationProperties.AutomationId="AnnotationsToolsTabButton"
                         Height="32"
                         MinWidth="0"
                         Padding="0"
@@ -1640,6 +1687,7 @@
                              Margin="0,0,0,2" />
                 </Border>
                 <Button Grid.Column="1"
+                        AutomationProperties.AutomationId="AnnotationsCommentsTabButton"
                         Height="32"
                         MinWidth="0"
                         Padding="0"
@@ -1671,6 +1719,7 @@
                          Foreground="{ThemeResource PanelLabelBrush}"
                          FontSize="13" />
               <Button Grid.Row="1"
+                      AutomationProperties.AutomationId="AnnotationActiveToolMenuButton"
                       Height="42"
                       Background="{ThemeResource CardBrush}"
                       BorderBrush="{ThemeResource CardBorderBrush}"
@@ -1683,14 +1732,14 @@
                       AutomationProperties.Name="{x:Bind ViewModel.ActiveAnnotationToolLabel, Mode=OneWay}">
                 <Button.Flyout>
                   <MenuFlyout>
-                    <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Select, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Select" />
-                    <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Highlight, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Highlight" />
-                    <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Ink, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Ink" />
-                    <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Text, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Text" />
-                    <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Note, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Note" />
-                    <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Rectangle, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Rectangle" />
-                    <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Signature, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Signature" />
-                    <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Stamp, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Stamp" />
+                    <MenuFlyoutItem AutomationProperties.AutomationId="AnnotationActiveToolSelectMenuItem" Text="{x:Bind ViewModel.Labels.Select, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Select" />
+                    <MenuFlyoutItem AutomationProperties.AutomationId="AnnotationActiveToolHighlightMenuItem" Text="{x:Bind ViewModel.Labels.Highlight, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Highlight" />
+                    <MenuFlyoutItem AutomationProperties.AutomationId="AnnotationActiveToolInkMenuItem" Text="{x:Bind ViewModel.Labels.Ink, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Ink" />
+                    <MenuFlyoutItem AutomationProperties.AutomationId="AnnotationActiveToolTextMenuItem" Text="{x:Bind ViewModel.Labels.Text, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Text" />
+                    <MenuFlyoutItem AutomationProperties.AutomationId="AnnotationActiveToolNoteMenuItem" Text="{x:Bind ViewModel.Labels.Note, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Note" />
+                    <MenuFlyoutItem AutomationProperties.AutomationId="AnnotationActiveToolRectangleMenuItem" Text="{x:Bind ViewModel.Labels.Rectangle, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Rectangle" />
+                    <MenuFlyoutItem AutomationProperties.AutomationId="AnnotationActiveToolSignatureMenuItem" Text="{x:Bind ViewModel.Labels.Signature, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Signature" />
+                    <MenuFlyoutItem AutomationProperties.AutomationId="AnnotationActiveToolStampMenuItem" Text="{x:Bind ViewModel.Labels.Stamp, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Stamp" />
                   </MenuFlyout>
                 </Button.Flyout>
                 <Grid>
@@ -1731,7 +1780,8 @@
               <TextBlock Text="{x:Bind ViewModel.Labels.AnnotationQuickTools, Mode=OneWay}"
                          Foreground="{ThemeResource PanelLabelBrush}"
                          FontSize="13" />
-              <ItemsControl ItemsSource="{x:Bind ViewModel.AnnotationTools, Mode=OneWay}">
+              <ItemsControl AutomationProperties.AutomationId="AnnotationQuickToolsList"
+                            ItemsSource="{x:Bind ViewModel.AnnotationTools, Mode=OneWay}">
                 <ItemsControl.ItemsPanel>
                   <ItemsPanelTemplate>
                     <ItemsWrapGrid Orientation="Horizontal"
@@ -1743,6 +1793,7 @@
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:WindowsAnnotationToolItem">
                     <Button Width="82"
+                            AutomationProperties.AutomationId="AnnotationQuickToolButton"
                             Height="58"
                             Margin="0"
                             CornerRadius="8"
@@ -1769,7 +1820,8 @@
                 <TextBlock Text="{x:Bind ViewModel.Labels.AnnotationText, Mode=OneWay}"
                            Foreground="{ThemeResource PanelLabelBrush}"
                            FontSize="13" />
-                <TextBox MinHeight="78"
+                <TextBox AutomationProperties.AutomationId="AnnotationTextDraftTextBox"
+                         MinHeight="78"
                          Padding="10,8"
                          Background="{ThemeResource InputBrush}"
                          BorderBrush="{ThemeResource InputBorderBrush}"
@@ -1787,7 +1839,8 @@
                 <TextBlock Text="Font"
                            Foreground="{ThemeResource PanelLabelBrush}"
                            FontSize="13" />
-                <ComboBox ItemsSource="{x:Bind ViewModel.AnnotationFontFamilyOptions, Mode=OneWay}"
+                <ComboBox AutomationProperties.AutomationId="AnnotationFontFamilyComboBox"
+                          ItemsSource="{x:Bind ViewModel.AnnotationFontFamilyOptions, Mode=OneWay}"
                           SelectedItem="{x:Bind ViewModel.AnnotationFontFamily, Mode=TwoWay}"
                           HorizontalAlignment="Stretch"
                           Background="{ThemeResource InputBrush}"
@@ -1804,6 +1857,7 @@
                              FontSize="13"
                              VerticalAlignment="Center" />
                   <ComboBox Grid.Column="1"
+                            AutomationProperties.AutomationId="AnnotationFontSizeComboBox"
                             Width="90"
                             ItemsSource="{x:Bind ViewModel.AnnotationFontSizeOptions, Mode=OneWay}"
                             SelectedItem="{x:Bind ViewModel.AnnotationFontSize, Mode=TwoWay}"
@@ -1827,6 +1881,7 @@
                              FontSize="13"
                              VerticalAlignment="Center" />
                   <Button Grid.Column="1"
+                          AutomationProperties.AutomationId="SignatureImportImageButton"
                           Height="32"
                           MinWidth="0"
                           Padding="10,0"
@@ -1844,6 +1899,7 @@
                     </StackPanel>
                   </Button>
                   <Button Grid.Column="2"
+                          AutomationProperties.AutomationId="SignatureDeleteSelectedButton"
                           Width="32"
                           Height="32"
                           Padding="0"
@@ -1864,7 +1920,8 @@
                 <ScrollViewer MaxHeight="132"
                               VerticalScrollBarVisibility="Auto"
                               Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.HasSignatureAssets), Mode=OneWay}">
-                  <ItemsControl ItemsSource="{x:Bind ViewModel.SignatureAssets, Mode=OneWay}">
+                  <ItemsControl AutomationProperties.AutomationId="SignatureAssetsList"
+                                ItemsSource="{x:Bind ViewModel.SignatureAssets, Mode=OneWay}">
                     <ItemsControl.ItemTemplate>
                       <DataTemplate x:DataType="domain:SignatureAsset">
                         <Border Background="{ThemeResource CardBrush}"
@@ -1879,6 +1936,7 @@
                               <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <Button Background="Transparent"
+                                    AutomationProperties.AutomationId="SignatureAssetSelectButton"
                                     BorderThickness="0"
                                     Padding="0"
                                     HorizontalAlignment="Stretch"
@@ -1897,6 +1955,7 @@
                               </StackPanel>
                             </Button>
                             <Button Grid.Column="1"
+                                    AutomationProperties.AutomationId="SignatureAssetDeleteButton"
                                     Width="28"
                                     Height="28"
                                     Padding="0"
@@ -1918,7 +1977,8 @@
                 <TextBlock Text="{x:Bind ViewModel.Labels.SignatureDraw, Mode=OneWay}"
                            Foreground="{ThemeResource PanelLabelBrush}"
                            FontSize="13" />
-                <TextBox Height="36"
+                <TextBox AutomationProperties.AutomationId="SignatureNameTextBox"
+                         Height="36"
                          Padding="10,0"
                          Background="{ThemeResource InputBrush}"
                          BorderBrush="{ThemeResource InputBorderBrush}"
@@ -1948,6 +2008,7 @@
                               StrokeStartLineCap="Round"
                               StrokeEndLineCap="Round" />
                     <Border x:Name="SignaturePadInteractionLayer"
+                            AutomationProperties.AutomationId="SignaturePadDrawingSurface"
                             Width="248"
                             Height="124"
                             Background="Transparent"
@@ -1962,6 +2023,7 @@
                             HorizontalAlignment="Right"
                             Spacing="8">
                   <Button Height="32"
+                          AutomationProperties.AutomationId="SignatureClearDrawingButton"
                           MinWidth="0"
                           Padding="10,0"
                           CornerRadius="8"
@@ -1971,6 +2033,7 @@
                           Command="{x:Bind ViewModel.ClearSignatureCaptureCommand, Mode=OneWay}"
                           Content="{x:Bind ViewModel.Labels.SignatureClearDrawing, Mode=OneWay}" />
                   <Button Height="32"
+                          AutomationProperties.AutomationId="SignatureSaveButton"
                           MinWidth="0"
                           Padding="10,0"
                           CornerRadius="8"
@@ -1991,7 +2054,8 @@
               <TextBlock Text="{x:Bind ViewModel.Labels.AnnotationColor, Mode=OneWay}"
                          Foreground="{ThemeResource PanelLabelBrush}"
                          FontSize="13" />
-              <ItemsControl ItemsSource="{x:Bind ViewModel.AnnotationColorOptions, Mode=OneWay}">
+              <ItemsControl AutomationProperties.AutomationId="AnnotationStrokeColorList"
+                            ItemsSource="{x:Bind ViewModel.AnnotationColorOptions, Mode=OneWay}">
                 <ItemsControl.ItemsPanel>
                   <ItemsPanelTemplate>
                     <StackPanel Orientation="Horizontal" Spacing="12" />
@@ -2000,6 +2064,7 @@
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:WindowsAnnotationColorItem">
                     <Button Width="30"
+                            AutomationProperties.AutomationId="AnnotationStrokeColorButton"
                             Height="30"
                             Padding="0"
                             Background="Transparent"
@@ -2042,7 +2107,8 @@
                            FontSize="12"
                            HorizontalAlignment="Right" />
               </Grid>
-              <Slider Minimum="0"
+              <Slider AutomationProperties.AutomationId="AnnotationOpacitySlider"
+                      Minimum="0"
                       Maximum="100"
                       Value="{x:Bind ViewModel.AnnotationOpacity, Mode=TwoWay}" />
             </StackPanel>
@@ -2052,14 +2118,16 @@
                         Spacing="8"
                         HorizontalAlignment="Stretch"
                         Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.ShowRectangleFillControls), Mode=OneWay}">
-              <CheckBox Content="{x:Bind ViewModel.Labels.AnnotationFill, Mode=OneWay}"
+              <CheckBox AutomationProperties.AutomationId="AnnotationFillCheckBox"
+                        Content="{x:Bind ViewModel.Labels.AnnotationFill, Mode=OneWay}"
                         IsChecked="{x:Bind ViewModel.AnnotationFillEnabled, Mode=TwoWay}" />
               <StackPanel Spacing="6"
                           Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.AnnotationFillEnabled), Mode=OneWay}">
                 <TextBlock Text="{x:Bind ViewModel.Labels.AnnotationFillColor, Mode=OneWay}"
                            Foreground="{ThemeResource PanelLabelBrush}"
                            FontSize="13" />
-                <ItemsControl ItemsSource="{x:Bind ViewModel.AnnotationFillColorOptions, Mode=OneWay}">
+                <ItemsControl AutomationProperties.AutomationId="AnnotationFillColorList"
+                              ItemsSource="{x:Bind ViewModel.AnnotationFillColorOptions, Mode=OneWay}">
                   <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                       <StackPanel Orientation="Horizontal" Spacing="10" />
@@ -2068,6 +2136,7 @@
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:WindowsAnnotationColorItem">
                       <Button Width="28"
+                              AutomationProperties.AutomationId="AnnotationFillColorButton"
                               Height="28"
                               Padding="0"
                               Background="Transparent"
@@ -2130,10 +2199,12 @@
                   <ScrollViewer VerticalScrollBarVisibility="Auto"
                                 HorizontalScrollBarVisibility="Disabled"
                                 Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.ActiveDocumentTab.HasCurrentPageAnnotations), Mode=OneWay}">
-                    <ItemsControl ItemsSource="{x:Bind ViewModel.ActiveDocumentTab.CurrentPageAnnotationOverlays, Mode=OneWay}">
+                    <ItemsControl AutomationProperties.AutomationId="CurrentPageAnnotationsList"
+                                  ItemsSource="{x:Bind ViewModel.ActiveDocumentTab.CurrentPageAnnotationOverlays, Mode=OneWay}">
                       <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:WindowsAnnotationOverlayViewModel">
                           <Border Background="{ThemeResource CardBrush}"
+                                  AutomationProperties.AutomationId="AnnotationListItem"
                                   BorderBrush="{ThemeResource CardBorderBrush}"
                                   BorderThickness="1"
                                   CornerRadius="6"
@@ -2199,6 +2270,7 @@
                                            FontSize="11"
                                            VerticalAlignment="Center" />
                                 <Button Width="28"
+                                        AutomationProperties.AutomationId="AnnotationListItemMenuButton"
                                         Height="28"
                                         Padding="0"
                                         Background="Transparent"
@@ -2209,21 +2281,24 @@
                                             FontSize="13" />
                                   <Button.Flyout>
                                     <MenuFlyout>
-                                      <MenuFlyoutItem Text="{x:Bind AnnotationMenuEditLabel, Mode=OneWay}"
+                                      <MenuFlyoutItem AutomationProperties.AutomationId="AnnotationListEditMenuItem"
+                                                      Text="{x:Bind AnnotationMenuEditLabel, Mode=OneWay}"
                                                       Tag="{x:Bind Id, Mode=OneWay}"
                                                       Click="OnAnnotationMenuEditClicked">
                                         <MenuFlyoutItem.Icon>
                                           <FontIcon Glyph="&#xE70F;" FontFamily="Segoe Fluent Icons" />
                                         </MenuFlyoutItem.Icon>
                                       </MenuFlyoutItem>
-                                      <MenuFlyoutItem Text="{x:Bind HideMenuText, Mode=OneWay}"
+                                      <MenuFlyoutItem AutomationProperties.AutomationId="AnnotationListHideMenuItem"
+                                                      Text="{x:Bind HideMenuText, Mode=OneWay}"
                                                       Tag="{x:Bind Id, Mode=OneWay}"
                                                       Click="OnAnnotationMenuHideClicked">
                                         <MenuFlyoutItem.Icon>
                                           <FontIcon Glyph="&#xED1A;" FontFamily="Segoe Fluent Icons" />
                                         </MenuFlyoutItem.Icon>
                                       </MenuFlyoutItem>
-                                      <MenuFlyoutItem Text="{x:Bind LockMenuText, Mode=OneWay}"
+                                      <MenuFlyoutItem AutomationProperties.AutomationId="AnnotationListLockMenuItem"
+                                                      Text="{x:Bind LockMenuText, Mode=OneWay}"
                                                       Tag="{x:Bind Id, Mode=OneWay}"
                                                       Click="OnAnnotationMenuLockClicked">
                                         <MenuFlyoutItem.Icon>
@@ -2231,7 +2306,8 @@
                                         </MenuFlyoutItem.Icon>
                                       </MenuFlyoutItem>
                                       <MenuFlyoutSeparator />
-                                      <MenuFlyoutItem Text="{x:Bind AnnotationMenuDeleteLabel, Mode=OneWay}"
+                                      <MenuFlyoutItem AutomationProperties.AutomationId="AnnotationListDeleteMenuItem"
+                                                      Text="{x:Bind AnnotationMenuDeleteLabel, Mode=OneWay}"
                                                       Tag="{x:Bind Id, Mode=OneWay}"
                                                       Click="OnAnnotationMenuDeleteClicked">
                                         <MenuFlyoutItem.Icon>
@@ -2306,7 +2382,8 @@
                   <ScrollViewer VerticalScrollBarVisibility="Auto"
                                 HorizontalScrollBarVisibility="Disabled"
                                 Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.ActiveDocumentTab.HasCurrentPageComments), Mode=OneWay}">
-                    <ItemsControl ItemsSource="{x:Bind ViewModel.ActiveDocumentTab.CurrentPageCommentOverlays, Mode=OneWay}">
+                    <ItemsControl AutomationProperties.AutomationId="CurrentPageCommentsList"
+                                  ItemsSource="{x:Bind ViewModel.ActiveDocumentTab.CurrentPageCommentOverlays, Mode=OneWay}">
                       <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:WindowsCommentOverlayViewModel">
                           <Border Background="{ThemeResource CardBrush}"
@@ -2352,6 +2429,7 @@
                                            FontSize="11"
                                            VerticalAlignment="Center" />
                                 <Button Width="28"
+                                        AutomationProperties.AutomationId="CommentListItemMenuButton"
                                         Height="28"
                                         Padding="0"
                                         Background="Transparent"
@@ -2398,6 +2476,7 @@
             </Border>
 
             <Button Grid.Row="8"
+                    AutomationProperties.AutomationId="AnnotationsPanelCollapseButton"
                     HorizontalAlignment="Right"
                     Width="40"
                     Height="36"
@@ -2448,6 +2527,7 @@
                              FontWeight="SemiBold"
                              VerticalAlignment="Center" />
                   <ComboBox Grid.Column="1"
+                            AutomationProperties.AutomationId="PreferencesLanguageComboBox"
                             ItemsSource="{x:Bind ViewModel.PreferenceLanguageOptions, Mode=OneWay}"
                             SelectedItem="{x:Bind ViewModel.SelectedPreferenceLanguage, Mode=TwoWay}" />
                 </Grid>
@@ -2462,6 +2542,7 @@
                              FontWeight="SemiBold"
                              VerticalAlignment="Center" />
                   <ComboBox Grid.Column="1"
+                            AutomationProperties.AutomationId="PreferencesThemeComboBox"
                             ItemsSource="{x:Bind ViewModel.PreferenceThemeOptions, Mode=OneWay}"
                             SelectedItem="{x:Bind ViewModel.SelectedPreferenceTheme, Mode=TwoWay}" />
                 </Grid>
@@ -2476,6 +2557,7 @@
                              FontWeight="SemiBold"
                              VerticalAlignment="Center" />
                   <ComboBox Grid.Column="1"
+                            AutomationProperties.AutomationId="PreferencesDefaultZoomComboBox"
                             ItemsSource="{x:Bind ViewModel.PreferenceZoomOptions, Mode=OneWay}"
                             SelectedItem="{x:Bind ViewModel.SelectedPreferenceZoom, Mode=TwoWay}" />
                 </Grid>
@@ -2490,6 +2572,7 @@
                              FontWeight="SemiBold"
                              TextWrapping="Wrap" />
                   <ToggleSwitch Grid.Column="1"
+                                AutomationProperties.AutomationId="PreferencesShowThumbnailsToggle"
                                 IsOn="{x:Bind ViewModel.ShowThumbnails, Mode=TwoWay}"
                                 OnContent=""
                                 OffContent="" />
@@ -2504,7 +2587,8 @@
                                Foreground="{ThemeResource TextSecondaryBrush}"
                                HorizontalAlignment="Right" />
                   </Grid>
-                  <Slider Minimum="64"
+                  <Slider AutomationProperties.AutomationId="PreferencesCacheSizeSlider"
+                          Minimum="64"
                           Maximum="1024"
                           Value="{x:Bind ViewModel.CacheSizeMegabytes, Mode=TwoWay}" />
                 </StackPanel>
@@ -2537,6 +2621,7 @@
                            TextWrapping="Wrap" />
               </StackPanel>
               <Button Width="28"
+                      AutomationProperties.AutomationId="InfoPanelCloseButton"
                       Height="28"
                       Padding="0"
                       Background="Transparent"
@@ -2695,6 +2780,7 @@
                               Margin="12,0,8,0"
                               VerticalAlignment="Center" />
                     <TextBox Grid.Column="1"
+                             AutomationProperties.AutomationId="SearchPanelQueryTextBox"
                              Background="Transparent"
                              BorderThickness="0"
                              PlaceholderText="{x:Bind ViewModel.Labels.SearchQueryPlaceholder, Mode=OneWay}"
@@ -2704,6 +2790,7 @@
                 </Border>
 
                 <Button Grid.Column="1"
+                        AutomationProperties.AutomationId="SearchPanelSearchButton"
                         Height="38"
                         MinWidth="78"
                         Content="{x:Bind ViewModel.Labels.Search, Mode=OneWay}"
@@ -2714,7 +2801,8 @@
             <StackPanel Grid.Row="3"
                         Orientation="Horizontal"
                         Spacing="8">
-              <Button Content="{x:Bind ViewModel.Labels.SearchRecognize, Mode=OneWay}"
+              <Button AutomationProperties.AutomationId="SearchPanelRecognizeButton"
+                      Content="{x:Bind ViewModel.Labels.SearchRecognize, Mode=OneWay}"
                       Command="{x:Bind ViewModel.RunSearchOcrCommand, Mode=OneWay}"
                       Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.ActiveDocumentTab.RequiresSearchOcr), Mode=OneWay}" />
               <ProgressRing Width="24"
@@ -2745,6 +2833,7 @@
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
                   <Button Width="32"
+                          AutomationProperties.AutomationId="SearchPreviousResultButton"
                           Height="32"
                           Padding="0"
                           Command="{x:Bind ViewModel.PreviousSearchResultCommand, Mode=OneWay}"
@@ -2753,6 +2842,7 @@
                     <FontIcon Glyph="&#xE70E;" FontFamily="Segoe Fluent Icons" FontSize="11" />
                   </Button>
                   <Button Width="32"
+                          AutomationProperties.AutomationId="SearchNextResultButton"
                           Height="32"
                           Padding="0"
                           Command="{x:Bind ViewModel.NextSearchResultCommand, Mode=OneWay}"
@@ -2765,6 +2855,7 @@
             </Border>
 
             <ListView Grid.Row="5"
+                      AutomationProperties.AutomationId="SearchResultsList"
                       ItemsSource="{x:Bind ViewModel.ActiveDocumentTab.SearchResults, Mode=OneWay}"
                       Background="Transparent"
                       BorderThickness="0"

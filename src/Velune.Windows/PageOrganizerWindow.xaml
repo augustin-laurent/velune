@@ -69,6 +69,7 @@
         <StackPanel Orientation="Horizontal"
                     Spacing="2">
           <Button ToolTipService.ToolTip="{x:Bind ViewModel.RotateLeftLabel, Mode=OneWay}"
+                  AutomationProperties.AutomationId="PageOrganizerRotateLeftButton"
                   AutomationProperties.Name="{x:Bind ViewModel.RotateLeftLabel, Mode=OneWay}"
                   Click="OnRotateLeftClick"
                   Style="{StaticResource SubtleButtonStyle}">
@@ -82,6 +83,7 @@
             </FontIcon>
           </Button>
           <Button ToolTipService.ToolTip="{x:Bind ViewModel.RotateRightLabel, Mode=OneWay}"
+                  AutomationProperties.AutomationId="PageOrganizerRotateRightButton"
                   AutomationProperties.Name="{x:Bind ViewModel.RotateRightLabel, Mode=OneWay}"
                   Click="OnRotateRightClick"
                   Style="{StaticResource SubtleButtonStyle}">
@@ -96,6 +98,7 @@
                      Margin="8,0" />
 
           <Button ToolTipService.ToolTip="{x:Bind ViewModel.DeleteLabel, Mode=OneWay}"
+                  AutomationProperties.AutomationId="PageOrganizerDeleteButton"
                   AutomationProperties.Name="{x:Bind ViewModel.DeleteLabel, Mode=OneWay}"
                   Click="OnDeleteClick"
                   Style="{StaticResource SubtleButtonStyle}">
@@ -104,6 +107,7 @@
                       FontSize="16" />
           </Button>
           <Button ToolTipService.ToolTip="{x:Bind ViewModel.DuplicateLabel, Mode=OneWay}"
+                  AutomationProperties.AutomationId="PageOrganizerDuplicateButton"
                   AutomationProperties.Name="{x:Bind ViewModel.DuplicateLabel, Mode=OneWay}"
                   Click="OnDuplicateClick"
                   Style="{StaticResource SubtleButtonStyle}">
@@ -112,6 +116,7 @@
                       FontSize="16" />
           </Button>
           <Button ToolTipService.ToolTip="{x:Bind ViewModel.ReverseLabel, Mode=OneWay}"
+                  AutomationProperties.AutomationId="PageOrganizerReverseButton"
                   AutomationProperties.Name="{x:Bind ViewModel.ReverseLabel, Mode=OneWay}"
                   Click="OnReverseClick"
                   Style="{StaticResource SubtleButtonStyle}">
@@ -126,6 +131,7 @@
                      Margin="8,0" />
 
           <Button ToolTipService.ToolTip="{x:Bind ViewModel.UndoLabel, Mode=OneWay}"
+                  AutomationProperties.AutomationId="PageOrganizerUndoButton"
                   AutomationProperties.Name="{x:Bind ViewModel.UndoLabel, Mode=OneWay}"
                   Click="OnUndoClick"
                   IsEnabled="{x:Bind ViewModel.CanUndo, Mode=OneWay}"
@@ -135,6 +141,7 @@
                       FontSize="16" />
           </Button>
           <Button ToolTipService.ToolTip="{x:Bind ViewModel.RedoLabel, Mode=OneWay}"
+                  AutomationProperties.AutomationId="PageOrganizerRedoButton"
                   AutomationProperties.Name="{x:Bind ViewModel.RedoLabel, Mode=OneWay}"
                   Click="OnRedoClick"
                   IsEnabled="{x:Bind ViewModel.CanRedo, Mode=OneWay}"
@@ -155,22 +162,27 @@
                      Margin="0,0,2,0" />
           <Button Content="{x:Bind ViewModel.SelectAllLabel, Mode=OneWay}"
                   Click="OnSelectAllClick"
+                  AutomationProperties.AutomationId="PageOrganizerSelectAllButton"
                   AutomationProperties.Name="{x:Bind ViewModel.SelectAllLabel, Mode=OneWay}"
                   Style="{StaticResource ChipButtonStyle}" />
           <Button Content="{x:Bind ViewModel.SelectOddLabel, Mode=OneWay}"
                   Click="OnSelectOddClick"
+                  AutomationProperties.AutomationId="PageOrganizerSelectOddButton"
                   AutomationProperties.Name="{x:Bind ViewModel.SelectOddLabel, Mode=OneWay}"
                   Style="{StaticResource ChipButtonStyle}" />
           <Button Content="{x:Bind ViewModel.SelectEvenLabel, Mode=OneWay}"
                   Click="OnSelectEvenClick"
+                  AutomationProperties.AutomationId="PageOrganizerSelectEvenButton"
                   AutomationProperties.Name="{x:Bind ViewModel.SelectEvenLabel, Mode=OneWay}"
                   Style="{StaticResource ChipButtonStyle}" />
           <Button Content="{x:Bind ViewModel.SelectInvertLabel, Mode=OneWay}"
                   Click="OnInvertSelectionClick"
+                  AutomationProperties.AutomationId="PageOrganizerInvertSelectionButton"
                   AutomationProperties.Name="{x:Bind ViewModel.SelectInvertLabel, Mode=OneWay}"
                   Style="{StaticResource ChipButtonStyle}" />
           <Button Content="{x:Bind ViewModel.SelectNoneLabel, Mode=OneWay}"
                   Click="OnDeselectAllClick"
+                  AutomationProperties.AutomationId="PageOrganizerSelectNoneButton"
                   AutomationProperties.Name="{x:Bind ViewModel.SelectNoneLabel, Mode=OneWay}"
                   Style="{StaticResource ChipButtonStyle}" />
         </StackPanel>
@@ -185,6 +197,7 @@
                   Padding="16">
       <Grid>
         <ItemsRepeater x:Name="PageGridRepeater"
+                       AutomationProperties.AutomationId="PageOrganizerPagesRepeater"
                        ItemsSource="{x:Bind ViewModel.Pages, Mode=OneWay}">
           <ItemsRepeater.Layout>
             <UniformGridLayout MinItemWidth="164"
@@ -196,6 +209,7 @@
           <ItemsRepeater.ItemTemplate>
             <DataTemplate x:DataType="vm:PageOrganizerItemViewModel">
               <Grid x:Name="PageItemRoot"
+                    AutomationProperties.AutomationId="PageOrganizerPageItem"
                     Width="164"
                     Height="224"
                     CornerRadius="8"
@@ -330,11 +344,13 @@
                     Spacing="8">
           <Button Content="{x:Bind ViewModel.CancelLabel, Mode=OneWay}"
                   Click="OnCancelClick"
+                  AutomationProperties.AutomationId="PageOrganizerCancelButton"
                   AutomationProperties.Name="{x:Bind ViewModel.CancelLabel, Mode=OneWay}"
                   MinWidth="88"
                   CornerRadius="6" />
           <Button Content="{x:Bind ViewModel.ApplyLabel, Mode=OneWay}"
                   Click="OnApplyClick"
+                  AutomationProperties.AutomationId="PageOrganizerApplyButton"
                   AutomationProperties.Name="{x:Bind ViewModel.ApplyLabel, Mode=OneWay}"
                   Style="{ThemeResource AccentButtonStyle}"
                   MinWidth="88"

@@ -145,21 +145,24 @@
                 Style="{StaticResource IconButtonStyle}"
                 VerticalAlignment="Center"
                 Click="OnSettingsClicked"
+                AutomationProperties.AutomationId="WelcomeSettingsButton"
                 AutomationProperties.Name="{x:Bind ViewModel.Labels.Settings, Mode=OneWay}">
           <FontIcon Glyph="&#xE713;"
                     FontFamily="Segoe Fluent Icons"
                     FontSize="17" />
           <Button.Flyout>
             <MenuFlyout>
-              <MenuFlyoutSubItem Text="{x:Bind ViewModel.Labels.PreferencesLanguage, Mode=OneWay}">
-                <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.PreferencesEnglish, Mode=OneWay}" Click="OnLanguageClicked" Tag="en" />
-                <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.PreferencesFrench, Mode=OneWay}" Click="OnLanguageClicked" Tag="fr" />
-                <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.PreferencesSpanish, Mode=OneWay}" Click="OnLanguageClicked" Tag="es" />
+              <MenuFlyoutSubItem AutomationProperties.AutomationId="WelcomeLanguageMenu"
+                                 Text="{x:Bind ViewModel.Labels.PreferencesLanguage, Mode=OneWay}">
+                <MenuFlyoutItem AutomationProperties.AutomationId="WelcomeLanguageEnglishMenuItem" Text="{x:Bind ViewModel.Labels.PreferencesEnglish, Mode=OneWay}" Click="OnLanguageClicked" Tag="en" />
+                <MenuFlyoutItem AutomationProperties.AutomationId="WelcomeLanguageFrenchMenuItem" Text="{x:Bind ViewModel.Labels.PreferencesFrench, Mode=OneWay}" Click="OnLanguageClicked" Tag="fr" />
+                <MenuFlyoutItem AutomationProperties.AutomationId="WelcomeLanguageSpanishMenuItem" Text="{x:Bind ViewModel.Labels.PreferencesSpanish, Mode=OneWay}" Click="OnLanguageClicked" Tag="es" />
               </MenuFlyoutSubItem>
-              <MenuFlyoutSubItem Text="{x:Bind ViewModel.Labels.PreferencesTheme, Mode=OneWay}">
-                <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.PreferencesSystem, Mode=OneWay}" Click="OnThemeClicked" Tag="System" />
-                <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.PreferencesLight, Mode=OneWay}" Click="OnThemeClicked" Tag="Light" />
-                <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.PreferencesDark, Mode=OneWay}" Click="OnThemeClicked" Tag="Dark" />
+              <MenuFlyoutSubItem AutomationProperties.AutomationId="WelcomeThemeMenu"
+                                 Text="{x:Bind ViewModel.Labels.PreferencesTheme, Mode=OneWay}">
+                <MenuFlyoutItem AutomationProperties.AutomationId="WelcomeThemeSystemMenuItem" Text="{x:Bind ViewModel.Labels.PreferencesSystem, Mode=OneWay}" Click="OnThemeClicked" Tag="System" />
+                <MenuFlyoutItem AutomationProperties.AutomationId="WelcomeThemeLightMenuItem" Text="{x:Bind ViewModel.Labels.PreferencesLight, Mode=OneWay}" Click="OnThemeClicked" Tag="Light" />
+                <MenuFlyoutItem AutomationProperties.AutomationId="WelcomeThemeDarkMenuItem" Text="{x:Bind ViewModel.Labels.PreferencesDark, Mode=OneWay}" Click="OnThemeClicked" Tag="Dark" />
               </MenuFlyoutSubItem>
             </MenuFlyout>
           </Button.Flyout>
@@ -167,6 +170,7 @@
       </Grid>
 
       <Grid Grid.Row="2"
+            AutomationProperties.AutomationId="WelcomeDropZone"
             Background="Transparent"
             AllowDrop="True"
             DragOver="OnHomeDropZoneDragOver"
@@ -227,6 +231,7 @@
                       Margin="0,6,0,0">
             <Button Click="OnOpenFilesClicked"
                     Style="{StaticResource PrimaryWelcomeButtonStyle}"
+                    AutomationProperties.AutomationId="WelcomeOpenFilesButton"
                     AutomationProperties.Name="{x:Bind ViewModel.Labels.WelcomeOpenFiles, Mode=OneWay}">
               <StackPanel Orientation="Horizontal"
                           Spacing="10"
@@ -243,6 +248,7 @@
 
             <Button Command="{x:Bind ViewModel.MergeCommand, Mode=OneWay}"
                     Style="{StaticResource SecondaryWelcomeButtonStyle}"
+                    AutomationProperties.AutomationId="WelcomeMergePdfButton"
                     AutomationProperties.Name="{x:Bind ViewModel.Labels.WelcomeMergePdf, Mode=OneWay}">
               <StackPanel Orientation="Horizontal"
                           Spacing="10"
@@ -264,6 +270,7 @@
                   BorderThickness="0"
                   HorizontalAlignment="Center"
                   Foreground="{ThemeResource WelcomeAccentTextBrush}"
+                  AutomationProperties.AutomationId="WelcomeBrowseDeviceButton"
                   AutomationProperties.Name="{x:Bind ViewModel.Labels.WelcomeBrowseDevice, Mode=OneWay}">
             <StackPanel Orientation="Horizontal"
                         Spacing="8">
@@ -297,6 +304,7 @@
                 Style="{StaticResource ClearRecentButtonStyle}"
                 HorizontalAlignment="Right"
                 Command="{x:Bind ViewModel.ClearRecentFilesCommand, Mode=OneWay}"
+                AutomationProperties.AutomationId="WelcomeClearRecentFilesButton"
                 AutomationProperties.Name="{x:Bind ViewModel.Labels.RecentClear, Mode=OneWay}">
           <StackPanel Orientation="Horizontal"
                       Spacing="6"
@@ -311,6 +319,7 @@
         </Button>
 
         <ListView Grid.Row="1"
+                  AutomationProperties.AutomationId="WelcomeRecentFilesList"
                   ItemsSource="{x:Bind ViewModel.RecentFiles, Mode=OneWay}"
                   ItemContainerStyle="{StaticResource RecentListViewItemStyle}"
                   IsItemClickEnabled="True"

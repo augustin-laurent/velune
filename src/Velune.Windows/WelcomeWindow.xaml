@@ -201,7 +201,7 @@
             Drop="OnHomeDropZoneDrop">
         <Rectangle RadiusX="6"
                    RadiusY="6"
-                   Fill="#00FFFFFF"
+                   Fill="{ThemeResource WindowBackgroundBrush}"
                    Stroke="{ThemeResource WelcomeDropZoneStrokeBrush}"
                    StrokeDashArray="4,4"
                    StrokeThickness="1" />
@@ -400,7 +400,7 @@
                               VerticalAlignment="Bottom"
                               Margin="0,0,0,2">
                         <TextBlock Text="PDF"
-                                   Foreground="#FFFFFF"
+                                   Foreground="{ThemeResource WelcomePrimaryFgBrush}"
                                    FontSize="6"
                                    FontWeight="Bold"
                                    HorizontalAlignment="Center"

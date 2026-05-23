@@ -58,6 +58,8 @@ public sealed partial class WelcomeWindow
 
         ConfigureWindow();
         ApplyTheme();
+        ApplySelectedLanguageIndicator();
+        ApplySelectedThemeIndicator();
         _viewModel.PropertyChanged += OnViewModelPropertyChanged;
         Activated += OnActivated;
         Closed += OnClosed;
@@ -300,6 +302,8 @@ public sealed partial class WelcomeWindow
             "es" => _viewModel.Labels.PreferencesSpanish,
             _ => _viewModel.Labels.PreferencesSystem
         };
+
+        ApplySelectedLanguageIndicator();
     }
 
     private void OnThemeClicked(object sender, RoutedEventArgs e)
@@ -315,6 +319,24 @@ public sealed partial class WelcomeWindow
             "Dark" => _viewModel.Labels.PreferencesDark,
             _ => _viewModel.Labels.PreferencesSystem
         };
+
+        ApplySelectedThemeIndicator();
+    }
+
+    private void ApplySelectedLanguageIndicator()
+    {
+        string selected = _viewModel.SelectedPreferenceLanguage;
+        LanguageEnglishItem.IsChecked = string.Equals(selected, _viewModel.Labels.PreferencesEnglish, StringComparison.Ordinal);
+        LanguageFrenchItem.IsChecked = string.Equals(selected, _viewModel.Labels.PreferencesFrench, StringComparison.Ordinal);
+        LanguageSpanishItem.IsChecked = string.Equals(selected, _viewModel.Labels.PreferencesSpanish, StringComparison.Ordinal);
+    }
+
+    private void ApplySelectedThemeIndicator()
+    {
+        string selected = _viewModel.SelectedPreferenceTheme;
+        ThemeSystemItem.IsChecked = string.Equals(selected, _viewModel.Labels.PreferencesSystem, StringComparison.Ordinal);
+        ThemeLightItem.IsChecked = string.Equals(selected, _viewModel.Labels.PreferencesLight, StringComparison.Ordinal);
+        ThemeDarkItem.IsChecked = string.Equals(selected, _viewModel.Labels.PreferencesDark, StringComparison.Ordinal);
     }
 
     private async Task OpenPathsThroughDropPipelineAsync(IReadOnlyList<string> paths)

@@ -25,6 +25,8 @@ public sealed partial class WelcomeWindow
     private readonly WindowsWindowCoordinator _windowCoordinator;
     private readonly IWindowsFileDialogService _fileDialogService;
 
+    public WindowsMainViewModel ViewModel => _viewModel;
+
     /// <summary>
     /// Initializes the welcome window with its dependencies.
     /// </summary>

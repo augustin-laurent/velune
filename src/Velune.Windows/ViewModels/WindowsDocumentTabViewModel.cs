@@ -63,7 +63,12 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
             Thumbnails.Add(new WindowsPageThumbnailViewModel(
                 page,
                 textCatalog.Format("windows.thumbnail.page", page),
-                textCatalog.GetString("windows.thumbnail.loading")));
+                textCatalog.GetString("windows.thumbnail.loading"),
+                textCatalog.GetString("windows.page.rotate_left"),
+                textCatalog.GetString("windows.page.rotate_right"),
+                textCatalog.GetString("windows.page.move_up"),
+                textCatalog.GetString("windows.page.move_down"),
+                textCatalog.GetString("windows.page.delete")));
         }
     }
 
@@ -278,6 +283,8 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
     public bool HasPendingPageEdits => HasPendingPageReorder || HasPendingPageRotations;
 
     public string PageText => $"{CurrentPage} / {TotalPages}";
+
+    public string CloseTabLabel => _textCatalog.GetString("tabs.close");
 
     public string CurrentPageAnnotationCountText => CurrentPageAnnotationOverlays.Count.ToString(CultureInfo.CurrentCulture);
 
@@ -674,7 +681,8 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
                         Math.Max(1, CurrentPagePixelHeight),
                         Rotation,
                         ResolveAnnotationLabel(annotation),
-                        _textCatalog.Format("windows.thumbnail.page", annotation.PageIndex.Value + 1)));
+                        _textCatalog.Format("windows.thumbnail.page", annotation.PageIndex.Value + 1),
+                        _textCatalog.GetString("panel.annotations.delete_selected")));
                 }
 
                 continue;
@@ -688,7 +696,9 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
                 ResolveAnnotationLabel(annotation),
                 _textCatalog.Format("windows.thumbnail.page", annotation.PageIndex.Value + 1),
                 ResolveAnnotationGlyph(annotation.Kind),
-                _signatureAssets)
+                _signatureAssets,
+                _textCatalog.GetString("panel.annotations.menu.edit"),
+                _textCatalog.GetString("panel.annotations.menu.delete"))
             {
                 IsSelected = selectedAnnotationId == annotation.Id,
                 IsHidden = isHidden,

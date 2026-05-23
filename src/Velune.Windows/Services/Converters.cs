@@ -7,6 +7,130 @@ using Velune.Domain.Annotations;
 namespace Velune.Windows.Services;
 
 /// <summary>
+/// Helper methods used by x:Bind expressions where a converter would otherwise be needed.
+/// </summary>
+public static class XamlBindingHelpers
+{
+    private static readonly SolidColorBrush TransparentBrush = new(global::Windows.UI.Color.FromArgb(0, 0, 0, 0));
+    private static readonly SolidColorBrush DefaultAccentBrush = new(global::Windows.UI.Color.FromArgb(255, 0, 120, 212));
+    private static readonly SolidColorBrush DefaultCardBrush = new(global::Windows.UI.Color.FromArgb(31, 255, 255, 255));
+    private static readonly SolidColorBrush PdfBrush = new(global::Windows.UI.Color.FromArgb(255, 232, 35, 46));
+    private static readonly SolidColorBrush WebpBrush = new(global::Windows.UI.Color.FromArgb(255, 45, 145, 111));
+
+    public static Visibility BoolToVisibility(object? value)
+    {
+        return value is true ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public static Visibility InverseBoolToVisibility(object? value)
+    {
+        return value is true ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    public static Brush AnnotationToolBackground(object? value, string toolName)
+    {
+        if (!Enum.TryParse(toolName, ignoreCase: true, out AnnotationTool targetTool))
+        {
+            return TransparentBrush;
+        }
+
+        return value is AnnotationTool selectedTool && selectedTool == targetTool
+            ? AccentBrush()
+            : TransparentBrush;
+    }
+
+    public static Brush BoolToSelectedToolBackground(object? value)
+    {
+        return value is true ? AccentBrush() : CardBrush();
+    }
+
+    public static Visibility RecentFilePdfVisibility(string? fileName)
+    {
+        return IsPdf(fileName) ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public static Visibility RecentFileImageVisibility(string? fileName)
+    {
+        return IsPdf(fileName) ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    public static Brush RecentFileBrush(string? fileName)
+    {
+        string extension = Path.GetExtension(fileName)?.ToLowerInvariant() ?? string.Empty;
+        return extension switch
+        {
+            ".pdf" => PdfBrush,
+            ".webp" => WebpBrush,
+            _ => AccentBrush()
+        };
+    }
+
+    public static double Subtract(double value, double subtract)
+    {
+        return value - subtract;
+    }
+
+    public static string RecentFileOpenedAt(DateTimeOffset openedAt)
+    {
+        if (openedAt == default)
+        {
+            return string.Empty;
+        }
+
+        DateTime local = openedAt.ToLocalTime().DateTime;
+        DateTime today = DateTime.Today;
+        CultureInfo culture = CultureInfo.CurrentUICulture;
+        string languageName = culture.TwoLetterISOLanguageName;
+
+        if (local.Date == today)
+        {
+            return languageName switch
+            {
+                "fr" => $"Aujourd'hui \u00e0 {local:HH:mm}",
+                "es" => $"Hoy a las {local:HH:mm}",
+                _ => $"Today at {local.ToString("h:mm tt", culture)}"
+            };
+        }
+
+        if (local.Date == today.AddDays(-1))
+        {
+            return languageName switch
+            {
+                "fr" => $"Hier \u00e0 {local:HH:mm}",
+                "es" => $"Ayer a las {local:HH:mm}",
+                _ => $"Yesterday at {local.ToString("h:mm tt", culture)}"
+            };
+        }
+
+        return languageName switch
+        {
+            "fr" => local.ToString("d MMM yyyy '\u00e0' HH:mm", culture),
+            "es" => local.ToString("d MMM yyyy 'a las' HH:mm", culture),
+            _ => local.ToString("MMM d, yyyy 'at' h:mm tt", culture)
+        };
+    }
+
+    private static bool IsPdf(string? fileName)
+    {
+        return string.Equals(Path.GetExtension(fileName), ".pdf", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static Brush AccentBrush()
+    {
+        return Microsoft.UI.Xaml.Application.Current.Resources.TryGetValue("AccentBgBrush", out object? brush) && brush is Brush accentBrush
+            ? accentBrush
+            : DefaultAccentBrush;
+    }
+
+    private static Brush CardBrush()
+    {
+        return Microsoft.UI.Xaml.Application.Current.Resources.TryGetValue("CardBrush", out object? brush) && brush is Brush cardBrush
+            ? cardBrush
+            : DefaultCardBrush;
+    }
+}
+
+/// <summary>
 /// Converts a boolean value to <see cref="Visibility"/> (true = Visible).
 /// </summary>
 public sealed partial class BoolToVisibilityConverter : IValueConverter

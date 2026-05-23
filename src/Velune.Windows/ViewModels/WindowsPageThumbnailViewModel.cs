@@ -15,11 +15,29 @@ public sealed partial class WindowsPageThumbnailViewModel : ObservableObject
     /// <param name="pageNumber">The 1-based page number.</param>
     /// <param name="label">The display label (e.g. "Page 1").</param>
     /// <param name="loadingText">Text shown while the thumbnail renders.</param>
-    public WindowsPageThumbnailViewModel(int pageNumber, string label, string loadingText)
+    /// <param name="pageRotateLeftLabel">Localized text for rotating the page left.</param>
+    /// <param name="pageRotateRightLabel">Localized text for rotating the page right.</param>
+    /// <param name="pageMoveUpLabel">Localized text for moving the page up.</param>
+    /// <param name="pageMoveDownLabel">Localized text for moving the page down.</param>
+    /// <param name="pageDeleteLabel">Localized text for deleting the page.</param>
+    public WindowsPageThumbnailViewModel(
+        int pageNumber,
+        string label,
+        string loadingText,
+        string? pageRotateLeftLabel = null,
+        string? pageRotateRightLabel = null,
+        string? pageMoveUpLabel = null,
+        string? pageMoveDownLabel = null,
+        string? pageDeleteLabel = null)
     {
         PageNumber = pageNumber;
         Label = label;
         LoadingText = loadingText;
+        PageRotateLeftLabel = pageRotateLeftLabel ?? string.Empty;
+        PageRotateRightLabel = pageRotateRightLabel ?? string.Empty;
+        PageMoveUpLabel = pageMoveUpLabel ?? string.Empty;
+        PageMoveDownLabel = pageMoveDownLabel ?? string.Empty;
+        PageDeleteLabel = pageDeleteLabel ?? string.Empty;
     }
 
     /// <summary>
@@ -73,6 +91,31 @@ public sealed partial class WindowsPageThumbnailViewModel : ObservableObject
     /// Gets the loading placeholder text.
     /// </summary>
     public string LoadingText
+    {
+        get;
+    }
+
+    public string PageRotateLeftLabel
+    {
+        get;
+    }
+
+    public string PageRotateRightLabel
+    {
+        get;
+    }
+
+    public string PageMoveUpLabel
+    {
+        get;
+    }
+
+    public string PageMoveDownLabel
+    {
+        get;
+    }
+
+    public string PageDeleteLabel
     {
         get;
     }

@@ -3795,7 +3795,12 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
                 tab.Thumbnails.Add(new WindowsPageThumbnailViewModel(
                     page,
                     _textCatalog.Format("windows.thumbnail.page", page),
-                    _textCatalog.GetString("windows.thumbnail.loading")));
+                    _textCatalog.GetString("windows.thumbnail.loading"),
+                    _textCatalog.GetString("windows.page.rotate_left"),
+                    _textCatalog.GetString("windows.page.rotate_right"),
+                    _textCatalog.GetString("windows.page.move_up"),
+                    _textCatalog.GetString("windows.page.move_down"),
+                    _textCatalog.GetString("windows.page.delete")));
             }
         });
 

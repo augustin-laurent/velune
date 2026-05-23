@@ -62,6 +62,8 @@ public sealed partial class PageOrganizerWindow : Window
         get; private set;
     }
 
+    public PageOrganizerViewModel ViewModel => _viewModel;
+
     private void ConfigureWindow()
     {
         ExtendsContentIntoTitleBar = true;

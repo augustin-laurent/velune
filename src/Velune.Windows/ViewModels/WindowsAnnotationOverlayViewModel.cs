@@ -26,6 +26,8 @@ public sealed class WindowsAnnotationOverlayViewModel
     /// <param name="pageLabel">Localized page label text.</param>
     /// <param name="glyph">Icon glyph character for the annotation kind.</param>
     /// <param name="signatureAssets">Available signature image assets.</param>
+    /// <param name="annotationMenuEditLabel">Localized text for the edit context menu item.</param>
+    /// <param name="annotationMenuDeleteLabel">Localized text for the delete context menu item.</param>
     public WindowsAnnotationOverlayViewModel(
         DocumentAnnotation annotation,
         double pageWidth,
@@ -34,7 +36,9 @@ public sealed class WindowsAnnotationOverlayViewModel
         string label,
         string pageLabel,
         string glyph,
-        IReadOnlyDictionary<string, SignatureAsset>? signatureAssets = null)
+        IReadOnlyDictionary<string, SignatureAsset>? signatureAssets = null,
+        string? annotationMenuEditLabel = null,
+        string? annotationMenuDeleteLabel = null)
     {
         ArgumentNullException.ThrowIfNull(annotation);
         ArgumentException.ThrowIfNullOrWhiteSpace(label);
@@ -48,6 +52,8 @@ public sealed class WindowsAnnotationOverlayViewModel
         Label = label;
         PageLabel = pageLabel;
         Glyph = glyph;
+        AnnotationMenuEditLabel = annotationMenuEditLabel ?? string.Empty;
+        AnnotationMenuDeleteLabel = annotationMenuDeleteLabel ?? string.Empty;
         Text = annotation.Text ?? label;
         PreviewText = string.Equals(Text, label, StringComparison.Ordinal)
             ? string.Empty
@@ -160,6 +166,16 @@ public sealed class WindowsAnnotationOverlayViewModel
     }
 
     public string Glyph
+    {
+        get;
+    }
+
+    public string AnnotationMenuEditLabel
+    {
+        get;
+    }
+
+    public string AnnotationMenuDeleteLabel
     {
         get;
     }
@@ -480,12 +496,14 @@ public sealed partial class WindowsCommentOverlayViewModel : ObservableObject
     /// <param name="rotation">The current page rotation.</param>
     /// <param name="label">Display label for the comment.</param>
     /// <param name="pageLabel">Localized page label text.</param>
+    /// <param name="annotationDeleteSelectedLabel">Localized text for deleting the comment.</param>
     public WindowsCommentOverlayViewModel(
         DocumentAnnotation annotation,
         double pageHeight,
         Rotation rotation,
         string label,
-        string pageLabel)
+        string pageLabel,
+        string? annotationDeleteSelectedLabel = null)
     {
         ArgumentNullException.ThrowIfNull(annotation);
         ArgumentException.ThrowIfNullOrWhiteSpace(label);
@@ -496,6 +514,7 @@ public sealed partial class WindowsCommentOverlayViewModel : ObservableObject
         Text = string.IsNullOrWhiteSpace(annotation.Text) ? label : annotation.Text;
         EditText = Text;
         PageLabel = pageLabel;
+        AnnotationDeleteSelectedLabel = annotationDeleteSelectedLabel ?? string.Empty;
         TimeText = annotation.CreatedAt.ToLocalTime().ToString("HH:mm", System.Globalization.CultureInfo.CurrentCulture);
         StrokeBrush = CreateBrush(annotation.Appearance.StrokeHex, 255);
 
@@ -537,6 +556,11 @@ public sealed partial class WindowsCommentOverlayViewModel : ObservableObject
     public Visibility EditVisibility => IsEditing ? Visibility.Visible : Visibility.Collapsed;
 
     public string PageLabel
+    {
+        get;
+    }
+
+    public string AnnotationDeleteSelectedLabel
     {
         get;
     }

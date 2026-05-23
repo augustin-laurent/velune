@@ -138,6 +138,22 @@ public static class XamlBindingHelpers
         return pointCollection;
     }
 
+    public static PointCollection PointCollectionFromSignaturePadPoints(IReadOnlyList<SignaturePadPreviewPoint>? points)
+    {
+        var pointCollection = new PointCollection();
+        if (points is null)
+        {
+            return pointCollection;
+        }
+
+        foreach (SignaturePadPreviewPoint point in points)
+        {
+            pointCollection.Add(new Point(point.X, point.Y));
+        }
+
+        return pointCollection;
+    }
+
     public static ImageSource? ImageSourceFromPath(string? filePath)
     {
         return string.IsNullOrWhiteSpace(filePath)

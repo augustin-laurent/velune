@@ -19,6 +19,8 @@ using Velune.Windows.ViewModels.UndoSystem;
 
 namespace Velune.Windows.ViewModels;
 
+public readonly record struct SignaturePadPreviewPoint(double X, double Y);
+
 /// <summary>
 /// Primary view model for the workspace window, orchestrating documents, annotations, search, and preferences.
 /// </summary>
@@ -422,7 +424,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     }
 
     [ObservableProperty]
-    public partial PointCollection SignaturePadPoints { get; set; } = new();
+    public partial IReadOnlyList<SignaturePadPreviewPoint> SignaturePadPoints { get; set; } = [];
 
     [ObservableProperty]
     public partial string SelectedPreferenceLanguage
@@ -4666,10 +4668,10 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
     private void RefreshSignaturePadPreview()
     {
-        var points = new PointCollection();
+        var points = new List<SignaturePadPreviewPoint>(_signatureCapturePoints.Count);
         foreach (NormalizedPoint point in _signatureCapturePoints)
         {
-            points.Add(new global::Windows.Foundation.Point(
+            points.Add(new SignaturePadPreviewPoint(
                 point.X * SignaturePadPreviewWidth,
                 point.Y * SignaturePadPreviewHeight));
         }

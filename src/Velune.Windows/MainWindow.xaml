@@ -2001,7 +2001,7 @@
                                Fill="{ThemeResource SignaturePadBgBrush}"
                                RadiusX="4"
                                RadiusY="4" />
-                    <Polyline Points="{x:Bind ViewModel.SignaturePadPoints, Mode=OneWay}"
+                    <Polyline Points="{x:Bind services:XamlBindingHelpers.PointCollectionFromSignaturePadPoints(ViewModel.SignaturePadPoints), Mode=OneWay}"
                               Stroke="{ThemeResource SignatureInkBrush}"
                               StrokeThickness="2.2"
                               StrokeLineJoin="Round"

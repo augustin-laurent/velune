@@ -154,15 +154,39 @@
             <MenuFlyout>
               <MenuFlyoutSubItem AutomationProperties.AutomationId="WelcomeLanguageMenu"
                                  Text="{x:Bind ViewModel.Labels.PreferencesLanguage, Mode=OneWay}">
-                <MenuFlyoutItem AutomationProperties.AutomationId="WelcomeLanguageEnglishMenuItem" Text="{x:Bind ViewModel.Labels.PreferencesEnglish, Mode=OneWay}" Click="OnLanguageClicked" Tag="en" />
-                <MenuFlyoutItem AutomationProperties.AutomationId="WelcomeLanguageFrenchMenuItem" Text="{x:Bind ViewModel.Labels.PreferencesFrench, Mode=OneWay}" Click="OnLanguageClicked" Tag="fr" />
-                <MenuFlyoutItem AutomationProperties.AutomationId="WelcomeLanguageSpanishMenuItem" Text="{x:Bind ViewModel.Labels.PreferencesSpanish, Mode=OneWay}" Click="OnLanguageClicked" Tag="es" />
+                <ToggleMenuFlyoutItem x:Name="LanguageEnglishItem"
+                                      AutomationProperties.AutomationId="WelcomeLanguageEnglishMenuItem"
+                                      Text="{x:Bind ViewModel.Labels.PreferencesEnglish, Mode=OneWay}"
+                                      Click="OnLanguageClicked"
+                                      Tag="en" />
+                <ToggleMenuFlyoutItem x:Name="LanguageFrenchItem"
+                                      AutomationProperties.AutomationId="WelcomeLanguageFrenchMenuItem"
+                                      Text="{x:Bind ViewModel.Labels.PreferencesFrench, Mode=OneWay}"
+                                      Click="OnLanguageClicked"
+                                      Tag="fr" />
+                <ToggleMenuFlyoutItem x:Name="LanguageSpanishItem"
+                                      AutomationProperties.AutomationId="WelcomeLanguageSpanishMenuItem"
+                                      Text="{x:Bind ViewModel.Labels.PreferencesSpanish, Mode=OneWay}"
+                                      Click="OnLanguageClicked"
+                                      Tag="es" />
               </MenuFlyoutSubItem>
               <MenuFlyoutSubItem AutomationProperties.AutomationId="WelcomeThemeMenu"
                                  Text="{x:Bind ViewModel.Labels.PreferencesTheme, Mode=OneWay}">
-                <MenuFlyoutItem AutomationProperties.AutomationId="WelcomeThemeSystemMenuItem" Text="{x:Bind ViewModel.Labels.PreferencesSystem, Mode=OneWay}" Click="OnThemeClicked" Tag="System" />
-                <MenuFlyoutItem AutomationProperties.AutomationId="WelcomeThemeLightMenuItem" Text="{x:Bind ViewModel.Labels.PreferencesLight, Mode=OneWay}" Click="OnThemeClicked" Tag="Light" />
-                <MenuFlyoutItem AutomationProperties.AutomationId="WelcomeThemeDarkMenuItem" Text="{x:Bind ViewModel.Labels.PreferencesDark, Mode=OneWay}" Click="OnThemeClicked" Tag="Dark" />
+                <ToggleMenuFlyoutItem x:Name="ThemeSystemItem"
+                                      AutomationProperties.AutomationId="WelcomeThemeSystemMenuItem"
+                                      Text="{x:Bind ViewModel.Labels.PreferencesSystem, Mode=OneWay}"
+                                      Click="OnThemeClicked"
+                                      Tag="System" />
+                <ToggleMenuFlyoutItem x:Name="ThemeLightItem"
+                                      AutomationProperties.AutomationId="WelcomeThemeLightMenuItem"
+                                      Text="{x:Bind ViewModel.Labels.PreferencesLight, Mode=OneWay}"
+                                      Click="OnThemeClicked"
+                                      Tag="Light" />
+                <ToggleMenuFlyoutItem x:Name="ThemeDarkItem"
+                                      AutomationProperties.AutomationId="WelcomeThemeDarkMenuItem"
+                                      Text="{x:Bind ViewModel.Labels.PreferencesDark, Mode=OneWay}"
+                                      Click="OnThemeClicked"
+                                      Tag="Dark" />
               </MenuFlyoutSubItem>
             </MenuFlyout>
           </Button.Flyout>

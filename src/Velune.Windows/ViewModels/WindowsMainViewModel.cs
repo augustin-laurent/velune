@@ -2,7 +2,6 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Dispatching;
-using Microsoft.UI.Xaml.Media;
 using Velune.Application.Abstractions;
 using Velune.Application.Annotations;
 using Velune.Application.Configuration;
@@ -340,9 +339,9 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
     public string AnnotationOpacityText => $"{AnnotationOpacity:0}%";
 
-    public SolidColorBrush SelectedAnnotationColorBrush =>
-        AnnotationColorOptions.FirstOrDefault(item => item.IsSelected)?.Brush
-            ?? new SolidColorBrush(global::Windows.UI.Color.FromArgb(255, 255, 230, 0));
+    public string SelectedAnnotationColorHex =>
+        AnnotationColorOptions.FirstOrDefault(item => item.IsSelected)?.Hex
+            ?? "#FFE600";
 
     public string CacheSizeText => $"{CacheSizeMegabytes:0} MB";
 
@@ -1194,7 +1193,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             item.IsSelected = ReferenceEquals(item, color);
         }
 
-        OnPropertyChanged(nameof(SelectedAnnotationColorBrush));
+        OnPropertyChanged(nameof(SelectedAnnotationColorHex));
         ApplyColorToSelectedAnnotation(color.Hex);
     }
 
@@ -1325,7 +1324,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             item.IsSelected = string.Equals(item.Hex, strokeHex, StringComparison.OrdinalIgnoreCase);
         }
 
-        OnPropertyChanged(nameof(SelectedAnnotationColorBrush));
+        OnPropertyChanged(nameof(SelectedAnnotationColorHex));
 
         if (annotation.Appearance.FillHex is { } fillHex)
         {

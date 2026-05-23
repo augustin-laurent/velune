@@ -1751,7 +1751,7 @@
 
                   <Border Width="22"
                           Height="22"
-                          Background="{x:Bind ViewModel.SelectedAnnotationColorBrush, Mode=OneWay}"
+                          Background="{x:Bind services:XamlBindingHelpers.BrushFromHex(ViewModel.SelectedAnnotationColorHex, 255), Mode=OneWay}"
                           CornerRadius="8"
                           VerticalAlignment="Center" />
 

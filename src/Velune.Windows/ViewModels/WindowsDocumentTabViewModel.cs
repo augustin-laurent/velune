@@ -64,8 +64,6 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
         CreatedDate = FormatDate(metadata.CreatedAt);
         ModifiedDate = FormatDate(metadata.ModifiedAt);
         DetailsWarning = metadata.DetailsWarning;
-        NativePagePixelWidth = metadata.PixelWidth ?? 900;
-        NativePagePixelHeight = metadata.PixelHeight ?? 1200;
         CurrentPagePixelWidth = metadata.PixelWidth ?? 900;
         CurrentPagePixelHeight = metadata.PixelHeight ?? 1200;
 
@@ -141,16 +139,6 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
     public partial ImageSource? CurrentPageImage
     {
         get; set;
-    }
-
-    public int NativePagePixelWidth
-    {
-        get;
-    }
-
-    public int NativePagePixelHeight
-    {
-        get;
     }
 
     [ObservableProperty]

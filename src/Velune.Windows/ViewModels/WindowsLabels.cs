@@ -113,8 +113,6 @@ public sealed class WindowsLabels
         AnnotationBorderColor = text.GetString("panel.annotations.border_color");
         AnnotationBorderWidth = text.GetString("panel.annotations.border_width");
         AnnotationTransparent = text.GetString("panel.annotations.transparent");
-        AnnotationDuplicate = text.GetString("panel.annotations.duplicate");
-        AnnotationMoreTextOptions = text.GetString("panel.annotations.more_text_options");
         AnnotationOpacity = text.GetString("windows.annotation.opacity");
         AnnotationCurrent = text.GetString("windows.annotation.current");
         AnnotationRecent = text.GetString("windows.annotation.recent");
@@ -557,14 +555,6 @@ public sealed class WindowsLabels
         get;
     }
     public string AnnotationTransparent
-    {
-        get;
-    }
-    public string AnnotationDuplicate
-    {
-        get;
-    }
-    public string AnnotationMoreTextOptions
     {
         get;
     }

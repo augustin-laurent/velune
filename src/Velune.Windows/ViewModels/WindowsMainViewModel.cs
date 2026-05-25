@@ -254,11 +254,6 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         new WindowsAnnotationColorItem("#111827")
     ];
 
-    public IReadOnlyList<double> AnnotationFontSizeOptions
-    {
-        get;
-    } = [8, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 64, 72];
-
     public IReadOnlyList<string> AnnotationFontFamilyOptions
     {
         get;
@@ -343,19 +338,6 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     public bool IsTextAlignCenterSelected => AnnotationTextAlignment is TextAnnotationAlignment.Center;
 
     public bool IsTextAlignRightSelected => AnnotationTextAlignment is TextAnnotationAlignment.Right;
-
-    public WindowsTextAnnotationStyle CurrentTextStyle => new(
-        AnnotationFontFamily,
-        AnnotationFontSize,
-        AnnotationTextBold,
-        AnnotationTextItalic,
-        AnnotationTextUnderline,
-        AnnotationTextAlignment,
-        SelectedAnnotationColorHex,
-        AnnotationFillEnabled ? AnnotationFillHex : null,
-        AnnotationBorderEnabled ? AnnotationBorderHex : null,
-        AnnotationBorderEnabled ? Math.Max(1, AnnotationBorderWidth) : 0,
-        Math.Clamp(AnnotationOpacity / 100d, 0, 1));
 
     public bool HasSignatureAssets => SignatureAssets.Count > 0;
 
@@ -1367,7 +1349,6 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         }
 
         SelectAnnotationColorItem(color);
-        OnPropertyChanged(nameof(CurrentTextStyle));
         ApplyColorToSelectedAnnotation(color.Hex);
     }
 
@@ -1389,7 +1370,6 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         }
 
         OnPropertyChanged(nameof(SelectedAnnotationColorHex));
-        OnPropertyChanged(nameof(CurrentTextStyle));
     }
 
     private void ApplyColorToSelectedAnnotation(string hex)
@@ -1439,7 +1419,6 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         }
 
         AnnotationFillHex = color.Hex;
-        OnPropertyChanged(nameof(CurrentTextStyle));
         ApplyFillToSelectedAnnotation();
     }
 
@@ -4903,7 +4882,6 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsTextAlignLeftSelected));
         OnPropertyChanged(nameof(IsTextAlignCenterSelected));
         OnPropertyChanged(nameof(IsTextAlignRightSelected));
-        OnPropertyChanged(nameof(CurrentTextStyle));
     }
 
     private void NotifySelectedDocumentTextChanged()
@@ -5423,43 +5401,36 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     partial void OnAnnotationOpacityChanged(double value)
     {
         OnPropertyChanged(nameof(AnnotationOpacityText));
-        OnPropertyChanged(nameof(CurrentTextStyle));
         ApplyOpacityToSelectedAnnotation();
     }
 
     partial void OnAnnotationFillEnabledChanged(bool value)
     {
-        OnPropertyChanged(nameof(CurrentTextStyle));
         ApplyFillToSelectedAnnotation();
     }
 
     partial void OnAnnotationFontSizeChanged(double value)
     {
-        OnPropertyChanged(nameof(CurrentTextStyle));
         ApplyFontToSelectedAnnotation();
     }
 
     partial void OnAnnotationFontFamilyChanged(string value)
     {
-        OnPropertyChanged(nameof(CurrentTextStyle));
         ApplyFontToSelectedAnnotation();
     }
 
     partial void OnAnnotationTextBoldChanged(bool value)
     {
-        OnPropertyChanged(nameof(CurrentTextStyle));
         ApplyTextSpecificStyleToSelectedAnnotation();
     }
 
     partial void OnAnnotationTextItalicChanged(bool value)
     {
-        OnPropertyChanged(nameof(CurrentTextStyle));
         ApplyTextSpecificStyleToSelectedAnnotation();
     }
 
     partial void OnAnnotationTextUnderlineChanged(bool value)
     {
-        OnPropertyChanged(nameof(CurrentTextStyle));
         ApplyTextSpecificStyleToSelectedAnnotation();
     }
 
@@ -5468,25 +5439,21 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsTextAlignLeftSelected));
         OnPropertyChanged(nameof(IsTextAlignCenterSelected));
         OnPropertyChanged(nameof(IsTextAlignRightSelected));
-        OnPropertyChanged(nameof(CurrentTextStyle));
         ApplyTextSpecificStyleToSelectedAnnotation();
     }
 
     partial void OnAnnotationBorderEnabledChanged(bool value)
     {
-        OnPropertyChanged(nameof(CurrentTextStyle));
         ApplyTextSpecificStyleToSelectedAnnotation();
     }
 
     partial void OnAnnotationBorderHexChanged(string value)
     {
-        OnPropertyChanged(nameof(CurrentTextStyle));
         ApplyTextSpecificStyleToSelectedAnnotation();
     }
 
     partial void OnAnnotationBorderWidthChanged(double value)
     {
-        OnPropertyChanged(nameof(CurrentTextStyle));
         ApplyTextSpecificStyleToSelectedAnnotation();
     }
 

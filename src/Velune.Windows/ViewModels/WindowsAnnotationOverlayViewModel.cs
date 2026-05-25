@@ -101,7 +101,6 @@ public sealed class WindowsAnnotationOverlayViewModel
         IsBoxVisible = annotation.Kind is not DocumentAnnotationKind.Ink;
         StrokeThickness = Math.Max(2, annotation.Appearance.StrokeThickness);
         SelectionStrokeThickness = annotation.Kind is DocumentAnnotationKind.Text ? 1 : 2;
-        SelectionDashArray = annotation.Kind is DocumentAnnotationKind.Text ? null : "4,3";
         SelectionHandleSize = annotation.Kind is DocumentAnnotationKind.Text ? 8 : 10;
 
         NormalizedTextRegion bounds = ResolveBounds(annotation, rotation);
@@ -366,11 +365,6 @@ public sealed class WindowsAnnotationOverlayViewModel
     }
 
     public double SelectionStrokeThickness
-    {
-        get;
-    }
-
-    public string? SelectionDashArray
     {
         get;
     }

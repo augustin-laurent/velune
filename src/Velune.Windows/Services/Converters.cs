@@ -97,11 +97,6 @@ public static class XamlBindingHelpers
         return value + add;
     }
 
-    public static double Divide(double value, double divisor)
-    {
-        return divisor == 0 ? 0 : value / divisor;
-    }
-
     public static double CenterOffset(double value, double size)
     {
         return value / 2 - size / 2;

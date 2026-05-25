@@ -195,17 +195,29 @@ internal static class SkiaAnnotationRenderer
 
         SKRect bounds = ResolveBounds(annotation.Bounds, width, height, rotation);
 
-        using SKPaint fillPaint = CreateFillPaint(annotation.Appearance, emphasizeFill ? "#FFF2D6" : "#EEF1FF");
-        using SKPaint strokePaint = CreateStrokePaint(annotation.Appearance);
+        bool drawFill = emphasizeFill || annotation.Kind is not DocumentAnnotationKind.Text || annotation.Appearance.FillHex is not null;
+        bool drawBorder = annotation.Kind is not DocumentAnnotationKind.Text ||
+                          annotation.Appearance.BorderHex is not null ||
+                          annotation.Appearance.StrokeThickness > 0;
+        if (drawFill)
+        {
+            using SKPaint fillPaint = CreateFillPaint(annotation.Appearance, emphasizeFill ? "#FFF2D6" : "#EEF1FF");
+            canvas.DrawRoundRect(bounds, 12, 12, fillPaint);
+        }
 
-        canvas.DrawRoundRect(bounds, 12, 12, fillPaint);
-        canvas.DrawRoundRect(bounds, 12, 12, strokePaint);
+        if (drawBorder)
+        {
+            using SKPaint strokePaint = CreateStrokePaint(annotation.Appearance, annotation.Appearance.BorderHex);
+            canvas.DrawRoundRect(bounds, 12, 12, strokePaint);
+        }
 
         DrawWrappedText(
             canvas,
-            string.IsNullOrWhiteSpace(annotation.Text) ? "New annotation" : annotation.Text!,
+            string.IsNullOrWhiteSpace(annotation.Text) ? "Type text..." : annotation.Text!,
             bounds,
-            emphasizeFill ? "#5D4A2B" : "#2F3150");
+            emphasizeFill ? "#5D4A2B" : annotation.Appearance.StrokeHex,
+            annotation.Appearance,
+            padding: drawFill || drawBorder ? 12 : 8);
     }
 
     private static void DrawStamp(
@@ -231,6 +243,7 @@ internal static class SkiaAnnotationRenderer
             string.IsNullOrWhiteSpace(annotation.Text) ? "STAMP" : annotation.Text!.ToUpperInvariant(),
             bounds,
             annotation.Appearance.StrokeHex,
+            annotation.Appearance,
             isBold: true,
             center: true);
     }
@@ -263,7 +276,7 @@ internal static class SkiaAnnotationRenderer
         }
 
         DrawRectangle(canvas, annotation, width, height, rotation, includeFill: true);
-        DrawWrappedText(canvas, "Signature", bounds, annotation.Appearance.StrokeHex, center: true);
+        DrawWrappedText(canvas, "Signature", bounds, annotation.Appearance.StrokeHex, annotation.Appearance, center: true);
     }
 
     private static SKRect ResolveBounds(
@@ -301,13 +314,13 @@ internal static class SkiaAnnotationRenderer
         return new SKRect(left, top, right, bottom);
     }
 
-    private static SKPaint CreateStrokePaint(AnnotationAppearance appearance)
+    private static SKPaint CreateStrokePaint(AnnotationAppearance appearance, string? overrideHex = null)
     {
         return new SKPaint
         {
             Style = SKPaintStyle.Stroke,
             StrokeWidth = (float)Math.Max(1, appearance.StrokeThickness),
-            Color = SKColor.Parse(appearance.StrokeHex).WithAlpha((byte)(appearance.Opacity * 255)),
+            Color = SKColor.Parse(overrideHex ?? appearance.StrokeHex).WithAlpha((byte)(appearance.Opacity * 255)),
             IsAntialias = true,
             StrokeCap = SKStrokeCap.Round,
             StrokeJoin = SKStrokeJoin.Round
@@ -330,22 +343,76 @@ internal static class SkiaAnnotationRenderer
         string text,
         SKRect bounds,
         string textHex,
+        AnnotationAppearance appearance,
         bool isBold = false,
-        bool center = false)
+        bool center = false,
+        float padding = 12)
     {
+        bool shouldCenter = center || appearance.TextAlignment is TextAnnotationAlignment.Center;
+        using SKTypeface? typeface = string.IsNullOrWhiteSpace(appearance.FontFamily)
+            ? SKTypeface.FromFamilyName(null, isBold || appearance.IsBold ? SKFontStyle.Bold : SKFontStyle.Normal)
+            : SKTypeface.FromFamilyName(appearance.FontFamily, isBold || appearance.IsBold ? SKFontStyle.Bold : SKFontStyle.Normal);
         using var paint = new SKPaint
         {
             Color = SKColor.Parse(textHex),
             IsAntialias = true,
-            TextSize = Math.Max(12, bounds.Height * 0.18f),
-            Typeface = isBold
-                ? SKTypeface.FromFamilyName(null, SKFontStyle.Bold)
-                : SKTypeface.Default
+            TextSize = (float)Math.Clamp(appearance.FontSize, 6, Math.Max(6, bounds.Height - padding * 2)),
+            Typeface = typeface ?? SKTypeface.Default,
+            TextSkewX = appearance.IsItalic ? -0.25f : 0
         };
 
-        float maxTextWidth = Math.Max(24, bounds.Width - 20);
-        string[] words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        float maxTextWidth = Math.Max(24, bounds.Width - padding * 2);
         var lines = new List<string>();
+        foreach (string paragraph in text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+        {
+            AddWrappedLines(paragraph, maxTextWidth, paint, lines);
+        }
+
+        if (lines.Count == 0)
+        {
+            lines.Add(text);
+        }
+
+        float lineHeight = Math.Max(paint.TextSize + 4, paint.TextSize * 1.24f);
+        float totalHeight = lines.Count * lineHeight;
+        float originY = shouldCenter
+            ? bounds.MidY - (totalHeight / 2) + paint.TextSize
+            : bounds.Top + padding + paint.TextSize;
+
+        canvas.Save();
+        canvas.ClipRect(bounds);
+        foreach (string line in lines)
+        {
+            float textWidth = paint.MeasureText(line);
+            float x = appearance.TextAlignment switch
+            {
+                TextAnnotationAlignment.Center => bounds.MidX - (textWidth / 2),
+                TextAnnotationAlignment.Right => bounds.Right - padding - textWidth,
+                _ when center => bounds.MidX - (textWidth / 2),
+                _ => bounds.Left + padding
+            };
+            canvas.DrawText(line, x, originY, paint);
+            if (appearance.IsUnderline)
+            {
+                using var underlinePaint = new SKPaint
+                {
+                    Color = paint.Color,
+                    StrokeWidth = Math.Max(1, paint.TextSize / 14),
+                    IsAntialias = true
+                };
+                float underlineY = originY + 2;
+                canvas.DrawLine(x, underlineY, x + textWidth, underlineY, underlinePaint);
+            }
+
+            originY += lineHeight;
+        }
+
+        canvas.Restore();
+    }
+
+    private static void AddWrappedLines(string text, float maxTextWidth, SKPaint paint, List<string> lines)
+    {
+        string[] words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         string currentLine = string.Empty;
 
         foreach (string word in words)
@@ -354,8 +421,7 @@ internal static class SkiaAnnotationRenderer
                 ? word
                 : $"{currentLine} {word}";
 
-            if (!string.IsNullOrWhiteSpace(currentLine) &&
-                paint.MeasureText(candidate) > maxTextWidth)
+            if (!string.IsNullOrWhiteSpace(currentLine) && paint.MeasureText(candidate) > maxTextWidth)
             {
                 lines.Add(currentLine);
                 currentLine = word;
@@ -369,26 +435,6 @@ internal static class SkiaAnnotationRenderer
         if (!string.IsNullOrWhiteSpace(currentLine))
         {
             lines.Add(currentLine);
-        }
-
-        if (lines.Count == 0)
-        {
-            lines.Add(text);
-        }
-
-        float lineHeight = paint.TextSize * 1.22f;
-        float totalHeight = lines.Count * lineHeight;
-        float originY = center
-            ? bounds.MidY - (totalHeight / 2) + paint.TextSize
-            : bounds.Top + 18 + paint.TextSize;
-
-        foreach (string line in lines)
-        {
-            float x = center
-                ? bounds.MidX - (paint.MeasureText(line) / 2)
-                : bounds.Left + 12;
-            canvas.DrawText(line, x, originY, paint);
-            originY += lineHeight;
         }
     }
 }

@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using Velune.Domain.Annotations;
 using Velune.Windows.ViewModels;
 using Windows.Foundation;
+using Microsoft.UI.Text;
 
 namespace Velune.Windows.Services;
 
@@ -91,6 +92,21 @@ public static class XamlBindingHelpers
         return value - subtract;
     }
 
+    public static double Add(double value, double add)
+    {
+        return value + add;
+    }
+
+    public static double Divide(double value, double divisor)
+    {
+        return divisor == 0 ? 0 : value / divisor;
+    }
+
+    public static double CenterOffset(double value, double size)
+    {
+        return value / 2 - size / 2;
+    }
+
     public static Thickness CreateThickness(double left, double top, double right, double bottom)
     {
         return new Thickness(left, top, right, bottom);
@@ -104,6 +120,26 @@ public static class XamlBindingHelpers
     public static CornerRadius CreateCornerRadius(double value)
     {
         return new CornerRadius(value);
+    }
+
+    public static global::Windows.UI.Text.FontWeight TextFontWeight(bool isBold)
+    {
+        return isBold ? FontWeights.SemiBold : FontWeights.Normal;
+    }
+
+    public static global::Windows.UI.Text.FontStyle TextFontStyle(bool isItalic)
+    {
+        return isItalic ? global::Windows.UI.Text.FontStyle.Italic : global::Windows.UI.Text.FontStyle.Normal;
+    }
+
+    public static TextAlignment TextAlignmentFromAnnotation(TextAnnotationAlignment alignment)
+    {
+        return alignment switch
+        {
+            TextAnnotationAlignment.Center => TextAlignment.Center,
+            TextAnnotationAlignment.Right => TextAlignment.Right,
+            _ => TextAlignment.Left
+        };
     }
 
     public static Brush BrushFromHex(string? hex, int alpha)

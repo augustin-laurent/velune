@@ -465,6 +465,64 @@ public sealed partial class MainWindow : Window
         args.Handled = true;
     }
 
+    private void OnToggleTextBoldKeyboardAcceleratorInvoked(
+        KeyboardAccelerator sender,
+        KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (!ViewModel.HasSelectedTextAnnotation)
+        {
+            return;
+        }
+
+        ViewModel.ToggleTextBoldCommand.Execute(null);
+        args.Handled = true;
+    }
+
+    private void OnToggleTextItalicKeyboardAcceleratorInvoked(
+        KeyboardAccelerator sender,
+        KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (!ViewModel.HasSelectedTextAnnotation)
+        {
+            return;
+        }
+
+        ViewModel.ToggleTextItalicCommand.Execute(null);
+        args.Handled = true;
+    }
+
+    private void OnToggleTextUnderlineKeyboardAcceleratorInvoked(
+        KeyboardAccelerator sender,
+        KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (!ViewModel.HasSelectedTextAnnotation)
+        {
+            return;
+        }
+
+        ViewModel.ToggleTextUnderlineCommand.Execute(null);
+        args.Handled = true;
+    }
+
+    private void OnEscapeKeyboardAcceleratorInvoked(
+        KeyboardAccelerator sender,
+        KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (ViewModel.ActiveDocumentTab?.HasInlineTextEditor is true)
+        {
+            ViewModel.CommitInlineTextAnnotation();
+            ViewModel.SelectedAnnotationId = null;
+            args.Handled = true;
+            return;
+        }
+
+        if (ViewModel.SelectedAnnotationId is not null)
+        {
+            ViewModel.SelectedAnnotationId = null;
+            args.Handled = true;
+        }
+    }
+
     private void OnDeleteAnnotationKeyboardAcceleratorInvoked(
         KeyboardAccelerator sender,
         KeyboardAcceleratorInvokedEventArgs args)
@@ -1267,6 +1325,19 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private void OnAnnotationTextTransparentBackgroundClicked(object sender, RoutedEventArgs e)
+    {
+        ViewModel.AnnotationFillEnabled = false;
+    }
+
+    private void OnAnnotationBorderColorClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: WindowsAnnotationColorItem color })
+        {
+            ViewModel.SelectAnnotationBorderColor(color);
+        }
+    }
+
     private void OnSignatureAssetClicked(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { DataContext: SignatureAsset asset } &&
@@ -1360,6 +1431,11 @@ public sealed partial class MainWindow : Window
         e.Handled = true;
     }
 
+    private void OnDeleteSelectedAnnotationButtonClicked(object sender, RoutedEventArgs e)
+    {
+        ViewModel.DeleteSelectedAnnotation();
+    }
+
     private void OnAnnotationMenuEditClicked(object sender, RoutedEventArgs e)
     {
         if (ResolveAnnotationIdFromMenuContext(sender) is { } id)
@@ -1423,6 +1499,22 @@ public sealed partial class MainWindow : Window
         return null;
     }
 
+    private static bool IsDescendantOf(DependencyObject child, DependencyObject parent)
+    {
+        DependencyObject? current = child;
+        while (current is not null)
+        {
+            if (ReferenceEquals(current, parent))
+            {
+                return true;
+            }
+
+            current = VisualTreeHelper.GetParent(current);
+        }
+
+        return false;
+    }
+
     private void OnInlineTextEditorTextChanged(object sender, TextChangedEventArgs e)
     {
         if (sender is not TextBox textBox)
@@ -1440,12 +1532,23 @@ public sealed partial class MainWindow : Window
 
     private void OnInlineTextEditorLostFocus(object sender, RoutedEventArgs e)
     {
-        if (ViewModel.ActiveDocumentTab?.InlineTextEditor is null)
+        DispatcherQueue.TryEnqueue(() =>
         {
-            return;
-        }
+            if (ViewModel.ActiveDocumentTab?.InlineTextEditor is null)
+            {
+                return;
+            }
 
-        ViewModel.CommitInlineTextAnnotation();
+            object? focused = FocusManager.GetFocusedElement(Root.XamlRoot);
+            if (focused is DependencyObject dependencyObject &&
+                (IsDescendantOf(dependencyObject, TextAnnotationToolbar) ||
+                 IsDescendantOf(dependencyObject, AnnotationsPanel)))
+            {
+                return;
+            }
+
+            ViewModel.CommitInlineTextAnnotation();
+        });
     }
 
     private void OnInlineTextEditorKeyDown(object sender, KeyRoutedEventArgs e)
@@ -1453,7 +1556,8 @@ public sealed partial class MainWindow : Window
         switch (e.Key)
         {
             case VirtualKey.Escape:
-                ViewModel.CancelInlineTextAnnotation();
+                ViewModel.CommitInlineTextAnnotation();
+                ViewModel.SelectedAnnotationId = null;
                 e.Handled = true;
                 return;
             case VirtualKey.Enter:

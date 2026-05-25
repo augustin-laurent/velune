@@ -2,6 +2,7 @@
     x:Class="Velune.Windows.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Velune.Windows.Controls"
     xmlns:domain="using:Velune.Domain.Annotations"
     xmlns:services="using:Velune.Windows.Services"
     xmlns:vm="using:Velune.Windows.ViewModels">
@@ -29,6 +30,17 @@
       <KeyboardAccelerator Key="Y"
                            Modifiers="Control"
                            Invoked="OnRedoKeyboardAcceleratorInvoked" />
+      <KeyboardAccelerator Key="B"
+                           Modifiers="Control"
+                           Invoked="OnToggleTextBoldKeyboardAcceleratorInvoked" />
+      <KeyboardAccelerator Key="I"
+                           Modifiers="Control"
+                           Invoked="OnToggleTextItalicKeyboardAcceleratorInvoked" />
+      <KeyboardAccelerator Key="U"
+                           Modifiers="Control"
+                           Invoked="OnToggleTextUnderlineKeyboardAcceleratorInvoked" />
+      <KeyboardAccelerator Key="Escape"
+                           Invoked="OnEscapeKeyboardAcceleratorInvoked" />
       <KeyboardAccelerator Key="Delete"
                            Invoked="OnDeleteAnnotationKeyboardAcceleratorInvoked" />
       <KeyboardAccelerator Key="Right"
@@ -1449,9 +1461,14 @@
                                        Foreground="{x:Bind services:XamlBindingHelpers.BrushFromHex(TextHex, TextAlpha), Mode=OneWay}"
                                        FontSize="{x:Bind TextFontSize, Mode=OneWay}"
                                        FontFamily="{x:Bind TextFontFamily, Mode=OneWay}"
+                                       FontWeight="{x:Bind services:XamlBindingHelpers.TextFontWeight(TextIsBold), Mode=OneWay}"
+                                       FontStyle="{x:Bind services:XamlBindingHelpers.TextFontStyle(TextIsItalic), Mode=OneWay}"
+                                       TextAlignment="{x:Bind services:XamlBindingHelpers.TextAlignmentFromAnnotation(TextAlignment), Mode=OneWay}"
                                        Width="{x:Bind Width, Mode=OneWay}"
-                                       Padding="4,2"
+                                       Height="{x:Bind Height, Mode=OneWay}"
+                                       Padding="8,4"
                                        TextWrapping="Wrap"
+                                       TextTrimming="CharacterEllipsis"
                                        Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsTextVisible), Mode=OneWay}" />
                             <FontIcon Glyph="{x:Bind Glyph, Mode=OneWay}"
                                       FontFamily="Segoe Fluent Icons"
@@ -1466,31 +1483,35 @@
                               <Rectangle Width="{x:Bind SelectionWidth, Mode=OneWay}"
                                          Height="{x:Bind SelectionHeight, Mode=OneWay}"
                                          Stroke="{ThemeResource AccentBrush}"
-                                         StrokeThickness="2"
-                                         StrokeDashArray="4,3"
+                                         StrokeThickness="{x:Bind SelectionStrokeThickness, Mode=OneWay}"
+                                         StrokeDashArray="2,2"
                                          Fill="Transparent" />
-                              <Ellipse Width="10" Height="10"
-                                       Canvas.Left="-5" Canvas.Top="-5"
+                              <Ellipse Width="{x:Bind SelectionHandleSize, Mode=OneWay}"
+                                       Height="{x:Bind SelectionHandleSize, Mode=OneWay}"
+                                       Canvas.Left="{x:Bind SelectionHandleOffset, Mode=OneWay}"
+                                       Canvas.Top="{x:Bind SelectionHandleOffset, Mode=OneWay}"
                                        Fill="{ThemeResource AccentBrush}" />
-                              <Ellipse Width="10" Height="10"
-                                       Canvas.Left="-5"
-                                       Canvas.Top="{x:Bind services:XamlBindingHelpers.Subtract(SelectionHeight, 5), Mode=OneWay}"
+                              <Ellipse Width="{x:Bind SelectionHandleSize, Mode=OneWay}"
+                                       Height="{x:Bind SelectionHandleSize, Mode=OneWay}"
+                                       Canvas.Left="{x:Bind SelectionHandleOffset, Mode=OneWay}"
+                                       Canvas.Top="{x:Bind services:XamlBindingHelpers.Subtract(SelectionHeight, SelectionHandleHalfSize), Mode=OneWay}"
                                        Fill="{ThemeResource AccentBrush}" />
-                              <Ellipse Width="10" Height="10"
-                                       Canvas.Top="-5"
-                                       Canvas.Left="{x:Bind services:XamlBindingHelpers.Subtract(SelectionWidth, 5), Mode=OneWay}"
+                              <Ellipse Width="{x:Bind SelectionHandleSize, Mode=OneWay}"
+                                       Height="{x:Bind SelectionHandleSize, Mode=OneWay}"
+                                       Canvas.Top="{x:Bind SelectionHandleOffset, Mode=OneWay}"
+                                       Canvas.Left="{x:Bind services:XamlBindingHelpers.Subtract(SelectionWidth, SelectionHandleHalfSize), Mode=OneWay}"
                                        Fill="{ThemeResource AccentBrush}" />
-                              <Ellipse Width="10" Height="10"
-                                       Canvas.Left="{x:Bind services:XamlBindingHelpers.Subtract(SelectionWidth, 5), Mode=OneWay}"
-                                       Canvas.Top="{x:Bind services:XamlBindingHelpers.Subtract(SelectionHeight, 5), Mode=OneWay}"
+                              <Ellipse Width="{x:Bind SelectionHandleSize, Mode=OneWay}"
+                                       Height="{x:Bind SelectionHandleSize, Mode=OneWay}"
+                                       Canvas.Left="{x:Bind services:XamlBindingHelpers.Subtract(SelectionWidth, SelectionHandleHalfSize), Mode=OneWay}"
+                                       Canvas.Top="{x:Bind services:XamlBindingHelpers.Subtract(SelectionHeight, SelectionHandleHalfSize), Mode=OneWay}"
                                        Fill="{ThemeResource AccentBrush}" />
-                              <!-- Rotation stem line from top-center upward -->
-                              <Line X1="0" Y1="0" X2="0" Y2="-10"
+                              <!-- Rotation stem line -->
+                              <Line X1="0" Y1="0" X2="0" Y2="{x:Bind RotateStemY2, Mode=OneWay}"
                                     Stroke="{ThemeResource AccentBrush}"
                                     StrokeThickness="1.5"
-                                    Canvas.Top="0"
+                                    Canvas.Top="{x:Bind RotateStemTop, Mode=OneWay}"
                                     Canvas.Left="{x:Bind RotateStemLeft, Mode=OneWay}" />
-                              <!-- Rotation handle at top-center -->
                               <Grid Width="20" Height="20"
                                       Canvas.Left="{x:Bind RotateButtonLeft, Mode=OneWay}"
                                       Canvas.Top="{x:Bind RotateButtonTop, Mode=OneWay}">
@@ -1509,21 +1530,90 @@
                         Margin="{x:Bind ViewModel.ActiveDocumentTab.InlineTextEditor.Margin, Mode=OneWay}"
                         HorizontalAlignment="Left"
                         VerticalAlignment="Top"
+                        Canvas.ZIndex="20"
                         Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.ActiveDocumentTab.HasInlineTextEditor), Mode=OneWay}">
+                    <Border Background="{x:Bind ViewModel.ActiveDocumentTab.InlineTextEditor.FillBrush, Mode=OneWay}"
+                            BorderBrush="{ThemeResource AccentBrush}"
+                            BorderThickness="1"
+                            CornerRadius="2" />
                     <TextBox x:Name="InlineTextEditorBox"
                              AutomationProperties.AutomationId="InlineTextEditorTextBox"
-                             Padding="4,2"
+                             Padding="8,4"
                              Background="Transparent"
+                             BorderBrush="Transparent"
                              BorderThickness="0"
+                             CornerRadius="0"
                              Foreground="{x:Bind ViewModel.ActiveDocumentTab.InlineTextEditor.StrokeBrush, Mode=OneWay}"
                              FontSize="{x:Bind ViewModel.ActiveDocumentTab.InlineTextEditor.FontSize, Mode=OneWay, FallbackValue=14}"
                              FontFamily="{x:Bind ViewModel.ActiveDocumentTab.InlineTextEditor.FontFamily, Mode=OneWay, FallbackValue='Segoe UI'}"
+                             FontWeight="{x:Bind services:XamlBindingHelpers.TextFontWeight(ViewModel.ActiveDocumentTab.InlineTextEditor.TextIsBold), Mode=OneWay}"
+                             FontStyle="{x:Bind services:XamlBindingHelpers.TextFontStyle(ViewModel.ActiveDocumentTab.InlineTextEditor.TextIsItalic), Mode=OneWay}"
+                             TextAlignment="{x:Bind services:XamlBindingHelpers.TextAlignmentFromAnnotation(ViewModel.ActiveDocumentTab.InlineTextEditor.TextAlignment), Mode=OneWay}"
+                             PlaceholderText="{x:Bind ViewModel.Labels.AnnotationTextPlaceholder, Mode=OneWay}"
+                             PlaceholderForeground="{x:Bind ViewModel.ActiveDocumentTab.InlineTextEditor.StrokeBrush, Mode=OneWay}"
                              Text="{x:Bind ViewModel.ActiveDocumentTab.InlineTextEditor.Text, Mode=OneWay}"
                              TextWrapping="Wrap"
+                             AcceptsReturn="True"
                              TextChanged="OnInlineTextEditorTextChanged"
                              LostFocus="OnInlineTextEditorLostFocus"
-                             KeyDown="OnInlineTextEditorKeyDown" />
+                             KeyDown="OnInlineTextEditorKeyDown">
+                      <TextBox.Resources>
+                        <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
+                        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
+                        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+                        <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
+                        <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
+                        <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
+                        <SolidColorBrush x:Key="TextControlForeground" Color="#111827" />
+                        <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="#111827" />
+                        <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#111827" />
+                        <SolidColorBrush x:Key="TextControlPlaceholderForeground" Color="#111827" />
+                        <SolidColorBrush x:Key="TextControlPlaceholderForegroundFocused" Color="#111827" />
+                      </TextBox.Resources>
+                    </TextBox>
+                    <Canvas IsHitTestVisible="False">
+                      <Ellipse Width="8" Height="8"
+                               Canvas.Left="-4"
+                               Canvas.Top="-4"
+                               Fill="{ThemeResource AccentBrush}" />
+                      <Ellipse Width="8" Height="8"
+                               Canvas.Left="-4"
+                               Canvas.Top="{x:Bind services:XamlBindingHelpers.Subtract(ViewModel.ActiveDocumentTab.InlineTextEditor.Height, 4), Mode=OneWay}"
+                               Fill="{ThemeResource AccentBrush}" />
+                      <Ellipse Width="8" Height="8"
+                               Canvas.Left="{x:Bind services:XamlBindingHelpers.Subtract(ViewModel.ActiveDocumentTab.InlineTextEditor.Width, 4), Mode=OneWay}"
+                               Canvas.Top="-4"
+                               Fill="{ThemeResource AccentBrush}" />
+                      <Ellipse Width="8" Height="8"
+                               Canvas.Left="{x:Bind services:XamlBindingHelpers.Subtract(ViewModel.ActiveDocumentTab.InlineTextEditor.Width, 4), Mode=OneWay}"
+                               Canvas.Top="{x:Bind services:XamlBindingHelpers.Subtract(ViewModel.ActiveDocumentTab.InlineTextEditor.Height, 4), Mode=OneWay}"
+                               Fill="{ThemeResource AccentBrush}" />
+                      <Line X1="0"
+                            Y1="0"
+                            X2="0"
+                            Y2="12"
+                            Canvas.Left="{x:Bind services:XamlBindingHelpers.CenterOffset(ViewModel.ActiveDocumentTab.InlineTextEditor.Width, 0), Mode=OneWay}"
+                            Canvas.Top="{x:Bind ViewModel.ActiveDocumentTab.InlineTextEditor.Height, Mode=OneWay}"
+                            Stroke="{ThemeResource AccentBrush}"
+                            StrokeThickness="1.5" />
+                      <Ellipse Width="16"
+                               Height="16"
+                               Canvas.Left="{x:Bind services:XamlBindingHelpers.CenterOffset(ViewModel.ActiveDocumentTab.InlineTextEditor.Width, 16), Mode=OneWay}"
+                               Canvas.Top="{x:Bind services:XamlBindingHelpers.Add(ViewModel.ActiveDocumentTab.InlineTextEditor.Height, 12), Mode=OneWay}"
+                               Fill="White"
+                               Stroke="{ThemeResource AccentBrush}"
+                               StrokeThickness="2" />
+                    </Canvas>
                   </Grid>
+
+                  <controls:TextAnnotationFloatingToolbar
+                      x:Name="TextAnnotationToolbar"
+                      ViewModel="{x:Bind ViewModel, Mode=OneWay}"
+                      Margin="{x:Bind ViewModel.ActiveDocumentTab.TextAnnotationToolbarMargin, Mode=OneWay}"
+                      HorizontalAlignment="Left"
+                      VerticalAlignment="Top"
+                      Canvas.ZIndex="30"
+                      Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.IsTextToolbarVisible), Mode=OneWay}" />
 
                   <ItemsControl ItemsSource="{x:Bind ViewModel.ActiveDocumentTab.SearchHighlights, Mode=OneWay}"
                                 Width="{x:Bind ViewModel.ActiveDocumentTab.CurrentPagePixelWidth, Mode=OneWay}"
@@ -1845,36 +1935,181 @@
 
               <StackPanel Spacing="10"
                           Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.ShowTextStyleControls), Mode=OneWay}">
-                <TextBlock Text="Font"
+                <TextBlock Text="{x:Bind ViewModel.Labels.AnnotationTextProperties, Mode=OneWay}"
                            Foreground="{ThemeResource PanelLabelBrush}"
                            FontSize="13" />
-                <ComboBox AutomationProperties.AutomationId="AnnotationFontFamilyComboBox"
-                          ItemsSource="{x:Bind ViewModel.AnnotationFontFamilyOptions, Mode=OneWay}"
-                          SelectedItem="{x:Bind ViewModel.AnnotationFontFamily, Mode=TwoWay}"
-                          HorizontalAlignment="Stretch"
-                          Background="{ThemeResource InputBrush}"
-                          BorderBrush="{ThemeResource InputBorderBrush}"
-                          BorderThickness="1"
-                          CornerRadius="{ThemeResource OverlayCornerRadius}" />
                 <Grid ColumnSpacing="8">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="96" />
                   </Grid.ColumnDefinitions>
-                  <TextBlock Text="Size"
-                             Foreground="{ThemeResource PanelLabelBrush}"
-                             FontSize="13"
-                             VerticalAlignment="Center" />
-                  <ComboBox Grid.Column="1"
-                            AutomationProperties.AutomationId="AnnotationFontSizeComboBox"
-                            Width="90"
-                            ItemsSource="{x:Bind ViewModel.AnnotationFontSizeOptions, Mode=OneWay}"
-                            SelectedItem="{x:Bind ViewModel.AnnotationFontSize, Mode=TwoWay}"
+                  <ComboBox AutomationProperties.AutomationId="AnnotationFontFamilyComboBox"
+                            Header="{x:Bind ViewModel.Labels.AnnotationFontFamily, Mode=OneWay}"
+                            ItemsSource="{x:Bind ViewModel.AnnotationFontFamilyOptions, Mode=OneWay}"
+                            SelectedItem="{x:Bind ViewModel.AnnotationFontFamily, Mode=TwoWay}"
+                            HorizontalAlignment="Stretch"
                             Background="{ThemeResource InputBrush}"
                             BorderBrush="{ThemeResource InputBorderBrush}"
                             BorderThickness="1"
                             CornerRadius="{ThemeResource OverlayCornerRadius}" />
+                  <NumberBox Grid.Column="1"
+                             AutomationProperties.AutomationId="AnnotationFontSizeNumberBox"
+                             Header="{x:Bind ViewModel.Labels.AnnotationFontSize, Mode=OneWay}"
+                             Minimum="6"
+                             Maximum="144"
+                             SmallChange="1"
+                             SpinButtonPlacementMode="Compact"
+                             Value="{x:Bind ViewModel.AnnotationFontSize, Mode=TwoWay}" />
                 </Grid>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <ToggleButton Width="38" Height="36" Padding="0"
+                                AutomationProperties.Name="{x:Bind ViewModel.Labels.AnnotationBold, Mode=OneWay}"
+                                IsChecked="{x:Bind ViewModel.AnnotationTextBold, Mode=TwoWay}">
+                    <TextBlock Text="B" FontWeight="SemiBold" />
+                  </ToggleButton>
+                  <ToggleButton Width="38" Height="36" Padding="0"
+                                AutomationProperties.Name="{x:Bind ViewModel.Labels.AnnotationItalic, Mode=OneWay}"
+                                IsChecked="{x:Bind ViewModel.AnnotationTextItalic, Mode=TwoWay}">
+                    <TextBlock Text="I" FontStyle="Italic" />
+                  </ToggleButton>
+                  <ToggleButton Width="38" Height="36" Padding="0"
+                                AutomationProperties.Name="{x:Bind ViewModel.Labels.AnnotationUnderline, Mode=OneWay}"
+                                IsChecked="{x:Bind ViewModel.AnnotationTextUnderline, Mode=TwoWay}">
+                    <TextBlock Text="U" TextDecorations="Underline" />
+                  </ToggleButton>
+                  <ToggleButton Width="38" Height="36" Padding="0"
+                                AutomationProperties.Name="{x:Bind ViewModel.Labels.AnnotationAlignLeft, Mode=OneWay}"
+                                IsChecked="{x:Bind ViewModel.IsTextAlignLeftSelected, Mode=OneWay}"
+                                Command="{x:Bind ViewModel.SetTextAlignmentCommand, Mode=OneWay}"
+                                CommandParameter="Left">
+                    <FontIcon Glyph="&#xE8E4;" FontFamily="Segoe Fluent Icons" FontSize="14" />
+                  </ToggleButton>
+                  <ToggleButton Width="38" Height="36" Padding="0"
+                                AutomationProperties.Name="{x:Bind ViewModel.Labels.AnnotationAlignCenter, Mode=OneWay}"
+                                IsChecked="{x:Bind ViewModel.IsTextAlignCenterSelected, Mode=OneWay}"
+                                Command="{x:Bind ViewModel.SetTextAlignmentCommand, Mode=OneWay}"
+                                CommandParameter="Center">
+                    <FontIcon Glyph="&#xE8E3;" FontFamily="Segoe Fluent Icons" FontSize="14" />
+                  </ToggleButton>
+                  <ToggleButton Width="38" Height="36" Padding="0"
+                                AutomationProperties.Name="{x:Bind ViewModel.Labels.AnnotationAlignRight, Mode=OneWay}"
+                                IsChecked="{x:Bind ViewModel.IsTextAlignRightSelected, Mode=OneWay}"
+                                Command="{x:Bind ViewModel.SetTextAlignmentCommand, Mode=OneWay}"
+                                CommandParameter="Right">
+                    <FontIcon Glyph="&#xE8E2;" FontFamily="Segoe Fluent Icons" FontSize="14" />
+                  </ToggleButton>
+                </StackPanel>
+                <TextBlock Text="{x:Bind ViewModel.Labels.AnnotationTextColor, Mode=OneWay}"
+                           Foreground="{ThemeResource PanelLabelBrush}"
+                           FontSize="13" />
+                <ItemsControl AutomationProperties.AutomationId="AnnotationTextColorList"
+                              ItemsSource="{x:Bind ViewModel.AnnotationColorOptions, Mode=OneWay}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Orientation="Horizontal" Spacing="10" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:WindowsAnnotationColorItem">
+                      <Button Width="28"
+                              AutomationProperties.AutomationId="AnnotationTextColorButton"
+                              Height="28"
+                              Padding="0"
+                              Background="Transparent"
+                              BorderThickness="0"
+                              ToolTipService.ToolTip="{x:Bind Hex, Mode=OneWay}"
+                              Click="OnAnnotationColorClicked">
+                        <Grid>
+                          <Ellipse Width="22"
+                                   Height="22"
+                                   Fill="{x:Bind Brush, Mode=OneWay}" />
+                          <Ellipse Width="28"
+                                   Height="28"
+                                   Stroke="{ThemeResource AccentBrush}"
+                                   StrokeThickness="3"
+                                   Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsSelected), Mode=OneWay}" />
+                        </Grid>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="{x:Bind ViewModel.Labels.AnnotationBackground, Mode=OneWay}"
+                           Foreground="{ThemeResource PanelLabelBrush}"
+                           FontSize="13" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Button Content="{x:Bind ViewModel.Labels.AnnotationTransparent, Mode=OneWay}"
+                          Click="OnAnnotationTextTransparentBackgroundClicked" />
+                  <ItemsControl AutomationProperties.AutomationId="AnnotationTextBackgroundColorList"
+                                ItemsSource="{x:Bind ViewModel.AnnotationFillColorOptions, Mode=OneWay}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="10" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:WindowsAnnotationColorItem">
+                        <Button Width="28"
+                                AutomationProperties.AutomationId="AnnotationTextBackgroundColorButton"
+                                Height="28"
+                                Padding="0"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                ToolTipService.ToolTip="{x:Bind Hex, Mode=OneWay}"
+                                Click="OnAnnotationFillColorClicked">
+                          <Grid>
+                            <Ellipse Width="22"
+                                     Height="22"
+                                     Fill="{x:Bind Brush, Mode=OneWay}" />
+                            <Ellipse Width="28"
+                                     Height="28"
+                                     Stroke="{ThemeResource AccentBrush}"
+                                     StrokeThickness="3"
+                                     Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsSelected), Mode=OneWay}" />
+                          </Grid>
+                        </Button>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+                <CheckBox Content="{x:Bind ViewModel.Labels.AnnotationBorder, Mode=OneWay}"
+                          IsChecked="{x:Bind ViewModel.AnnotationBorderEnabled, Mode=TwoWay}" />
+                <StackPanel Spacing="6"
+                            Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.AnnotationBorderEnabled), Mode=OneWay}">
+                  <TextBlock Text="{x:Bind ViewModel.Labels.AnnotationBorderColor, Mode=OneWay}"
+                             Foreground="{ThemeResource PanelLabelBrush}"
+                             FontSize="13" />
+                  <ItemsControl AutomationProperties.AutomationId="AnnotationTextBorderColorList"
+                                ItemsSource="{x:Bind ViewModel.AnnotationColorOptions, Mode=OneWay}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="10" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:WindowsAnnotationColorItem">
+                        <Button Width="28"
+                                AutomationProperties.AutomationId="AnnotationTextBorderColorButton"
+                                Height="28"
+                                Padding="0"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                ToolTipService.ToolTip="{x:Bind Hex, Mode=OneWay}"
+                                Click="OnAnnotationBorderColorClicked">
+                          <Ellipse Width="22"
+                                   Height="22"
+                                   Fill="{x:Bind Brush, Mode=OneWay}" />
+                        </Button>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+                <NumberBox Header="{x:Bind ViewModel.Labels.AnnotationBorderWidth, Mode=OneWay}"
+                           Minimum="0"
+                           Maximum="12"
+                           SmallChange="1"
+                           SpinButtonPlacementMode="Compact"
+                           Value="{x:Bind ViewModel.AnnotationBorderWidth, Mode=TwoWay}"
+                           Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.AnnotationBorderEnabled), Mode=OneWay}" />
               </StackPanel>
 
               <StackPanel Spacing="10"

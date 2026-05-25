@@ -33,6 +33,16 @@ public enum DocumentAnnotationKind
 }
 
 /// <summary>
+/// Horizontal alignment for text annotation content.
+/// </summary>
+public enum TextAnnotationAlignment
+{
+    Left,
+    Center,
+    Right
+}
+
+/// <summary>
 /// A point normalized to [0,1] coordinates relative to the page dimensions.
 /// </summary>
 public sealed record NormalizedPoint
@@ -90,13 +100,18 @@ public sealed record AnnotationAppearance
         double opacity = 1.0,
         double fontSize = 14,
         string? fontFamily = null,
-        double rotationAngle = 0)
+        double rotationAngle = 0,
+        string? borderHex = null,
+        bool isBold = false,
+        bool isItalic = false,
+        bool isUnderline = false,
+        TextAnnotationAlignment textAlignment = TextAnnotationAlignment.Left)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(strokeHex);
 
-        if (strokeThickness <= 0)
+        if (strokeThickness < 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(strokeThickness), "Stroke thickness must be greater than zero.");
+            throw new ArgumentOutOfRangeException(nameof(strokeThickness), "Stroke thickness cannot be negative.");
         }
 
         if (opacity is < 0 or > 1)
@@ -116,6 +131,11 @@ public sealed record AnnotationAppearance
         FontSize = fontSize;
         FontFamily = fontFamily;
         RotationAngle = rotationAngle;
+        BorderHex = borderHex;
+        IsBold = isBold;
+        IsItalic = isItalic;
+        IsUnderline = isUnderline;
+        TextAlignment = textAlignment;
     }
 
     public string StrokeHex
@@ -149,6 +169,31 @@ public sealed record AnnotationAppearance
     }
 
     public double RotationAngle
+    {
+        get;
+    }
+
+    public string? BorderHex
+    {
+        get;
+    }
+
+    public bool IsBold
+    {
+        get;
+    }
+
+    public bool IsItalic
+    {
+        get;
+    }
+
+    public bool IsUnderline
+    {
+        get;
+    }
+
+    public TextAnnotationAlignment TextAlignment
     {
         get;
     }
@@ -285,7 +330,12 @@ public sealed record DocumentAnnotation
                 Appearance.Opacity,
                 Appearance.FontSize,
                 Appearance.FontFamily,
-                Appearance.RotationAngle),
+                Appearance.RotationAngle,
+                Appearance.BorderHex,
+                Appearance.IsBold,
+                Appearance.IsItalic,
+                Appearance.IsUnderline,
+                Appearance.TextAlignment),
             Bounds is null
                 ? null
                 : new NormalizedTextRegion(

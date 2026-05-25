@@ -46,6 +46,8 @@
           <SolidColorBrush x:Key="PaperBorderBrush" Color="#D9DEEA" />
           <SolidColorBrush x:Key="CardBrush" Color="#1FFFFFFF" />
           <SolidColorBrush x:Key="CardBorderBrush" Color="#22FFFFFF" />
+          <SolidColorBrush x:Key="FloatingToolbarBrush" Color="#FF2C2C2C" />
+          <SolidColorBrush x:Key="FloatingToolbarBorderBrush" Color="#45FFFFFF" />
           <SolidColorBrush x:Key="ActiveToolBrush" Color="#33FFFFFF" />
           <SolidColorBrush x:Key="ActiveToolBgBrush" Color="#33FFFFFF" />
           <SolidColorBrush x:Key="ActiveToolBorderBrush" Color="#30FFFFFF" />
@@ -122,6 +124,8 @@
           <SolidColorBrush x:Key="PaperBorderBrush" Color="#E3E5EA" />
           <SolidColorBrush x:Key="CardBrush" Color="#FFFFFFFF" />
           <SolidColorBrush x:Key="CardBorderBrush" Color="#1A000000" />
+          <SolidColorBrush x:Key="FloatingToolbarBrush" Color="#FFFFFFFF" />
+          <SolidColorBrush x:Key="FloatingToolbarBorderBrush" Color="#26000000" />
           <SolidColorBrush x:Key="ActiveToolBrush" Color="#14000000" />
           <SolidColorBrush x:Key="ActiveToolBgBrush" Color="#E8EDF3" />
           <SolidColorBrush x:Key="ActiveToolBorderBrush" Color="#20000000" />
@@ -193,6 +197,8 @@
           <SolidColorBrush x:Key="PaperBorderBrush" Color="#000000" />
           <SolidColorBrush x:Key="CardBrush" Color="#000000" />
           <SolidColorBrush x:Key="CardBorderBrush" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="FloatingToolbarBrush" Color="#000000" />
+          <SolidColorBrush x:Key="FloatingToolbarBorderBrush" Color="#FFFFFF" />
           <SolidColorBrush x:Key="ActiveToolBrush" Color="#000000" />
           <SolidColorBrush x:Key="ActiveToolBgBrush" Color="#000000" />
           <SolidColorBrush x:Key="ActiveToolBorderBrush" Color="#FFFF00" />

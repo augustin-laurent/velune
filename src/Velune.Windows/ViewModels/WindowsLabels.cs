@@ -98,6 +98,23 @@ public sealed class WindowsLabels
         AnnotationFillColor = text.GetString("panel.annotations.fill_color");
         AnnotationText = text.GetString("panel.annotations.text");
         AnnotationTextPlaceholder = text.GetString("panel.annotations.text.placeholder");
+        AnnotationTextProperties = text.GetString("panel.annotations.text_properties");
+        AnnotationFontFamily = text.GetString("panel.annotations.font_family");
+        AnnotationFontSize = text.GetString("panel.annotations.font_size");
+        AnnotationBold = text.GetString("panel.annotations.bold");
+        AnnotationItalic = text.GetString("panel.annotations.italic");
+        AnnotationUnderline = text.GetString("panel.annotations.underline");
+        AnnotationAlignLeft = text.GetString("panel.annotations.align_left");
+        AnnotationAlignCenter = text.GetString("panel.annotations.align_center");
+        AnnotationAlignRight = text.GetString("panel.annotations.align_right");
+        AnnotationTextColor = text.GetString("panel.annotations.text_color");
+        AnnotationBackground = text.GetString("panel.annotations.background");
+        AnnotationBorder = text.GetString("panel.annotations.border");
+        AnnotationBorderColor = text.GetString("panel.annotations.border_color");
+        AnnotationBorderWidth = text.GetString("panel.annotations.border_width");
+        AnnotationTransparent = text.GetString("panel.annotations.transparent");
+        AnnotationDuplicate = text.GetString("panel.annotations.duplicate");
+        AnnotationMoreTextOptions = text.GetString("panel.annotations.more_text_options");
         AnnotationOpacity = text.GetString("windows.annotation.opacity");
         AnnotationCurrent = text.GetString("windows.annotation.current");
         AnnotationRecent = text.GetString("windows.annotation.recent");
@@ -480,6 +497,74 @@ public sealed class WindowsLabels
         get;
     }
     public string AnnotationTextPlaceholder
+    {
+        get;
+    }
+    public string AnnotationTextProperties
+    {
+        get;
+    }
+    public string AnnotationFontFamily
+    {
+        get;
+    }
+    public string AnnotationFontSize
+    {
+        get;
+    }
+    public string AnnotationBold
+    {
+        get;
+    }
+    public string AnnotationItalic
+    {
+        get;
+    }
+    public string AnnotationUnderline
+    {
+        get;
+    }
+    public string AnnotationAlignLeft
+    {
+        get;
+    }
+    public string AnnotationAlignCenter
+    {
+        get;
+    }
+    public string AnnotationAlignRight
+    {
+        get;
+    }
+    public string AnnotationTextColor
+    {
+        get;
+    }
+    public string AnnotationBackground
+    {
+        get;
+    }
+    public string AnnotationBorder
+    {
+        get;
+    }
+    public string AnnotationBorderColor
+    {
+        get;
+    }
+    public string AnnotationBorderWidth
+    {
+        get;
+    }
+    public string AnnotationTransparent
+    {
+        get;
+    }
+    public string AnnotationDuplicate
+    {
+        get;
+    }
+    public string AnnotationMoreTextOptions
     {
         get;
     }

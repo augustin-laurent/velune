@@ -59,7 +59,7 @@ public sealed class WindowsAnnotationOverlayViewModel
         Glyph = glyph;
         AnnotationMenuEditLabel = annotationMenuEditLabel ?? string.Empty;
         AnnotationMenuDeleteLabel = annotationMenuDeleteLabel ?? string.Empty;
-        Text = annotation.Text ?? label;
+        Text = string.IsNullOrWhiteSpace(annotation.Text) ? label : annotation.Text;
         PreviewText = string.Equals(Text, label, StringComparison.Ordinal)
             ? string.Empty
             : Text;
@@ -75,10 +75,23 @@ public sealed class WindowsAnnotationOverlayViewModel
         TextAlpha = 255;
         TextFontSize = annotation.Appearance.FontSize;
         TextFontFamily = annotation.Appearance.FontFamily ?? "Segoe UI";
+        TextIsBold = annotation.Appearance.IsBold;
+        TextIsItalic = annotation.Appearance.IsItalic;
+        TextIsUnderline = annotation.Appearance.IsUnderline;
+        TextAlignment = annotation.Appearance.TextAlignment;
         RotationAngle = annotation.Appearance.RotationAngle;
         InkPoints = CreateInkPoints(annotation, pageWidth, pageHeight, rotation);
         SignatureImagePath = CreateSignatureImagePath(annotation, signatureAssets);
-        BorderThicknessValue = annotation.Kind is DocumentAnnotationKind.Highlight or DocumentAnnotationKind.Text ? 0 : 2;
+        BorderThicknessValue = annotation.Kind is DocumentAnnotationKind.Highlight
+            ? 0
+            : annotation.Kind is DocumentAnnotationKind.Text
+                ? annotation.Appearance.BorderHex is null ? 0 : Math.Max(1, annotation.Appearance.StrokeThickness)
+                : 2;
+        if (annotation.Kind is DocumentAnnotationKind.Text && annotation.Appearance.BorderHex is not null)
+        {
+            StrokeHex = annotation.Appearance.BorderHex;
+        }
+
         CornerRadiusValue = annotation.Kind is DocumentAnnotationKind.Stamp ? 2 : 6;
         IsTextVisible = annotation.Kind is DocumentAnnotationKind.Text or DocumentAnnotationKind.Stamp ||
                         annotation.Kind is DocumentAnnotationKind.Signature && SignatureImagePath is null;
@@ -87,6 +100,9 @@ public sealed class WindowsAnnotationOverlayViewModel
         IsInkVisible = annotation.Kind is DocumentAnnotationKind.Ink;
         IsBoxVisible = annotation.Kind is not DocumentAnnotationKind.Ink;
         StrokeThickness = Math.Max(2, annotation.Appearance.StrokeThickness);
+        SelectionStrokeThickness = annotation.Kind is DocumentAnnotationKind.Text ? 1 : 2;
+        SelectionDashArray = annotation.Kind is DocumentAnnotationKind.Text ? null : "4,3";
+        SelectionHandleSize = annotation.Kind is DocumentAnnotationKind.Text ? 8 : 10;
 
         NormalizedTextRegion bounds = ResolveBounds(annotation, rotation);
         Left = bounds.X * pageWidth;
@@ -292,6 +308,26 @@ public sealed class WindowsAnnotationOverlayViewModel
         get;
     }
 
+    public bool TextIsBold
+    {
+        get;
+    }
+
+    public bool TextIsItalic
+    {
+        get;
+    }
+
+    public bool TextIsUnderline
+    {
+        get;
+    }
+
+    public TextAnnotationAlignment TextAlignment
+    {
+        get;
+    }
+
     public double BorderThicknessValue
     {
         get;
@@ -329,6 +365,25 @@ public sealed class WindowsAnnotationOverlayViewModel
         get;
     }
 
+    public double SelectionStrokeThickness
+    {
+        get;
+    }
+
+    public string? SelectionDashArray
+    {
+        get;
+    }
+
+    public double SelectionHandleSize
+    {
+        get;
+    }
+
+    public double SelectionHandleOffset => -(SelectionHandleSize / 2);
+
+    public double SelectionHandleHalfSize => SelectionHandleSize / 2;
+
     public double RotationAngle
     {
         get;
@@ -348,9 +403,13 @@ public sealed class WindowsAnnotationOverlayViewModel
 
     public double RotateButtonLeft => SelectionWidth / 2 - 10;
 
-    public double RotateButtonTop => -30;
+    public double RotateButtonTop => Kind is DocumentAnnotationKind.Text ? SelectionHeight + 12 : -30;
 
     public double RotateStemLeft => SelectionWidth / 2;
+
+    public double RotateStemTop => Kind is DocumentAnnotationKind.Text ? SelectionHeight : 0;
+
+    public double RotateStemY2 => Kind is DocumentAnnotationKind.Text ? 12 : -10;
 
     public IReadOnlyList<AnnotationOverlayPoint> InkPoints
     {
@@ -478,7 +537,8 @@ public sealed class WindowsAnnotationOverlayViewModel
         return annotation.Kind switch
         {
             DocumentAnnotationKind.Highlight => 115,
-            DocumentAnnotationKind.Ink or DocumentAnnotationKind.Text => 0,
+            DocumentAnnotationKind.Ink => 0,
+            DocumentAnnotationKind.Text => annotation.Appearance.FillHex is not null ? (byte)232 : (byte)0,
             DocumentAnnotationKind.Rectangle => annotation.Appearance.FillHex is not null ? (byte)200 : (byte)0,
             _ when annotation.Appearance.FillHex is null => 0,
             _ => 232
@@ -638,7 +698,11 @@ public sealed partial class WindowsInlineTextEditorViewModel : ObservableObject
         FontSize = annotation.Appearance.FontSize;
         FontFamily = annotation.Appearance.FontFamily ?? "Segoe UI";
         StrokeBrush = CreateBrush(annotation.Appearance.StrokeHex, 255);
-        FillBrush = CreateBrush(annotation.Appearance.FillHex ?? "#EEF1FF", 238);
+        FillBrush = CreateBrush(annotation.Appearance.FillHex ?? "#FFFFFF", annotation.Appearance.FillHex is null ? (byte)0 : (byte)238);
+        TextIsBold = annotation.Appearance.IsBold;
+        TextIsItalic = annotation.Appearance.IsItalic;
+        TextIsUnderline = annotation.Appearance.IsUnderline;
+        TextAlignment = annotation.Appearance.TextAlignment;
 
         NormalizedTextRegion bounds = annotation.Bounds is { } annotationBounds
             ? DocumentAnnotationCoordinateMapper.MapRegionToVisualBounds(annotationBounds, rotation)
@@ -671,12 +735,32 @@ public sealed partial class WindowsInlineTextEditorViewModel : ObservableObject
         get;
     }
 
-    private double Left
+    public bool TextIsBold
     {
         get;
     }
 
-    private double Top
+    public bool TextIsItalic
+    {
+        get;
+    }
+
+    public bool TextIsUnderline
+    {
+        get;
+    }
+
+    public TextAnnotationAlignment TextAlignment
+    {
+        get;
+    }
+
+    public double Left
+    {
+        get;
+    }
+
+    public double Top
     {
         get;
     }

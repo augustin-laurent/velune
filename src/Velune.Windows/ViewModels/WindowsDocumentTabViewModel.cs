@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 using Velune.Application.Annotations;
 using Velune.Application.DTOs;
@@ -8,6 +9,7 @@ using Velune.Domain.Annotations;
 using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
 using Velune.Windows.Services;
+using Windows.Foundation;
 
 namespace Velune.Windows.ViewModels;
 
@@ -62,6 +64,8 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
         CreatedDate = FormatDate(metadata.CreatedAt);
         ModifiedDate = FormatDate(metadata.ModifiedAt);
         DetailsWarning = metadata.DetailsWarning;
+        NativePagePixelWidth = metadata.PixelWidth ?? 900;
+        NativePagePixelHeight = metadata.PixelHeight ?? 1200;
         CurrentPagePixelWidth = metadata.PixelWidth ?? 900;
         CurrentPagePixelHeight = metadata.PixelHeight ?? 1200;
 
@@ -139,6 +143,16 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
         get; set;
     }
 
+    public int NativePagePixelWidth
+    {
+        get;
+    }
+
+    public int NativePagePixelHeight
+    {
+        get;
+    }
+
     [ObservableProperty]
     public partial bool IsRendering
     {
@@ -214,6 +228,18 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
     {
         get; set;
     }
+
+    [ObservableProperty]
+    public partial Thickness TextAnnotationToolbarMargin
+    {
+        get; set;
+    } = new(8, 8, 0, 0);
+
+    [ObservableProperty]
+    public partial Size TextAnnotationToolbarSize
+    {
+        get; set;
+    } = new(640, 52);
 
     [ObservableProperty]
     public partial Guid? EditingCommentId
@@ -304,6 +330,14 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
     public double CommentLaneWidth => HasCurrentPageComments ? 280 : 0;
 
     public bool HasInlineTextEditor => InlineTextEditor is not null;
+
+    public DocumentAnnotation? SelectedTextAnnotation
+    {
+        get;
+        private set;
+    }
+
+    public bool HasSelectedTextAnnotation => SelectedTextAnnotation is not null;
 
     public bool HasSearchResults => SearchResults.Count > 0;
 
@@ -621,7 +655,7 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
             Math.Max(1, CurrentPagePixelWidth),
             Math.Max(1, CurrentPagePixelHeight),
             Rotation);
-        RefreshAnnotationOverlays();
+        RefreshAnnotationOverlays(annotation.Id);
     }
 
     /// <summary>
@@ -667,12 +701,22 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
     {
         CurrentPageAnnotationOverlays.Clear();
         CurrentPageCommentOverlays.Clear();
+        SelectedTextAnnotation = null;
 
         var pageIndex = new PageIndex(Math.Max(0, CurrentPage - 1));
         foreach (DocumentAnnotation? annotation in Annotations.Where(item => item.PageIndex == pageIndex))
         {
             if (InlineTextEditor?.AnnotationId == annotation.Id)
             {
+                if (selectedAnnotationId == annotation.Id && annotation.Kind is DocumentAnnotationKind.Text)
+                {
+                    SelectedTextAnnotation = annotation;
+                    TextAnnotationToolbarMargin = TextAnnotationToolbarPlacement.CalculateMargin(
+                        new Rect(InlineTextEditor.Left, InlineTextEditor.Top, InlineTextEditor.Width, InlineTextEditor.Height),
+                        TextAnnotationToolbarSize,
+                        new Size(CurrentPagePixelWidth, CurrentPagePixelHeight));
+                }
+
                 continue;
             }
 
@@ -719,13 +763,35 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
             };
 
             CurrentPageAnnotationOverlays.Add(overlay);
+
+            if (selectedAnnotationId == annotation.Id && annotation.Kind is DocumentAnnotationKind.Text)
+            {
+                SelectedTextAnnotation = annotation;
+                TextAnnotationToolbarMargin = TextAnnotationToolbarPlacement.CalculateMargin(
+                    new Rect(overlay.SelectionLeft, overlay.SelectionTop, overlay.SelectionWidth, overlay.SelectionHeight),
+                    TextAnnotationToolbarSize,
+                    new Size(CurrentPagePixelWidth, CurrentPagePixelHeight));
+            }
         }
 
+        OnPropertyChanged(nameof(SelectedTextAnnotation));
+        OnPropertyChanged(nameof(HasSelectedTextAnnotation));
         OnPropertyChanged(nameof(CurrentPageAnnotationCountText));
         OnPropertyChanged(nameof(HasCurrentPageAnnotations));
         OnPropertyChanged(nameof(CurrentPageCommentCountText));
         OnPropertyChanged(nameof(HasCurrentPageComments));
         OnPropertyChanged(nameof(CommentLaneWidth));
+    }
+
+    public void SetTextAnnotationToolbarSize(double width, double height, Guid? selectedAnnotationId)
+    {
+        if (width <= 0 || height <= 0)
+        {
+            return;
+        }
+
+        TextAnnotationToolbarSize = new Size(width, height);
+        RefreshAnnotationOverlays(selectedAnnotationId);
     }
 
     /// <summary>
@@ -1011,7 +1077,7 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
             {
                 DocumentAnnotationKind.Highlight => _textCatalog.GetString("annotation.kind.highlight"),
                 DocumentAnnotationKind.Ink => _textCatalog.GetString("annotation.kind.ink"),
-                DocumentAnnotationKind.Text => _textCatalog.GetString("annotation.kind.text"),
+                DocumentAnnotationKind.Text => _textCatalog.GetString("panel.annotations.text.placeholder"),
                 DocumentAnnotationKind.Rectangle => _textCatalog.GetString("annotation.kind.rectangle"),
                 DocumentAnnotationKind.Note => _textCatalog.GetString("annotation.kind.note"),
                 DocumentAnnotationKind.Stamp => _textCatalog.GetString("annotation.kind.stamp"),

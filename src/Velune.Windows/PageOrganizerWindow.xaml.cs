@@ -217,6 +217,25 @@ public sealed partial class PageOrganizerWindow : Window
         e.Handled = true;
     }
 
+    private void OnPageItemKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement element ||
+            ResolvePageItem(element) is not PageOrganizerItemViewModel item)
+        {
+            return;
+        }
+
+        switch (e.Key)
+        {
+            case VirtualKey.Enter:
+            case VirtualKey.Space:
+                (bool isCtrl, bool isShift) = GetSelectionModifiers();
+                _viewModel.ToggleSelection(item, isCtrl, isShift);
+                e.Handled = true;
+                break;
+        }
+    }
+
     private void OnPageItemPointerEntered(object sender, PointerRoutedEventArgs e)
     {
         if (!_isDragging && sender is Grid grid)

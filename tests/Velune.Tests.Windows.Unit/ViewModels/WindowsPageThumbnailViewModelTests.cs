@@ -52,4 +52,12 @@ public sealed class WindowsPageThumbnailViewModelTests
 
         Assert.Equal(90, thumbnail.RotationAngle);
     }
+
+    [Fact]
+    public void AutomationId_IncludesPageNumber()
+    {
+        var thumbnail = new WindowsPageThumbnailViewModel(12, "Page 12", "Loading");
+
+        Assert.Equal("PageThumbnailItem_12", thumbnail.AutomationId);
+    }
 }

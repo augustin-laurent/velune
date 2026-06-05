@@ -220,8 +220,10 @@
           <ItemsRepeater.ItemTemplate>
             <DataTemplate x:DataType="vm:PageOrganizerItemViewModel">
               <Grid x:Name="PageItemRoot"
-                    AutomationProperties.AutomationId="PageOrganizerPageItem"
+                    AutomationProperties.AutomationId="{x:Bind AutomationId, Mode=OneWay}"
+                    AutomationProperties.Name="{x:Bind AutomationName, Mode=OneWay}"
                     Tag="{x:Bind PageNumber, Mode=OneWay}"
+                    IsTabStop="True"
                     Width="160"
                     Height="220"
                     CornerRadius="{ThemeResource OverlayCornerRadius}"
@@ -229,6 +231,7 @@
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
+                    KeyDown="OnPageItemKeyDown"
                     PointerPressed="OnPageItemPointerPressed"
                     PointerMoved="OnPageItemPointerMoved"
                     PointerReleased="OnPageItemPointerReleased"

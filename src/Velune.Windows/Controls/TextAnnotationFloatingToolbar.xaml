@@ -6,7 +6,7 @@
     xmlns:vm="using:Velune.Windows.ViewModels">
 
   <Border AutomationProperties.AutomationId="TextAnnotationFloatingToolbar"
-          AutomationProperties.Name="Text annotation toolbar"
+          AutomationProperties.Name="{x:Bind ViewModel.Labels.TextAnnotationToolbar, Mode=OneWay}"
           Background="{ThemeResource FloatingToolbarBrush}"
           BorderBrush="{ThemeResource FloatingToolbarBorderBrush}"
           BorderThickness="1"

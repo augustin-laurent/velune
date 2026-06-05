@@ -1,0 +1,111 @@
+<UserControl
+    x:Class="Velune.Windows.Controls.SettingsPanelControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:services="using:Velune.Windows.Services">
+
+  <UserControl.Resources>
+    <services:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+  </UserControl.Resources>
+
+  <Border Width="356"
+          Background="{ThemeResource PanelDeepBrush}"
+          BorderBrush="{ThemeResource PanelLineBrush}"
+          BorderThickness="1,0,0,0"
+          CornerRadius="0"
+          Visibility="{Binding ActiveDocumentTab.IsSettingsPanelOpen, Converter={StaticResource BoolToVisibility}, Mode=OneWay}">
+    <StackPanel Padding="18,14" Spacing="16">
+      <StackPanel Spacing="5">
+        <TextBlock Text="{Binding Labels.Settings, Mode=OneWay}" Style="{StaticResource PanelTitleStyle}" />
+        <TextBlock Text="{Binding Labels.PreferencesDescription, Mode=OneWay}"
+                   Foreground="{ThemeResource TextSecondaryBrush}"
+                   FontSize="12"
+                   TextWrapping="Wrap" />
+      </StackPanel>
+
+      <Border Background="{ThemeResource CardBrush}"
+              BorderBrush="{ThemeResource CardBorderBrush}"
+              BorderThickness="1"
+              CornerRadius="{ThemeResource OverlayCornerRadius}"
+              Padding="14">
+        <StackPanel Spacing="14">
+          <Grid ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="150" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="{Binding Labels.PreferencesLanguage, Mode=OneWay}"
+                       Foreground="{ThemeResource TextPrimaryBrush}"
+                       FontWeight="SemiBold"
+                       VerticalAlignment="Center" />
+            <ComboBox Grid.Column="1"
+                      AutomationProperties.AutomationId="PreferencesLanguageComboBox"
+                      ItemsSource="{Binding PreferenceLanguageOptions, Mode=OneWay}"
+                      SelectedItem="{Binding SelectedPreferenceLanguage, Mode=TwoWay}" />
+          </Grid>
+
+          <Grid ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="150" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="{Binding Labels.PreferencesTheme, Mode=OneWay}"
+                       Foreground="{ThemeResource TextPrimaryBrush}"
+                       FontWeight="SemiBold"
+                       VerticalAlignment="Center" />
+            <ComboBox Grid.Column="1"
+                      AutomationProperties.AutomationId="PreferencesThemeComboBox"
+                      ItemsSource="{Binding PreferenceThemeOptions, Mode=OneWay}"
+                      SelectedItem="{Binding SelectedPreferenceTheme, Mode=TwoWay}" />
+          </Grid>
+
+          <Grid ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="150" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="{Binding Labels.PreferencesDefaultZoom, Mode=OneWay}"
+                       Foreground="{ThemeResource TextPrimaryBrush}"
+                       FontWeight="SemiBold"
+                       VerticalAlignment="Center" />
+            <ComboBox Grid.Column="1"
+                      AutomationProperties.AutomationId="PreferencesDefaultZoomComboBox"
+                      ItemsSource="{Binding PreferenceZoomOptions, Mode=OneWay}"
+                      SelectedItem="{Binding SelectedPreferenceZoom, Mode=TwoWay}" />
+          </Grid>
+
+          <Grid ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="{Binding Labels.PreferencesShowThumbnails, Mode=OneWay}"
+                       Foreground="{ThemeResource TextPrimaryBrush}"
+                       FontWeight="SemiBold"
+                       TextWrapping="Wrap" />
+            <ToggleSwitch Grid.Column="1"
+                          AutomationProperties.AutomationId="PreferencesShowThumbnailsToggle"
+                          IsOn="{Binding ShowThumbnails, Mode=TwoWay}"
+                          OnContent=""
+                          OffContent="" />
+          </Grid>
+
+          <StackPanel Spacing="6">
+            <Grid>
+              <TextBlock Text="{Binding Labels.PreferencesCacheSize, Mode=OneWay}"
+                         Foreground="{ThemeResource TextPrimaryBrush}"
+                         FontWeight="SemiBold" />
+              <TextBlock Text="{Binding CacheSizeText, Mode=OneWay}"
+                         Foreground="{ThemeResource TextSecondaryBrush}"
+                         HorizontalAlignment="Right" />
+            </Grid>
+            <Slider AutomationProperties.AutomationId="PreferencesCacheSizeSlider"
+                    Minimum="64"
+                    Maximum="1024"
+                    Value="{Binding CacheSizeMegabytes, Mode=TwoWay}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </Border>
+</UserControl>

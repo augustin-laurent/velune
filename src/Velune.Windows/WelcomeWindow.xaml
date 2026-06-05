@@ -2,8 +2,8 @@
     x:Class="Velune.Windows.WelcomeWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:dto="using:Velune.Application.DTOs"
-    xmlns:services="using:Velune.Windows.Services">
+    xmlns:services="using:Velune.Windows.Services"
+    xmlns:vm="using:Velune.Windows.ViewModels">
 
   <Window.SystemBackdrop>
     <MicaBackdrop Kind="BaseAlt" />
@@ -19,8 +19,6 @@
         <services:RecentFilePdfVisibilityConverter x:Key="RecentFilePdfVisibility" />
         <services:RecentFileImageVisibilityConverter x:Key="RecentFileImageVisibility" />
         <services:RecentFileBrushConverter x:Key="RecentFileBrush" />
-        <services:RecentFileOpenedAtConverter x:Key="RecentFileOpenedAt" />
-
         <Style x:Key="WelcomeButtonStyle" TargetType="Button">
           <Setter Property="Height" Value="34" />
           <Setter Property="MinWidth" Value="34" />
@@ -353,8 +351,9 @@
                   BorderThickness="0"
                   Padding="0">
           <ListView.ItemTemplate>
-            <DataTemplate x:DataType="dto:RecentFileItem">
+            <DataTemplate x:DataType="vm:WindowsRecentFileItem">
               <Grid Height="58"
+                    AutomationProperties.Name="{x:Bind AutomationName, Mode=OneWay}"
                     Margin="0,0,0,4"
                     PointerEntered="OnRecentFilePointerEntered"
                     PointerExited="OnRecentFilePointerExited">
@@ -436,7 +435,7 @@
                   </StackPanel>
 
                   <TextBlock Grid.Column="2"
-                             Text="{x:Bind services:XamlBindingHelpers.RecentFileOpenedAt(OpenedAt), Mode=OneWay}"
+                             Text="{x:Bind OpenedAtText, Mode=OneWay}"
                              Foreground="{ThemeResource WelcomeTextSecondaryBrush}"
                              FontSize="12"
                              HorizontalAlignment="Right"
@@ -462,6 +461,14 @@
                  FontSize="12"
                  VerticalAlignment="Top"
                  Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.ShowStatusFooter), Mode=OneWay}" />
+
+      <TextBlock Grid.Row="5"
+                 Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                 Foreground="{ThemeResource WelcomeTextSecondaryBrush}"
+                 FontSize="12"
+                 VerticalAlignment="Top"
+                 Margin="0,10,0,0"
+                 Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.ShowRecentFilesFooter), Mode=OneWay}" />
     </Grid>
   </Grid>
 </Window>

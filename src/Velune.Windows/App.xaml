@@ -8,6 +8,7 @@
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
         <controls:XamlControlsResources />
+        <ResourceDictionary Source="Resources/MainWindowStyles.xaml" />
       </ResourceDictionary.MergedDictionaries>
 
       <ResourceDictionary.ThemeDictionaries>

@@ -192,46 +192,6 @@ public static class XamlBindingHelpers
             : new BitmapImage(new Uri(filePath, UriKind.Absolute));
     }
 
-    public static string RecentFileOpenedAt(DateTimeOffset openedAt)
-    {
-        if (openedAt == default)
-        {
-            return string.Empty;
-        }
-
-        DateTime local = openedAt.ToLocalTime().DateTime;
-        DateTime today = DateTime.Today;
-        CultureInfo culture = CultureInfo.CurrentUICulture;
-        string languageName = culture.TwoLetterISOLanguageName;
-
-        if (local.Date == today)
-        {
-            return languageName switch
-            {
-                "fr" => $"Aujourd'hui \u00e0 {local:HH:mm}",
-                "es" => $"Hoy a las {local:HH:mm}",
-                _ => $"Today at {local.ToString("h:mm tt", culture)}"
-            };
-        }
-
-        if (local.Date == today.AddDays(-1))
-        {
-            return languageName switch
-            {
-                "fr" => $"Hier \u00e0 {local:HH:mm}",
-                "es" => $"Ayer a las {local:HH:mm}",
-                _ => $"Yesterday at {local.ToString("h:mm tt", culture)}"
-            };
-        }
-
-        return languageName switch
-        {
-            "fr" => local.ToString("d MMM yyyy '\u00e0' HH:mm", culture),
-            "es" => local.ToString("d MMM yyyy 'a las' HH:mm", culture),
-            _ => local.ToString("MMM d, yyyy 'at' h:mm tt", culture)
-        };
-    }
-
     private static bool IsPdf(string? fileName)
     {
         return string.Equals(Path.GetExtension(fileName), ".pdf", StringComparison.OrdinalIgnoreCase);
@@ -287,6 +247,42 @@ public sealed partial class InverseBoolToVisibilityConverter : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, string language)
     {
         return value is Visibility visibility && visibility != Visibility.Visible;
+    }
+}
+
+/// <summary>
+/// Converts a hex color string to a brush.
+/// </summary>
+public sealed partial class HexToBrushConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+    {
+        int alpha = parameter is string text && int.TryParse(text, out int parsedAlpha)
+            ? parsedAlpha
+            : 255;
+
+        return XamlBindingHelpers.BrushFromHex(value as string, alpha);
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+    {
+        return DependencyProperty.UnsetValue;
+    }
+}
+
+/// <summary>
+/// Converts signature preview points to a WinUI point collection.
+/// </summary>
+public sealed partial class SignaturePadPointCollectionConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+    {
+        return XamlBindingHelpers.PointCollectionFromSignaturePadPoints(value as IReadOnlyList<SignaturePadPreviewPoint>);
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+    {
+        return DependencyProperty.UnsetValue;
     }
 }
 
@@ -443,6 +439,8 @@ public sealed partial class SubtractConverter : IValueConverter
     }
 }
 
+#if false
+// Dead converter kept out of compilation. Recent file timestamps are formatted by WindowsRecentFileItem.
 /// <summary>
 /// Converts a <see cref="DateTimeOffset"/> to a localized relative date string (e.g. "Today at 10:30").
 /// </summary>
@@ -496,3 +494,4 @@ public sealed partial class RecentFileOpenedAtConverter : IValueConverter
         return DependencyProperty.UnsetValue;
     }
 }
+#endif

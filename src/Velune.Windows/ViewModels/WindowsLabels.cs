@@ -108,6 +108,7 @@ public sealed class WindowsLabels
         AnnotationAlignCenter = text.GetString("panel.annotations.align_center");
         AnnotationAlignRight = text.GetString("panel.annotations.align_right");
         AnnotationTextColor = text.GetString("panel.annotations.text_color");
+        TextAnnotationToolbar = text.GetString("panel.annotations.text_toolbar");
         AnnotationBackground = text.GetString("panel.annotations.background");
         AnnotationBorder = text.GetString("panel.annotations.border");
         AnnotationBorderColor = text.GetString("panel.annotations.border_color");
@@ -535,6 +536,10 @@ public sealed class WindowsLabels
         get;
     }
     public string AnnotationTextColor
+    {
+        get;
+    }
+    public string TextAnnotationToolbar
     {
         get;
     }

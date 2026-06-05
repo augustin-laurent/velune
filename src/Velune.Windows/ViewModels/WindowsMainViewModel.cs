@@ -184,7 +184,8 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         _recentFilesService = recentFilesService;
         _userPreferencesService = userPreferencesService;
         _renderOrchestrator = renderOrchestrator;
-        _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
+        _dispatcherQueue = DispatcherQueue.GetForCurrentThread()
+            ?? throw new InvalidOperationException("The Windows UI dispatcher is not available.");
         _fileDialogService = fileDialogService;
         _printCoordinator = printCoordinator;
         _signatureAssetStore = signatureAssetStore;
@@ -211,11 +212,13 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         LoadSignatureAssets();
         StatusText = textCatalog.GetString("status.ready");
         RefreshRecentFiles();
+        _textCatalog.LanguageChanged += OnLanguageChanged;
     }
 
     public WindowsLabels Labels
     {
         get;
+        private set;
     }
 
     public ObservableCollection<WindowsDocumentTabViewModel> DocumentTabs
@@ -223,7 +226,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         get;
     } = [];
 
-    public ObservableCollection<RecentFileItem> RecentFiles
+    public ObservableCollection<WindowsRecentFileItem> RecentFiles
     {
         get;
     } = [];
@@ -262,16 +265,19 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     public IReadOnlyList<string> PreferenceLanguageOptions
     {
         get;
+        private set;
     }
 
     public IReadOnlyList<string> PreferenceThemeOptions
     {
         get;
+        private set;
     }
 
     public IReadOnlyList<string> PreferenceZoomOptions
     {
         get;
+        private set;
     }
 
     public string ActiveAnnotationToolLabel => GetAnnotationLabel(ActiveDocumentTab?.SelectedAnnotationTool ?? AnnotationTool.Select);
@@ -617,6 +623,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     /// <inheritdoc />
     public void Dispose()
     {
+        _textCatalog.LanguageChanged -= OnLanguageChanged;
         _documentOpenGate.Dispose();
     }
 
@@ -689,55 +696,71 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             {
                 await RunBusyAsync(async () =>
                 {
+                    string? tempDir = null;
                     string originalPath = tab.FilePath;
                     string currentPath = originalPath;
 
-                    if (hasPageEdits)
+                    try
                     {
-                        string tempDir = Path.Combine(Path.GetTempPath(), "velune-op", Guid.NewGuid().ToString("N"));
-                        Directory.CreateDirectory(tempDir);
-
-                        string? editedPath = await CreateEditedPdfAsync(
-                            tab,
-                            tempDir,
-                            tab.Thumbnails.Select(thumbnail => thumbnail.PageNumber).ToArray(),
-                            tab.GetPendingPageRotations());
-
-                        if (string.IsNullOrWhiteSpace(editedPath))
+                        if (hasPageEdits)
                         {
+                            tempDir = VeluneTempDirectory.Create("op");
+
+                            string? editedPath = await CreateEditedPdfAsync(
+                                tab,
+                                tempDir,
+                                tab.Thumbnails.Select(thumbnail => thumbnail.PageNumber).ToArray(),
+                                tab.GetPendingPageRotations());
+
+                            if (string.IsNullOrWhiteSpace(editedPath))
+                            {
+                                return;
+                            }
+
+                            File.Copy(editedPath, originalPath, overwrite: true);
+                            currentPath = originalPath;
+                        }
+
+                        if (hasAnnotations)
+                        {
+                            if (!hasPageEdits)
+                            {
+                                await ReleaseActiveSessionAsync(tab);
+                            }
+
+                            await _pdfAnnotationStore.SaveAsync(currentPath, tab.Annotations.ToList());
+                        }
+
+                        var savedAnnotations = tab.Annotations.ToList();
+                        bool reloaded = await ReloadActiveDocumentAsync(tab, originalPath);
+                        if (!reloaded)
+                        {
+                            await RunOnUiThreadAsync(() => StatusText = _textCatalog.GetString("status.save.failed"));
                             return;
                         }
 
-                        File.Copy(editedPath, originalPath, overwrite: true);
-                        currentPath = originalPath;
-                    }
-
-                    if (hasAnnotations)
-                    {
-                        if (!hasPageEdits)
+                        await RunOnUiThreadAsync(() =>
                         {
-                            await ReleaseActiveSessionAsync(tab);
-                        }
+                            tab.HasPendingPageReorder = false;
+                            tab.ClearPendingPageRotations();
+                            tab.IsDirty = false;
+                            foreach (DocumentAnnotation annotation in savedAnnotations)
+                            {
+                                tab.Annotations.Add(annotation);
+                            }
 
-                        await _pdfAnnotationStore.SaveAsync(currentPath, tab.Annotations.ToList());
+                            tab.RefreshAnnotationOverlays();
+                            StatusText = _textCatalog.GetString("status.document.saved");
+                            NotifySaveStateChanged();
+                        });
                     }
-
-                    var savedAnnotations = tab.Annotations.ToList();
-                    await ReloadActiveDocumentAsync(tab, originalPath);
-                    await RunOnUiThreadAsync(() =>
+                    finally
                     {
-                        tab.HasPendingPageReorder = false;
-                        tab.ClearPendingPageRotations();
-                        tab.IsDirty = false;
-                        foreach (DocumentAnnotation annotation in savedAnnotations)
+                        if (!string.IsNullOrWhiteSpace(tempDir))
                         {
-                            tab.Annotations.Add(annotation);
+                            TryDeleteDirectory(tempDir);
                         }
-
-                        tab.RefreshAnnotationOverlays();
-                        StatusText = _textCatalog.GetString("status.document.saved");
-                        NotifySaveStateChanged();
-                    });
+                    }
                 });
                 return;
             }
@@ -790,75 +813,87 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             {
                 await RunBusyAsync(async () =>
                 {
-                    string tempDir = Path.Combine(Path.GetTempPath(), "velune-op", Guid.NewGuid().ToString("N"));
-                    Directory.CreateDirectory(tempDir);
+                    string tempDir = VeluneTempDirectory.Create("op");
 
-                    IDocumentSession? session = _documentSessionStore.Sessions
-                        .FirstOrDefault(s => s.Id == tab.SessionId);
-                    string currentPath = tab.FilePath;
-
-                    if (hasPageEdits)
+                    try
                     {
-                        string? editedPath = await CreateEditedPdfAsync(
-                            tab,
-                            tempDir,
-                            tab.Thumbnails.Select(thumbnail => thumbnail.PageNumber).ToArray(),
-                            tab.GetPendingPageRotations());
+                        IDocumentSession? session = _documentSessionStore.Sessions
+                            .FirstOrDefault(s => s.Id == tab.SessionId);
+                        string currentPath = tab.FilePath;
 
-                        if (string.IsNullOrWhiteSpace(editedPath))
+                        if (hasPageEdits)
                         {
-                            return;
+                            string? editedPath = await CreateEditedPdfAsync(
+                                tab,
+                                tempDir,
+                                tab.Thumbnails.Select(thumbnail => thumbnail.PageNumber).ToArray(),
+                                tab.GetPendingPageRotations());
+
+                            if (string.IsNullOrWhiteSpace(editedPath))
+                            {
+                                return;
+                            }
+
+                            currentPath = editedPath;
                         }
 
-                        currentPath = editedPath;
-                    }
-
-                    if (hasAnnotations)
-                    {
-                        if (session is null)
+                        if (hasAnnotations)
                         {
-                            StatusText = _textCatalog.GetString("status.save.failed");
-                            return;
-                        }
+                            if (session is null)
+                            {
+                                StatusText = _textCatalog.GetString("status.save.failed");
+                                return;
+                            }
 
-                        if (!hasPageEdits)
-                        {
-                            await ReleaseActiveSessionAsync(tab);
-                        }
-
-                        string annotatedPath = Path.Combine(tempDir, "annotated.pdf");
-                        Result<string> annotationResult = await _pdfMarkupService.ApplyAnnotationsAsync(
-                            new ApplyPdfAnnotationsRequest(
-                                session,
-                                currentPath,
-                                annotatedPath,
-                                tab.Annotations.ToList()));
-
-                        if (annotationResult.IsFailure)
-                        {
-                            await RunOnUiThreadAsync(() => StatusText = _textCatalog.GetString("status.save.failed"));
                             if (!hasPageEdits)
                             {
-                                await ReopenAfterFailureAsync(tab);
+                                await ReleaseActiveSessionAsync(tab);
                             }
+
+                            string annotatedPath = Path.Combine(tempDir, "annotated.pdf");
+                            Result<string> annotationResult = await _pdfMarkupService.ApplyAnnotationsAsync(
+                                new ApplyPdfAnnotationsRequest(
+                                    session,
+                                    currentPath,
+                                    annotatedPath,
+                                    tab.Annotations.ToList()));
+
+                            if (annotationResult.IsFailure)
+                            {
+                                await RunOnUiThreadAsync(() => StatusText = _textCatalog.GetString("status.save.failed"));
+                                if (!hasPageEdits)
+                                {
+                                    await ReopenAfterFailureAsync(tab);
+                                }
+                                return;
+                            }
+
+                            currentPath = annotationResult.Value ?? annotatedPath;
+                        }
+
+                        File.Copy(currentPath, outputPath, overwrite: true);
+                        await _pdfAnnotationStore.RemoveAsync(outputPath);
+                        bool reloaded = await ReloadActiveDocumentAsync(tab, outputPath);
+                        if (!reloaded)
+                        {
+                            await RunOnUiThreadAsync(() => StatusText = _textCatalog.GetString("status.save.failed"));
                             return;
                         }
 
-                        currentPath = annotationResult.Value ?? annotatedPath;
+                        await RunOnUiThreadAsync(() =>
+                        {
+                            tab.HasPendingPageReorder = false;
+                            tab.ClearPendingPageRotations();
+                            tab.Annotations.Clear();
+                            tab.IsDirty = false;
+                            StatusText = _textCatalog.GetString("status.document.saved");
+                            NotifySaveStateChanged();
+                        });
                     }
-
-                    File.Copy(currentPath, outputPath, overwrite: true);
-                    await _pdfAnnotationStore.RemoveAsync(outputPath);
-                    await ReloadActiveDocumentAsync(tab, outputPath);
-                    await RunOnUiThreadAsync(() =>
+                    finally
                     {
-                        tab.HasPendingPageReorder = false;
-                        tab.ClearPendingPageRotations();
-                        tab.Annotations.Clear();
-                        tab.IsDirty = false;
-                        StatusText = _textCatalog.GetString("status.document.saved");
-                        NotifySaveStateChanged();
-                    });
+                        TryDeleteDirectory(tempDir);
+                    }
                 });
             }
             else
@@ -875,7 +910,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private async Task OpenRecentFileAsync(RecentFileItem? item)
+    private async Task OpenRecentFileAsync(WindowsRecentFileItem? item)
     {
         if (item is null || string.IsNullOrWhiteSpace(item.FilePath))
         {
@@ -2444,12 +2479,12 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        string tempDir = Path.Combine(Path.GetTempPath(), "velune-drop-merge", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDir);
+        string tempDir = VeluneTempDirectory.Create("drop-merge");
         string outputPath = Path.Combine(tempDir, $"fused-{Guid.NewGuid():N}.pdf");
 
         await RunBusyAsync(async () =>
         {
+            bool openedMergedDocument = false;
             try
             {
                 string currentSourcePath;
@@ -2523,6 +2558,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
                 }
 
                 IDocumentSession? newSession = openResult.Value;
+                openedMergedDocument = true;
                 await RunOnUiThreadAsync(() =>
                 {
                     double reopenZoom = CalculateInitialZoom(
@@ -2560,6 +2596,13 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
                 await RunOnUiThreadAsync(() => StatusText = exception.Message);
                 await ReopenAfterFailureAsync(tab);
             }
+            finally
+            {
+                if (!openedMergedDocument)
+                {
+                    TryDeleteDirectory(tempDir);
+                }
+            }
         });
     }
 
@@ -2571,12 +2614,12 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        string tempDir = Path.Combine(Path.GetTempPath(), "velune-fuse", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDir);
+        string tempDir = VeluneTempDirectory.Create("fuse");
         string outputPath = Path.Combine(tempDir, $"fused-{Guid.NewGuid():N}.pdf");
 
         await RunBusyAsync(async () =>
         {
+            bool openedMergedDocument = false;
             try
             {
                 await ReleaseActiveSessionAsync(tab);
@@ -2604,7 +2647,6 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
                 {
                     await RunOnUiThreadAsync(() => StatusText = FormatError(RenderFailed, mergeResult.Error));
                     await ReopenAfterFailureAsync(tab);
-                    TryDeleteDirectory(tempDir);
                     return;
                 }
 
@@ -2615,11 +2657,11 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
                 {
                     await RunOnUiThreadAsync(() => StatusText = FormatError(RenderFailed, openResult.Error));
                     await ReopenAfterFailureAsync(tab);
-                    TryDeleteDirectory(tempDir);
                     return;
                 }
 
                 IDocumentSession? newSession = openResult.Value;
+                openedMergedDocument = true;
                 await RunOnUiThreadAsync(() =>
                 {
                     double reopenZoom = CalculateInitialZoom(
@@ -2656,6 +2698,13 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             {
                 await RunOnUiThreadAsync(() => StatusText = exception.Message);
                 await ReopenAfterFailureAsync(tab);
+            }
+            finally
+            {
+                if (!openedMergedDocument)
+                {
+                    TryDeleteDirectory(tempDir);
+                }
             }
         });
     }
@@ -2756,25 +2805,41 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         IReadOnlyList<(int OriginalPage, Rotation Rotation)> rotations,
         string successStatus)
     {
-        string tempDir = Path.Combine(Path.GetTempPath(), "velune-op", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDir);
+        string tempDir = VeluneTempDirectory.Create("op");
+        bool openedEditedDocument = false;
 
-        string? outputPath = await CreateEditedPdfAsync(tab, tempDir, finalPageOrder, rotations);
-        if (string.IsNullOrWhiteSpace(outputPath))
+        try
         {
-            return false;
+            string? outputPath = await CreateEditedPdfAsync(tab, tempDir, finalPageOrder, rotations);
+            if (string.IsNullOrWhiteSpace(outputPath))
+            {
+                return false;
+            }
+
+            bool reloaded = await ReloadActiveDocumentAsync(tab, outputPath);
+            if (!reloaded)
+            {
+                return false;
+            }
+
+            openedEditedDocument = true;
+            await RunOnUiThreadAsync(() =>
+            {
+                tab.HasPendingPageReorder = false;
+                tab.ClearPendingPageRotations();
+                tab.IsDirty = true;
+                StatusText = successStatus;
+            });
+
+            return true;
         }
-
-        await ReloadActiveDocumentAsync(tab, outputPath);
-        await RunOnUiThreadAsync(() =>
+        finally
         {
-            tab.HasPendingPageReorder = false;
-            tab.ClearPendingPageRotations();
-            tab.IsDirty = true;
-            StatusText = successStatus;
-        });
-
-        return true;
+            if (!openedEditedDocument)
+            {
+                TryDeleteDirectory(tempDir);
+            }
+        }
     }
 
     private async Task<string?> CreateEditedPdfAsync(
@@ -4124,7 +4189,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         StatusText = _textCatalog.GetString("status.clipboard.copied");
     }
 
-    private async Task ReloadActiveDocumentAsync(WindowsDocumentTabViewModel tab, string? newFilePath = null)
+    private async Task<bool> ReloadActiveDocumentAsync(WindowsDocumentTabViewModel tab, string? newFilePath = null)
     {
         await _renderOrchestrator.CancelDocumentJobsAsync(tab.SessionId);
 
@@ -4134,7 +4199,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
         if (openResult.IsFailure || openResult.Value is null)
         {
-            return;
+            return false;
         }
 
         IDocumentSession? newSession = openResult.Value;
@@ -4167,6 +4232,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         });
 
         await HydrateActiveTabAsync();
+        return true;
     }
 
     private async Task ReleaseActiveSessionAsync(WindowsDocumentTabViewModel tab)
@@ -4634,6 +4700,44 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         }
     }
 
+    private void OnLanguageChanged(object? sender, EventArgs e)
+    {
+        if (!_dispatcherQueue.HasThreadAccess)
+        {
+            _dispatcherQueue.TryEnqueue(() => OnLanguageChanged(sender, e));
+            return;
+        }
+
+        Labels = new WindowsLabels(_textCatalog);
+        PreferenceLanguageOptions = [Labels.PreferencesSystem, Labels.PreferencesEnglish, Labels.PreferencesFrench, Labels.PreferencesSpanish];
+        PreferenceThemeOptions = [Labels.PreferencesSystem, Labels.PreferencesLight, Labels.PreferencesDark];
+        PreferenceZoomOptions = [Labels.PreferencesFitPage, Labels.PreferencesFitWidth, Labels.PreferencesActualSize];
+
+        AnnotationTool selectedTool = ActiveDocumentTab?.SelectedAnnotationTool ?? AnnotationTool.Select;
+        AnnotationTools.Clear();
+        foreach (WindowsAnnotationToolItem tool in CreateAnnotationTools(Labels))
+        {
+            tool.IsSelected = tool.Tool == selectedTool;
+            AnnotationTools.Add(tool);
+        }
+
+        _isApplyingPreferenceSelection = true;
+        SelectedPreferenceLanguage = MapLanguageToLabel(_userPreferencesService.Current.Language);
+        SelectedPreferenceTheme = MapThemeToLabel(_userPreferencesService.Current.Theme);
+        SelectedPreferenceZoom = MapZoomToLabel(_userPreferencesService.Current.DefaultZoom);
+        _isApplyingPreferenceSelection = false;
+
+        RefreshRecentFiles();
+
+        OnPropertyChanged(nameof(Labels));
+        OnPropertyChanged(nameof(PreferenceLanguageOptions));
+        OnPropertyChanged(nameof(PreferenceThemeOptions));
+        OnPropertyChanged(nameof(PreferenceZoomOptions));
+        OnPropertyChanged(nameof(ActiveAnnotationToolLabel));
+        OnPropertyChanged(nameof(ActiveAnnotationToolGlyph));
+        NotifyBindingsRefresh();
+    }
+
     private async Task SaveThumbnailPreferenceAsync(bool value)
     {
         try
@@ -4796,7 +4900,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
         foreach (RecentFileItem item in _recentFilesService.GetAll())
         {
-            RecentFiles.Add(item);
+            RecentFiles.Add(WindowsRecentFileItem.From(item, _textCatalog));
         }
 
         OnPropertyChanged(nameof(HasRecentFiles));

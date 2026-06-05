@@ -169,6 +169,8 @@ public sealed class WindowsAnnotationOverlayViewModel
         get;
     }
 
+    public string ListItemAutomationId => $"AnnotationListItem_{Id:N}";
+
     public DocumentAnnotationKind Kind
     {
         get;
@@ -594,6 +596,8 @@ public sealed partial class WindowsCommentOverlayViewModel : ObservableObject
     {
         get;
     }
+
+    public string CardAutomationId => $"CommentOverlayCard_{Id:N}";
 
     public string Text
     {

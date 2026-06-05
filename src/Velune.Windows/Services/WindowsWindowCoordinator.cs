@@ -82,14 +82,29 @@ public sealed class WindowsWindowCoordinator
         try
         {
             MainWindow workspace = ShowWorkspace();
+            WelcomeWindow? welcomeWindow = _welcomeWindow;
             WindowsMainViewModel viewModel = _services.GetRequiredService<WindowsMainViewModel>();
             await RunAfterWorkspaceLoadedAsync(
                 workspace.WaitUntilLoadedAsync(),
                 RunOnCoordinatorDispatcherAsync,
                 async () =>
                 {
-                    _welcomeWindow?.Close();
-                    await viewModel.HandleHomeFilesDroppedAsync(pathsToOpen);
+                    welcomeWindow?.Close();
+
+                    try
+                    {
+                        await viewModel.HandleHomeFilesDroppedAsync(pathsToOpen);
+                    }
+                    catch (Exception exception)
+                    {
+                        viewModel.StatusText = exception.Message;
+                    }
+
+                    if (!viewModel.HasDocument)
+                    {
+                        workspace.Close();
+                        ShowWelcome();
+                    }
                 });
         }
         finally

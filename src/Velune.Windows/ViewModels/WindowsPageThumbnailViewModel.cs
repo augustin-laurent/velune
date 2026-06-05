@@ -87,6 +87,8 @@ public sealed partial class WindowsPageThumbnailViewModel : ObservableObject
         get;
     }
 
+    public string AutomationId => $"PageThumbnailItem_{PageNumber}";
+
     /// <summary>
     /// Gets the loading placeholder text.
     /// </summary>

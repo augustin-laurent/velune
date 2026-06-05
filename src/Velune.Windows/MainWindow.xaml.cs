@@ -1,4 +1,4 @@
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI;
 using Microsoft.UI.Input;
 using Microsoft.UI.Windowing;
@@ -34,7 +34,6 @@ public sealed partial class MainWindow : Window
     private bool _isAnnotationInteractionActive;
     private bool _isTextSelectionInteractionActive;
     private bool _isMovingAnnotation;
-    private bool _isCapturingSignaturePad;
     private bool _hasPresentedDocument;
 
     public WindowsMainViewModel ViewModel
@@ -308,85 +307,12 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private async void OnTabClicked(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { DataContext: WindowsDocumentTabViewModel tab } &&
-            ViewModel.ActivateTabCommand.CanExecute(tab))
-        {
-            await ViewModel.ActivateTabCommand.ExecuteAsync(tab);
-        }
-    }
-
-    private void OnTabPointerEntered(object sender, PointerRoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { DataContext: WindowsDocumentTabViewModel tab })
-        {
-            tab.RefreshTabChrome(true);
-        }
-    }
-
-    private void OnTabPointerExited(object sender, PointerRoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { DataContext: WindowsDocumentTabViewModel tab })
-        {
-            tab.RefreshTabChrome(false);
-        }
-    }
-
-    private async void OnCloseTabClicked(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { DataContext: WindowsDocumentTabViewModel tab } &&
-            ViewModel.CloseTabCommand.CanExecute(tab))
-        {
-            await ViewModel.CloseTabCommand.ExecuteAsync(tab);
-        }
-    }
-
     private async void OnCloseActiveTabMenuClicked(object sender, RoutedEventArgs e)
     {
         if (ViewModel.ActiveDocumentTab is { } tab &&
             ViewModel.CloseTabCommand.CanExecute(tab))
         {
             await ViewModel.CloseTabCommand.ExecuteAsync(tab);
-        }
-    }
-
-    private async void OnSearchBoxKeyDown(object sender, KeyRoutedEventArgs e)
-    {
-        if (e.Key != VirtualKey.Enter)
-        {
-            return;
-        }
-
-        e.Handled = true;
-        SyncSearchQueryFromTextBox(sender);
-
-        try
-        {
-            if (ViewModel.SearchTextCommand.CanExecute(null))
-            {
-                await ViewModel.SearchTextCommand.ExecuteAsync(null);
-            }
-        }
-        catch (Exception exception)
-        {
-            ReportUnhandledUiCommandError(exception);
-        }
-    }
-
-    private async void OnSearchResultSelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        try
-        {
-            if (sender is ListView { SelectedItem: WindowsSearchResultItemViewModel result } &&
-                ViewModel.OpenSearchResultCommand.CanExecute(result))
-            {
-                await ViewModel.OpenSearchResultCommand.ExecuteAsync(result);
-            }
-        }
-        catch (Exception exception)
-        {
-            ReportUnhandledUiCommandError(exception);
         }
     }
 
@@ -796,38 +722,35 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private async void OnSearchBoxKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key != VirtualKey.Enter)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        SyncSearchQueryFromTextBox(sender);
+
+        try
+        {
+            if (ViewModel.SearchTextCommand.CanExecute(null))
+            {
+                await ViewModel.SearchTextCommand.ExecuteAsync(null);
+            }
+        }
+        catch (Exception exception)
+        {
+            ReportUnhandledUiCommandError(exception);
+        }
+    }
+
     private void SyncSearchQueryFromTextBox(object sender)
     {
         if (sender is TextBox textBox &&
             ViewModel.ActiveDocumentTab is { } tab)
         {
             tab.SearchQuery = textBox.Text;
-        }
-    }
-
-    private const double ThumbnailDragThreshold = 6;
-    private const double ThumbnailItemHeight = 172;
-
-    private int _thumbnailDragSourceIndex = -1;
-    private bool _isDraggingThumbnail;
-    private Point _thumbnailDragStartPoint;
-    private int _thumbnailDropTargetIndex = -1;
-
-    private void OnThumbnailItemLoaded(object sender, RoutedEventArgs e)
-    {
-        QueueThumbnailRenderFromElement(sender as FrameworkElement);
-    }
-
-    private void OnThumbnailElementPrepared(ItemsRepeater sender, ItemsRepeaterElementPreparedEventArgs args)
-    {
-        QueueThumbnailRenderFromElement(args.Element as FrameworkElement);
-    }
-
-    private void QueueThumbnailRenderFromElement(FrameworkElement? element)
-    {
-        if (element is not null && ResolveThumbnailItem(element) is WindowsPageThumbnailViewModel thumbnail)
-        {
-            _ = ViewModel.EnsureThumbnailRenderedAsync(thumbnail);
         }
     }
 
@@ -854,15 +777,6 @@ public sealed partial class MainWindow : Window
         window.Activate();
     }
 
-    private void OnThumbnailItemRightTapped(object sender, RightTappedRoutedEventArgs e)
-    {
-        if (sender is FrameworkElement element &&
-            ResolveThumbnailItem(element) is WindowsPageThumbnailViewModel thumbnail)
-        {
-            ViewModel.SelectedThumbnailPageNumber = thumbnail.PageNumber;
-        }
-    }
-
     private void OnRibbonRotateLeftClick(object sender, RoutedEventArgs e)
     {
         if (ViewModel.ActiveDocumentTab is not null)
@@ -883,12 +797,6 @@ public sealed partial class MainWindow : Window
         _ = ViewModel.RotateSelectedPageAsync(true);
     }
 
-    private void OnThumbnailRotateLeftClick(object sender, RoutedEventArgs e) =>
-        _ = ViewModel.RotateSelectedPageAsync(false);
-
-    private void OnThumbnailRotateRightClick(object sender, RoutedEventArgs e) =>
-        _ = ViewModel.RotateSelectedPageAsync(true);
-
     private void OnThumbnailMoveUpClick(object sender, RoutedEventArgs e) =>
         _ = ViewModel.MoveSelectedPageAsync(-1);
 
@@ -898,484 +806,34 @@ public sealed partial class MainWindow : Window
     private void OnThumbnailDeleteClick(object sender, RoutedEventArgs e) =>
         _ = ViewModel.DeleteSelectedPageAsync();
 
-    private void OnThumbnailItemPointerPressed(object sender, PointerRoutedEventArgs e)
-    {
-        if (sender is not UIElement element ||
-            element is not FrameworkElement frameworkElement ||
-            ResolveThumbnailItem(frameworkElement) is not WindowsPageThumbnailViewModel thumbnail)
-        {
-            return;
-        }
-
-        PointerPointProperties? properties = e.GetCurrentPoint(element).Properties;
-        if (!properties.IsLeftButtonPressed)
-        {
-            return;
-        }
-
-        _thumbnailDragSourceIndex = ViewModel.ActiveDocumentTab?.Thumbnails.IndexOf(thumbnail) ?? -1;
-        _thumbnailDragStartPoint = e.GetCurrentPoint(ThumbnailScrollViewer).Position;
-        _isDraggingThumbnail = false;
-        element.CapturePointer(e.Pointer);
-        e.Handled = true;
-    }
-
-    private void OnThumbnailItemPointerMoved(object sender, PointerRoutedEventArgs e)
-    {
-        if (_thumbnailDragSourceIndex < 0 || sender is not UIElement element)
-        {
-            return;
-        }
-
-        Point currentPoint = e.GetCurrentPoint(ThumbnailScrollViewer).Position;
-
-        if (!_isDraggingThumbnail)
-        {
-            double dx = currentPoint.X - _thumbnailDragStartPoint.X;
-            double dy = currentPoint.Y - _thumbnailDragStartPoint.Y;
-            if (Math.Sqrt(dx * dx + dy * dy) < ThumbnailDragThreshold)
-            {
-                return;
-            }
-
-            _isDraggingThumbnail = true;
-            WindowsDocumentTabViewModel? tab = ViewModel.ActiveDocumentTab;
-            if (tab is not null && _thumbnailDragSourceIndex < tab.Thumbnails.Count)
-            {
-                ThumbnailDragGhost.Source = tab.Thumbnails[_thumbnailDragSourceIndex].Image;
-                ThumbnailDragGhost.Visibility = Visibility.Visible;
-            }
-        }
-
-        if (_isDraggingThumbnail)
-        {
-            ThumbnailDragGhost.Margin = new Thickness(
-                currentPoint.X - 40,
-                currentPoint.Y - 52,
-                0, 0);
-
-            UpdateThumbnailDropIndicator(currentPoint.Y);
-            AutoScrollThumbnails(currentPoint.Y);
-        }
-
-        e.Handled = true;
-    }
-
-    private async void OnThumbnailItemPointerReleased(object sender, PointerRoutedEventArgs e)
-    {
-        e.Handled = true;
-
-        if (sender is UIElement element)
-        {
-            element.ReleasePointerCapture(e.Pointer);
-        }
-
-        bool wasDragging = _isDraggingThumbnail;
-        int sourceIndex = _thumbnailDragSourceIndex;
-        int targetIndex = _thumbnailDropTargetIndex;
-        WindowsPageThumbnailViewModel? clickedThumbnail = !wasDragging &&
-            sourceIndex >= 0 &&
-            sender is FrameworkElement releasedElement
-                ? ResolveThumbnailItem(releasedElement)
-                : null;
-
-        ThumbnailDragGhost.Visibility = Visibility.Collapsed;
-        ThumbnailDropIndicator.Visibility = Visibility.Collapsed;
-        ResetThumbnailDisplacement();
-
-        _thumbnailDragSourceIndex = -1;
-        _thumbnailDropTargetIndex = -1;
-        _isDraggingThumbnail = false;
-
-        if (wasDragging && sourceIndex >= 0 && targetIndex >= 0)
-        {
-            if (sourceIndex != targetIndex && targetIndex != sourceIndex + 1)
-            {
-                WindowsDocumentTabViewModel? tab = ViewModel.ActiveDocumentTab;
-                if (tab is not null)
-                {
-                    int adjustedTarget = targetIndex > sourceIndex ? targetIndex - 1 : targetIndex;
-                    tab.Thumbnails.Move(sourceIndex, adjustedTarget);
-                    await ViewModel.HandleThumbnailReorderAsync(sourceIndex + 1, adjustedTarget);
-                }
-            }
-        }
-        else if (clickedThumbnail is not null)
-        {
-            await ViewModel.ChangePageAsync(clickedThumbnail.PageNumber);
-        }
-    }
-
-    private WindowsPageThumbnailViewModel? ResolveThumbnailItem(FrameworkElement element)
-    {
-        if (element.DataContext is WindowsPageThumbnailViewModel thumbnail)
-        {
-            return thumbnail;
-        }
-
-        if (element.Tag is int pageNumber &&
-            ViewModel.ActiveDocumentTab is { } tab)
-        {
-            int index = pageNumber - 1;
-            if (index >= 0 &&
-                index < tab.Thumbnails.Count &&
-                tab.Thumbnails[index].PageNumber == pageNumber)
-            {
-                return tab.Thumbnails[index];
-            }
-
-            return tab.Thumbnails.FirstOrDefault(item => item.PageNumber == pageNumber);
-        }
-
-        return null;
-    }
-
-    private void UpdateThumbnailDropIndicator(double pointerY)
-    {
-        double scrollOffset = ThumbnailScrollViewer.VerticalOffset;
-        double adjustedY = pointerY + scrollOffset;
-        int index = (int)Math.Round(adjustedY / ThumbnailItemHeight);
-        WindowsDocumentTabViewModel? tab = ViewModel.ActiveDocumentTab;
-        if (tab is null)
-        {
-            return;
-        }
-
-        int newIndex = Math.Clamp(index, 0, tab.Thumbnails.Count);
-        if (newIndex == _thumbnailDropTargetIndex)
-        {
-            return;
-        }
-
-        _thumbnailDropTargetIndex = newIndex;
-        double indicatorY = (_thumbnailDropTargetIndex * ThumbnailItemHeight) - scrollOffset;
-        ThumbnailDropIndicator.Margin = new Thickness(8, indicatorY, 8, 0);
-        ThumbnailDropIndicator.Visibility = Visibility.Visible;
-
-        AnimateThumbnailDisplacement();
-    }
-
-    private void AnimateThumbnailDisplacement()
-    {
-        const float gapSize = 20f;
-        WindowsDocumentTabViewModel? tab = ViewModel.ActiveDocumentTab;
-        if (tab is null)
-        {
-            return;
-        }
-
-        for (int i = 0; i < tab.Thumbnails.Count; i++)
-        {
-            if (ThumbnailListView.TryGetElement(i) is not UIElement element)
-            {
-                continue;
-            }
-
-            bool shouldDisplace = i >= _thumbnailDropTargetIndex && i != _thumbnailDragSourceIndex;
-            element.Translation = new System.Numerics.Vector3(0, shouldDisplace ? gapSize : 0f, 0);
-        }
-    }
-
-    private void ResetThumbnailDisplacement()
-    {
-        WindowsDocumentTabViewModel? tab = ViewModel.ActiveDocumentTab;
-        if (tab is null)
-        {
-            return;
-        }
-
-        for (int i = 0; i < tab.Thumbnails.Count; i++)
-        {
-            if (ThumbnailListView.TryGetElement(i) is UIElement element)
-            {
-                element.Translation = System.Numerics.Vector3.Zero;
-            }
-        }
-    }
-
-    private void AutoScrollThumbnails(double pointerY)
-    {
-        double viewportHeight = ThumbnailScrollViewer.ViewportHeight;
-        const double edgeZone = 30;
-        const double scrollStep = 8;
-
-        if (pointerY < edgeZone)
-        {
-            ThumbnailScrollViewer.ChangeView(null, ThumbnailScrollViewer.VerticalOffset - scrollStep, null, true);
-        }
-        else if (pointerY > viewportHeight - edgeZone)
-        {
-            ThumbnailScrollViewer.ChangeView(null, ThumbnailScrollViewer.VerticalOffset + scrollStep, null, true);
-        }
-    }
-
-    private void OnThumbnailPointerEntered(object sender, PointerRoutedEventArgs e)
-    {
-        if (sender is not Grid grid)
-        {
-            return;
-        }
-
-        Rectangle? bar = FindChild<Rectangle>(grid, "HoverBar");
-        bar?.Opacity = 0.5;
-    }
-
-    private void OnThumbnailPointerExited(object sender, PointerRoutedEventArgs e)
-    {
-        if (sender is not Grid grid)
-        {
-            return;
-        }
-
-        Rectangle? bar = FindChild<Rectangle>(grid, "HoverBar");
-        bar?.Opacity = 0;
-    }
-
-    private void OnThumbnailExternalDragOver(object sender, DragEventArgs e)
-    {
-        if (!ViewModel.CanAcceptThumbnailDrop)
-        {
-            e.AcceptedOperation = DataPackageOperation.None;
-            HideThumbnailDropIndicator();
-            return;
-        }
-
-        if (e.DataView.Contains(StandardDataFormats.StorageItems))
-        {
-            e.AcceptedOperation = DataPackageOperation.Copy;
-            e.DragUIOverride.Caption = ViewModel.Labels.Insert;
-            e.DragUIOverride.IsGlyphVisible = true;
-            UpdateThumbnailExternalDropIndicator(e.GetPosition(ThumbnailDragSurface));
-        }
-        else
-        {
-            e.AcceptedOperation = DataPackageOperation.None;
-            HideThumbnailDropIndicator();
-        }
-    }
-
-    private void OnThumbnailExternalDragLeave(object sender, DragEventArgs e)
-    {
-        HideThumbnailDropIndicator();
-    }
-
-    private async void OnThumbnailExternalDrop(object sender, DragEventArgs e)
-    {
-        if (!ViewModel.CanAcceptThumbnailDrop ||
-            !e.DataView.Contains(StandardDataFormats.StorageItems))
-        {
-            HideThumbnailDropIndicator();
-            return;
-        }
-
-        int insertionIndex = ResolveThumbnailDropIndex(e.GetPosition(ThumbnailDragSurface));
-        HideThumbnailDropIndicator();
-
-        IReadOnlyList<IStorageItem>? items = await e.DataView.GetStorageItemsAsync();
-        var filePaths = items
-            .OfType<StorageFile>()
-            .Select(file => file.Path)
-            .Where(path => !string.IsNullOrWhiteSpace(path))
-            .ToList();
-
-        if (filePaths.Count == 0)
-        {
-            return;
-        }
-
-        await ViewModel.HandleThumbnailFilesDroppedAsync(filePaths, insertionIndex);
-    }
-
-    private void UpdateThumbnailExternalDropIndicator(Point position)
-    {
-        int insertionIndex = ResolveThumbnailDropIndex(position);
-        double indicatorY = ResolveThumbnailDropIndicatorY(insertionIndex);
-        ThumbnailDropIndicator.Margin = new Thickness(8, indicatorY, 8, 0);
-        ThumbnailDropIndicator.Visibility = Visibility.Visible;
-    }
-
-    private void HideThumbnailDropIndicator()
-    {
-        ThumbnailDropIndicator.Visibility = Visibility.Collapsed;
-    }
-
-    private int ResolveThumbnailDropIndex(Point position)
-    {
-        if (ViewModel.ActiveDocumentTab is null)
-        {
-            return 0;
-        }
-
-        WindowsDocumentTabViewModel? tab = ViewModel.ActiveDocumentTab;
-        for (int i = 0; i < tab.Thumbnails.Count; i++)
-        {
-            if (GetThumbnailItemBounds(i) is not { } bounds)
-            {
-                continue;
-            }
-
-            if (position.Y < bounds.Y + (bounds.Height / 2))
-            {
-                return Math.Clamp(i, 0, tab.Thumbnails.Count);
-            }
-        }
-
-        double adjustedY = position.Y + ThumbnailScrollViewer.VerticalOffset;
-        int estimatedIndex = (int)Math.Round(adjustedY / ThumbnailItemHeight);
-        return Math.Clamp(estimatedIndex, 0, tab.Thumbnails.Count);
-    }
-
-    private double ResolveThumbnailDropIndicatorY(int insertionIndex)
-    {
-        if (ViewModel.ActiveDocumentTab is not { } tab)
-        {
-            return Math.Max(0, insertionIndex * ThumbnailItemHeight - ThumbnailScrollViewer.VerticalOffset);
-        }
-
-        if (insertionIndex <= 0 &&
-            GetThumbnailItemBounds(0) is { } firstBounds)
-        {
-            return Math.Max(0, firstBounds.Y);
-        }
-
-        if (insertionIndex >= tab.Thumbnails.Count &&
-            GetThumbnailItemBounds(tab.Thumbnails.Count - 1) is { } lastBounds)
-        {
-            return Math.Max(0, lastBounds.Y + lastBounds.Height);
-        }
-
-        if (GetThumbnailItemBounds(insertionIndex) is { } targetBounds)
-        {
-            return Math.Max(0, targetBounds.Y);
-        }
-
-        return Math.Max(0, insertionIndex * ThumbnailItemHeight - ThumbnailScrollViewer.VerticalOffset);
-    }
-
-    private Rect? GetThumbnailItemBounds(int index)
-    {
-        if (index < 0 ||
-            ViewModel.ActiveDocumentTab is not { } tab ||
-            index >= tab.Thumbnails.Count)
-        {
-            return null;
-        }
-
-        if (ThumbnailListView.TryGetElement(index) is not FrameworkElement element)
-        {
-            return null;
-        }
-
-        Point topLeft = element.TransformToVisual(ThumbnailDragSurface).TransformPoint(new Point(0, 0));
-        return new Rect(topLeft.X, topLeft.Y, element.ActualWidth, element.ActualHeight);
-    }
-
-    private static T? FindChild<T>(DependencyObject parent, string name) where T : FrameworkElement
-    {
-        int count = VisualTreeHelper.GetChildrenCount(parent);
-        for (int i = 0; i < count; i++)
-        {
-            DependencyObject? child = VisualTreeHelper.GetChild(parent, i);
-            if (child is T element && element.Name == name)
-            {
-                return element;
-            }
-
-            T? result = FindChild<T>(child, name);
-            if (result is not null)
-            {
-                return result;
-            }
-        }
-
-        return null;
-    }
-
-    private void OnAnnotationListItemTapped(object sender, TappedRoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { DataContext: WindowsAnnotationOverlayViewModel overlay })
-        {
-            ViewModel.SelectedAnnotationId = overlay.Id;
-        }
-    }
-
-    private void OnAnnotationToolClicked(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { DataContext: WindowsAnnotationToolItem tool } &&
-            ViewModel.SelectAnnotationToolCommand.CanExecute(tool.Tool))
-        {
-            ViewModel.SelectAnnotationToolCommand.Execute(tool.Tool);
-        }
-    }
-
-    private void OnAnnotationColorClicked(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { DataContext: WindowsAnnotationColorItem color } &&
-            ViewModel.SelectAnnotationColorCommand.CanExecute(color))
-        {
-            ViewModel.SelectAnnotationColorCommand.Execute(color);
-        }
-    }
-
-    private void OnAnnotationFillColorClicked(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { DataContext: WindowsAnnotationColorItem color })
-        {
-            ViewModel.SelectAnnotationFillColor(color);
-        }
-    }
-
-    private void OnAnnotationTextTransparentBackgroundClicked(object sender, RoutedEventArgs e)
-    {
-        ViewModel.AnnotationFillEnabled = false;
-    }
-
-    private void OnAnnotationBorderColorClicked(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { DataContext: WindowsAnnotationColorItem color })
-        {
-            ViewModel.SelectAnnotationBorderColor(color);
-        }
-    }
-
-    private void OnSignatureAssetClicked(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { DataContext: SignatureAsset asset } &&
-            ViewModel.SelectSignatureAssetCommand.CanExecute(asset.Id))
-        {
-            ViewModel.SelectSignatureAssetCommand.Execute(asset.Id);
-        }
-    }
-
-    private void OnDeleteSignatureAssetClicked(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { DataContext: SignatureAsset asset } &&
-            ViewModel.DeleteSelectedSignatureAssetCommand.CanExecute(asset.Id))
-        {
-            ViewModel.DeleteSelectedSignatureAssetCommand.Execute(asset.Id);
-        }
-    }
-
-    private void OnAnnotationTextDraftKeyDown(object sender, KeyRoutedEventArgs e)
-    {
-        if (e.Key is VirtualKey.Enter)
-        {
-            CoreVirtualKeyStates shiftState = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift);
-            if (!shiftState.HasFlag(CoreVirtualKeyStates.Down))
-            {
-                DocumentPageLayer.Focus(FocusState.Programmatic);
-                e.Handled = true;
-            }
-        }
-    }
-
     private void OnCommentCardDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
-        if (sender is FrameworkElement { DataContext: WindowsCommentOverlayViewModel comment })
+        if (BeginCommentEditFromElement(sender))
         {
-            ViewModel.BeginCommentEdit(comment);
             e.Handled = true;
         }
+    }
+
+    private void OnCommentCardKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key is not VirtualKey.Enter and not VirtualKey.F2 ||
+            !BeginCommentEditFromElement(sender))
+        {
+            return;
+        }
+
+        e.Handled = true;
+    }
+
+    private bool BeginCommentEditFromElement(object sender)
+    {
+        if (sender is not FrameworkElement { DataContext: WindowsCommentOverlayViewModel comment })
+        {
+            return false;
+        }
+
+        ViewModel.BeginCommentEdit(comment);
+        return true;
     }
 
     private void OnCommentEditLostFocus(object sender, RoutedEventArgs e)
@@ -1413,90 +871,9 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void OnDeleteAnnotationTapped(object sender, TappedRoutedEventArgs e)
+    private void OnAnnotationTextDraftSubmitted(object sender, EventArgs e)
     {
-        Guid annotationId = sender is FrameworkElement { DataContext: WindowsAnnotationOverlayViewModel overlay }
-            ? overlay.Id
-            : sender is FrameworkElement { DataContext: WindowsCommentOverlayViewModel comment }
-                ? comment.Id
-                : Guid.Empty;
-
-        if (annotationId == Guid.Empty ||
-            !ViewModel.DeleteAnnotationByIdCommand.CanExecute(annotationId))
-        {
-            return;
-        }
-
-        ViewModel.DeleteAnnotationByIdCommand.Execute(annotationId);
-        e.Handled = true;
-    }
-
-    private void OnDeleteSelectedAnnotationButtonClicked(object sender, RoutedEventArgs e)
-    {
-        ViewModel.DeleteSelectedAnnotation();
-    }
-
-    private void OnAnnotationMenuEditClicked(object sender, RoutedEventArgs e)
-    {
-        if (ResolveAnnotationIdFromMenuContext(sender) is { } id)
-        {
-            ViewModel.BeginEditAnnotationById(id);
-        }
-    }
-
-    private void OnAnnotationMenuHideClicked(object sender, RoutedEventArgs e)
-    {
-        if (ResolveAnnotationIdFromMenuContext(sender) is { } id)
-        {
-            ViewModel.ToggleAnnotationVisibility(id);
-        }
-    }
-
-    private void OnAnnotationMenuLockClicked(object sender, RoutedEventArgs e)
-    {
-        if (ResolveAnnotationIdFromMenuContext(sender) is { } id)
-        {
-            ViewModel.ToggleAnnotationLock(id);
-        }
-    }
-
-    private void OnAnnotationMenuDeleteClicked(object sender, RoutedEventArgs e)
-    {
-        if (ResolveAnnotationIdFromMenuContext(sender) is { } id &&
-            ViewModel.DeleteAnnotationByIdCommand.CanExecute(id))
-        {
-            ViewModel.DeleteAnnotationByIdCommand.Execute(id);
-        }
-    }
-
-    private static Guid? ResolveAnnotationIdFromMenuContext(object sender)
-    {
-        if (sender is FrameworkElement { Tag: Guid tagId })
-        {
-            return tagId;
-        }
-
-        if (sender is not FrameworkElement element)
-        {
-            return null;
-        }
-
-        FrameworkElement? parent = element;
-        while (parent is not null)
-        {
-            switch (parent.DataContext)
-            {
-                case WindowsAnnotationOverlayViewModel overlay:
-                    return overlay.Id;
-                case WindowsCommentOverlayViewModel comment:
-                    return comment.Id;
-                default:
-                    parent = VisualTreeHelper.GetParent(parent) as FrameworkElement;
-                    break;
-            }
-        }
-
-        return null;
+        DocumentPageLayer.Focus(FocusState.Programmatic);
     }
 
     private static bool IsDescendantOf(DependencyObject child, DependencyObject parent)
@@ -1542,7 +919,7 @@ public sealed partial class MainWindow : Window
             object? focused = FocusManager.GetFocusedElement(Root.XamlRoot);
             if (focused is DependencyObject dependencyObject &&
                 (IsDescendantOf(dependencyObject, TextAnnotationToolbar) ||
-                 IsDescendantOf(dependencyObject, AnnotationsPanel)))
+                 IsDescendantOf(dependencyObject, AnnotationsPanelControl)))
             {
                 return;
             }
@@ -1587,68 +964,6 @@ public sealed partial class MainWindow : Window
             InlineTextEditorBox.Focus(FocusState.Programmatic);
             InlineTextEditorBox.SelectAll();
         });
-    }
-
-    private void OnSignaturePadPointerPressed(object sender, PointerRoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement layer ||
-            sender is not UIElement element)
-        {
-            return;
-        }
-
-        Point point = e.GetCurrentPoint(layer).Position;
-        _isCapturingSignaturePad = true;
-        ViewModel.BeginSignatureCapture(point.X, point.Y, layer.ActualWidth, layer.ActualHeight);
-        element.CapturePointer(e.Pointer);
-        e.Handled = true;
-    }
-
-    private void OnSignaturePadPointerMoved(object sender, PointerRoutedEventArgs e)
-    {
-        if (!_isCapturingSignaturePad ||
-            sender is not FrameworkElement layer)
-        {
-            return;
-        }
-
-        Point point = e.GetCurrentPoint(layer).Position;
-        ViewModel.UpdateSignatureCapture(point.X, point.Y, layer.ActualWidth, layer.ActualHeight);
-        e.Handled = true;
-    }
-
-    private void OnSignaturePadPointerReleased(object sender, PointerRoutedEventArgs e)
-    {
-        if (!_isCapturingSignaturePad)
-        {
-            return;
-        }
-
-        if (sender is UIElement element)
-        {
-            element.ReleasePointerCapture(e.Pointer);
-        }
-
-        ViewModel.CompleteSignatureCapture();
-        _isCapturingSignaturePad = false;
-        e.Handled = true;
-    }
-
-    private void OnSignaturePadPointerCanceled(object sender, PointerRoutedEventArgs e)
-    {
-        if (!_isCapturingSignaturePad)
-        {
-            return;
-        }
-
-        if (sender is UIElement element)
-        {
-            element.ReleasePointerCapture(e.Pointer);
-        }
-
-        ViewModel.CompleteSignatureCapture();
-        _isCapturingSignaturePad = false;
-        e.Handled = true;
     }
 
     private void OnDocumentLayerPointerPressed(object sender, PointerRoutedEventArgs e)

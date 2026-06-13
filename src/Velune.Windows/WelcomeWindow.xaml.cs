@@ -5,7 +5,6 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Shapes;
 using Microsoft.Win32;
-using Velune.Application.DTOs;
 using Velune.Windows.Services;
 using Velune.Windows.ViewModels;
 using Windows.ApplicationModel.DataTransfer;
@@ -24,6 +23,8 @@ public sealed partial class WelcomeWindow
     private readonly WindowsWindowContext _windowContext;
     private readonly WindowsWindowCoordinator _windowCoordinator;
     private readonly IWindowsFileDialogService _fileDialogService;
+
+    public WindowsMainViewModel ViewModel => _viewModel;
 
     /// <summary>
     /// Initializes the welcome window with its dependencies.
@@ -254,7 +255,7 @@ public sealed partial class WelcomeWindow
 
     private async void OnRecentFileItemClick(object sender, ItemClickEventArgs e)
     {
-        if (e.ClickedItem is not RecentFileItem item ||
+        if (e.ClickedItem is not WindowsRecentFileItem item ||
             string.IsNullOrWhiteSpace(item.FilePath))
         {
             return;

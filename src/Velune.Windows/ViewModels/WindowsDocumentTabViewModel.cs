@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 using Velune.Application.Annotations;
 using Velune.Application.DTOs;
@@ -8,23 +9,31 @@ using Velune.Domain.Annotations;
 using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
 using Velune.Windows.Services;
+using Windows.Foundation;
 
 namespace Velune.Windows.ViewModels;
+
+/// <summary>
+/// UI-neutral visual state for the document tab chrome.
+/// </summary>
+public enum WindowsDocumentTabChromeState
+{
+    Resting,
+    PointerOver,
+    Active
+}
 
 /// <summary>
 /// View model representing a single open document tab with its page state, annotations, and search context.
 /// </summary>
 public sealed partial class WindowsDocumentTabViewModel : ObservableObject
 {
-    private const string White = "#00000000";
-
     private readonly IWindowsTextCatalog _textCatalog;
     private readonly Dictionary<int, Rotation> _pendingPageRotations = [];
     private readonly Dictionary<Guid, double> _originalRotationAngles = [];
     private readonly HashSet<Guid> _hiddenAnnotations = [];
     private readonly HashSet<Guid> _lockedAnnotations = [];
     private IReadOnlyDictionary<string, SignatureAsset> _signatureAssets = new Dictionary<string, SignatureAsset>(StringComparer.Ordinal);
-    private bool _isLightTheme;
     private bool _isPointerOver;
     private int _selectedSearchResultIndex = -1;
 
@@ -63,7 +72,12 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
             Thumbnails.Add(new WindowsPageThumbnailViewModel(
                 page,
                 textCatalog.Format("windows.thumbnail.page", page),
-                textCatalog.GetString("windows.thumbnail.loading")));
+                textCatalog.GetString("windows.thumbnail.loading"),
+                textCatalog.GetString("windows.page.rotate_left"),
+                textCatalog.GetString("windows.page.rotate_right"),
+                textCatalog.GetString("windows.page.move_up"),
+                textCatalog.GetString("windows.page.move_down"),
+                textCatalog.GetString("windows.page.delete")));
         }
     }
 
@@ -204,6 +218,18 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
     }
 
     [ObservableProperty]
+    public partial Thickness TextAnnotationToolbarMargin
+    {
+        get; set;
+    } = new(8, 8, 0, 0);
+
+    [ObservableProperty]
+    public partial Size TextAnnotationToolbarSize
+    {
+        get; set;
+    } = new(640, 52);
+
+    [ObservableProperty]
     public partial Guid? EditingCommentId
     {
         get; set;
@@ -279,6 +305,8 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
 
     public string PageText => $"{CurrentPage} / {TotalPages}";
 
+    public string CloseTabLabel => _textCatalog.GetString("tabs.close");
+
     public string CurrentPageAnnotationCountText => CurrentPageAnnotationOverlays.Count.ToString(CultureInfo.CurrentCulture);
 
     public bool HasCurrentPageAnnotations => CurrentPageAnnotationOverlays.Count > 0;
@@ -290,6 +318,14 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
     public double CommentLaneWidth => HasCurrentPageComments ? 280 : 0;
 
     public bool HasInlineTextEditor => InlineTextEditor is not null;
+
+    public DocumentAnnotation? SelectedTextAnnotation
+    {
+        get;
+        private set;
+    }
+
+    public bool HasSelectedTextAnnotation => SelectedTextAnnotation is not null;
 
     public bool HasSearchResults => SearchResults.Count > 0;
 
@@ -384,17 +420,17 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
         set;
     }
 
-    public SolidColorBrush TabBackground
+    public bool IsLightTheme
     {
         get;
         private set;
-    } = CreateBrush(White);
+    }
 
-    public SolidColorBrush TabBorderBrush
+    public WindowsDocumentTabChromeState TabChromeState
     {
         get;
         private set;
-    } = CreateBrush(White);
+    } = WindowsDocumentTabChromeState.Resting;
 
     /// <summary>
     /// Raises property-changed for thumbnail loading status.
@@ -607,7 +643,7 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
             Math.Max(1, CurrentPagePixelWidth),
             Math.Max(1, CurrentPagePixelHeight),
             Rotation);
-        RefreshAnnotationOverlays();
+        RefreshAnnotationOverlays(annotation.Id);
     }
 
     /// <summary>
@@ -653,12 +689,22 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
     {
         CurrentPageAnnotationOverlays.Clear();
         CurrentPageCommentOverlays.Clear();
+        SelectedTextAnnotation = null;
 
         var pageIndex = new PageIndex(Math.Max(0, CurrentPage - 1));
         foreach (DocumentAnnotation? annotation in Annotations.Where(item => item.PageIndex == pageIndex))
         {
             if (InlineTextEditor?.AnnotationId == annotation.Id)
             {
+                if (selectedAnnotationId == annotation.Id && annotation.Kind is DocumentAnnotationKind.Text)
+                {
+                    SelectedTextAnnotation = annotation;
+                    TextAnnotationToolbarMargin = TextAnnotationToolbarPlacement.CalculateMargin(
+                        new Rect(InlineTextEditor.Left, InlineTextEditor.Top, InlineTextEditor.Width, InlineTextEditor.Height),
+                        TextAnnotationToolbarSize,
+                        new Size(CurrentPagePixelWidth, CurrentPagePixelHeight));
+                }
+
                 continue;
             }
 
@@ -674,7 +720,8 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
                         Math.Max(1, CurrentPagePixelHeight),
                         Rotation,
                         ResolveAnnotationLabel(annotation),
-                        _textCatalog.Format("windows.thumbnail.page", annotation.PageIndex.Value + 1)));
+                        _textCatalog.Format("windows.thumbnail.page", annotation.PageIndex.Value + 1),
+                        _textCatalog.GetString("panel.annotations.delete_selected")));
                 }
 
                 continue;
@@ -688,7 +735,9 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
                 ResolveAnnotationLabel(annotation),
                 _textCatalog.Format("windows.thumbnail.page", annotation.PageIndex.Value + 1),
                 ResolveAnnotationGlyph(annotation.Kind),
-                _signatureAssets)
+                _signatureAssets,
+                _textCatalog.GetString("panel.annotations.menu.edit"),
+                _textCatalog.GetString("panel.annotations.menu.delete"))
             {
                 IsSelected = selectedAnnotationId == annotation.Id,
                 IsHidden = isHidden,
@@ -702,13 +751,35 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
             };
 
             CurrentPageAnnotationOverlays.Add(overlay);
+
+            if (selectedAnnotationId == annotation.Id && annotation.Kind is DocumentAnnotationKind.Text)
+            {
+                SelectedTextAnnotation = annotation;
+                TextAnnotationToolbarMargin = TextAnnotationToolbarPlacement.CalculateMargin(
+                    new Rect(overlay.SelectionLeft, overlay.SelectionTop, overlay.SelectionWidth, overlay.SelectionHeight),
+                    TextAnnotationToolbarSize,
+                    new Size(CurrentPagePixelWidth, CurrentPagePixelHeight));
+            }
         }
 
+        OnPropertyChanged(nameof(SelectedTextAnnotation));
+        OnPropertyChanged(nameof(HasSelectedTextAnnotation));
         OnPropertyChanged(nameof(CurrentPageAnnotationCountText));
         OnPropertyChanged(nameof(HasCurrentPageAnnotations));
         OnPropertyChanged(nameof(CurrentPageCommentCountText));
         OnPropertyChanged(nameof(HasCurrentPageComments));
         OnPropertyChanged(nameof(CommentLaneWidth));
+    }
+
+    public void SetTextAnnotationToolbarSize(double width, double height, Guid? selectedAnnotationId)
+    {
+        if (width <= 0 || height <= 0)
+        {
+            return;
+        }
+
+        TextAnnotationToolbarSize = new Size(width, height);
+        RefreshAnnotationOverlays(selectedAnnotationId);
     }
 
     /// <summary>
@@ -892,7 +963,12 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
     /// <param name="isLightTheme">True for light theme, false for dark.</param>
     public void SetTheme(bool isLightTheme)
     {
-        _isLightTheme = isLightTheme;
+        if (IsLightTheme != isLightTheme)
+        {
+            IsLightTheme = isLightTheme;
+            OnPropertyChanged(nameof(IsLightTheme));
+        }
+
         RefreshTabChrome(_isPointerOver);
     }
 
@@ -903,25 +979,19 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
     public void RefreshTabChrome(bool isPointerOver)
     {
         _isPointerOver = isPointerOver;
+        WindowsDocumentTabChromeState nextState = IsActive
+            ? WindowsDocumentTabChromeState.Active
+            : isPointerOver
+                ? WindowsDocumentTabChromeState.PointerOver
+                : WindowsDocumentTabChromeState.Resting;
 
-        if (IsActive)
+        if (TabChromeState == nextState)
         {
-            TabBackground = CreateBrush(_isLightTheme ? "#FFFFFF" : "#2C2C2C");
-            TabBorderBrush = CreateBrush(_isLightTheme ? "#E5E5E5" : "#3D3D3D");
-        }
-        else if (isPointerOver)
-        {
-            TabBackground = CreateBrush(_isLightTheme ? "#F5F5F5" : "#1F1F1F");
-            TabBorderBrush = CreateBrush(_isLightTheme ? "#E5E5E5" : "#333333");
-        }
-        else
-        {
-            TabBackground = CreateBrush(White);
-            TabBorderBrush = CreateBrush(White);
+            return;
         }
 
-        OnPropertyChanged(nameof(TabBackground));
-        OnPropertyChanged(nameof(TabBorderBrush));
+        TabChromeState = nextState;
+        OnPropertyChanged(nameof(TabChromeState));
     }
 
     partial void OnCurrentPageChanged(int value)
@@ -995,7 +1065,7 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
             {
                 DocumentAnnotationKind.Highlight => _textCatalog.GetString("annotation.kind.highlight"),
                 DocumentAnnotationKind.Ink => _textCatalog.GetString("annotation.kind.ink"),
-                DocumentAnnotationKind.Text => _textCatalog.GetString("annotation.kind.text"),
+                DocumentAnnotationKind.Text => _textCatalog.GetString("panel.annotations.text.placeholder"),
                 DocumentAnnotationKind.Rectangle => _textCatalog.GetString("annotation.kind.rectangle"),
                 DocumentAnnotationKind.Note => _textCatalog.GetString("annotation.kind.note"),
                 DocumentAnnotationKind.Stamp => _textCatalog.GetString("annotation.kind.stamp"),
@@ -1240,13 +1310,4 @@ public sealed partial class WindowsDocumentTabViewModel : ObservableObject
         return value?.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
     }
 
-    private static SolidColorBrush CreateBrush(string hex)
-    {
-        string normalized = hex.Trim().TrimStart('#');
-        return new SolidColorBrush(global::Windows.UI.Color.FromArgb(
-            255,
-            Convert.ToByte(normalized[..2], 16),
-            Convert.ToByte(normalized.Substring(2, 2), 16),
-            Convert.ToByte(normalized.Substring(4, 2), 16)));
-    }
 }

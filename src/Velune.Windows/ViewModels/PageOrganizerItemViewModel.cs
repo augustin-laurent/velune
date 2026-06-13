@@ -1,3 +1,4 @@
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Xaml.Media;
 using Velune.Domain.ValueObjects;
@@ -14,11 +15,16 @@ public sealed partial class PageOrganizerItemViewModel : ObservableObject
     /// </summary>
     /// <param name="pageNumber">The 1-based page number.</param>
     /// <param name="rotation">Initial page rotation.</param>
-    public PageOrganizerItemViewModel(int pageNumber, Rotation rotation = Rotation.Deg0)
+    /// <param name="automationNameFormat">Localized page label format.</param>
+    public PageOrganizerItemViewModel(
+        int pageNumber,
+        Rotation rotation = Rotation.Deg0,
+        string automationNameFormat = "Page {0}")
     {
         PageNumber = pageNumber;
         OriginalPageNumber = pageNumber;
         Rotation = rotation;
+        AutomationNameFormat = automationNameFormat;
     }
 
     /// <summary>
@@ -29,7 +35,14 @@ public sealed partial class PageOrganizerItemViewModel : ObservableObject
         get;
     }
 
+    public string AutomationNameFormat
+    {
+        get;
+    }
+
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AutomationId))]
+    [NotifyPropertyChangedFor(nameof(AutomationName))]
     public partial int PageNumber
     {
         get; set;
@@ -65,6 +78,10 @@ public sealed partial class PageOrganizerItemViewModel : ObservableObject
     /// Gets the rotation angle in degrees for binding.
     /// </summary>
     public int RotationAngle => (int)Rotation;
+
+    public string AutomationId => $"PageOrganizerPageItem_{PageNumber}";
+
+    public string AutomationName => string.Format(CultureInfo.CurrentCulture, AutomationNameFormat, PageNumber);
 
     /// <summary>
     /// Gets whether the current rotation results in landscape orientation.

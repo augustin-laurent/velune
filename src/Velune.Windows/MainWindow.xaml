@@ -1,8 +1,11 @@
-<Window
+﻿<Window
     x:Class="Velune.Windows.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:services="using:Velune.Windows.Services">
+    xmlns:controls="using:Velune.Windows.Controls"
+    xmlns:domain="using:Velune.Domain.Annotations"
+    xmlns:services="using:Velune.Windows.Services"
+    xmlns:vm="using:Velune.Windows.ViewModels">
 
   <Window.SystemBackdrop>
     <MicaBackdrop />
@@ -27,6 +30,17 @@
       <KeyboardAccelerator Key="Y"
                            Modifiers="Control"
                            Invoked="OnRedoKeyboardAcceleratorInvoked" />
+      <KeyboardAccelerator Key="B"
+                           Modifiers="Control"
+                           Invoked="OnToggleTextBoldKeyboardAcceleratorInvoked" />
+      <KeyboardAccelerator Key="I"
+                           Modifiers="Control"
+                           Invoked="OnToggleTextItalicKeyboardAcceleratorInvoked" />
+      <KeyboardAccelerator Key="U"
+                           Modifiers="Control"
+                           Invoked="OnToggleTextUnderlineKeyboardAcceleratorInvoked" />
+      <KeyboardAccelerator Key="Escape"
+                           Invoked="OnEscapeKeyboardAcceleratorInvoked" />
       <KeyboardAccelerator Key="Delete"
                            Invoked="OnDeleteAnnotationKeyboardAcceleratorInvoked" />
       <KeyboardAccelerator Key="Right"
@@ -74,208 +88,9 @@
 
     <Grid.Resources>
       <ResourceDictionary>
-        <services:BoolToVisibilityConverter x:Key="BoolToVisibility" />
-        <services:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility" />
-        <services:AnnotationToolBackgroundConverter x:Key="AnnotationToolBackground" />
-        <services:BoolToSelectedToolBackgroundConverter x:Key="BoolToSelectedToolBackground" />
-        <services:SubtractConverter x:Key="SubtractConverter" />
-
-        <Style x:Key="TitleBarIconButtonStyle" TargetType="Button">
-          <Setter Property="Width" Value="42" />
-          <Setter Property="Height" Value="42" />
-          <Setter Property="MinWidth" Value="42" />
-          <Setter Property="Padding" Value="0" />
-          <Setter Property="CornerRadius" Value="4" />
-          <Setter Property="Background" Value="Transparent" />
-          <Setter Property="BorderThickness" Value="0" />
-          <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
-        </Style>
-
-        <Style x:Key="RibbonIconButtonStyle" TargetType="Button">
-          <Setter Property="Width" Value="40" />
-          <Setter Property="Height" Value="40" />
-          <Setter Property="MinWidth" Value="40" />
-          <Setter Property="Padding" Value="0" />
-          <Setter Property="CornerRadius" Value="4" />
-          <Setter Property="Background" Value="Transparent" />
-          <Setter Property="BorderThickness" Value="0" />
-          <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
-        </Style>
-
-        <Style x:Key="RibbonTextButtonStyle" TargetType="Button">
-          <Setter Property="Height" Value="40" />
-          <Setter Property="MinWidth" Value="40" />
-          <Setter Property="Padding" Value="10,0" />
-          <Setter Property="CornerRadius" Value="4" />
-          <Setter Property="Background" Value="Transparent" />
-          <Setter Property="BorderThickness" Value="0" />
-          <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
-        </Style>
-
-        <Style x:Key="TopNavButtonStyle" TargetType="Button">
-          <Setter Property="Height" Value="38" />
-          <Setter Property="Padding" Value="14,0" />
-          <Setter Property="Background" Value="Transparent" />
-          <Setter Property="BorderThickness" Value="0" />
-          <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
-          <Setter Property="FontSize" Value="14" />
-        </Style>
-
-        <Style x:Key="RibbonLabelStyle" TargetType="TextBlock">
-          <Setter Property="Foreground" Value="{ThemeResource TextSecondaryBrush}" />
-          <Setter Property="FontSize" Value="12" />
-          <Setter Property="HorizontalAlignment" Value="Center" />
-          <Setter Property="Margin" Value="0,5,0,0" />
-        </Style>
-
-        <Style x:Key="RibbonSeparatorStyle" TargetType="Rectangle">
-          <Setter Property="Width" Value="1" />
-          <Setter Property="Height" Value="64" />
-          <Setter Property="Fill" Value="{ThemeResource DividerBrush}" />
-          <Setter Property="Opacity" Value="0.55" />
-          <Setter Property="VerticalAlignment" Value="Center" />
-          <Setter Property="HorizontalAlignment" Value="Center" />
-          <Setter Property="Margin" Value="14,0" />
-        </Style>
-
-        <Style x:Key="RibbonPillBorderStyle" TargetType="Border">
-          <Setter Property="Padding" Value="1" />
-          <Setter Property="Background" Value="{ThemeResource InputBrush}" />
-          <Setter Property="BorderBrush" Value="{ThemeResource InputBorderBrush}" />
-          <Setter Property="BorderThickness" Value="1" />
-          <Setter Property="CornerRadius" Value="4" />
-          <Setter Property="VerticalAlignment" Value="Center" />
-        </Style>
-
-        <Style x:Key="RibbonPillButtonStyle" TargetType="Button">
-          <Setter Property="Height" Value="36" />
-          <Setter Property="MinWidth" Value="40" />
-          <Setter Property="Padding" Value="12,0" />
-          <Setter Property="Background" Value="Transparent" />
-          <Setter Property="BorderBrush" Value="Transparent" />
-          <Setter Property="BorderThickness" Value="0" />
-          <Setter Property="CornerRadius" Value="4" />
-          <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
-          <Setter Property="HorizontalContentAlignment" Value="Center" />
-          <Setter Property="VerticalContentAlignment" Value="Center" />
-          <Setter Property="VerticalAlignment" Value="Center" />
-          <Setter Property="UseSystemFocusVisuals" Value="True" />
-          <Setter Property="Template">
-            <Setter.Value>
-              <ControlTemplate TargetType="Button">
-                <Grid x:Name="TemplateRoot"
-                      MinWidth="{TemplateBinding MinWidth}"
-                      Height="{TemplateBinding Height}"
-                      Background="Transparent">
-                  <VisualStateManager.VisualStateGroups>
-                    <VisualStateGroup x:Name="CommonStates">
-                      <VisualState x:Name="Normal" />
-
-                      <VisualState x:Name="PointerOver">
-                        <Storyboard>
-                          <DoubleAnimation Storyboard.TargetName="HoverLayer"
-                                           Storyboard.TargetProperty="Opacity"
-                                           To="1"
-                                           Duration="0:0:0.08" />
-                        </Storyboard>
-                      </VisualState>
-
-                      <VisualState x:Name="Pressed">
-                        <Storyboard>
-                          <DoubleAnimation Storyboard.TargetName="PressedLayer"
-                                           Storyboard.TargetProperty="Opacity"
-                                           To="1"
-                                           Duration="0:0:0.03" />
-                        </Storyboard>
-                      </VisualState>
-
-                      <VisualState x:Name="Disabled">
-                        <Storyboard>
-                          <DoubleAnimation Storyboard.TargetName="DisabledLayer"
-                                           Storyboard.TargetProperty="Opacity"
-                                           To="1"
-                                           Duration="0:0:0" />
-                          <DoubleAnimation Storyboard.TargetName="ContentPresenter"
-                                           Storyboard.TargetProperty="Opacity"
-                                           To="0.45"
-                                           Duration="0:0:0" />
-                        </Storyboard>
-                      </VisualState>
-                    </VisualStateGroup>
-                  </VisualStateManager.VisualStateGroups>
-
-                  <Border x:Name="BaseLayer"
-                          Background="{TemplateBinding Background}"
-                          BorderBrush="{TemplateBinding BorderBrush}"
-                          BorderThickness="{TemplateBinding BorderThickness}"
-                          CornerRadius="{TemplateBinding CornerRadius}" />
-
-                  <Border x:Name="HoverLayer"
-                          Background="{ThemeResource ActiveToolBrush}"
-                          CornerRadius="{TemplateBinding CornerRadius}"
-                          Opacity="0" />
-
-                  <Border x:Name="PressedLayer"
-                          Background="{ThemeResource ActiveToolBorderBrush}"
-                          CornerRadius="{TemplateBinding CornerRadius}"
-                          Opacity="0" />
-
-                  <Border x:Name="DisabledLayer"
-                          Background="{ThemeResource DisabledLayerBrush}"
-                          CornerRadius="{TemplateBinding CornerRadius}"
-                          Opacity="0" />
-
-                  <ContentPresenter x:Name="ContentPresenter"
-                                    Content="{TemplateBinding Content}"
-                                    ContentTemplate="{TemplateBinding ContentTemplate}"
-                                    Padding="{TemplateBinding Padding}"
-                                    HorizontalAlignment="Stretch"
-                                    VerticalAlignment="Stretch"
-                                    HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                    VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
-                </Grid>
-              </ControlTemplate>
-            </Setter.Value>
-          </Setter>
-        </Style>
-
-        <Style x:Key="RibbonPillIconButtonStyle" TargetType="Button" BasedOn="{StaticResource RibbonPillButtonStyle}">
-          <Setter Property="Width" Value="38" />
-          <Setter Property="MinWidth" Value="38" />
-          <Setter Property="Padding" Value="0" />
-        </Style>
-
-        <Style x:Key="RibbonPillDividerStyle" TargetType="Rectangle">
-          <Setter Property="Width" Value="1" />
-          <Setter Property="Height" Value="22" />
-          <Setter Property="Fill" Value="{ThemeResource DividerBrush}" />
-          <Setter Property="Opacity" Value="0.5" />
-          <Setter Property="VerticalAlignment" Value="Center" />
-        </Style>
-
-        <Style x:Key="PanelTitleStyle" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">
-          <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
-        </Style>
-
-        <Style x:Key="PanelLabelStyle" TargetType="TextBlock">
-          <Setter Property="Foreground" Value="{ThemeResource PanelLabelBrush}" />
-          <Setter Property="FontSize" Value="12" />
-          <Setter Property="FontWeight" Value="SemiBold" />
-        </Style>
-
-        <Style x:Key="AnnotationToolStyle" TargetType="Button">
-          <Setter Property="Width" Value="78" />
-          <Setter Property="Height" Value="58" />
-          <Setter Property="Margin" Value="0" />
-          <Setter Property="CornerRadius" Value="4" />
-          <Setter Property="Background" Value="{ThemeResource CardBrush}" />
-          <Setter Property="BorderBrush" Value="{ThemeResource ButtonBorderBrush}" />
-          <Setter Property="BorderThickness" Value="1" />
-          <Setter Property="Foreground" Value="{ThemeResource TextPrimaryBrush}" />
-          <Setter Property="HorizontalAlignment" Value="Center" />
-          <Setter Property="VerticalAlignment" Value="Center" />
-        </Style>
-
+        <ResourceDictionary.MergedDictionaries>
+          <ResourceDictionary Source="Resources/MainWindowStyles.xaml" />
+        </ResourceDictionary.MergedDictionaries>
       </ResourceDictionary>
     </Grid.Resources>
 
@@ -361,86 +176,7 @@
                   HorizontalAlignment="Left"
                   VerticalAlignment="Bottom"
                   Spacing="4">
-        <ItemsControl ItemsSource="{Binding DocumentTabs}"
-                      Height="46"
-                      VerticalAlignment="Bottom">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <ItemsStackPanel Orientation="Horizontal" />
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate>
-              <Border Width="250"
-                      Height="36"
-                      Margin="2,0"
-                      Background="{Binding TabBackground, Mode=OneWay}"
-                      BorderBrush="{Binding TabBorderBrush, Mode=OneWay}"
-                      BorderThickness="1"
-                      CornerRadius="6"
-                      PointerEntered="OnTabPointerEntered"
-                      PointerExited="OnTabPointerExited">
-                <Grid>
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                  </Grid.ColumnDefinitions>
-
-                  <FontIcon Glyph="&#xE8A5;"
-                            FontFamily="Segoe Fluent Icons"
-                            Foreground="{ThemeResource TextSecondaryBrush}"
-                            FontSize="14"
-                            Margin="12,0,8,0"
-                            VerticalAlignment="Center" />
-
-                  <TextBlock Grid.Column="1"
-                             Text="{Binding Title}"
-                             Foreground="{ThemeResource TextPrimaryBrush}"
-                             FontSize="12"
-                             FontWeight="SemiBold"
-                             TextTrimming="CharacterEllipsis"
-                             VerticalAlignment="Center" />
-
-                  <Button Grid.Column="0"
-                          Grid.ColumnSpan="2"
-                          MinWidth="0"
-                          Padding="0"
-                          Background="Transparent"
-                          BorderThickness="0"
-                          HorizontalAlignment="Stretch"
-                          VerticalAlignment="Stretch"
-                          Click="OnTabClicked" />
-
-                  <Button Grid.Column="2"
-                          Width="30"
-                          Height="30"
-                          Margin="4,0,8,0"
-                          Padding="0"
-                          Background="Transparent"
-                          BorderThickness="0"
-                          Click="OnCloseTabClicked"
-                          ToolTipService.ToolTip="{Binding DataContext.Labels.CloseTab, ElementName=Root}"
-                          AutomationProperties.Name="{Binding DataContext.Labels.CloseTab, ElementName=Root}"
-                          VerticalAlignment="Center">
-                    <FontIcon Glyph="&#xE8BB;"
-                              FontFamily="Segoe Fluent Icons"
-                              FontSize="10" />
-                  </Button>
-                </Grid>
-              </Border>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-
-        <Button Style="{StaticResource TitleBarIconButtonStyle}"
-                Command="{Binding OpenCommand}"
-                ToolTipService.ToolTip="{Binding Labels.Open}"
-                AutomationProperties.Name="{Binding Labels.Open}">
-          <FontIcon Glyph="&#xE710;"
-                    FontFamily="Segoe Fluent Icons"
-                    FontSize="16" />
-        </Button>
+        <controls:DocumentTabsBar ViewModel="{x:Bind ViewModel, Mode=OneWay}" />
       </StackPanel>
     </Grid>
 
@@ -452,24 +188,26 @@
                   Padding="18,0,0,0"
                   Spacing="4"
                   VerticalAlignment="Center">
-        <Button Content="{Binding Labels.File}"
+        <Button Content="{x:Bind ViewModel.Labels.File, Mode=OneWay}"
+                AutomationProperties.AutomationId="TopNavFileButton"
                 Style="{StaticResource TopNavButtonStyle}">
           <Button.Flyout>
             <MenuFlyout>
-              <MenuFlyoutItem Text="{Binding Labels.Open}" Command="{Binding OpenCommand}" />
-              <MenuFlyoutItem Text="{Binding Labels.Save}" Command="{Binding SaveDocumentCommand}" />
-              <MenuFlyoutItem Text="{Binding Labels.SaveAs}" Command="{Binding SaveDocumentAsCommand}" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="FileOpenMenuItem" Text="{x:Bind ViewModel.Labels.Open, Mode=OneWay}" Command="{x:Bind ViewModel.OpenCommand, Mode=OneWay}" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="FileSaveMenuItem" Text="{x:Bind ViewModel.Labels.Save, Mode=OneWay}" Command="{x:Bind ViewModel.SaveDocumentCommand, Mode=OneWay}" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="FileSaveAsMenuItem" Text="{x:Bind ViewModel.Labels.SaveAs, Mode=OneWay}" Command="{x:Bind ViewModel.SaveDocumentAsCommand, Mode=OneWay}" />
               <MenuFlyoutSeparator />
-              <MenuFlyoutItem Text="{Binding Labels.Merge}" Command="{Binding MergeCommand}" />
-              <MenuFlyoutItem Text="{Binding Labels.Print}" Command="{Binding PrintCommand}" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="FileMergeMenuItem" Text="{x:Bind ViewModel.Labels.Merge, Mode=OneWay}" Command="{x:Bind ViewModel.MergeCommand, Mode=OneWay}" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="FilePrintMenuItem" Text="{x:Bind ViewModel.Labels.Print, Mode=OneWay}" Command="{x:Bind ViewModel.PrintCommand, Mode=OneWay}" />
               <MenuFlyoutSeparator />
-              <MenuFlyoutItem Text="{Binding Labels.CloseTab}" Click="OnCloseActiveTabMenuClicked" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="FileCloseTabMenuItem" Text="{x:Bind ViewModel.Labels.CloseTab, Mode=OneWay}" Click="OnCloseActiveTabMenuClicked" />
             </MenuFlyout>
           </Button.Flyout>
         </Button>
 
         <Grid>
-          <Button Content="{Binding Labels.RibbonHome}"
+          <Button Content="{x:Bind ViewModel.Labels.RibbonHome, Mode=OneWay}"
+                  AutomationProperties.AutomationId="TopNavHomeButton"
                   Style="{StaticResource TopNavButtonStyle}"
                   FontWeight="SemiBold" />
           <Rectangle Height="3"
@@ -485,27 +223,29 @@
           </Rectangle>
         </Grid>
 
-        <Button Content="{Binding Labels.View}"
+        <Button Content="{x:Bind ViewModel.Labels.View, Mode=OneWay}"
+                AutomationProperties.AutomationId="TopNavViewButton"
                 Style="{StaticResource TopNavButtonStyle}">
           <Button.Flyout>
             <MenuFlyout>
-              <MenuFlyoutItem Text="{Binding Labels.Pages}" Command="{Binding TogglePagesPanelCommand}" />
-              <MenuFlyoutItem Text="{Binding Labels.Info}" Command="{Binding ToggleInfoPanelCommand}" />
-              <MenuFlyoutItem Text="{Binding Labels.Search}" Command="{Binding OpenSearchCommand}" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="ViewPagesMenuItem" Text="{x:Bind ViewModel.Labels.Pages, Mode=OneWay}" Command="{x:Bind ViewModel.TogglePagesPanelCommand, Mode=OneWay}" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="ViewInfoMenuItem" Text="{x:Bind ViewModel.Labels.Info, Mode=OneWay}" Command="{x:Bind ViewModel.ToggleInfoPanelCommand, Mode=OneWay}" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="ViewSearchMenuItem" Text="{x:Bind ViewModel.Labels.Search, Mode=OneWay}" Command="{x:Bind ViewModel.OpenSearchCommand, Mode=OneWay}" />
               <MenuFlyoutSeparator />
-              <MenuFlyoutItem Text="{Binding Labels.PageOrganizer}" Click="OnOpenPageOrganizerClicked" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="ViewPageOrganizerMenuItem" Text="{x:Bind ViewModel.Labels.PageOrganizer, Mode=OneWay}" Click="OnOpenPageOrganizerClicked" />
               <MenuFlyoutSeparator />
-              <MenuFlyoutItem Text="{Binding Labels.ZoomFit}" Command="{Binding FitPageCommand}" />
-              <MenuFlyoutItem Text="{Binding Labels.ZoomActual}" Command="{Binding ActualSizeCommand}" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="ViewZoomFitMenuItem" Text="{x:Bind ViewModel.Labels.ZoomFit, Mode=OneWay}" Command="{x:Bind ViewModel.FitPageCommand, Mode=OneWay}" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="ViewZoomActualMenuItem" Text="{x:Bind ViewModel.Labels.ZoomActual, Mode=OneWay}" Command="{x:Bind ViewModel.ActualSizeCommand, Mode=OneWay}" />
             </MenuFlyout>
           </Button.Flyout>
         </Button>
 
-        <Button Content="{Binding Labels.MenuSelection}"
+        <Button Content="{x:Bind ViewModel.Labels.MenuSelection, Mode=OneWay}"
+                AutomationProperties.AutomationId="TopNavSelectionButton"
                 Style="{StaticResource TopNavButtonStyle}">
           <Button.Flyout>
             <MenuFlyout>
-              <MenuFlyoutItem Text="{Binding Labels.PageRotateLeft}" Click="OnRibbonRotateLeftClick">
+              <MenuFlyoutItem AutomationProperties.AutomationId="SelectionRotateLeftMenuItem" Text="{x:Bind ViewModel.Labels.PageRotateLeft, Mode=OneWay}" Click="OnRibbonRotateLeftClick">
                 <MenuFlyoutItem.Icon>
                   <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe Fluent Icons" RenderTransformOrigin="0.5,0.5">
                     <FontIcon.RenderTransform>
@@ -514,24 +254,24 @@
                   </FontIcon>
                 </MenuFlyoutItem.Icon>
               </MenuFlyoutItem>
-              <MenuFlyoutItem Text="{Binding Labels.PageRotateRight}" Click="OnRibbonRotateRightClick">
+              <MenuFlyoutItem AutomationProperties.AutomationId="SelectionRotateRightMenuItem" Text="{x:Bind ViewModel.Labels.PageRotateRight, Mode=OneWay}" Click="OnRibbonRotateRightClick">
                 <MenuFlyoutItem.Icon>
                   <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe Fluent Icons" />
                 </MenuFlyoutItem.Icon>
               </MenuFlyoutItem>
               <MenuFlyoutSeparator />
-              <MenuFlyoutItem Text="{Binding Labels.PageMoveUp}" Click="OnThumbnailMoveUpClick">
+              <MenuFlyoutItem AutomationProperties.AutomationId="SelectionMoveUpMenuItem" Text="{x:Bind ViewModel.Labels.PageMoveUp, Mode=OneWay}" Click="OnThumbnailMoveUpClick">
                 <MenuFlyoutItem.Icon>
                   <FontIcon Glyph="&#xE74A;" FontFamily="Segoe Fluent Icons" />
                 </MenuFlyoutItem.Icon>
               </MenuFlyoutItem>
-              <MenuFlyoutItem Text="{Binding Labels.PageMoveDown}" Click="OnThumbnailMoveDownClick">
+              <MenuFlyoutItem AutomationProperties.AutomationId="SelectionMoveDownMenuItem" Text="{x:Bind ViewModel.Labels.PageMoveDown, Mode=OneWay}" Click="OnThumbnailMoveDownClick">
                 <MenuFlyoutItem.Icon>
                   <FontIcon Glyph="&#xE74B;" FontFamily="Segoe Fluent Icons" />
                 </MenuFlyoutItem.Icon>
               </MenuFlyoutItem>
               <MenuFlyoutSeparator />
-              <MenuFlyoutItem Text="{Binding Labels.PageDelete}" Click="OnThumbnailDeleteClick">
+              <MenuFlyoutItem AutomationProperties.AutomationId="SelectionDeleteMenuItem" Text="{x:Bind ViewModel.Labels.PageDelete, Mode=OneWay}" Click="OnThumbnailDeleteClick">
                 <MenuFlyoutItem.Icon>
                   <FontIcon Glyph="&#xE107;" FontFamily="Segoe Fluent Icons" />
                 </MenuFlyoutItem.Icon>
@@ -540,30 +280,32 @@
           </Button.Flyout>
         </Button>
 
-        <Button Content="{Binding Labels.Annotate}"
+        <Button Content="{x:Bind ViewModel.Labels.Annotate, Mode=OneWay}"
+                AutomationProperties.AutomationId="TopNavAnnotateButton"
                 Style="{StaticResource TopNavButtonStyle}">
           <Button.Flyout>
             <MenuFlyout>
-              <MenuFlyoutItem Text="{Binding Labels.Select}" Command="{Binding SelectAnnotationToolCommand}" CommandParameter="Select" />
-              <MenuFlyoutItem Text="{Binding Labels.Highlight}" Command="{Binding SelectAnnotationToolCommand}" CommandParameter="Highlight" />
-              <MenuFlyoutItem Text="{Binding Labels.Ink}" Command="{Binding SelectAnnotationToolCommand}" CommandParameter="Ink" />
-              <MenuFlyoutItem Text="{Binding Labels.Text}" Command="{Binding SelectAnnotationToolCommand}" CommandParameter="Text" />
-              <MenuFlyoutItem Text="{Binding Labels.Note}" Command="{Binding SelectAnnotationToolCommand}" CommandParameter="Note" />
-              <MenuFlyoutItem Text="{Binding Labels.Rectangle}" Command="{Binding SelectAnnotationToolCommand}" CommandParameter="Rectangle" />
-              <MenuFlyoutItem Text="{Binding Labels.Signature}" Command="{Binding SelectAnnotationToolCommand}" CommandParameter="Signature" />
-              <MenuFlyoutItem Text="{Binding Labels.Stamp}" Command="{Binding SelectAnnotationToolCommand}" CommandParameter="Stamp" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="AnnotateSelectMenuItem" Text="{x:Bind ViewModel.Labels.Select, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Select" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="AnnotateHighlightMenuItem" Text="{x:Bind ViewModel.Labels.Highlight, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Highlight" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="AnnotateInkMenuItem" Text="{x:Bind ViewModel.Labels.Ink, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Ink" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="AnnotateTextMenuItem" Text="{x:Bind ViewModel.Labels.Text, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Text" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="AnnotateNoteMenuItem" Text="{x:Bind ViewModel.Labels.Note, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Note" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="AnnotateRectangleMenuItem" Text="{x:Bind ViewModel.Labels.Rectangle, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Rectangle" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="AnnotateSignatureMenuItem" Text="{x:Bind ViewModel.Labels.Signature, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Signature" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="AnnotateStampMenuItem" Text="{x:Bind ViewModel.Labels.Stamp, Mode=OneWay}" Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}" CommandParameter="Stamp" />
               <MenuFlyoutSeparator />
-              <MenuFlyoutItem Text="{Binding Labels.Annotations}" Command="{Binding ToggleAnnotationsPanelCommand}" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="AnnotatePanelMenuItem" Text="{x:Bind ViewModel.Labels.Annotations, Mode=OneWay}" Command="{x:Bind ViewModel.ToggleAnnotationsPanelCommand, Mode=OneWay}" />
             </MenuFlyout>
           </Button.Flyout>
         </Button>
 
-        <Button Content="{Binding Labels.RibbonHelp}"
+        <Button Content="{x:Bind ViewModel.Labels.RibbonHelp, Mode=OneWay}"
+                AutomationProperties.AutomationId="TopNavHelpButton"
                 Style="{StaticResource TopNavButtonStyle}">
           <Button.Flyout>
             <MenuFlyout>
-              <MenuFlyoutItem Text="{Binding Labels.Settings}" Command="{Binding ToggleSettingsPanelCommand}" />
-              <MenuFlyoutItem Text="{Binding Labels.Info}" Command="{Binding ToggleInfoPanelCommand}" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="HelpSettingsMenuItem" Text="{x:Bind ViewModel.Labels.Settings, Mode=OneWay}" Command="{x:Bind ViewModel.ToggleSettingsPanelCommand, Mode=OneWay}" />
+              <MenuFlyoutItem AutomationProperties.AutomationId="HelpInfoMenuItem" Text="{x:Bind ViewModel.Labels.Info, Mode=OneWay}" Command="{x:Bind ViewModel.ToggleInfoPanelCommand, Mode=OneWay}" />
             </MenuFlyout>
           </Button.Flyout>
         </Button>
@@ -575,7 +317,7 @@
             Background="{ThemeResource RibbonBrush}"
             BorderBrush="{ThemeResource RibbonBorderBrush}"
             BorderThickness="1"
-            CornerRadius="8"
+            CornerRadius="{ThemeResource OverlayCornerRadius}"
             Translation="0,0,32">
       <Border.Shadow>
         <ThemeShadow />
@@ -600,22 +342,24 @@
             <Border Style="{StaticResource RibbonPillBorderStyle}">
               <StackPanel Orientation="Horizontal" Spacing="0">
                 <Button Style="{StaticResource RibbonPillButtonStyle}"
-                        Command="{Binding OpenCommand}"
-                        ToolTipService.ToolTip="{Binding Labels.Open}"
-                        AutomationProperties.Name="{Binding Labels.Open}">
+                        Command="{x:Bind ViewModel.OpenCommand, Mode=OneWay}"
+                        ToolTipService.ToolTip="{x:Bind ViewModel.Labels.Open, Mode=OneWay}"
+                        AutomationProperties.AutomationId="RibbonOpenButton"
+                        AutomationProperties.Name="{x:Bind ViewModel.Labels.Open, Mode=OneWay}">
                   <StackPanel Orientation="Horizontal" Spacing="6">
                     <FontIcon Glyph="&#xE838;" FontFamily="Segoe Fluent Icons" FontSize="16" />
-                    <TextBlock Text="{Binding Labels.Open}" VerticalAlignment="Center" />
+                    <TextBlock Text="{x:Bind ViewModel.Labels.Open, Mode=OneWay}" VerticalAlignment="Center" />
                   </StackPanel>
                 </Button>
 
                 <Button Style="{StaticResource RibbonPillButtonStyle}"
-                        Command="{Binding MergeCommand}"
-                        ToolTipService.ToolTip="{Binding Labels.Merge}"
-                        AutomationProperties.Name="{Binding Labels.Merge}">
+                        Command="{x:Bind ViewModel.MergeCommand, Mode=OneWay}"
+                        ToolTipService.ToolTip="{x:Bind ViewModel.Labels.Merge, Mode=OneWay}"
+                        AutomationProperties.AutomationId="RibbonMergeButton"
+                        AutomationProperties.Name="{x:Bind ViewModel.Labels.Merge, Mode=OneWay}">
                   <StackPanel Orientation="Horizontal" Spacing="6">
                     <FontIcon Glyph="&#xE8A5;" FontFamily="Segoe Fluent Icons" FontSize="16" />
-                    <TextBlock Text="{Binding Labels.Merge}" VerticalAlignment="Center" />
+                    <TextBlock Text="{x:Bind ViewModel.Labels.Merge, Mode=OneWay}" VerticalAlignment="Center" />
                   </StackPanel>
                 </Button>
               </StackPanel>
@@ -623,18 +367,19 @@
 
             <Border Style="{StaticResource RibbonPillBorderStyle}">
               <Button Style="{StaticResource RibbonPillButtonStyle}"
-                      Command="{Binding PrintCommand}"
-                      ToolTipService.ToolTip="{Binding Labels.Print}"
-                      AutomationProperties.Name="{Binding Labels.Print}">
+                      Command="{x:Bind ViewModel.PrintCommand, Mode=OneWay}"
+                      ToolTipService.ToolTip="{x:Bind ViewModel.Labels.Print, Mode=OneWay}"
+                      AutomationProperties.AutomationId="RibbonPrintButton"
+                      AutomationProperties.Name="{x:Bind ViewModel.Labels.Print, Mode=OneWay}">
                 <StackPanel Orientation="Horizontal" Spacing="6">
                   <FontIcon Glyph="&#xE749;" FontFamily="Segoe Fluent Icons" FontSize="16" />
-                  <TextBlock Text="{Binding Labels.Print}" VerticalAlignment="Center" />
+                  <TextBlock Text="{x:Bind ViewModel.Labels.Print, Mode=OneWay}" VerticalAlignment="Center" />
                 </StackPanel>
               </Button>
             </Border>
           </StackPanel>
 
-          <TextBlock Text="{Binding Labels.RibbonFileGroup}"
+          <TextBlock Text="{x:Bind ViewModel.Labels.RibbonFileGroup, Mode=OneWay}"
                      Style="{StaticResource RibbonLabelStyle}" />
         </StackPanel>
 
@@ -643,9 +388,10 @@
         <StackPanel Grid.Column="2" Spacing="4" VerticalAlignment="Center">
           <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
             <Button Style="{StaticResource RibbonIconButtonStyle}"
-                    Command="{Binding PreviousPageCommand}"
-                    ToolTipService.ToolTip="{Binding Labels.PreviousPage}"
-                    AutomationProperties.Name="{Binding Labels.PreviousPage}">
+                    Command="{x:Bind ViewModel.PreviousPageCommand, Mode=OneWay}"
+                    ToolTipService.ToolTip="{x:Bind ViewModel.Labels.PreviousPage, Mode=OneWay}"
+                    AutomationProperties.AutomationId="RibbonPreviousPageButton"
+                    AutomationProperties.Name="{x:Bind ViewModel.Labels.PreviousPage, Mode=OneWay}">
               <FontIcon Glyph="&#xE76B;" FontFamily="Segoe Fluent Icons" />
             </Button>
 
@@ -655,8 +401,8 @@
                     Background="{ThemeResource InputBrush}"
                     BorderBrush="{ThemeResource InputBorderBrush}"
                     BorderThickness="1"
-                    CornerRadius="8">
-              <TextBlock Text="{Binding ActiveDocumentTab.PageText}"
+                    CornerRadius="{ThemeResource OverlayCornerRadius}">
+              <TextBlock Text="{x:Bind ViewModel.ActiveDocumentTab.PageText, Mode=OneWay}"
                          Foreground="{ThemeResource TextPrimaryBrush}"
                          FontWeight="SemiBold"
                          VerticalAlignment="Center"
@@ -664,9 +410,10 @@
             </Border>
 
             <Button Style="{StaticResource RibbonIconButtonStyle}"
-                    Command="{Binding NextPageCommand}"
-                    ToolTipService.ToolTip="{Binding Labels.NextPage}"
-                    AutomationProperties.Name="{Binding Labels.NextPage}">
+                    Command="{x:Bind ViewModel.NextPageCommand, Mode=OneWay}"
+                    ToolTipService.ToolTip="{x:Bind ViewModel.Labels.NextPage, Mode=OneWay}"
+                    AutomationProperties.AutomationId="RibbonNextPageButton"
+                    AutomationProperties.Name="{x:Bind ViewModel.Labels.NextPage, Mode=OneWay}">
               <FontIcon Glyph="&#xE76C;" FontFamily="Segoe Fluent Icons" />
             </Button>
 
@@ -674,8 +421,9 @@
 
             <Button Style="{StaticResource RibbonIconButtonStyle}"
                     Click="OnRibbonRotateLeftClick"
-                    ToolTipService.ToolTip="{Binding Labels.PageRotateLeft}"
-                    AutomationProperties.Name="{Binding Labels.PageRotateLeft}">
+                    ToolTipService.ToolTip="{x:Bind ViewModel.Labels.PageRotateLeft, Mode=OneWay}"
+                    AutomationProperties.AutomationId="RibbonRotateLeftButton"
+                    AutomationProperties.Name="{x:Bind ViewModel.Labels.PageRotateLeft, Mode=OneWay}">
               <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe Fluent Icons" RenderTransformOrigin="0.5,0.5">
                 <FontIcon.RenderTransform>
                   <ScaleTransform ScaleX="-1" />
@@ -685,13 +433,14 @@
 
             <Button Style="{StaticResource RibbonIconButtonStyle}"
                     Click="OnRibbonRotateRightClick"
-                    ToolTipService.ToolTip="{Binding Labels.PageRotateRight}"
-                    AutomationProperties.Name="{Binding Labels.PageRotateRight}">
+                    ToolTipService.ToolTip="{x:Bind ViewModel.Labels.PageRotateRight, Mode=OneWay}"
+                    AutomationProperties.AutomationId="RibbonRotateRightButton"
+                    AutomationProperties.Name="{x:Bind ViewModel.Labels.PageRotateRight, Mode=OneWay}">
               <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe Fluent Icons" />
             </Button>
           </StackPanel>
 
-          <TextBlock Text="{Binding Labels.RibbonNavigation}"
+          <TextBlock Text="{x:Bind ViewModel.Labels.RibbonNavigation, Mode=OneWay}"
                      Style="{StaticResource RibbonLabelStyle}" />
         </StackPanel>
 
@@ -700,36 +449,38 @@
         <StackPanel Grid.Column="4" Spacing="4" VerticalAlignment="Center">
           <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
             <Button Style="{StaticResource RibbonIconButtonStyle}"
-                    Command="{Binding ZoomOutCommand}"
-                    ToolTipService.ToolTip="{Binding Labels.ZoomOut}"
-                    AutomationProperties.Name="{Binding Labels.ZoomOut}">
+                    Command="{x:Bind ViewModel.ZoomOutCommand, Mode=OneWay}"
+                    ToolTipService.ToolTip="{x:Bind ViewModel.Labels.ZoomOut, Mode=OneWay}"
+                    AutomationProperties.AutomationId="RibbonZoomOutButton"
+                    AutomationProperties.Name="{x:Bind ViewModel.Labels.ZoomOut, Mode=OneWay}">
               <FontIcon Glyph="&#xE738;" FontFamily="Segoe Fluent Icons" FontSize="16" />
             </Button>
 
             <Button Height="40"
+                    AutomationProperties.AutomationId="RibbonZoomMenuButton"
                     MinWidth="92"
                     Padding="14,0"
                     Background="{ThemeResource InputBrush}"
                     BorderBrush="{ThemeResource InputBorderBrush}"
                     BorderThickness="1"
-                    CornerRadius="8">
+                    CornerRadius="{ThemeResource OverlayCornerRadius}">
               <Button.Flyout>
                 <MenuFlyout>
-                  <MenuFlyoutItem Text="50%" Command="{Binding SetZoomCommand}" CommandParameter="0.5" />
-                  <MenuFlyoutItem Text="75%" Command="{Binding SetZoomCommand}" CommandParameter="0.75" />
-                  <MenuFlyoutItem Text="100%" Command="{Binding SetZoomCommand}" CommandParameter="1.0" />
-                  <MenuFlyoutItem Text="125%" Command="{Binding SetZoomCommand}" CommandParameter="1.25" />
-                  <MenuFlyoutItem Text="135%" Command="{Binding SetZoomCommand}" CommandParameter="1.35" />
-                  <MenuFlyoutItem Text="150%" Command="{Binding SetZoomCommand}" CommandParameter="1.5" />
-                  <MenuFlyoutItem Text="200%" Command="{Binding SetZoomCommand}" CommandParameter="2.0" />
-                  <MenuFlyoutItem Text="300%" Command="{Binding SetZoomCommand}" CommandParameter="3.0" />
+                  <MenuFlyoutItem AutomationProperties.AutomationId="Zoom50MenuItem" Text="50%" Command="{x:Bind ViewModel.SetZoomCommand, Mode=OneWay}" CommandParameter="0.5" />
+                  <MenuFlyoutItem AutomationProperties.AutomationId="Zoom75MenuItem" Text="75%" Command="{x:Bind ViewModel.SetZoomCommand, Mode=OneWay}" CommandParameter="0.75" />
+                  <MenuFlyoutItem AutomationProperties.AutomationId="Zoom100MenuItem" Text="100%" Command="{x:Bind ViewModel.SetZoomCommand, Mode=OneWay}" CommandParameter="1.0" />
+                  <MenuFlyoutItem AutomationProperties.AutomationId="Zoom125MenuItem" Text="125%" Command="{x:Bind ViewModel.SetZoomCommand, Mode=OneWay}" CommandParameter="1.25" />
+                  <MenuFlyoutItem AutomationProperties.AutomationId="Zoom135MenuItem" Text="135%" Command="{x:Bind ViewModel.SetZoomCommand, Mode=OneWay}" CommandParameter="1.35" />
+                  <MenuFlyoutItem AutomationProperties.AutomationId="Zoom150MenuItem" Text="150%" Command="{x:Bind ViewModel.SetZoomCommand, Mode=OneWay}" CommandParameter="1.5" />
+                  <MenuFlyoutItem AutomationProperties.AutomationId="Zoom200MenuItem" Text="200%" Command="{x:Bind ViewModel.SetZoomCommand, Mode=OneWay}" CommandParameter="2.0" />
+                  <MenuFlyoutItem AutomationProperties.AutomationId="Zoom300MenuItem" Text="300%" Command="{x:Bind ViewModel.SetZoomCommand, Mode=OneWay}" CommandParameter="3.0" />
                   <MenuFlyoutSeparator />
-                  <MenuFlyoutItem Text="{Binding Labels.ZoomFit}" Command="{Binding FitPageCommand}" />
-                  <MenuFlyoutItem Text="{Binding Labels.ZoomActual}" Command="{Binding ActualSizeCommand}" />
+                  <MenuFlyoutItem AutomationProperties.AutomationId="ZoomFitMenuItem" Text="{x:Bind ViewModel.Labels.ZoomFit, Mode=OneWay}" Command="{x:Bind ViewModel.FitPageCommand, Mode=OneWay}" />
+                  <MenuFlyoutItem AutomationProperties.AutomationId="ZoomActualMenuItem" Text="{x:Bind ViewModel.Labels.ZoomActual, Mode=OneWay}" Command="{x:Bind ViewModel.ActualSizeCommand, Mode=OneWay}" />
                 </MenuFlyout>
               </Button.Flyout>
               <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                <TextBlock Text="{Binding ActiveDocumentTab.ZoomText}" VerticalAlignment="Center" />
+                <TextBlock Text="{x:Bind ViewModel.ActiveDocumentTab.ZoomText, Mode=OneWay}" VerticalAlignment="Center" />
                 <FontIcon Glyph="&#xE70D;"
                           FontFamily="Segoe Fluent Icons"
                           FontSize="10"
@@ -738,42 +489,45 @@
             </Button>
 
             <Button Style="{StaticResource RibbonIconButtonStyle}"
-                    Command="{Binding ZoomInCommand}"
-                    ToolTipService.ToolTip="{Binding Labels.ZoomIn}"
-                    AutomationProperties.Name="{Binding Labels.ZoomIn}">
+                    Command="{x:Bind ViewModel.ZoomInCommand, Mode=OneWay}"
+                    ToolTipService.ToolTip="{x:Bind ViewModel.Labels.ZoomIn, Mode=OneWay}"
+                    AutomationProperties.AutomationId="RibbonZoomInButton"
+                    AutomationProperties.Name="{x:Bind ViewModel.Labels.ZoomIn, Mode=OneWay}">
               <FontIcon Glyph="&#xE710;" FontFamily="Segoe Fluent Icons" FontSize="16" />
             </Button>
 
             <Button Style="{StaticResource RibbonTextButtonStyle}"
-                    Command="{Binding FitPageCommand}"
-                    ToolTipService.ToolTip="{Binding Labels.ZoomFit}"
-                    AutomationProperties.Name="{Binding Labels.ZoomFit}">
+                    Command="{x:Bind ViewModel.FitPageCommand, Mode=OneWay}"
+                    ToolTipService.ToolTip="{x:Bind ViewModel.Labels.ZoomFit, Mode=OneWay}"
+                    AutomationProperties.AutomationId="RibbonFitPageButton"
+                    AutomationProperties.Name="{x:Bind ViewModel.Labels.ZoomFit, Mode=OneWay}">
               <StackPanel Spacing="2">
                 <FontIcon Glyph="&#xE9A6;"
                           FontFamily="Segoe Fluent Icons"
                           FontSize="16"
                           HorizontalAlignment="Center" />
-                <TextBlock Text="{Binding Labels.ZoomFit}"
+                <TextBlock Text="{x:Bind ViewModel.Labels.ZoomFit, Mode=OneWay}"
                            FontSize="12"
                            HorizontalAlignment="Center" />
               </StackPanel>
             </Button>
 
             <Button Style="{StaticResource RibbonTextButtonStyle}"
-                    Command="{Binding ActualSizeCommand}"
-                    ToolTipService.ToolTip="{Binding Labels.ZoomActual}"
-                    AutomationProperties.Name="{Binding Labels.ZoomActual}">
+                    Command="{x:Bind ViewModel.ActualSizeCommand, Mode=OneWay}"
+                    ToolTipService.ToolTip="{x:Bind ViewModel.Labels.ZoomActual, Mode=OneWay}"
+                    AutomationProperties.AutomationId="RibbonActualSizeButton"
+                    AutomationProperties.Name="{x:Bind ViewModel.Labels.ZoomActual, Mode=OneWay}">
               <StackPanel Spacing="2">
                 <FontIcon Glyph="&#xE740;"
                           FontFamily="Segoe Fluent Icons"
                           FontSize="16"
                           HorizontalAlignment="Center" />
-                <TextBlock Text="{Binding Labels.ZoomActual}" FontSize="12" />
+                <TextBlock Text="{x:Bind ViewModel.Labels.ZoomActual, Mode=OneWay}" FontSize="12" />
               </StackPanel>
             </Button>
           </StackPanel>
 
-          <TextBlock Text="{Binding Labels.RibbonZoom}"
+          <TextBlock Text="{x:Bind ViewModel.Labels.RibbonZoom, Mode=OneWay}"
                      Style="{StaticResource RibbonLabelStyle}" />
         </StackPanel>
 
@@ -797,7 +551,7 @@
                   Background="{ThemeResource SearchBrush}"
                   BorderBrush="{ThemeResource InputBorderBrush}"
                   BorderThickness="1"
-                  CornerRadius="8">
+                  CornerRadius="{ThemeResource OverlayCornerRadius}">
             <Grid>
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
@@ -812,12 +566,13 @@
                         VerticalAlignment="Center" />
 
               <TextBox Grid.Column="1"
+                       AutomationProperties.AutomationId="RibbonSearchTextBox"
                        Background="Transparent"
                        BorderThickness="0"
                        VerticalAlignment="Center"
                        VerticalContentAlignment="Center"
-                       PlaceholderText="{Binding Labels.SearchPlaceholder}"
-                       Text="{Binding ActiveDocumentTab.SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                       PlaceholderText="{x:Bind ViewModel.Labels.SearchPlaceholder, Mode=OneWay}"
+                       Text="{x:Bind ViewModel.ActiveDocumentTab.SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                        KeyDown="OnSearchBoxKeyDown" />
 
               <TextBlock Grid.Column="2"
@@ -830,7 +585,7 @@
           </Border>
 
           <TextBlock Grid.Row="1"
-                     Text="{Binding Labels.Search}"
+                     Text="{x:Bind ViewModel.Labels.Search, Mode=OneWay}"
                      Style="{StaticResource RibbonLabelStyle}" />
         </Grid>
 
@@ -840,22 +595,24 @@
           <Border Style="{StaticResource RibbonPillBorderStyle}">
             <StackPanel Orientation="Horizontal" Spacing="0">
               <Button Style="{StaticResource RibbonPillIconButtonStyle}"
-                      Command="{Binding TogglePagesPanelCommand}"
-                      ToolTipService.ToolTip="{Binding Labels.Pages}"
-                      AutomationProperties.Name="{Binding Labels.Pages}">
+                      Command="{x:Bind ViewModel.TogglePagesPanelCommand, Mode=OneWay}"
+                      ToolTipService.ToolTip="{x:Bind ViewModel.Labels.Pages, Mode=OneWay}"
+                      AutomationProperties.AutomationId="RibbonPagesPanelButton"
+                      AutomationProperties.Name="{x:Bind ViewModel.Labels.Pages, Mode=OneWay}">
                 <FontIcon Glyph="&#xE8FE;" FontFamily="Segoe Fluent Icons" />
               </Button>
 
               <Button Style="{StaticResource RibbonPillIconButtonStyle}"
-                      Command="{Binding ToggleInfoPanelCommand}"
-                      ToolTipService.ToolTip="{Binding Labels.Info}"
-                      AutomationProperties.Name="{Binding Labels.Info}">
+                      Command="{x:Bind ViewModel.ToggleInfoPanelCommand, Mode=OneWay}"
+                      ToolTipService.ToolTip="{x:Bind ViewModel.Labels.Info, Mode=OneWay}"
+                      AutomationProperties.AutomationId="RibbonInfoPanelButton"
+                      AutomationProperties.Name="{x:Bind ViewModel.Labels.Info, Mode=OneWay}">
                 <FontIcon Glyph="&#xE946;" FontFamily="Segoe Fluent Icons" />
               </Button>
             </StackPanel>
           </Border>
 
-          <TextBlock Text="{Binding Labels.RibbonDisplay}"
+          <TextBlock Text="{x:Bind ViewModel.Labels.RibbonDisplay, Mode=OneWay}"
                      Style="{StaticResource RibbonLabelStyle}" />
         </StackPanel>
 
@@ -866,94 +623,104 @@
             <Border Style="{StaticResource RibbonPillBorderStyle}">
               <StackPanel Orientation="Horizontal" Spacing="0">
                 <Button x:Name="AnnotateBtnSelect"
+                        AutomationProperties.AutomationId="RibbonAnnotationSelectButton"
                         Style="{StaticResource RibbonPillIconButtonStyle}"
-                        Background="{Binding ActiveDocumentTab.SelectedAnnotationTool, Converter={StaticResource AnnotationToolBackground}, ConverterParameter=Select}"
-                        Command="{Binding SelectAnnotationToolCommand}"
+                        Background="{x:Bind services:XamlBindingHelpers.AnnotationToolBackground(ViewModel.ActiveDocumentTab.SelectedAnnotationTool, 'Select'), Mode=OneWay}"
+                        Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}"
                         CommandParameter="Select"
-                        ToolTipService.ToolTip="{Binding Labels.Select}"
-                        AutomationProperties.Name="{Binding Labels.Select}">
+                        ToolTipService.ToolTip="{x:Bind ViewModel.Labels.Select, Mode=OneWay}"
+                        AutomationProperties.Name="{x:Bind ViewModel.Labels.Select, Mode=OneWay}">
                   <FontIcon Glyph="&#xE8B3;" FontFamily="Segoe Fluent Icons" />
                 </Button>
 
                 <Button x:Name="AnnotateBtnHighlight"
+                        AutomationProperties.AutomationId="RibbonAnnotationHighlightButton"
                         Style="{StaticResource RibbonPillIconButtonStyle}"
-                        Background="{Binding ActiveDocumentTab.SelectedAnnotationTool, Converter={StaticResource AnnotationToolBackground}, ConverterParameter=Highlight}"
-                        Command="{Binding SelectAnnotationToolCommand}"
+                        Background="{x:Bind services:XamlBindingHelpers.AnnotationToolBackground(ViewModel.ActiveDocumentTab.SelectedAnnotationTool, 'Highlight'), Mode=OneWay}"
+                        Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}"
                         CommandParameter="Highlight"
-                        ToolTipService.ToolTip="{Binding Labels.Highlight}"
-                        AutomationProperties.Name="{Binding Labels.Highlight}">
+                        ToolTipService.ToolTip="{x:Bind ViewModel.Labels.Highlight, Mode=OneWay}"
+                        AutomationProperties.Name="{x:Bind ViewModel.Labels.Highlight, Mode=OneWay}">
                   <FontIcon Glyph="&#xE891;" FontFamily="Segoe Fluent Icons" />
                 </Button>
 
                 <Button x:Name="AnnotateBtnText"
+                        AutomationProperties.AutomationId="RibbonAnnotationTextButton"
                         Style="{StaticResource RibbonPillIconButtonStyle}"
-                        Background="{Binding ActiveDocumentTab.SelectedAnnotationTool, Converter={StaticResource AnnotationToolBackground}, ConverterParameter=Text}"
-                        Command="{Binding SelectAnnotationToolCommand}"
+                        Background="{x:Bind services:XamlBindingHelpers.AnnotationToolBackground(ViewModel.ActiveDocumentTab.SelectedAnnotationTool, 'Text'), Mode=OneWay}"
+                        Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}"
                         CommandParameter="Text"
-                        ToolTipService.ToolTip="{Binding Labels.Text}"
-                        AutomationProperties.Name="{Binding Labels.Text}">
+                        ToolTipService.ToolTip="{x:Bind ViewModel.Labels.Text, Mode=OneWay}"
+                        AutomationProperties.Name="{x:Bind ViewModel.Labels.Text, Mode=OneWay}">
                   <FontIcon Glyph="&#xE8D2;" FontFamily="Segoe Fluent Icons" />
                 </Button>
 
                 <Button x:Name="AnnotateBtnNote"
+                        AutomationProperties.AutomationId="RibbonAnnotationNoteButton"
                         Style="{StaticResource RibbonPillIconButtonStyle}"
-                        Background="{Binding ActiveDocumentTab.SelectedAnnotationTool, Converter={StaticResource AnnotationToolBackground}, ConverterParameter=Note}"
-                        Command="{Binding SelectAnnotationToolCommand}"
+                        Background="{x:Bind services:XamlBindingHelpers.AnnotationToolBackground(ViewModel.ActiveDocumentTab.SelectedAnnotationTool, 'Note'), Mode=OneWay}"
+                        Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}"
                         CommandParameter="Note"
-                        ToolTipService.ToolTip="{Binding Labels.Note}"
-                        AutomationProperties.Name="{Binding Labels.Note}">
+                        ToolTipService.ToolTip="{x:Bind ViewModel.Labels.Note, Mode=OneWay}"
+                        AutomationProperties.Name="{x:Bind ViewModel.Labels.Note, Mode=OneWay}">
                   <FontIcon Glyph="&#xE90A;" FontFamily="Segoe Fluent Icons" />
                 </Button>
 
                 <Button x:Name="AnnotateBtnStamp"
+                        AutomationProperties.AutomationId="RibbonAnnotationStampButton"
                         Style="{StaticResource RibbonPillIconButtonStyle}"
                         Visibility="Collapsed"
-                        Background="{Binding ActiveDocumentTab.SelectedAnnotationTool, Converter={StaticResource AnnotationToolBackground}, ConverterParameter=Stamp}"
-                        Command="{Binding SelectAnnotationToolCommand}"
+                        Background="{x:Bind services:XamlBindingHelpers.AnnotationToolBackground(ViewModel.ActiveDocumentTab.SelectedAnnotationTool, 'Stamp'), Mode=OneWay}"
+                        Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}"
                         CommandParameter="Stamp"
-                        ToolTipService.ToolTip="{Binding Labels.Stamp}"
-                        AutomationProperties.Name="{Binding Labels.Stamp}">
+                        ToolTipService.ToolTip="{x:Bind ViewModel.Labels.Stamp, Mode=OneWay}"
+                        AutomationProperties.Name="{x:Bind ViewModel.Labels.Stamp, Mode=OneWay}">
                   <FontIcon Glyph="&#xE945;" FontFamily="Segoe Fluent Icons" />
                 </Button>
 
                 <Button x:Name="AnnotateBtnInk"
+                        AutomationProperties.AutomationId="RibbonAnnotationInkButton"
                         Style="{StaticResource RibbonPillIconButtonStyle}"
                         Visibility="Collapsed"
-                        Background="{Binding ActiveDocumentTab.SelectedAnnotationTool, Converter={StaticResource AnnotationToolBackground}, ConverterParameter=Ink}"
-                        Command="{Binding SelectAnnotationToolCommand}"
+                        Background="{x:Bind services:XamlBindingHelpers.AnnotationToolBackground(ViewModel.ActiveDocumentTab.SelectedAnnotationTool, 'Ink'), Mode=OneWay}"
+                        Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}"
                         CommandParameter="Ink"
-                        ToolTipService.ToolTip="{Binding Labels.Ink}"
-                        AutomationProperties.Name="{Binding Labels.Ink}">
+                        ToolTipService.ToolTip="{x:Bind ViewModel.Labels.Ink, Mode=OneWay}"
+                        AutomationProperties.Name="{x:Bind ViewModel.Labels.Ink, Mode=OneWay}">
                   <FontIcon Glyph="&#xE70F;" FontFamily="Segoe Fluent Icons" />
                 </Button>
 
                 <Button x:Name="AnnotateBtnErase"
+                        AutomationProperties.AutomationId="RibbonAnnotationEraseButton"
                         Style="{StaticResource RibbonPillIconButtonStyle}"
                         Visibility="Collapsed"
-                        Command="{Binding SelectAnnotationToolCommand}"
+                        Command="{x:Bind ViewModel.SelectAnnotationToolCommand, Mode=OneWay}"
                         CommandParameter="Erase"
-                        ToolTipService.ToolTip="{Binding Labels.Erase}"
-                        AutomationProperties.Name="{Binding Labels.Erase}">
+                        ToolTipService.ToolTip="{x:Bind ViewModel.Labels.Erase, Mode=OneWay}"
+                        AutomationProperties.Name="{x:Bind ViewModel.Labels.Erase, Mode=OneWay}">
                   <FontIcon Glyph="&#xE74D;" FontFamily="Segoe Fluent Icons" />
                 </Button>
 
                 <Button x:Name="AnnotateBtnPanel"
+                        AutomationProperties.AutomationId="RibbonAnnotationsPanelButton"
                         Style="{StaticResource RibbonPillIconButtonStyle}"
-                        Command="{Binding ToggleAnnotationsPanelCommand}"
-                        ToolTipService.ToolTip="{Binding Labels.Annotations}"
-                        AutomationProperties.Name="{Binding Labels.Annotations}">
+                        Command="{x:Bind ViewModel.ToggleAnnotationsPanelCommand, Mode=OneWay}"
+                        ToolTipService.ToolTip="{x:Bind ViewModel.Labels.Annotations, Mode=OneWay}"
+                        AutomationProperties.Name="{x:Bind ViewModel.Labels.Annotations, Mode=OneWay}">
                   <FontIcon Glyph="&#xE924;" FontFamily="Segoe Fluent Icons" />
                 </Button>
               </StackPanel>
             </Border>
 
             <Button Style="{StaticResource RibbonIconButtonStyle}"
-                    ToolTipService.ToolTip="{Binding Labels.Settings}"
-                    AutomationProperties.Name="{Binding Labels.Settings}">
+                    ToolTipService.ToolTip="{x:Bind ViewModel.Labels.Settings, Mode=OneWay}"
+                    AutomationProperties.AutomationId="RibbonSettingsMenuButton"
+                    AutomationProperties.Name="{x:Bind ViewModel.Labels.Settings, Mode=OneWay}">
               <Button.Flyout>
                 <MenuFlyout>
-                  <MenuFlyoutItem Text="{Binding Labels.Settings}"
-                                  Command="{Binding ToggleSettingsPanelCommand}">
+                  <MenuFlyoutItem Text="{x:Bind ViewModel.Labels.Settings, Mode=OneWay}"
+                                  AutomationProperties.AutomationId="RibbonSettingsMenuItem"
+                                  Command="{x:Bind ViewModel.ToggleSettingsPanelCommand, Mode=OneWay}">
                     <MenuFlyoutItem.Icon>
                       <FontIcon Glyph="&#xE713;" FontFamily="Segoe Fluent Icons" />
                     </MenuFlyoutItem.Icon>
@@ -964,7 +731,7 @@
             </Button>
           </StackPanel>
 
-          <TextBlock Text="{Binding Labels.RibbonAnnotateGroup}"
+          <TextBlock Text="{x:Bind ViewModel.Labels.RibbonAnnotateGroup, Mode=OneWay}"
                      Style="{StaticResource RibbonLabelStyle}" />
         </StackPanel>
       </Grid>
@@ -978,219 +745,17 @@
         <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
 
-      <Border Grid.Column="0"
-              Width="180"
-              Background="{ThemeResource PanelDeepBrush}"
-              BorderBrush="{ThemeResource PanelLineBrush}"
-              BorderThickness="1"
-              CornerRadius="8"
-              Visibility="{Binding DataContext.IsPagesPanelVisible, ElementName=Root, Mode=OneWay, FallbackValue=Collapsed, Converter={StaticResource BoolToVisibility}}">
-        <Border.TranslationTransition>
-          <Vector3Transition Duration="0:0:0.2" />
-        </Border.TranslationTransition>
-        <Grid Padding="10,12,10,0">
-          <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-          </Grid.RowDefinitions>
-
-          <Grid Margin="4,0,4,8">
-            <TextBlock Text="{Binding DataContext.Labels.Pages, ElementName=Root}"
-                       Style="{StaticResource PanelTitleStyle}"
-                       VerticalAlignment="Center" />
-            <StackPanel Orientation="Horizontal"
-                        Spacing="2"
-                        HorizontalAlignment="Right"
-                        VerticalAlignment="Center">
-              <Button Width="28"
-                      Height="28"
-                      Padding="0"
-                      Background="Transparent"
-                      BorderThickness="0"
-                      ToolTipService.ToolTip="Page Organizer"
-                      Click="OnOpenPageOrganizerClicked">
-                <FontIcon Glyph="&#xE8FD;"
-                          FontFamily="Segoe Fluent Icons"
-                          Foreground="{ThemeResource TextSecondaryBrush}"
-                          FontSize="14" />
-              </Button>
-              <Button Width="28"
-                      Height="28"
-                      Padding="0"
-                      Background="Transparent"
-                      BorderThickness="0"
-                      ToolTipService.ToolTip="Filter">
-                <FontIcon Glyph="&#xE71C;"
-                          FontFamily="Segoe Fluent Icons"
-                          Foreground="{ThemeResource TextSecondaryBrush}"
-                          FontSize="14" />
-              </Button>
-              <Button Width="28"
-                      Height="28"
-                      Padding="0"
-                      Background="Transparent"
-                      BorderThickness="0"
-                      Command="{Binding DataContext.TogglePagesPanelCommand, ElementName=Root}"
-                      ToolTipService.ToolTip="{Binding DataContext.Labels.CloseTab, ElementName=Root}">
-                <FontIcon Glyph="&#xE8BB;"
-                          FontFamily="Segoe Fluent Icons"
-                          Foreground="{ThemeResource TextSecondaryBrush}"
-                          FontSize="14" />
-              </Button>
-            </StackPanel>
-          </Grid>
-
-          <Grid x:Name="ThumbnailDragSurface"
-                Grid.Row="1"
-                Background="Transparent"
-                AllowDrop="True"
-                DragOver="OnThumbnailExternalDragOver"
-                DragLeave="OnThumbnailExternalDragLeave"
-                Drop="OnThumbnailExternalDrop">
-            <ScrollViewer x:Name="ThumbnailScrollViewer"
-                           VerticalScrollBarVisibility="Auto"
-                          HorizontalScrollBarVisibility="Disabled">
-              <ItemsControl x:Name="ThumbnailListView"
-                            ItemsSource="{Binding DataContext.ActiveDocumentTab.Thumbnails, ElementName=Root, Mode=OneWay}">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate>
-                    <Grid Padding="0,4"
-                          HorizontalAlignment="Stretch"
-                          PointerPressed="OnThumbnailItemPointerPressed"
-                          PointerMoved="OnThumbnailItemPointerMoved"
-                          PointerReleased="OnThumbnailItemPointerReleased"
-                          PointerEntered="OnThumbnailPointerEntered"
-                          PointerExited="OnThumbnailPointerExited"
-                          Tapped="OnThumbnailItemTapped"
-                          RightTapped="OnThumbnailItemRightTapped">
-                      <Grid.ContextFlyout>
-                        <MenuFlyout>
-                          <MenuFlyoutItem Text="{Binding DataContext.Labels.PageRotateLeft, ElementName=Root}" Click="OnThumbnailRotateLeftClick">
-                            <MenuFlyoutItem.Icon>
-                              <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe Fluent Icons" RenderTransformOrigin="0.5,0.5">
-                                <FontIcon.RenderTransform><ScaleTransform ScaleX="-1" /></FontIcon.RenderTransform>
-                              </FontIcon>
-                            </MenuFlyoutItem.Icon>
-                          </MenuFlyoutItem>
-                          <MenuFlyoutItem Text="{Binding DataContext.Labels.PageRotateRight, ElementName=Root}" Click="OnThumbnailRotateRightClick">
-                            <MenuFlyoutItem.Icon>
-                              <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe Fluent Icons" />
-                            </MenuFlyoutItem.Icon>
-                          </MenuFlyoutItem>
-                          <MenuFlyoutSeparator />
-                          <MenuFlyoutItem Text="{Binding DataContext.Labels.PageMoveUp, ElementName=Root}" Click="OnThumbnailMoveUpClick">
-                            <MenuFlyoutItem.Icon>
-                              <FontIcon Glyph="&#xE74A;" FontFamily="Segoe Fluent Icons" />
-                            </MenuFlyoutItem.Icon>
-                          </MenuFlyoutItem>
-                          <MenuFlyoutItem Text="{Binding DataContext.Labels.PageMoveDown, ElementName=Root}" Click="OnThumbnailMoveDownClick">
-                            <MenuFlyoutItem.Icon>
-                              <FontIcon Glyph="&#xE74B;" FontFamily="Segoe Fluent Icons" />
-                            </MenuFlyoutItem.Icon>
-                          </MenuFlyoutItem>
-                          <MenuFlyoutSeparator />
-                          <MenuFlyoutItem Text="{Binding DataContext.Labels.PageDelete, ElementName=Root}" Click="OnThumbnailDeleteClick">
-                            <MenuFlyoutItem.Icon>
-                              <FontIcon Glyph="&#xE107;" FontFamily="Segoe Fluent Icons" />
-                            </MenuFlyoutItem.Icon>
-                          </MenuFlyoutItem>
-                        </MenuFlyout>
-                      </Grid.ContextFlyout>
-                      <Grid.TranslationTransition>
-                        <Vector3Transition Duration="0:0:0.2" />
-                      </Grid.TranslationTransition>
-                      <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="3" />
-                        <ColumnDefinition Width="*" />
-                      </Grid.ColumnDefinitions>
-
-                      <Rectangle Grid.Column="0"
-                                 Width="3"
-                                 RadiusX="1.5"
-                                 RadiusY="1.5"
-                                 Fill="{ThemeResource AccentBrush}"
-                                 VerticalAlignment="Stretch"
-                                 Margin="0,8"
-                                 Visibility="{Binding IsSelected, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
-                      <Rectangle x:Name="HoverBar"
-                                 Grid.Column="0"
-                                 Width="3"
-                                 RadiusX="1.5"
-                                 RadiusY="1.5"
-                                 Fill="{ThemeResource AccentBrush}"
-                                 VerticalAlignment="Stretch"
-                                 Margin="0,8"
-                                 Opacity="0" />
-
-                      <StackPanel Grid.Column="1"
-                                  Margin="4,0,0,0"
-                                  HorizontalAlignment="Center"
-                                  Spacing="4">
-                        <Grid Width="110" Height="144">
-                          <Image Source="{Binding Image, Mode=OneWay}"
-                                 Stretch="Uniform"
-                                 HorizontalAlignment="Center"
-                                 VerticalAlignment="Center" />
-                          <ProgressRing Width="24"
-                                        Height="24"
-                                        IsActive="{Binding IsLoading, Mode=OneWay}"
-                                        Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
-                          <TextBlock Text="{Binding PlaceholderText, Mode=OneWay}"
-                                     Foreground="{ThemeResource TextSecondaryBrush}"
-                                     FontSize="11"
-                                     TextAlignment="Center"
-                                     TextWrapping="Wrap"
-                                     MaxWidth="100"
-                                     HorizontalAlignment="Center"
-                                     VerticalAlignment="Center"
-                                     Visibility="{Binding HasPlaceholder, Mode=OneWay, Converter={StaticResource BoolToVisibility}}" />
-                        </Grid>
-                        <TextBlock Text="{Binding PageNumber}"
-                                   Foreground="{ThemeResource TextPrimaryBrush}"
-                                   FontSize="11"
-                                   HorizontalAlignment="Center" />
-                      </StackPanel>
-                    </Grid>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-            </ScrollViewer>
-
-            <!-- Drag ghost overlay -->
-            <Image x:Name="ThumbnailDragGhost"
-                   Width="80"
-                   Height="104"
-                   Stretch="Uniform"
-                   Opacity="0.8"
-                   IsHitTestVisible="False"
-                   HorizontalAlignment="Left"
-                   VerticalAlignment="Top"
-                   Visibility="Collapsed" />
-
-            <!-- Drop indicator line -->
-            <Rectangle x:Name="ThumbnailDropIndicator"
-                       Height="3"
-                       RadiusX="1.5"
-                       RadiusY="1.5"
-                       Fill="{ThemeResource AccentBrush}"
-                       HorizontalAlignment="Stretch"
-                       VerticalAlignment="Top"
-                       IsHitTestVisible="False"
-                       Margin="8,0"
-                       Visibility="Collapsed" />
-          </Grid>
-        </Grid>
-      </Border>
+      <controls:PagesPanelControl Grid.Column="0" ViewModel="{x:Bind ViewModel, Mode=OneWay}" />
 
       <Border Grid.Column="1"
               Width="8"
-              Visibility="{Binding DataContext.IsPagesPanelVisible, ElementName=Root, Mode=OneWay, FallbackValue=Collapsed, Converter={StaticResource BoolToVisibility}}" />
+              Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.IsPagesPanelVisible), Mode=OneWay, FallbackValue=Collapsed}" />
 
       <Border Grid.Column="2"
               Background="{ThemeResource ViewerBackgroundBrush}"
               BorderBrush="{ThemeResource PanelLineBrush}"
               BorderThickness="1"
-              CornerRadius="8">
+              CornerRadius="{ThemeResource OverlayCornerRadius}">
         <Grid>
           <Grid.ChildrenTransitions>
             <EntranceThemeTransition />
@@ -1202,7 +767,7 @@
                         SizeChanged="OnDocumentScrollViewerSizeChanged">
             <Grid MinHeight="840"
                   Padding="40,16,40,24"
-                  DataContext="{Binding ActiveDocumentTab, Mode=OneWay}">
+                  DataContext="{x:Bind ViewModel.ActiveDocumentTab, Mode=OneWay}">
               <Grid HorizontalAlignment="Center"
                     VerticalAlignment="Top"
                     ColumnSpacing="18">
@@ -1212,12 +777,13 @@
                 </Grid.ColumnDefinitions>
 
                 <Grid Grid.Column="0"
-                      Width="{Binding CommentLaneWidth, Mode=OneWay}"
-                      Height="{Binding CurrentPagePixelHeight, Mode=OneWay}"
-                      Visibility="{Binding HasCurrentPageComments, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
-                  <ItemsControl ItemsSource="{Binding CurrentPageCommentOverlays, Mode=OneWay}"
+                      Width="{x:Bind ViewModel.ActiveDocumentTab.CommentLaneWidth, Mode=OneWay}"
+                      Height="{x:Bind ViewModel.ActiveDocumentTab.CurrentPagePixelHeight, Mode=OneWay}"
+                      Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.ActiveDocumentTab.HasCurrentPageComments), Mode=OneWay}">
+                  <ItemsControl AutomationProperties.AutomationId="CurrentPageCommentOverlayItems"
+                                ItemsSource="{x:Bind ViewModel.ActiveDocumentTab.CurrentPageCommentOverlays, Mode=OneWay}"
                                 Width="280"
-                                Height="{Binding CurrentPagePixelHeight, Mode=OneWay}"
+                                Height="{x:Bind ViewModel.ActiveDocumentTab.CurrentPagePixelHeight, Mode=OneWay}"
                                 HorizontalAlignment="Left"
                                 VerticalAlignment="Top">
                     <ItemsControl.ItemsPanel>
@@ -1226,38 +792,43 @@
                       </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
-                      <DataTemplate>
-                        <Grid Width="{Binding LaneWidth}"
+                      <DataTemplate x:DataType="vm:WindowsCommentOverlayViewModel">
+                        <Grid Width="{x:Bind LaneWidth, Mode=OneWay}"
                               MinHeight="78"
-                              Margin="{Binding Margin}">
+                              Margin="{x:Bind services:XamlBindingHelpers.CreateThickness(0, Top, 0, 0), Mode=OneWay}">
                           <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="24" />
                           </Grid.ColumnDefinitions>
 
                           <Border Background="{ThemeResource CardBrush}"
+                                  AutomationProperties.AutomationId="{x:Bind CardAutomationId, Mode=OneWay}"
+                                  AutomationProperties.Name="{x:Bind Text, Mode=OneWay}"
+                                  IsTabStop="True"
                                   BorderBrush="{ThemeResource CardBorderBrush}"
                                   BorderThickness="1"
-                                  CornerRadius="6"
+                                  CornerRadius="{ThemeResource OverlayCornerRadius}"
                                   Padding="12,10"
+                                  KeyDown="OnCommentCardKeyDown"
                                   DoubleTapped="OnCommentCardDoubleTapped">
                             <StackPanel Spacing="6">
                               <Grid>
-                                <TextBlock Text="{Binding PageLabel}"
+                                <TextBlock Text="{x:Bind PageLabel, Mode=OneWay}"
                                            Foreground="{ThemeResource TextSecondaryBrush}"
                                            FontSize="11" />
-                                <TextBlock Text="{Binding TimeText}"
+                                <TextBlock Text="{x:Bind TimeText, Mode=OneWay}"
                                            Foreground="{ThemeResource TextSecondaryBrush}"
                                            FontSize="11"
                                            HorizontalAlignment="Right" />
                               </Grid>
-                              <TextBlock Text="{Binding Text}"
+                              <TextBlock Text="{x:Bind Text, Mode=OneWay}"
                                          Foreground="{ThemeResource TextPrimaryBrush}"
                                          FontSize="13"
                                          TextWrapping="Wrap"
                                          MaxLines="4"
-                                         Visibility="{Binding ReadVisibility}" />
-                              <TextBox Text="{Binding EditText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsReadVisible), Mode=OneWay}" />
+                              <TextBox AutomationProperties.AutomationId="CommentOverlayEditTextBox"
+                                       Text="{x:Bind EditText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                        FontSize="13"
                                        TextWrapping="Wrap"
                                        AcceptsReturn="True"
@@ -1265,7 +836,7 @@
                                        Padding="6,4"
                                        Background="Transparent"
                                        BorderThickness="0"
-                                       Visibility="{Binding EditVisibility}"
+                                       Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsEditVisible), Mode=OneWay}"
                                        LostFocus="OnCommentEditLostFocus"
                                        KeyDown="OnCommentEditKeyDown" />
                             </StackPanel>
@@ -1276,11 +847,11 @@
                                 Margin="0,18,0,0"
                                 VerticalAlignment="Top">
                             <Rectangle Height="1"
-                                       Fill="{Binding StrokeBrush}"
+                                       Fill="{x:Bind services:XamlBindingHelpers.BrushFromHex(StrokeHex, StrokeAlpha), Mode=OneWay}"
                                        VerticalAlignment="Center" />
                             <Ellipse Width="8"
                                      Height="8"
-                                     Fill="{Binding StrokeBrush}"
+                                     Fill="{x:Bind services:XamlBindingHelpers.BrushFromHex(StrokeHex, StrokeAlpha), Mode=OneWay}"
                                      HorizontalAlignment="Right"
                                      VerticalAlignment="Center" />
                           </Grid>
@@ -1296,10 +867,11 @@
                       Background="{ThemeResource PaperBrush}"
                       BorderBrush="{ThemeResource PaperBorderBrush}"
                       BorderThickness="1"
-                      CornerRadius="2">
+                      CornerRadius="{ThemeResource ControlCornerRadius}">
                 <Grid x:Name="DocumentPageLayer"
-                      Width="{Binding CurrentPagePixelWidth, Mode=OneWay}"
-                      Height="{Binding CurrentPagePixelHeight, Mode=OneWay}"
+                      AutomationProperties.AutomationId="DocumentPageLayer"
+                      Width="{x:Bind ViewModel.ActiveDocumentTab.CurrentPagePixelWidth, Mode=OneWay}"
+                      Height="{x:Bind ViewModel.ActiveDocumentTab.CurrentPagePixelHeight, Mode=OneWay}"
                       Background="Transparent"
                       PointerPressed="OnDocumentLayerPointerPressed"
                       PointerMoved="OnDocumentLayerPointerMoved"
@@ -1308,7 +880,7 @@
                       RightTapped="OnDocumentLayerRightTapped">
                   <Grid.ContextFlyout>
                     <MenuFlyout x:Name="AnnotationContextMenu">
-                      <MenuFlyoutItem x:Name="ContextMenuDeleteItem" Click="OnContextMenuDelete">
+                      <MenuFlyoutItem x:Name="ContextMenuDeleteItem" AutomationProperties.AutomationId="AnnotationContextDeleteMenuItem" Click="OnContextMenuDelete">
                         <MenuFlyoutItem.Icon>
                           <FontIcon Glyph="&#xE74D;" FontFamily="Segoe Fluent Icons" />
                         </MenuFlyoutItem.Icon>
@@ -1317,39 +889,40 @@
                         </MenuFlyoutItem.KeyboardAccelerators>
                       </MenuFlyoutItem>
                       <MenuFlyoutSeparator />
-                      <MenuFlyoutItem x:Name="ContextMenuRotate90Item" Click="OnContextMenuRotate90">
+                      <MenuFlyoutItem x:Name="ContextMenuRotate90Item" AutomationProperties.AutomationId="AnnotationContextRotate90MenuItem" Click="OnContextMenuRotate90">
                         <MenuFlyoutItem.Icon>
                           <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe Fluent Icons" />
                         </MenuFlyoutItem.Icon>
                       </MenuFlyoutItem>
-                      <MenuFlyoutItem x:Name="ContextMenuResetRotationItem" Click="OnContextMenuResetRotation">
+                      <MenuFlyoutItem x:Name="ContextMenuResetRotationItem" AutomationProperties.AutomationId="AnnotationContextResetRotationMenuItem" Click="OnContextMenuResetRotation">
                         <MenuFlyoutItem.Icon>
                           <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe Fluent Icons" />
                         </MenuFlyoutItem.Icon>
                       </MenuFlyoutItem>
                       <MenuFlyoutSeparator />
-                      <MenuFlyoutItem x:Name="ContextMenuFlipHItem" Click="OnContextMenuFlipH">
+                      <MenuFlyoutItem x:Name="ContextMenuFlipHItem" AutomationProperties.AutomationId="AnnotationContextFlipHorizontalMenuItem" Click="OnContextMenuFlipH">
                         <MenuFlyoutItem.Icon>
                           <FontIcon Glyph="&#xEA4F;" FontFamily="Segoe Fluent Icons" />
                         </MenuFlyoutItem.Icon>
                       </MenuFlyoutItem>
-                      <MenuFlyoutItem x:Name="ContextMenuFlipVItem" Click="OnContextMenuFlipV">
+                      <MenuFlyoutItem x:Name="ContextMenuFlipVItem" AutomationProperties.AutomationId="AnnotationContextFlipVerticalMenuItem" Click="OnContextMenuFlipV">
                         <MenuFlyoutItem.Icon>
                           <FontIcon Glyph="&#xEA4E;" FontFamily="Segoe Fluent Icons" />
                         </MenuFlyoutItem.Icon>
                       </MenuFlyoutItem>
                     </MenuFlyout>
                   </Grid.ContextFlyout>
-                  <Image Source="{Binding CurrentPageImage, Mode=OneWay}"
-                         Width="{Binding CurrentPagePixelWidth, Mode=OneWay}"
-                         Height="{Binding CurrentPagePixelHeight, Mode=OneWay}"
+                  <Image Source="{x:Bind ViewModel.ActiveDocumentTab.CurrentPageImage, Mode=OneWay}"
+                         Width="{x:Bind ViewModel.ActiveDocumentTab.CurrentPagePixelWidth, Mode=OneWay}"
+                         Height="{x:Bind ViewModel.ActiveDocumentTab.CurrentPagePixelHeight, Mode=OneWay}"
                          Stretch="None"
                          HorizontalAlignment="Center"
                          VerticalAlignment="Top" />
 
-                  <ItemsControl ItemsSource="{Binding CurrentPageAnnotationOverlays, Mode=OneWay}"
-                                Width="{Binding CurrentPagePixelWidth, Mode=OneWay}"
-                                Height="{Binding CurrentPagePixelHeight, Mode=OneWay}"
+                  <ItemsControl AutomationProperties.AutomationId="CurrentPageAnnotationOverlayItems"
+                                ItemsSource="{x:Bind ViewModel.ActiveDocumentTab.CurrentPageAnnotationOverlays, Mode=OneWay}"
+                                Width="{x:Bind ViewModel.ActiveDocumentTab.CurrentPagePixelWidth, Mode=OneWay}"
+                                Height="{x:Bind ViewModel.ActiveDocumentTab.CurrentPagePixelHeight, Mode=OneWay}"
                                 IsHitTestVisible="False"
                                 HorizontalAlignment="Left"
                                 VerticalAlignment="Top">
@@ -1359,109 +932,99 @@
                       </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
-                      <DataTemplate>
-                        <Canvas Width="{Binding Width}"
-                                Height="{Binding Height}"
-                                Margin="{Binding Margin}"
+                      <DataTemplate x:DataType="vm:WindowsAnnotationOverlayViewModel">
+                        <Canvas Width="{x:Bind Width, Mode=OneWay}"
+                                Height="{x:Bind Height, Mode=OneWay}"
+                                Margin="{x:Bind services:XamlBindingHelpers.CreateThickness(Left, Top, 0, 0), Mode=OneWay}"
                                 HorizontalAlignment="Left"
                                 VerticalAlignment="Top"
-                                Opacity="{Binding Opacity}"
-                                Visibility="{Binding IsHidden, Converter={StaticResource InverseBoolToVisibility}}">
+                                Opacity="{x:Bind Opacity, Mode=OneWay}"
+                                Visibility="{x:Bind services:XamlBindingHelpers.InverseBoolToVisibility(IsHidden), Mode=OneWay}">
                           <!-- Rotatable annotation content + selection -->
-                          <Canvas Width="{Binding Width}"
-                                  Height="{Binding Height}">
+                          <Canvas Width="{x:Bind Width, Mode=OneWay}"
+                                  Height="{x:Bind Height, Mode=OneWay}">
                             <Canvas.RenderTransform>
-                              <RotateTransform Angle="{Binding RotationAngle}"
-                                               CenterX="{Binding RotationCenterX}"
-                                               CenterY="{Binding RotationCenterY}" />
+                              <RotateTransform Angle="{x:Bind RotationAngle, Mode=OneWay}"
+                                               CenterX="{x:Bind RotationCenterX, Mode=OneWay}"
+                                               CenterY="{x:Bind RotationCenterY, Mode=OneWay}" />
                             </Canvas.RenderTransform>
-                            <Border Width="{Binding Width}"
-                                    Height="{Binding Height}"
-                                    Background="{Binding FillBrush}"
-                                    BorderBrush="{Binding StrokeBrush}"
-                                    BorderThickness="{Binding BorderThickness}"
-                                    CornerRadius="{Binding CornerRadius}"
-                                    Visibility="{Binding BoxVisibility}" />
-                            <Polyline Points="{Binding InkPoints}"
-                                      Stroke="{Binding StrokeBrush}"
-                                      StrokeThickness="{Binding StrokeThickness}"
-                                      Visibility="{Binding InkVisibility}" />
-                            <Image Width="{Binding Width}"
-                                   Height="{Binding Height}"
-                                   Source="{Binding SignatureImageSource}"
+                            <Border Width="{x:Bind Width, Mode=OneWay}"
+                                    Height="{x:Bind Height, Mode=OneWay}"
+                                    Background="{x:Bind services:XamlBindingHelpers.BrushFromHex(FillHex, FillAlpha), Mode=OneWay}"
+                                    BorderBrush="{x:Bind services:XamlBindingHelpers.BrushFromHex(StrokeHex, StrokeAlpha), Mode=OneWay}"
+                                    BorderThickness="{x:Bind services:XamlBindingHelpers.CreateUniformThickness(BorderThicknessValue), Mode=OneWay}"
+                                    CornerRadius="{x:Bind services:XamlBindingHelpers.CreateCornerRadius(CornerRadiusValue), Mode=OneWay}"
+                                    Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsBoxVisible), Mode=OneWay}" />
+                            <Polyline Points="{x:Bind services:XamlBindingHelpers.PointCollectionFromOverlayPoints(InkPoints), Mode=OneWay}"
+                                      Stroke="{x:Bind services:XamlBindingHelpers.BrushFromHex(StrokeHex, StrokeAlpha), Mode=OneWay}"
+                                      StrokeThickness="{x:Bind StrokeThickness, Mode=OneWay}"
+                                      Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsInkVisible), Mode=OneWay}" />
+                            <Image Width="{x:Bind Width, Mode=OneWay}"
+                                   Height="{x:Bind Height, Mode=OneWay}"
+                                   Source="{x:Bind services:XamlBindingHelpers.ImageSourceFromPath(SignatureImagePath), Mode=OneWay}"
                                    Stretch="Uniform"
-                                   Visibility="{Binding SignatureImageVisibility}" />
-                            <TextBlock Text="{Binding Text}"
-                                       Foreground="{Binding TextBrush}"
-                                       FontSize="{Binding TextFontSize}"
-                                       FontFamily="{Binding TextFontFamily}"
-                                       Width="{Binding Width}"
-                                       Padding="4,2"
+                                   Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsSignatureImageVisible), Mode=OneWay}" />
+                            <TextBlock Text="{x:Bind Text, Mode=OneWay}"
+                                       Foreground="{x:Bind services:XamlBindingHelpers.BrushFromHex(TextHex, TextAlpha), Mode=OneWay}"
+                                       FontSize="{x:Bind TextFontSize, Mode=OneWay}"
+                                       FontFamily="{x:Bind TextFontFamily, Mode=OneWay}"
+                                       FontWeight="{x:Bind services:XamlBindingHelpers.TextFontWeight(TextIsBold), Mode=OneWay}"
+                                       FontStyle="{x:Bind services:XamlBindingHelpers.TextFontStyle(TextIsItalic), Mode=OneWay}"
+                                       TextAlignment="{x:Bind services:XamlBindingHelpers.TextAlignmentFromAnnotation(TextAlignment), Mode=OneWay}"
+                                       Width="{x:Bind Width, Mode=OneWay}"
+                                       Height="{x:Bind Height, Mode=OneWay}"
+                                       Padding="8,4"
                                        TextWrapping="Wrap"
-                                       Visibility="{Binding TextVisibility}" />
-                            <FontIcon Glyph="{Binding Glyph}"
+                                       TextTrimming="CharacterEllipsis"
+                                       Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsTextVisible), Mode=OneWay}" />
+                            <FontIcon Glyph="{x:Bind Glyph, Mode=OneWay}"
                                       FontFamily="Segoe Fluent Icons"
-                                      Foreground="{Binding TextBrush}"
+                                      Foreground="{x:Bind services:XamlBindingHelpers.BrushFromHex(TextHex, TextAlpha), Mode=OneWay}"
                                       FontSize="16"
-                                      Visibility="{Binding GlyphVisibility}" />
+                                      Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsGlyphVisible), Mode=OneWay}" />
                             <!-- Selection box + rotate button (all rotate with content) -->
-                            <Canvas Width="{Binding SelectionWidth}"
-                                    Height="{Binding SelectionHeight}"
-                                    Margin="{Binding SelectionMargin}"
-                                    Visibility="{Binding SelectionVisibility}">
-                              <Rectangle Width="{Binding SelectionWidth}"
-                                         Height="{Binding SelectionHeight}"
+                            <Canvas Width="{x:Bind SelectionWidth, Mode=OneWay}"
+                                    Height="{x:Bind SelectionHeight, Mode=OneWay}"
+                                    Margin="{x:Bind services:XamlBindingHelpers.CreateThickness(SelectionOffsetLeft, SelectionOffsetTop, 0, 0), Mode=OneWay}"
+                                    Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsSelected), Mode=OneWay}">
+                              <Rectangle Width="{x:Bind SelectionWidth, Mode=OneWay}"
+                                         Height="{x:Bind SelectionHeight, Mode=OneWay}"
                                          Stroke="{ThemeResource AccentBrush}"
-                                         StrokeThickness="2"
-                                         StrokeDashArray="4,3"
+                                         StrokeThickness="{x:Bind SelectionStrokeThickness, Mode=OneWay}"
+                                         StrokeDashArray="2,2"
                                          Fill="Transparent" />
-                              <Ellipse Width="10" Height="10"
-                                       Canvas.Left="-5" Canvas.Top="-5"
+                              <Ellipse Width="{x:Bind SelectionHandleSize, Mode=OneWay}"
+                                       Height="{x:Bind SelectionHandleSize, Mode=OneWay}"
+                                       Canvas.Left="{x:Bind SelectionHandleOffset, Mode=OneWay}"
+                                       Canvas.Top="{x:Bind SelectionHandleOffset, Mode=OneWay}"
                                        Fill="{ThemeResource AccentBrush}" />
-                              <Ellipse Width="10" Height="10"
-                                       Canvas.Left="-5"
-                                       Fill="{ThemeResource AccentBrush}">
-                                <Canvas.Top>
-                                  <Binding Path="SelectionHeight" Converter="{StaticResource SubtractConverter}" ConverterParameter="5" />
-                                </Canvas.Top>
-                              </Ellipse>
-                              <Ellipse Width="10" Height="10"
-                                       Canvas.Top="-5"
-                                       Fill="{ThemeResource AccentBrush}">
-                                <Canvas.Left>
-                                  <Binding Path="SelectionWidth" Converter="{StaticResource SubtractConverter}" ConverterParameter="5" />
-                                </Canvas.Left>
-                              </Ellipse>
-                              <Ellipse Width="10" Height="10"
-                                       Fill="{ThemeResource AccentBrush}">
-                                <Canvas.Left>
-                                  <Binding Path="SelectionWidth" Converter="{StaticResource SubtractConverter}" ConverterParameter="5" />
-                                </Canvas.Left>
-                                <Canvas.Top>
-                                  <Binding Path="SelectionHeight" Converter="{StaticResource SubtractConverter}" ConverterParameter="5" />
-                                </Canvas.Top>
-                              </Ellipse>
-                              <!-- Rotation stem line from top-center upward -->
-                              <Line X1="0" Y1="0" X2="0" Y2="-10"
+                              <Ellipse Width="{x:Bind SelectionHandleSize, Mode=OneWay}"
+                                       Height="{x:Bind SelectionHandleSize, Mode=OneWay}"
+                                       Canvas.Left="{x:Bind SelectionHandleOffset, Mode=OneWay}"
+                                       Canvas.Top="{x:Bind services:XamlBindingHelpers.Subtract(SelectionHeight, SelectionHandleHalfSize), Mode=OneWay}"
+                                       Fill="{ThemeResource AccentBrush}" />
+                              <Ellipse Width="{x:Bind SelectionHandleSize, Mode=OneWay}"
+                                       Height="{x:Bind SelectionHandleSize, Mode=OneWay}"
+                                       Canvas.Top="{x:Bind SelectionHandleOffset, Mode=OneWay}"
+                                       Canvas.Left="{x:Bind services:XamlBindingHelpers.Subtract(SelectionWidth, SelectionHandleHalfSize), Mode=OneWay}"
+                                       Fill="{ThemeResource AccentBrush}" />
+                              <Ellipse Width="{x:Bind SelectionHandleSize, Mode=OneWay}"
+                                       Height="{x:Bind SelectionHandleSize, Mode=OneWay}"
+                                       Canvas.Left="{x:Bind services:XamlBindingHelpers.Subtract(SelectionWidth, SelectionHandleHalfSize), Mode=OneWay}"
+                                       Canvas.Top="{x:Bind services:XamlBindingHelpers.Subtract(SelectionHeight, SelectionHandleHalfSize), Mode=OneWay}"
+                                       Fill="{ThemeResource AccentBrush}" />
+                              <!-- Rotation stem line -->
+                              <Line X1="0" Y1="0" X2="0" Y2="{x:Bind RotateStemY2, Mode=OneWay}"
                                     Stroke="{ThemeResource AccentBrush}"
                                     StrokeThickness="1.5"
-                                    Canvas.Top="0">
-                                <Canvas.Left>
-                                  <Binding Path="RotateStemLeft" />
-                                </Canvas.Left>
-                              </Line>
-                              <!-- Rotation handle at top-center -->
-                              <Border Width="20" Height="20"
-                                      CornerRadius="10"
-                                      Background="{ThemeResource AccentBrush}">
+                                    Canvas.Top="{x:Bind RotateStemTop, Mode=OneWay}"
+                                    Canvas.Left="{x:Bind RotateStemLeft, Mode=OneWay}" />
+                              <Grid Width="20" Height="20"
+                                      Canvas.Left="{x:Bind RotateButtonLeft, Mode=OneWay}"
+                                      Canvas.Top="{x:Bind RotateButtonTop, Mode=OneWay}">
+                                <Ellipse Fill="{ThemeResource AccentBrush}" />
                                 <FontIcon Glyph="&#xE7AD;" FontSize="11" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                <Canvas.Left>
-                                  <Binding Path="RotateButtonLeft" />
-                                </Canvas.Left>
-                                <Canvas.Top>
-                                  <Binding Path="RotateButtonTop" />
-                                </Canvas.Top>
-                              </Border>
+                              </Grid>
                             </Canvas>
                           </Canvas>
                         </Canvas>
@@ -1469,30 +1032,101 @@
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
 
-                  <Grid Width="{Binding InlineTextEditor.Width, Mode=OneWay, FallbackValue=180}"
-                        Height="{Binding InlineTextEditor.Height, Mode=OneWay, FallbackValue=72}"
-                        Margin="{Binding InlineTextEditor.Margin, Mode=OneWay}"
+                  <Grid Width="{x:Bind ViewModel.ActiveDocumentTab.InlineTextEditor.Width, Mode=OneWay, FallbackValue=180}"
+                        Height="{x:Bind ViewModel.ActiveDocumentTab.InlineTextEditor.Height, Mode=OneWay, FallbackValue=72}"
+                        Margin="{x:Bind services:XamlBindingHelpers.InlineTextEditorMargin(ViewModel.ActiveDocumentTab.InlineTextEditor), Mode=OneWay}"
                         HorizontalAlignment="Left"
                         VerticalAlignment="Top"
-                        Visibility="{Binding HasInlineTextEditor, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
+                        Canvas.ZIndex="20"
+                        Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.ActiveDocumentTab.HasInlineTextEditor), Mode=OneWay}">
+                    <Border Background="{x:Bind services:XamlBindingHelpers.InlineTextEditorFillBrush(ViewModel.ActiveDocumentTab.InlineTextEditor), Mode=OneWay}"
+                            BorderBrush="{ThemeResource AccentBrush}"
+                            BorderThickness="1"
+                            CornerRadius="2" />
                     <TextBox x:Name="InlineTextEditorBox"
-                             Padding="4,2"
+                             AutomationProperties.AutomationId="InlineTextEditorTextBox"
+                             Padding="8,4"
                              Background="Transparent"
+                             BorderBrush="Transparent"
                              BorderThickness="0"
-                             Foreground="{Binding InlineTextEditor.StrokeBrush, Mode=OneWay}"
-                             FontSize="{Binding InlineTextEditor.FontSize, Mode=OneWay, FallbackValue=14}"
-                             FontFamily="{Binding InlineTextEditor.FontFamily, Mode=OneWay, FallbackValue='Segoe UI'}"
-                             Text="{Binding InlineTextEditor.Text, Mode=OneWay}"
+                             CornerRadius="0"
+                             Foreground="{x:Bind services:XamlBindingHelpers.InlineTextEditorStrokeBrush(ViewModel.ActiveDocumentTab.InlineTextEditor), Mode=OneWay}"
+                             FontSize="{x:Bind ViewModel.ActiveDocumentTab.InlineTextEditor.FontSize, Mode=OneWay, FallbackValue=14}"
+                             FontFamily="{x:Bind ViewModel.ActiveDocumentTab.InlineTextEditor.FontFamily, Mode=OneWay, FallbackValue='Segoe UI'}"
+                             FontWeight="{x:Bind services:XamlBindingHelpers.TextFontWeight(ViewModel.ActiveDocumentTab.InlineTextEditor.TextIsBold), Mode=OneWay}"
+                             FontStyle="{x:Bind services:XamlBindingHelpers.TextFontStyle(ViewModel.ActiveDocumentTab.InlineTextEditor.TextIsItalic), Mode=OneWay}"
+                             TextAlignment="{x:Bind services:XamlBindingHelpers.TextAlignmentFromAnnotation(ViewModel.ActiveDocumentTab.InlineTextEditor.TextAlignment), Mode=OneWay}"
+                             PlaceholderText="{x:Bind ViewModel.Labels.AnnotationTextPlaceholder, Mode=OneWay}"
+                             PlaceholderForeground="{x:Bind services:XamlBindingHelpers.InlineTextEditorStrokeBrush(ViewModel.ActiveDocumentTab.InlineTextEditor), Mode=OneWay}"
+                             Text="{x:Bind ViewModel.ActiveDocumentTab.InlineTextEditor.Text, Mode=OneWay}"
                              TextWrapping="Wrap"
+                             AcceptsReturn="True"
                              TextChanged="OnInlineTextEditorTextChanged"
                              LostFocus="OnInlineTextEditorLostFocus"
-                             KeyDown="OnInlineTextEditorKeyDown" />
+                             KeyDown="OnInlineTextEditorKeyDown">
+                      <TextBox.Resources>
+                        <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
+                        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
+                        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+                        <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
+                        <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
+                        <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
+                        <SolidColorBrush x:Key="TextControlForeground" Color="#111827" />
+                        <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="#111827" />
+                        <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#111827" />
+                        <SolidColorBrush x:Key="TextControlPlaceholderForeground" Color="#111827" />
+                        <SolidColorBrush x:Key="TextControlPlaceholderForegroundFocused" Color="#111827" />
+                      </TextBox.Resources>
+                    </TextBox>
+                    <Canvas IsHitTestVisible="False">
+                      <Ellipse Width="8" Height="8"
+                               Canvas.Left="-4"
+                               Canvas.Top="-4"
+                               Fill="{ThemeResource AccentBrush}" />
+                      <Ellipse Width="8" Height="8"
+                               Canvas.Left="-4"
+                               Canvas.Top="{x:Bind services:XamlBindingHelpers.Subtract(ViewModel.ActiveDocumentTab.InlineTextEditor.Height, 4), Mode=OneWay}"
+                               Fill="{ThemeResource AccentBrush}" />
+                      <Ellipse Width="8" Height="8"
+                               Canvas.Left="{x:Bind services:XamlBindingHelpers.Subtract(ViewModel.ActiveDocumentTab.InlineTextEditor.Width, 4), Mode=OneWay}"
+                               Canvas.Top="-4"
+                               Fill="{ThemeResource AccentBrush}" />
+                      <Ellipse Width="8" Height="8"
+                               Canvas.Left="{x:Bind services:XamlBindingHelpers.Subtract(ViewModel.ActiveDocumentTab.InlineTextEditor.Width, 4), Mode=OneWay}"
+                               Canvas.Top="{x:Bind services:XamlBindingHelpers.Subtract(ViewModel.ActiveDocumentTab.InlineTextEditor.Height, 4), Mode=OneWay}"
+                               Fill="{ThemeResource AccentBrush}" />
+                      <Line X1="0"
+                            Y1="0"
+                            X2="0"
+                            Y2="12"
+                            Canvas.Left="{x:Bind services:XamlBindingHelpers.CenterOffset(ViewModel.ActiveDocumentTab.InlineTextEditor.Width, 0), Mode=OneWay}"
+                            Canvas.Top="{x:Bind ViewModel.ActiveDocumentTab.InlineTextEditor.Height, Mode=OneWay}"
+                            Stroke="{ThemeResource AccentBrush}"
+                            StrokeThickness="1.5" />
+                      <Ellipse Width="16"
+                               Height="16"
+                               Canvas.Left="{x:Bind services:XamlBindingHelpers.CenterOffset(ViewModel.ActiveDocumentTab.InlineTextEditor.Width, 16), Mode=OneWay}"
+                               Canvas.Top="{x:Bind services:XamlBindingHelpers.Add(ViewModel.ActiveDocumentTab.InlineTextEditor.Height, 12), Mode=OneWay}"
+                               Fill="White"
+                               Stroke="{ThemeResource AccentBrush}"
+                               StrokeThickness="2" />
+                    </Canvas>
                   </Grid>
 
-                  <ItemsControl ItemsSource="{Binding SearchHighlights, Mode=OneWay}"
-                                Width="{Binding CurrentPagePixelWidth, Mode=OneWay}"
-                                Height="{Binding CurrentPagePixelHeight, Mode=OneWay}"
-                                Visibility="{Binding HasSearchHighlights, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"
+                  <controls:TextAnnotationFloatingToolbar
+                      x:Name="TextAnnotationToolbar"
+                      ViewModel="{x:Bind ViewModel, Mode=OneWay}"
+                      Margin="{x:Bind ViewModel.ActiveDocumentTab.TextAnnotationToolbarMargin, Mode=OneWay}"
+                      HorizontalAlignment="Left"
+                      VerticalAlignment="Top"
+                      Canvas.ZIndex="30"
+                      Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.IsTextToolbarVisible), Mode=OneWay}" />
+
+                  <ItemsControl AutomationProperties.AutomationId="SearchHighlightOverlayItems"
+                                ItemsSource="{x:Bind ViewModel.ActiveDocumentTab.SearchHighlights, Mode=OneWay}"
+                                Width="{x:Bind ViewModel.ActiveDocumentTab.CurrentPagePixelWidth, Mode=OneWay}"
+                                Height="{x:Bind ViewModel.ActiveDocumentTab.CurrentPagePixelHeight, Mode=OneWay}"
+                                Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.ActiveDocumentTab.HasSearchHighlights), Mode=OneWay}"
                                 IsHitTestVisible="False"
                                 HorizontalAlignment="Left"
                                 VerticalAlignment="Top">
@@ -1502,10 +1136,10 @@
                       </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
-                      <DataTemplate>
-                        <Border Width="{Binding Width}"
-                                Height="{Binding Height}"
-                                Margin="{Binding Margin}"
+                      <DataTemplate x:DataType="vm:TextSelectionHighlightItem">
+                        <Border Width="{x:Bind Width, Mode=OneWay}"
+                                Height="{x:Bind Height, Mode=OneWay}"
+                                Margin="{x:Bind Margin, Mode=OneWay}"
                                 HorizontalAlignment="Left"
                                 VerticalAlignment="Top"
                                 Background="{ThemeResource SearchHighlightBrush}"
@@ -1514,10 +1148,11 @@
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
 
-                  <ItemsControl ItemsSource="{Binding TextSelectionHighlights, Mode=OneWay}"
-                                Width="{Binding CurrentPagePixelWidth, Mode=OneWay}"
-                                Height="{Binding CurrentPagePixelHeight, Mode=OneWay}"
-                                Visibility="{Binding HasTextSelectionHighlights, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"
+                  <ItemsControl AutomationProperties.AutomationId="TextSelectionHighlightOverlayItems"
+                                ItemsSource="{x:Bind ViewModel.ActiveDocumentTab.TextSelectionHighlights, Mode=OneWay}"
+                                Width="{x:Bind ViewModel.ActiveDocumentTab.CurrentPagePixelWidth, Mode=OneWay}"
+                                Height="{x:Bind ViewModel.ActiveDocumentTab.CurrentPagePixelHeight, Mode=OneWay}"
+                                Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.ActiveDocumentTab.HasTextSelectionHighlights), Mode=OneWay}"
                                 IsHitTestVisible="False"
                                 HorizontalAlignment="Left"
                                 VerticalAlignment="Top">
@@ -1527,10 +1162,10 @@
                       </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
-                      <DataTemplate>
-                        <Border Width="{Binding Width}"
-                                Height="{Binding Height}"
-                                Margin="{Binding Margin}"
+                      <DataTemplate x:DataType="vm:TextSelectionHighlightItem">
+                        <Border Width="{x:Bind Width, Mode=OneWay}"
+                                Height="{x:Bind Height, Mode=OneWay}"
+                                Margin="{x:Bind Margin, Mode=OneWay}"
                                 HorizontalAlignment="Left"
                                 VerticalAlignment="Top"
                                 Background="{ThemeResource AccentBrush}"
@@ -1546,1291 +1181,27 @@
         </Grid>
       </Border>
 
-      <Grid Grid.Column="3" HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="8,0,0,0"
-            Visibility="{Binding ActiveDocumentTab.IsAnyRightPanelOpen, Converter={StaticResource BoolToVisibility}}">
+      <Grid Grid.Column="3"
+            HorizontalAlignment="Left" VerticalAlignment="Stretch" Margin="8,0,0,0"
+            Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.ActiveDocumentTab.IsAnyRightPanelOpen), Mode=OneWay}">
         <Grid.TranslationTransition>
           <Vector3Transition Duration="0:0:0.2" />
         </Grid.TranslationTransition>
-        <Border Width="420"
-                VerticalAlignment="Stretch"
-                Background="{ThemeResource PanelDeepBrush}"
-                BorderBrush="{ThemeResource PanelLineBrush}"
-                BorderThickness="1"
-                CornerRadius="8"
-                Visibility="{Binding ActiveDocumentTab.IsAnnotationsPanelOpen, Converter={StaticResource BoolToVisibility}}">
-          <Grid Padding="20,20,20,12">
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="*" />
-              <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
+        <controls:AnnotationPanelControl x:Name="AnnotationsPanelControl"
+                                         ViewModel="{x:Bind ViewModel, Mode=OneWay}"
+                                         AnnotationTextDraftSubmitted="OnAnnotationTextDraftSubmitted" />
 
-            <Grid>
-              <StackPanel Spacing="6">
-                <TextBlock Text="{Binding Labels.Annotations}"
-                           Style="{StaticResource SubtitleTextBlockStyle}"
-                           Foreground="{ThemeResource TextPrimaryBrush}" />
-                <TextBlock Text="{Binding Labels.AnnotationDescriptionShort}"
-                           Foreground="{ThemeResource TextSecondaryBrush}"
-                           FontSize="12"
-                           TextWrapping="Wrap" />
-              </StackPanel>
-              <Button Width="28"
-                      Height="28"
-                      Padding="0"
-                      Background="Transparent"
-                      BorderThickness="0"
-                      HorizontalAlignment="Right"
-                      VerticalAlignment="Top"
-                      Command="{Binding ToggleAnnotationsPanelCommand}"
-                      ToolTipService.ToolTip="{Binding Labels.Close}">
-                <FontIcon Glyph="&#xE8BB;"
-                          FontFamily="Segoe Fluent Icons"
-                          Foreground="{ThemeResource TextSecondaryBrush}"
-                          FontSize="12" />
-              </Button>
-            </Grid>
+        <controls:SettingsPanelControl ViewModel="{x:Bind ViewModel, Mode=OneWay}" />
 
-            <Border Grid.Row="1"
-                    Height="38"
-                    Margin="0,14,0,14"
-                    HorizontalAlignment="Stretch"
-                    Background="{ThemeResource CardBrush}"
-                    BorderBrush="{ThemeResource CardBorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="6">
-              <Grid Margin="3">
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="*" />
-                  <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
+        <controls:InfoPanelControl ViewModel="{x:Bind ViewModel, Mode=OneWay}" />
 
-                <Border Grid.Column="0"
-                        Background="{ThemeResource ActiveToolBgBrush}"
-                        CornerRadius="8"
-                        Visibility="{Binding IsAnnotationToolsTabSelected, Converter={StaticResource BoolToVisibility}}">
-                  <Rectangle Height="2"
-                             Width="40"
-                             RadiusX="1"
-                             RadiusY="1"
-                             Fill="{ThemeResource AccentBrush}"
-                             VerticalAlignment="Bottom"
-                             HorizontalAlignment="Center"
-                             Margin="0,0,0,2" />
-                </Border>
-                <Button Grid.Column="0"
-                        Height="32"
-                        MinWidth="0"
-                        Padding="0"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        CornerRadius="8"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Center"
-                        Command="{Binding SelectAnnotationPanelTabCommand}"
-                        CommandParameter="Tools"
-                        AutomationProperties.Name="{Binding Labels.AnnotationToolsTab}">
-                  <TextBlock Text="{Binding Labels.AnnotationToolsTab}"
-                             Foreground="{ThemeResource TextPrimaryBrush}"
-                             FontSize="13"
-                             FontWeight="SemiBold" />
-                </Button>
-
-                <Border Grid.Column="1"
-                        Background="{ThemeResource ActiveToolBgBrush}"
-                        CornerRadius="8"
-                        Visibility="{Binding IsAnnotationCommentsTabSelected, Converter={StaticResource BoolToVisibility}}">
-                  <Rectangle Height="2"
-                             Width="40"
-                             RadiusX="1"
-                             RadiusY="1"
-                             Fill="{ThemeResource AccentBrush}"
-                             VerticalAlignment="Bottom"
-                             HorizontalAlignment="Center"
-                             Margin="0,0,0,2" />
-                </Border>
-                <Button Grid.Column="1"
-                        Height="32"
-                        MinWidth="0"
-                        Padding="0"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        CornerRadius="8"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Center"
-                        Command="{Binding SelectAnnotationPanelTabCommand}"
-                        CommandParameter="Comments"
-                        AutomationProperties.Name="{Binding Labels.AnnotationCommentsTab}">
-                  <TextBlock Text="{Binding Labels.AnnotationCommentsTab}"
-                             Foreground="{ThemeResource TextPrimaryBrush}"
-                             FontSize="13"
-                             FontWeight="SemiBold" />
-                </Button>
-              </Grid>
-            </Border>
-
-            <Grid Grid.Row="2"
-                  RowSpacing="8"
-                  HorizontalAlignment="Stretch"
-                  Visibility="{Binding IsAnnotationToolsAppearancePanelVisible, Converter={StaticResource BoolToVisibility}}">
-              <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-              </Grid.RowDefinitions>
-              <TextBlock Text="{Binding Labels.AnnotationActiveTool}"
-                         Foreground="{ThemeResource PanelLabelBrush}"
-                         FontSize="13" />
-              <Button Grid.Row="1"
-                      Height="42"
-                      Background="{ThemeResource CardBrush}"
-                      BorderBrush="{ThemeResource CardBorderBrush}"
-                      BorderThickness="1"
-                      CornerRadius="8"
-                      Padding="14,0"
-                      HorizontalAlignment="Stretch"
-                      HorizontalContentAlignment="Stretch"
-                      ToolTipService.ToolTip="{Binding ActiveAnnotationToolLabel}"
-                      AutomationProperties.Name="{Binding ActiveAnnotationToolLabel}">
-                <Button.Flyout>
-                  <MenuFlyout>
-                    <MenuFlyoutItem Text="{Binding Labels.Select}" Command="{Binding SelectAnnotationToolCommand}" CommandParameter="Select" />
-                    <MenuFlyoutItem Text="{Binding Labels.Highlight}" Command="{Binding SelectAnnotationToolCommand}" CommandParameter="Highlight" />
-                    <MenuFlyoutItem Text="{Binding Labels.Ink}" Command="{Binding SelectAnnotationToolCommand}" CommandParameter="Ink" />
-                    <MenuFlyoutItem Text="{Binding Labels.Text}" Command="{Binding SelectAnnotationToolCommand}" CommandParameter="Text" />
-                    <MenuFlyoutItem Text="{Binding Labels.Note}" Command="{Binding SelectAnnotationToolCommand}" CommandParameter="Note" />
-                    <MenuFlyoutItem Text="{Binding Labels.Rectangle}" Command="{Binding SelectAnnotationToolCommand}" CommandParameter="Rectangle" />
-                    <MenuFlyoutItem Text="{Binding Labels.Signature}" Command="{Binding SelectAnnotationToolCommand}" CommandParameter="Signature" />
-                    <MenuFlyoutItem Text="{Binding Labels.Stamp}" Command="{Binding SelectAnnotationToolCommand}" CommandParameter="Stamp" />
-                  </MenuFlyout>
-                </Button.Flyout>
-                <Grid>
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                  </Grid.ColumnDefinitions>
-
-                  <Border Width="22"
-                          Height="22"
-                          Background="{Binding SelectedAnnotationColorBrush}"
-                          CornerRadius="8"
-                          VerticalAlignment="Center" />
-
-                  <TextBlock Grid.Column="1"
-                             Text="{Binding ActiveAnnotationToolLabel}"
-                             Foreground="{ThemeResource TextPrimaryBrush}"
-                             FontSize="14"
-                             Margin="12,0,0,0"
-                             VerticalAlignment="Center" />
-
-                  <FontIcon Grid.Column="2"
-                            Glyph="&#xE70D;"
-                            FontFamily="Segoe Fluent Icons"
-                            Foreground="{ThemeResource TextSecondaryBrush}"
-                            FontSize="11"
-                            VerticalAlignment="Center" />
-                </Grid>
-              </Button>
-            </Grid>
-
-            <StackPanel Grid.Row="3"
-                        Margin="0,12,0,0"
-                        Spacing="10"
-                        HorizontalAlignment="Stretch"
-                        Visibility="{Binding IsAnnotationToolsTabSelected, Converter={StaticResource BoolToVisibility}}">
-              <TextBlock Text="{Binding Labels.AnnotationQuickTools}"
-                         Foreground="{ThemeResource PanelLabelBrush}"
-                         FontSize="13" />
-              <ItemsControl ItemsSource="{Binding AnnotationTools}">
-                <ItemsControl.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <ItemsWrapGrid Orientation="Horizontal"
-                                   MaximumRowsOrColumns="4"
-                                   ItemWidth="90"
-                                   ItemHeight="68" />
-                  </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate>
-                    <Button Width="82"
-                            Height="58"
-                            Margin="0"
-                            CornerRadius="8"
-                            Background="{Binding IsSelected, Converter={StaticResource BoolToSelectedToolBackground}}"
-                            BorderBrush="{ThemeResource ButtonBorderBrush}"
-                            BorderThickness="1"
-                            Foreground="{ThemeResource TextPrimaryBrush}"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            IsEnabled="{Binding IsEnabled}"
-                            ToolTipService.ToolTip="{Binding Label}"
-                            AutomationProperties.Name="{Binding Label}"
-                            Click="OnAnnotationToolClicked">
-                      <FontIcon Glyph="{Binding Glyph}"
-                                FontFamily="Segoe Fluent Icons"
-                                FontSize="20" />
-                    </Button>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-
-              <StackPanel Spacing="6"
-                          Visibility="{Binding ShowAnnotationTextEditor, Converter={StaticResource BoolToVisibility}}">
-                <TextBlock Text="{Binding Labels.AnnotationText}"
-                           Foreground="{ThemeResource PanelLabelBrush}"
-                           FontSize="13" />
-                <TextBox MinHeight="78"
-                         Padding="10,8"
-                         Background="{ThemeResource InputBrush}"
-                         BorderBrush="{ThemeResource InputBorderBrush}"
-                         BorderThickness="1"
-                         CornerRadius="8"
-                         Foreground="{ThemeResource TextPrimaryBrush}"
-                         PlaceholderText="{Binding Labels.AnnotationTextPlaceholder}"
-                         Text="{Binding AnnotationTextDraft, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         TextWrapping="Wrap"
-                         KeyDown="OnAnnotationTextDraftKeyDown" />
-              </StackPanel>
-
-              <StackPanel Spacing="10"
-                          Visibility="{Binding ShowTextStyleControls, Converter={StaticResource BoolToVisibility}}">
-                <TextBlock Text="Font"
-                           Foreground="{ThemeResource PanelLabelBrush}"
-                           FontSize="13" />
-                <ComboBox ItemsSource="{Binding AnnotationFontFamilyOptions}"
-                          SelectedItem="{Binding AnnotationFontFamily, Mode=TwoWay}"
-                          HorizontalAlignment="Stretch"
-                          Background="{ThemeResource InputBrush}"
-                          BorderBrush="{ThemeResource InputBorderBrush}"
-                          BorderThickness="1"
-                          CornerRadius="8" />
-                <Grid ColumnSpacing="8">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Text="Size"
-                             Foreground="{ThemeResource PanelLabelBrush}"
-                             FontSize="13"
-                             VerticalAlignment="Center" />
-                  <ComboBox Grid.Column="1"
-                            Width="90"
-                            ItemsSource="{Binding AnnotationFontSizeOptions}"
-                            SelectedItem="{Binding AnnotationFontSize, Mode=TwoWay}"
-                            Background="{ThemeResource InputBrush}"
-                            BorderBrush="{ThemeResource InputBorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="8" />
-                </Grid>
-              </StackPanel>
-
-              <StackPanel Spacing="10"
-                          Visibility="{Binding ShowSignatureControls, Converter={StaticResource BoolToVisibility}}">
-                <Grid ColumnSpacing="8">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Text="{Binding Labels.SignatureLibrary}"
-                             Foreground="{ThemeResource PanelLabelBrush}"
-                             FontSize="13"
-                             VerticalAlignment="Center" />
-                  <Button Grid.Column="1"
-                          Height="32"
-                          MinWidth="0"
-                          Padding="10,0"
-                          CornerRadius="8"
-                          Background="{ThemeResource CardBrush}"
-                          BorderBrush="{ThemeResource CardBorderBrush}"
-                          BorderThickness="1"
-                          Command="{Binding ImportSignatureAssetCommand}">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                      <FontIcon Glyph="&#xE8E5;"
-                                FontFamily="Segoe Fluent Icons"
-                                FontSize="13" />
-                      <TextBlock Text="{Binding Labels.SignatureImportImage}"
-                                 FontSize="12" />
-                    </StackPanel>
-                  </Button>
-                  <Button Grid.Column="2"
-                          Width="32"
-                          Height="32"
-                          Padding="0"
-                          CornerRadius="8"
-                          Background="Transparent"
-                          BorderBrush="{ThemeResource CardBorderBrush}"
-                          BorderThickness="1"
-                          Command="{Binding DeleteSelectedSignatureAssetCommand}"
-                          CommandParameter="{Binding SelectedSignatureAssetId}"
-                          ToolTipService.ToolTip="{Binding Labels.SignatureDeleteSelected}"
-                          AutomationProperties.Name="{Binding Labels.SignatureDeleteSelected}">
-                    <FontIcon Glyph="&#xE74D;"
-                              FontFamily="Segoe Fluent Icons"
-                              FontSize="13" />
-                  </Button>
-                </Grid>
-
-                <ScrollViewer MaxHeight="132"
-                              VerticalScrollBarVisibility="Auto"
-                              Visibility="{Binding HasSignatureAssets, Converter={StaticResource BoolToVisibility}}">
-                  <ItemsControl ItemsSource="{Binding SignatureAssets}">
-                    <ItemsControl.ItemTemplate>
-                      <DataTemplate>
-                        <Border Background="{ThemeResource CardBrush}"
-                                BorderBrush="{ThemeResource CardBorderBrush}"
-                                BorderThickness="1"
-                                CornerRadius="6"
-                                Padding="10,8"
-                                Margin="0,0,0,6">
-                          <Grid ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                              <ColumnDefinition Width="*" />
-                              <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <Button Background="Transparent"
-                                    BorderThickness="0"
-                                    Padding="0"
-                                    HorizontalAlignment="Stretch"
-                                    HorizontalContentAlignment="Stretch"
-                                    Command="{Binding DataContext.SelectSignatureAssetCommand, ElementName=Root}"
-                                    CommandParameter="{Binding Id}">
-                              <StackPanel Spacing="2">
-                                <TextBlock Text="{Binding DisplayName}"
-                                           Foreground="{ThemeResource TextPrimaryBrush}"
-                                           FontSize="13"
-                                           FontWeight="SemiBold"
-                                           TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{Binding FilePath}"
-                                           Foreground="{ThemeResource TextSecondaryBrush}"
-                                           FontSize="11"
-                                           TextTrimming="CharacterEllipsis" />
-                              </StackPanel>
-                            </Button>
-                            <Button Grid.Column="1"
-                                    Width="28"
-                                    Height="28"
-                                    Padding="0"
-                                    Background="Transparent"
-                                    BorderThickness="0"
-                                    Command="{Binding DataContext.DeleteSelectedSignatureAssetCommand, ElementName=Root}"
-                                    CommandParameter="{Binding Id}"
-                                    ToolTipService.ToolTip="{Binding DataContext.Labels.SignatureDeleteSelected, ElementName=Root}"
-                                    AutomationProperties.Name="{Binding DataContext.Labels.SignatureDeleteSelected, ElementName=Root}">
-                              <FontIcon Glyph="&#xE74D;"
-                                        FontFamily="Segoe Fluent Icons"
-                                        Foreground="{ThemeResource TextSecondaryBrush}"
-                                        FontSize="13" />
-                            </Button>
-                          </Grid>
-                        </Border>
-                      </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
-                </ScrollViewer>
-
-                <TextBlock Text="{Binding Labels.SignatureDraw}"
-                           Foreground="{ThemeResource PanelLabelBrush}"
-                           FontSize="13" />
-                <TextBox Height="36"
-                         Padding="10,0"
-                         Background="{ThemeResource InputBrush}"
-                         BorderBrush="{ThemeResource InputBorderBrush}"
-                         BorderThickness="1"
-                         CornerRadius="8"
-                         Foreground="{ThemeResource TextPrimaryBrush}"
-                         PlaceholderText="{Binding Labels.SignatureNamePlaceholder}"
-                         Text="{Binding SignatureAssetNameInput, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-
-                <Border Height="146"
-                        Background="{ThemeResource CardBrush}"
-                        BorderBrush="{ThemeResource CardBorderBrush}"
-                        BorderThickness="1"
-                        CornerRadius="6"
-                        Padding="10">
-                  <Grid HorizontalAlignment="Center"
-                        VerticalAlignment="Center">
-                    <Rectangle Width="248"
-                               Height="124"
-                               Fill="{ThemeResource SignaturePadBgBrush}"
-                               RadiusX="4"
-                               RadiusY="4" />
-                    <Polyline Points="{Binding SignaturePadPoints}"
-                              Stroke="{ThemeResource SignatureInkBrush}"
-                              StrokeThickness="2.2"
-                              StrokeLineJoin="Round"
-                              StrokeStartLineCap="Round"
-                              StrokeEndLineCap="Round" />
-                    <Border x:Name="SignaturePadInteractionLayer"
-                            Width="248"
-                            Height="124"
-                            Background="Transparent"
-                            PointerPressed="OnSignaturePadPointerPressed"
-                            PointerMoved="OnSignaturePadPointerMoved"
-                            PointerReleased="OnSignaturePadPointerReleased"
-                            PointerCanceled="OnSignaturePadPointerCanceled" />
-                  </Grid>
-                </Border>
-
-                <StackPanel Orientation="Horizontal"
-                            HorizontalAlignment="Right"
-                            Spacing="8">
-                  <Button Height="32"
-                          MinWidth="0"
-                          Padding="10,0"
-                          CornerRadius="8"
-                          Background="{ThemeResource CardBrush}"
-                          BorderBrush="{ThemeResource CardBorderBrush}"
-                          BorderThickness="1"
-                          Command="{Binding ClearSignatureCaptureCommand}"
-                          Content="{Binding Labels.SignatureClearDrawing}" />
-                  <Button Height="32"
-                          MinWidth="0"
-                          Padding="10,0"
-                          CornerRadius="8"
-                          Background="{ThemeResource AccentBgBrush}"
-                          BorderBrush="{ThemeResource AccentBrush}"
-                          BorderThickness="1"
-                          Command="{Binding SaveDrawnSignatureAssetCommand}"
-                          Content="{Binding Labels.SignatureSave}" />
-                </StackPanel>
-              </StackPanel>
-            </StackPanel>
-
-            <StackPanel Grid.Row="4"
-                        Margin="0,2,0,0"
-                        Spacing="8"
-                        HorizontalAlignment="Stretch"
-                        Visibility="{Binding IsAnnotationToolsAppearancePanelVisible, Converter={StaticResource BoolToVisibility}}">
-              <TextBlock Text="{Binding Labels.AnnotationColor}"
-                         Foreground="{ThemeResource PanelLabelBrush}"
-                         FontSize="13" />
-              <ItemsControl ItemsSource="{Binding AnnotationColorOptions}">
-                <ItemsControl.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <StackPanel Orientation="Horizontal" Spacing="12" />
-                  </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate>
-                    <Button Width="30"
-                            Height="30"
-                            Padding="0"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            ToolTipService.ToolTip="{Binding Hex}"
-                            AutomationProperties.Name="{Binding Hex}"
-                            Click="OnAnnotationColorClicked">
-                      <Grid>
-                        <Ellipse Width="24"
-                                 Height="24"
-                                 Fill="{Binding Brush}" />
-                        <Ellipse Width="30"
-                                 Height="30"
-                                 Stroke="{ThemeResource AccentBrush}"
-                                 StrokeThickness="3"
-                                 Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibility}}" />
-                        <Ellipse Width="20"
-                                 Height="20"
-                                 Stroke="{ThemeResource TextPrimaryBrush}"
-                                 StrokeThickness="1"
-                                 Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibility}}" />
-                      </Grid>
-                    </Button>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-            </StackPanel>
-
-            <StackPanel Grid.Row="5"
-                        Margin="0,10,0,0"
-                        Spacing="6"
-                        HorizontalAlignment="Stretch"
-                        Visibility="{Binding IsAnnotationToolsAppearancePanelVisible, Converter={StaticResource BoolToVisibility}}">
-              <Grid>
-                <TextBlock Text="{Binding Labels.AnnotationOpacity}"
-                           Foreground="{ThemeResource PanelLabelBrush}"
-                           FontSize="13" />
-                <TextBlock Text="{Binding AnnotationOpacityText}"
-                           Foreground="{ThemeResource TextPrimaryBrush}"
-                           FontSize="12"
-                           HorizontalAlignment="Right" />
-              </Grid>
-              <Slider Minimum="0"
-                      Maximum="100"
-                      Value="{Binding AnnotationOpacity, Mode=TwoWay}" />
-            </StackPanel>
-
-            <StackPanel Grid.Row="6"
-                        Margin="0,10,0,0"
-                        Spacing="8"
-                        HorizontalAlignment="Stretch"
-                        Visibility="{Binding ShowRectangleFillControls, Converter={StaticResource BoolToVisibility}}">
-              <CheckBox Content="{Binding Labels.AnnotationFill}"
-                        IsChecked="{Binding AnnotationFillEnabled, Mode=TwoWay}" />
-              <StackPanel Spacing="6"
-                          Visibility="{Binding AnnotationFillEnabled, Converter={StaticResource BoolToVisibility}}">
-                <TextBlock Text="{Binding Labels.AnnotationFillColor}"
-                           Foreground="{ThemeResource PanelLabelBrush}"
-                           FontSize="13" />
-                <ItemsControl ItemsSource="{Binding AnnotationFillColorOptions}">
-                  <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                      <StackPanel Orientation="Horizontal" Spacing="10" />
-                    </ItemsPanelTemplate>
-                  </ItemsControl.ItemsPanel>
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                      <Button Width="28"
-                              Height="28"
-                              Padding="0"
-                              Background="Transparent"
-                              BorderThickness="0"
-                              ToolTipService.ToolTip="{Binding Hex}"
-                              Click="OnAnnotationFillColorClicked">
-                        <Grid>
-                          <Ellipse Width="22"
-                                   Height="22"
-                                   Fill="{Binding Brush}" />
-                          <Ellipse Width="28"
-                                   Height="28"
-                                   Stroke="{ThemeResource AccentBrush}"
-                                   StrokeThickness="3"
-                                   Visibility="{Binding IsSelected, Converter={StaticResource BoolToVisibility}}" />
-                        </Grid>
-                      </Button>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-              </StackPanel>
-            </StackPanel>
-
-            <Border Grid.Row="7"
-                    Margin="0,14,0,0"
-                    HorizontalAlignment="Stretch"
-                    BorderBrush="{ThemeResource AnnotationSeparatorBrush}"
-                    BorderThickness="0"
-                    Visibility="{Binding IsAnnotationToolsTabSelected, Converter={StaticResource BoolToVisibility}}">
-              <Grid RowSpacing="8">
-                <Grid.RowDefinitions>
-                  <RowDefinition Height="Auto" />
-                  <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-
-                <Grid>
-                  <TextBlock Text="{Binding Labels.AnnotationCurrent}"
-                             Foreground="{ThemeResource TextPrimaryBrush}"
-                             FontSize="14" />
-                  <Border HorizontalAlignment="Right"
-                          Padding="10,4"
-                          Background="{ThemeResource CardBrush}"
-                          BorderBrush="{ThemeResource CardBorderBrush}"
-                          BorderThickness="1"
-                          CornerRadius="6">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                      <TextBlock Text="{Binding Labels.AnnotationRecent}"
-                                 Foreground="{ThemeResource TextPrimaryBrush}"
-                                 FontSize="12" />
-                      <FontIcon Glyph="&#xE70D;"
-                                FontFamily="Segoe Fluent Icons"
-                                Foreground="{ThemeResource TextSecondaryBrush}"
-                                FontSize="10"
-                                VerticalAlignment="Center" />
-                    </StackPanel>
-                  </Border>
-                </Grid>
-
-                <Grid Grid.Row="1">
-                  <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                HorizontalScrollBarVisibility="Disabled"
-                                Visibility="{Binding ActiveDocumentTab.HasCurrentPageAnnotations, Converter={StaticResource BoolToVisibility}}">
-                    <ItemsControl ItemsSource="{Binding ActiveDocumentTab.CurrentPageAnnotationOverlays}">
-                      <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                          <Border Background="{ThemeResource CardBrush}"
-                                  BorderBrush="{ThemeResource CardBorderBrush}"
-                                  BorderThickness="1"
-                                  CornerRadius="6"
-                                  Padding="12,10"
-                                  Margin="0,0,0,8"
-                                  Opacity="{Binding ListItemOpacity}"
-                                  Tapped="OnAnnotationListItemTapped">
-                            <Grid ColumnSpacing="12">
-                              <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="24" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                              </Grid.ColumnDefinitions>
-
-                              <Grid Grid.Column="0"
-                                    VerticalAlignment="Top"
-                                    Margin="0,2,0,0">
-                                <FontIcon Glyph="{Binding Glyph}"
-                                          FontFamily="Segoe Fluent Icons"
-                                          Foreground="{Binding StrokeBrush}"
-                                          FontSize="18" />
-                                <FontIcon Glyph="&#xE72E;"
-                                          FontFamily="Segoe Fluent Icons"
-                                          Foreground="{ThemeResource TextSecondaryBrush}"
-                                          FontSize="10"
-                                          HorizontalAlignment="Right"
-                                          VerticalAlignment="Bottom"
-                                          Margin="0,0,-4,-4"
-                                          Visibility="{Binding LockIconVisibility}" />
-                                <FontIcon Glyph="&#xED1A;"
-                                          FontFamily="Segoe Fluent Icons"
-                                          Foreground="{ThemeResource TextSecondaryBrush}"
-                                          FontSize="10"
-                                          HorizontalAlignment="Left"
-                                          VerticalAlignment="Bottom"
-                                          Margin="-4,0,0,-4"
-                                          Visibility="{Binding HiddenIconVisibility}" />
-                              </Grid>
-
-                              <StackPanel Grid.Column="1" Spacing="1">
-                                <TextBlock Text="{Binding Label}"
-                                           Foreground="{ThemeResource TextPrimaryBrush}"
-                                           FontWeight="SemiBold"
-                                           FontSize="13"
-                                           TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{Binding PageLabel}"
-                                           Foreground="{ThemeResource TextSecondaryBrush}"
-                                           FontSize="11" />
-                                <TextBlock Text="{Binding PreviewText}"
-                                           Foreground="{ThemeResource TextSecondaryBrush}"
-                                           FontSize="11"
-                                           TextTrimming="CharacterEllipsis"
-                                           Visibility="{Binding HasPreviewText, Converter={StaticResource BoolToVisibility}}" />
-                              </StackPanel>
-
-                              <StackPanel Grid.Column="2"
-                                          Orientation="Horizontal"
-                                          Spacing="6"
-                                          VerticalAlignment="Top"
-                                          Margin="0,2,0,0">
-                                <TextBlock Text="{Binding TimeText}"
-                                           Foreground="{ThemeResource TextSecondaryBrush}"
-                                           FontSize="11"
-                                           VerticalAlignment="Center" />
-                                <Button Width="28"
-                                        Height="28"
-                                        Padding="0"
-                                        Background="Transparent"
-                                        BorderThickness="0">
-                                  <FontIcon Glyph="&#xE712;"
-                                            FontFamily="Segoe Fluent Icons"
-                                            Foreground="{ThemeResource TextSecondaryBrush}"
-                                            FontSize="13" />
-                                  <Button.Flyout>
-                                    <MenuFlyout>
-                                      <MenuFlyoutItem Text="{Binding DataContext.Labels.AnnotationMenuEdit, ElementName=Root}"
-                                                      Tag="{Binding Id}"
-                                                      Click="OnAnnotationMenuEditClicked">
-                                        <MenuFlyoutItem.Icon>
-                                          <FontIcon Glyph="&#xE70F;" FontFamily="Segoe Fluent Icons" />
-                                        </MenuFlyoutItem.Icon>
-                                      </MenuFlyoutItem>
-                                      <MenuFlyoutItem Text="{Binding HideMenuText}"
-                                                      Tag="{Binding Id}"
-                                                      Click="OnAnnotationMenuHideClicked">
-                                        <MenuFlyoutItem.Icon>
-                                          <FontIcon Glyph="&#xED1A;" FontFamily="Segoe Fluent Icons" />
-                                        </MenuFlyoutItem.Icon>
-                                      </MenuFlyoutItem>
-                                      <MenuFlyoutItem Text="{Binding LockMenuText}"
-                                                      Tag="{Binding Id}"
-                                                      Click="OnAnnotationMenuLockClicked">
-                                        <MenuFlyoutItem.Icon>
-                                          <FontIcon Glyph="&#xE72E;" FontFamily="Segoe Fluent Icons" />
-                                        </MenuFlyoutItem.Icon>
-                                      </MenuFlyoutItem>
-                                      <MenuFlyoutSeparator />
-                                      <MenuFlyoutItem Text="{Binding DataContext.Labels.AnnotationMenuDelete, ElementName=Root}"
-                                                      Tag="{Binding Id}"
-                                                      Click="OnAnnotationMenuDeleteClicked">
-                                        <MenuFlyoutItem.Icon>
-                                          <FontIcon Glyph="&#xE74D;" FontFamily="Segoe Fluent Icons" />
-                                        </MenuFlyoutItem.Icon>
-                                      </MenuFlyoutItem>
-                                    </MenuFlyout>
-                                  </Button.Flyout>
-                                </Button>
-                              </StackPanel>
-                            </Grid>
-                          </Border>
-                        </DataTemplate>
-                      </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                  </ScrollViewer>
-
-                  <StackPanel VerticalAlignment="Top"
-                              HorizontalAlignment="Center"
-                              Spacing="10"
-                              Margin="0,96,0,0"
-                              Visibility="{Binding ActiveDocumentTab.HasCurrentPageAnnotations, Converter={StaticResource InverseBoolToVisibility}}">
-                    <FontIcon Glyph="&#xE90A;"
-                              FontFamily="Segoe Fluent Icons"
-                              Foreground="{ThemeResource EmptyStateIconBrush}"
-                              FontSize="38"
-                              HorizontalAlignment="Center" />
-                    <TextBlock Text="{Binding Labels.AnnotationEmptyPage}"
-                               Foreground="{ThemeResource TextPrimaryBrush}"
-                               FontSize="12"
-                               HorizontalAlignment="Center" />
-                    <TextBlock Text="{Binding Labels.AnnotationEmptyHint}"
-                               Foreground="{ThemeResource TextSecondaryBrush}"
-                               TextWrapping="Wrap"
-                               TextAlignment="Center"
-                               FontSize="12"
-                               Width="260" />
-                  </StackPanel>
-                </Grid>
-              </Grid>
-            </Border>
-
-            <Border Grid.Row="7"
-                    Margin="0,14,0,0"
-                    HorizontalAlignment="Stretch"
-                    BorderBrush="{ThemeResource AnnotationSeparatorBrush}"
-                    BorderThickness="0"
-                    Visibility="{Binding IsAnnotationCommentsTabSelected, Converter={StaticResource BoolToVisibility}}">
-              <Grid RowSpacing="8">
-                <Grid.RowDefinitions>
-                  <RowDefinition Height="Auto" />
-                  <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-
-                <Grid>
-                  <TextBlock Text="{Binding Labels.AnnotationCommentsCurrent}"
-                             Foreground="{ThemeResource TextPrimaryBrush}"
-                             FontSize="14" />
-                  <Border HorizontalAlignment="Right"
-                          Padding="10,4"
-                          Background="{ThemeResource CardBrush}"
-                          BorderBrush="{ThemeResource CardBorderBrush}"
-                          BorderThickness="1"
-                          CornerRadius="6">
-                    <TextBlock Text="{Binding ActiveDocumentTab.CurrentPageCommentCountText}"
-                               Foreground="{ThemeResource TextPrimaryBrush}"
-                               FontSize="12" />
-                  </Border>
-                </Grid>
-
-                <Grid Grid.Row="1">
-                  <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                HorizontalScrollBarVisibility="Disabled"
-                                Visibility="{Binding ActiveDocumentTab.HasCurrentPageComments, Converter={StaticResource BoolToVisibility}}">
-                    <ItemsControl ItemsSource="{Binding ActiveDocumentTab.CurrentPageCommentOverlays}">
-                      <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                          <Border Background="{ThemeResource CardBrush}"
-                                  BorderBrush="{ThemeResource CardBorderBrush}"
-                                  BorderThickness="1"
-                                  CornerRadius="6"
-                                  Padding="12,10"
-                                  Margin="0,0,0,8">
-                            <Grid ColumnSpacing="12">
-                              <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="24" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                              </Grid.ColumnDefinitions>
-
-                              <FontIcon Grid.Column="0"
-                                        Glyph="&#xE90A;"
-                                        FontFamily="Segoe Fluent Icons"
-                                        Foreground="{Binding StrokeBrush}"
-                                        FontSize="18"
-                                        VerticalAlignment="Top"
-                                        Margin="0,2,0,0" />
-
-                              <StackPanel Grid.Column="1" Spacing="4">
-                                <TextBlock Text="{Binding Text}"
-                                           Foreground="{ThemeResource TextPrimaryBrush}"
-                                           FontWeight="SemiBold"
-                                           FontSize="13"
-                                           TextWrapping="Wrap"
-                                           MaxLines="3" />
-                                <TextBlock Text="{Binding PageLabel}"
-                                           Foreground="{ThemeResource TextSecondaryBrush}"
-                                           FontSize="11" />
-                              </StackPanel>
-
-                              <StackPanel Grid.Column="2"
-                                          Orientation="Horizontal"
-                                          Spacing="6"
-                                          VerticalAlignment="Top"
-                                          Margin="0,2,0,0">
-                                <TextBlock Text="{Binding TimeText}"
-                                           Foreground="{ThemeResource TextSecondaryBrush}"
-                                           FontSize="11"
-                                           VerticalAlignment="Center" />
-                                <Button Width="28"
-                                        Height="28"
-                                        Padding="0"
-                                        Background="Transparent"
-                                        BorderThickness="0"
-                                        ToolTipService.ToolTip="{Binding DataContext.Labels.AnnotationDeleteSelected, ElementName=Root}"
-                                        AutomationProperties.Name="{Binding DataContext.Labels.AnnotationDeleteSelected, ElementName=Root}"
-                                        Tapped="OnDeleteAnnotationTapped">
-                                  <FontIcon Glyph="&#xE712;"
-                                            FontFamily="Segoe Fluent Icons"
-                                            Foreground="{ThemeResource TextSecondaryBrush}"
-                                            FontSize="13" />
-                                </Button>
-                              </StackPanel>
-                            </Grid>
-                          </Border>
-                        </DataTemplate>
-                      </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                  </ScrollViewer>
-
-                  <StackPanel VerticalAlignment="Top"
-                              HorizontalAlignment="Center"
-                              Spacing="10"
-                              Margin="0,96,0,0"
-                              Visibility="{Binding ActiveDocumentTab.HasCurrentPageComments, Converter={StaticResource InverseBoolToVisibility}}">
-                    <FontIcon Glyph="&#xE90A;"
-                              FontFamily="Segoe Fluent Icons"
-                              Foreground="{ThemeResource EmptyStateIconBrush}"
-                              FontSize="38"
-                              HorizontalAlignment="Center" />
-                    <TextBlock Text="{Binding Labels.AnnotationCommentsEmptyPage}"
-                               Foreground="{ThemeResource TextPrimaryBrush}"
-                               FontSize="12"
-                               HorizontalAlignment="Center" />
-                    <TextBlock Text="{Binding Labels.AnnotationCommentsEmptyHint}"
-                               Foreground="{ThemeResource TextSecondaryBrush}"
-                               TextWrapping="Wrap"
-                               TextAlignment="Center"
-                               FontSize="12"
-                               Width="260" />
-                  </StackPanel>
-                </Grid>
-              </Grid>
-            </Border>
-
-            <Button Grid.Row="8"
-                    HorizontalAlignment="Right"
-                    Width="40"
-                    Height="36"
-                    Margin="0,8,0,0"
-                    Padding="0"
-                    Background="{ThemeResource CardBrush}"
-                    BorderBrush="{ThemeResource CardBorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Command="{Binding ToggleAnnotationsPanelCommand}"
-                    ToolTipService.ToolTip="{Binding Labels.Annotations}"
-                    AutomationProperties.Name="{Binding Labels.Annotations}">
-              <TextBlock Text="&#x00AB;"
-                         Foreground="{ThemeResource TextPrimaryBrush}"
-                         FontSize="22" />
-            </Button>
-          </Grid>
-        </Border>
-
-        <Border Width="356"
-                Background="{ThemeResource PanelDeepBrush}"
-                BorderBrush="{ThemeResource PanelLineBrush}"
-                BorderThickness="1,0,0,0"
-                CornerRadius="0"
-                Visibility="{Binding ActiveDocumentTab.IsSettingsPanelOpen, Converter={StaticResource BoolToVisibility}}">
-          <StackPanel Padding="18,14" Spacing="16">
-            <StackPanel Spacing="5">
-              <TextBlock Text="{Binding Labels.Settings}" Style="{StaticResource PanelTitleStyle}" />
-              <TextBlock Text="{Binding Labels.PreferencesDescription}"
-                         Foreground="{ThemeResource TextSecondaryBrush}"
-                         FontSize="12"
-                         TextWrapping="Wrap" />
-            </StackPanel>
-
-            <Border Background="{ThemeResource CardBrush}"
-                    BorderBrush="{ThemeResource CardBorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Padding="14">
-              <StackPanel Spacing="14">
-                <Grid ColumnSpacing="12">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="150" />
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Text="{Binding Labels.PreferencesLanguage}"
-                             Foreground="{ThemeResource TextPrimaryBrush}"
-                             FontWeight="SemiBold"
-                             VerticalAlignment="Center" />
-                  <ComboBox Grid.Column="1"
-                            ItemsSource="{Binding PreferenceLanguageOptions}"
-                            SelectedItem="{Binding SelectedPreferenceLanguage, Mode=TwoWay}" />
-                </Grid>
-
-                <Grid ColumnSpacing="12">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="150" />
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Text="{Binding Labels.PreferencesTheme}"
-                             Foreground="{ThemeResource TextPrimaryBrush}"
-                             FontWeight="SemiBold"
-                             VerticalAlignment="Center" />
-                  <ComboBox Grid.Column="1"
-                            ItemsSource="{Binding PreferenceThemeOptions}"
-                            SelectedItem="{Binding SelectedPreferenceTheme, Mode=TwoWay}" />
-                </Grid>
-
-                <Grid ColumnSpacing="12">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="150" />
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Text="{Binding Labels.PreferencesDefaultZoom}"
-                             Foreground="{ThemeResource TextPrimaryBrush}"
-                             FontWeight="SemiBold"
-                             VerticalAlignment="Center" />
-                  <ComboBox Grid.Column="1"
-                            ItemsSource="{Binding PreferenceZoomOptions}"
-                            SelectedItem="{Binding SelectedPreferenceZoom, Mode=TwoWay}" />
-                </Grid>
-
-                <Grid ColumnSpacing="12">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Text="{Binding Labels.PreferencesShowThumbnails}"
-                             Foreground="{ThemeResource TextPrimaryBrush}"
-                             FontWeight="SemiBold"
-                             TextWrapping="Wrap" />
-                  <ToggleSwitch Grid.Column="1"
-                                IsOn="{Binding ShowThumbnails, Mode=TwoWay}"
-                                OnContent=""
-                                OffContent="" />
-                </Grid>
-
-                <StackPanel Spacing="6">
-                  <Grid>
-                    <TextBlock Text="{Binding Labels.PreferencesCacheSize}"
-                               Foreground="{ThemeResource TextPrimaryBrush}"
-                               FontWeight="SemiBold" />
-                    <TextBlock Text="{Binding CacheSizeText}"
-                               Foreground="{ThemeResource TextSecondaryBrush}"
-                               HorizontalAlignment="Right" />
-                  </Grid>
-                  <Slider Minimum="64"
-                          Maximum="1024"
-                          Value="{Binding CacheSizeMegabytes, Mode=TwoWay}" />
-                </StackPanel>
-              </StackPanel>
-            </Border>
-          </StackPanel>
-        </Border>
-
-        <Border Width="420"
-                VerticalAlignment="Stretch"
-                Background="{ThemeResource PanelDeepBrush}"
-                BorderBrush="{ThemeResource PanelLineBrush}"
-                BorderThickness="1"
-                CornerRadius="8"
-                Visibility="{Binding ActiveDocumentTab.IsInfoPanelOpen, Converter={StaticResource BoolToVisibility}}">
-          <Grid Padding="20,20,20,12">
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-
-            <Grid>
-              <StackPanel Spacing="6">
-                <TextBlock Text="{Binding Labels.Info}"
-                           Style="{StaticResource SubtitleTextBlockStyle}"
-                           Foreground="{ThemeResource TextPrimaryBrush}" />
-                <TextBlock Text="{Binding Labels.InfoDescription}"
-                           Foreground="{ThemeResource TextSecondaryBrush}"
-                           FontSize="12"
-                           TextWrapping="Wrap" />
-              </StackPanel>
-              <Button Width="28"
-                      Height="28"
-                      Padding="0"
-                      Background="Transparent"
-                      BorderThickness="0"
-                      HorizontalAlignment="Right"
-                      VerticalAlignment="Top"
-                      Command="{Binding ToggleInfoPanelCommand}"
-                      ToolTipService.ToolTip="{Binding Labels.Close}">
-                <FontIcon Glyph="&#xE8BB;"
-                          FontFamily="Segoe Fluent Icons"
-                          Foreground="{ThemeResource TextSecondaryBrush}"
-                          FontSize="12" />
-              </Button>
-            </Grid>
-
-            <Border Grid.Row="1"
-                    Margin="0,14,0,0"
-                    Background="{ThemeResource CardBrush}"
-                    BorderBrush="{ThemeResource CardBorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Padding="14">
-              <StackPanel Spacing="10">
-                <TextBlock Text="{Binding ActiveDocumentTab.Title}"
-                           Foreground="{ThemeResource TextPrimaryBrush}"
-                           FontWeight="SemiBold"
-                           TextWrapping="Wrap" />
-                <Grid ColumnSpacing="12" RowSpacing="8">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                  </Grid.ColumnDefinitions>
-                  <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                  </Grid.RowDefinitions>
-
-                  <TextBlock Grid.Row="0" Grid.Column="0"
-                             Text="{Binding Labels.InfoFileSize}"
-                             Style="{StaticResource PanelLabelStyle}" />
-                  <TextBlock Grid.Row="0" Grid.Column="1"
-                             Text="{Binding ActiveDocumentTab.FileSize}"
-                             Foreground="{ThemeResource TextPrimaryBrush}" />
-
-                  <TextBlock Grid.Row="1" Grid.Column="0"
-                             Text="{Binding Labels.InfoDimensions}"
-                             Style="{StaticResource PanelLabelStyle}" />
-                  <TextBlock Grid.Row="1" Grid.Column="1"
-                             Text="{Binding ActiveDocumentTab.Dimensions}"
-                             Foreground="{ThemeResource TextPrimaryBrush}" />
-
-                  <TextBlock Grid.Row="2" Grid.Column="0"
-                             Text="{Binding Labels.InfoPages}"
-                             Style="{StaticResource PanelLabelStyle}" />
-                  <TextBlock Grid.Row="2" Grid.Column="1"
-                             Text="{Binding ActiveDocumentTab.PageCountText}"
-                             Foreground="{ThemeResource TextPrimaryBrush}" />
-
-                  <TextBlock Grid.Row="3" Grid.Column="0"
-                             Text="{Binding Labels.InfoFormat}"
-                             Style="{StaticResource PanelLabelStyle}" />
-                  <TextBlock Grid.Row="3" Grid.Column="1"
-                             Text="{Binding ActiveDocumentTab.Format}"
-                             Foreground="{ThemeResource TextPrimaryBrush}" />
-
-                  <TextBlock Grid.Row="4" Grid.Column="0"
-                             Text="{Binding Labels.InfoAuthor}"
-                             Style="{StaticResource PanelLabelStyle}" />
-                  <TextBlock Grid.Row="4" Grid.Column="1"
-                             Text="{Binding ActiveDocumentTab.Author}"
-                             Foreground="{ThemeResource TextPrimaryBrush}" />
-
-                  <TextBlock Grid.Row="5" Grid.Column="0"
-                             Text="{Binding Labels.InfoCreated}"
-                             Style="{StaticResource PanelLabelStyle}" />
-                  <TextBlock Grid.Row="5" Grid.Column="1"
-                             Text="{Binding ActiveDocumentTab.CreatedDate}"
-                             Foreground="{ThemeResource TextPrimaryBrush}" />
-
-                  <TextBlock Grid.Row="6" Grid.Column="0"
-                             Text="{Binding Labels.InfoModified}"
-                             Style="{StaticResource PanelLabelStyle}" />
-                  <TextBlock Grid.Row="6" Grid.Column="1"
-                             Text="{Binding ActiveDocumentTab.ModifiedDate}"
-                             Foreground="{ThemeResource TextPrimaryBrush}" />
-                </Grid>
-              </StackPanel>
-            </Border>
-          </Grid>
-        </Border>
-
-        <Border Width="356"
-                VerticalAlignment="Stretch"
-                Background="{ThemeResource PanelDeepBrush}"
-                BorderBrush="{ThemeResource PanelLineBrush}"
-                BorderThickness="1,0,0,0"
-                CornerRadius="0"
-                Visibility="{Binding ActiveDocumentTab.IsSearchPanelOpen, Converter={StaticResource BoolToVisibility}}">
-          <Grid Padding="18,14" RowSpacing="14">
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="Auto" />
-              <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
-
-            <StackPanel Spacing="5">
-              <TextBlock Text="{Binding Labels.Search}" Style="{StaticResource PanelTitleStyle}" />
-              <TextBlock Text="{Binding Labels.SearchDescription}"
-                         Foreground="{ThemeResource TextSecondaryBrush}"
-                         FontSize="12"
-                         TextWrapping="Wrap" />
-            </StackPanel>
-
-            <Border Grid.Row="1"
-                    Background="{ThemeResource CardBrush}"
-                    BorderBrush="{ThemeResource CardBorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Padding="10,8"
-                    Visibility="{Binding ActiveDocumentTab.HasSearchPanelNotice, Converter={StaticResource BoolToVisibility}}">
-              <TextBlock Text="{Binding ActiveDocumentTab.SearchPanelNotice}"
-                         Foreground="{ThemeResource TextSecondaryBrush}"
-                         TextWrapping="Wrap" />
-            </Border>
-
-            <StackPanel Grid.Row="2" Spacing="8">
-              <TextBlock Text="{Binding Labels.SearchQuery}"
-                         Style="{StaticResource PanelLabelStyle}" />
-              <Grid ColumnSpacing="8">
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="*" />
-                  <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-
-                <Border Height="38"
-                        Background="{ThemeResource SearchBrush}"
-                        BorderBrush="{ThemeResource InputBorderBrush}"
-                        BorderThickness="1"
-                        CornerRadius="8">
-                  <Grid>
-                    <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="Auto" />
-                      <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <FontIcon Glyph="&#xE721;"
-                              FontFamily="Segoe Fluent Icons"
-                              Foreground="{ThemeResource TextSecondaryBrush}"
-                              Margin="12,0,8,0"
-                              VerticalAlignment="Center" />
-                    <TextBox Grid.Column="1"
-                             Background="Transparent"
-                             BorderThickness="0"
-                             PlaceholderText="{Binding Labels.SearchQueryPlaceholder}"
-                             Text="{Binding ActiveDocumentTab.SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                             KeyDown="OnSearchBoxKeyDown" />
-                  </Grid>
-                </Border>
-
-                <Button Grid.Column="1"
-                        Height="38"
-                        MinWidth="78"
-                        Content="{Binding Labels.Search}"
-                        Command="{Binding SearchTextCommand}" />
-              </Grid>
-            </StackPanel>
-
-            <StackPanel Grid.Row="3"
-                        Orientation="Horizontal"
-                        Spacing="8">
-              <Button Content="{Binding Labels.SearchRecognize}"
-                      Command="{Binding RunSearchOcrCommand}"
-                      Visibility="{Binding ActiveDocumentTab.RequiresSearchOcr, Converter={StaticResource BoolToVisibility}}" />
-              <ProgressRing Width="24"
-                            Height="24"
-                            IsActive="{Binding ActiveDocumentTab.IsAnalyzingDocumentText}"
-                            Visibility="{Binding ActiveDocumentTab.IsAnalyzingDocumentText, Converter={StaticResource BoolToVisibility}}" />
-            </StackPanel>
-
-            <Border Grid.Row="4"
-                    Background="{ThemeResource CardBrush}"
-                    BorderBrush="{ThemeResource CardBorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Padding="10"
-                    Visibility="{Binding ActiveDocumentTab.HasSearchResults, Converter={StaticResource BoolToVisibility}}">
-              <Grid>
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="*" />
-                  <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <StackPanel>
-                  <TextBlock Text="{Binding ActiveDocumentTab.SearchResultSummary}"
-                             Foreground="{ThemeResource TextPrimaryBrush}"
-                             FontWeight="SemiBold" />
-                  <TextBlock Text="{Binding ActiveDocumentTab.SearchSelectionIndicator}"
-                             Foreground="{ThemeResource TextSecondaryBrush}"
-                             FontSize="12" />
-                </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
-                  <Button Width="32"
-                          Height="32"
-                          Padding="0"
-                          Command="{Binding PreviousSearchResultCommand}"
-                          ToolTipService.ToolTip="{Binding Labels.SearchPreviousResult}"
-                          AutomationProperties.Name="{Binding Labels.SearchPreviousResult}">
-                    <FontIcon Glyph="&#xE70E;" FontFamily="Segoe Fluent Icons" FontSize="11" />
-                  </Button>
-                  <Button Width="32"
-                          Height="32"
-                          Padding="0"
-                          Command="{Binding NextSearchResultCommand}"
-                          ToolTipService.ToolTip="{Binding Labels.SearchNextResult}"
-                          AutomationProperties.Name="{Binding Labels.SearchNextResult}">
-                    <FontIcon Glyph="&#xE70D;" FontFamily="Segoe Fluent Icons" FontSize="11" />
-                  </Button>
-                </StackPanel>
-              </Grid>
-            </Border>
-
-            <ListView Grid.Row="5"
-                      ItemsSource="{Binding ActiveDocumentTab.SearchResults}"
-                      Background="Transparent"
-                      BorderThickness="0"
-                      Padding="0"
-                      SelectionChanged="OnSearchResultSelectionChanged"
-                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                      ScrollViewer.VerticalScrollBarVisibility="Auto"
-                      Visibility="{Binding ActiveDocumentTab.HasSearchResults, Converter={StaticResource BoolToVisibility}}">
-              <ListView.ItemTemplate>
-                  <DataTemplate>
-                    <Border Background="{ThemeResource CardBrush}"
-                            BorderBrush="{ThemeResource CardBorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="10"
-                            Margin="0,0,0,8">
-                      <StackPanel Spacing="5">
-                        <TextBlock Text="{Binding PageLabel}"
-                                   Foreground="{ThemeResource PanelLabelBrush}"
-                                   FontSize="12"
-                                   FontWeight="SemiBold" />
-                        <TextBlock Text="{Binding Excerpt}"
-                                   Foreground="{ThemeResource TextPrimaryBrush}"
-                                   TextWrapping="Wrap" />
-                      </StackPanel>
-                    </Border>
-                  </DataTemplate>
-              </ListView.ItemTemplate>
-            </ListView>
-          </Grid>
-        </Border>
+        <controls:SearchPanelControl ViewModel="{x:Bind ViewModel, Mode=OneWay}" />
 
       </Grid>
     </Grid>
 
-    <Border Grid.Row="4"
-            Background="{ThemeResource TitleBarBgBrush}"
-            BorderBrush="{ThemeResource PanelLineBrush}"
-            BorderThickness="0,1,0,0"
-            Padding="12,4">
-      <TextBlock Text="{Binding StatusText, Mode=OneWay}"
-                 Foreground="{ThemeResource TextSecondaryBrush}"
-                 FontSize="12"
-                 VerticalAlignment="Center"
-                 TextTrimming="CharacterEllipsis" />
-    </Border>
+    <controls:WorkspaceStatusBar Grid.Row="4"
+                                 ViewModel="{x:Bind ViewModel, Mode=OneWay}" />
 
   </Grid>
 </Window>

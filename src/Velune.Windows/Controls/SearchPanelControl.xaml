@@ -1,0 +1,185 @@
+<UserControl
+    x:Class="Velune.Windows.Controls.SearchPanelControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:services="using:Velune.Windows.Services"
+    xmlns:vm="using:Velune.Windows.ViewModels">
+
+  <UserControl.Resources>
+    <services:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+  </UserControl.Resources>
+
+  <Border Width="356"
+          VerticalAlignment="Stretch"
+          Background="{ThemeResource PanelDeepBrush}"
+          BorderBrush="{ThemeResource PanelLineBrush}"
+          BorderThickness="1,0,0,0"
+          CornerRadius="0"
+          Visibility="{Binding ActiveDocumentTab.IsSearchPanelOpen, Converter={StaticResource BoolToVisibility}, Mode=OneWay}">
+    <Grid x:Name="SearchPanelContent"
+          x:Load="{x:Bind ViewModel.IsSearchPanelVisible, Mode=OneWay}"
+          Padding="18,14"
+          RowSpacing="14">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+
+      <StackPanel Spacing="5">
+        <TextBlock Text="{Binding Labels.Search, Mode=OneWay}"
+                   Style="{StaticResource PanelTitleStyle}" />
+        <TextBlock Text="{Binding Labels.SearchDescription, Mode=OneWay}"
+                   Foreground="{ThemeResource TextSecondaryBrush}"
+                   FontSize="12"
+                   TextWrapping="Wrap" />
+      </StackPanel>
+
+      <Border Grid.Row="1"
+              Background="{ThemeResource CardBrush}"
+              BorderBrush="{ThemeResource CardBorderBrush}"
+              BorderThickness="1"
+              CornerRadius="{ThemeResource OverlayCornerRadius}"
+              Padding="10,8"
+              Visibility="{Binding ActiveDocumentTab.HasSearchPanelNotice, Converter={StaticResource BoolToVisibility}, Mode=OneWay}">
+        <TextBlock Text="{Binding ActiveDocumentTab.SearchPanelNotice, Mode=OneWay}"
+                   Foreground="{ThemeResource TextSecondaryBrush}"
+                   TextWrapping="Wrap" />
+      </Border>
+
+      <StackPanel Grid.Row="2" Spacing="8">
+        <TextBlock Text="{Binding Labels.SearchQuery, Mode=OneWay}"
+                   Style="{StaticResource PanelLabelStyle}" />
+        <Grid ColumnSpacing="8">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+
+          <Border Height="38"
+                  Background="{ThemeResource SearchBrush}"
+                  BorderBrush="{ThemeResource InputBorderBrush}"
+                  BorderThickness="1"
+                  CornerRadius="{ThemeResource OverlayCornerRadius}">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <FontIcon Glyph="&#xE721;"
+                        FontFamily="Segoe Fluent Icons"
+                        Foreground="{ThemeResource TextSecondaryBrush}"
+                        Margin="12,0,8,0"
+                        VerticalAlignment="Center" />
+              <TextBox Grid.Column="1"
+                       AutomationProperties.AutomationId="SearchPanelQueryTextBox"
+                       Background="Transparent"
+                       BorderThickness="0"
+                       PlaceholderText="{Binding Labels.SearchQueryPlaceholder, Mode=OneWay}"
+                       Text="{Binding ActiveDocumentTab.SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                       KeyDown="OnSearchBoxKeyDown" />
+            </Grid>
+          </Border>
+
+          <Button Grid.Column="1"
+                  AutomationProperties.AutomationId="SearchPanelSearchButton"
+                  Height="38"
+                  MinWidth="78"
+                  Content="{Binding Labels.Search, Mode=OneWay}"
+                  Command="{Binding SearchTextCommand, Mode=OneWay}" />
+        </Grid>
+      </StackPanel>
+
+      <StackPanel Grid.Row="3"
+                  Orientation="Horizontal"
+                  Spacing="8">
+        <Button AutomationProperties.AutomationId="SearchPanelRecognizeButton"
+                Content="{Binding Labels.SearchRecognize, Mode=OneWay}"
+                Command="{Binding RunSearchOcrCommand, Mode=OneWay}"
+                Visibility="{Binding ActiveDocumentTab.RequiresSearchOcr, Converter={StaticResource BoolToVisibility}, Mode=OneWay}" />
+        <ProgressRing Width="24"
+                      Height="24"
+                      IsActive="{Binding ActiveDocumentTab.IsAnalyzingDocumentText, Mode=OneWay}"
+                      Visibility="{Binding ActiveDocumentTab.IsAnalyzingDocumentText, Converter={StaticResource BoolToVisibility}, Mode=OneWay}" />
+      </StackPanel>
+
+      <Border Grid.Row="4"
+              Background="{ThemeResource CardBrush}"
+              BorderBrush="{ThemeResource CardBorderBrush}"
+              BorderThickness="1"
+              CornerRadius="{ThemeResource OverlayCornerRadius}"
+              Padding="10"
+              Visibility="{Binding ActiveDocumentTab.HasSearchResults, Converter={StaticResource BoolToVisibility}, Mode=OneWay}">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <StackPanel>
+            <TextBlock Text="{Binding ActiveDocumentTab.SearchResultSummary, Mode=OneWay}"
+                       Foreground="{ThemeResource TextPrimaryBrush}"
+                       FontWeight="SemiBold" />
+            <TextBlock Text="{Binding ActiveDocumentTab.SearchSelectionIndicator, Mode=OneWay}"
+                       Foreground="{ThemeResource TextSecondaryBrush}"
+                       FontSize="12" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+            <Button Width="32"
+                    AutomationProperties.AutomationId="SearchPreviousResultButton"
+                    Height="32"
+                    Padding="0"
+                    Command="{Binding PreviousSearchResultCommand, Mode=OneWay}"
+                    ToolTipService.ToolTip="{Binding Labels.SearchPreviousResult, Mode=OneWay}"
+                    AutomationProperties.Name="{Binding Labels.SearchPreviousResult, Mode=OneWay}">
+              <FontIcon Glyph="&#xE70E;" FontFamily="Segoe Fluent Icons" FontSize="11" />
+            </Button>
+            <Button Width="32"
+                    AutomationProperties.AutomationId="SearchNextResultButton"
+                    Height="32"
+                    Padding="0"
+                    Command="{Binding NextSearchResultCommand, Mode=OneWay}"
+                    ToolTipService.ToolTip="{Binding Labels.SearchNextResult, Mode=OneWay}"
+                    AutomationProperties.Name="{Binding Labels.SearchNextResult, Mode=OneWay}">
+              <FontIcon Glyph="&#xE70D;" FontFamily="Segoe Fluent Icons" FontSize="11" />
+            </Button>
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <ListView Grid.Row="5"
+                AutomationProperties.AutomationId="SearchResultsList"
+                ItemsSource="{Binding ActiveDocumentTab.SearchResults, Mode=OneWay}"
+                Background="Transparent"
+                BorderThickness="0"
+                Padding="0"
+                SelectionChanged="OnSearchResultSelectionChanged"
+                ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                ScrollViewer.VerticalScrollBarVisibility="Auto"
+                Visibility="{Binding ActiveDocumentTab.HasSearchResults, Converter={StaticResource BoolToVisibility}, Mode=OneWay}">
+        <ListView.ItemTemplate>
+          <DataTemplate x:DataType="vm:WindowsSearchResultItemViewModel">
+            <Border Background="{ThemeResource CardBrush}"
+                    BorderBrush="{ThemeResource CardBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="{ThemeResource OverlayCornerRadius}"
+                    Padding="10"
+                    Margin="0,0,0,8">
+              <StackPanel Spacing="5">
+                <TextBlock Text="{x:Bind PageLabel, Mode=OneWay}"
+                           Foreground="{ThemeResource PanelLabelBrush}"
+                           FontSize="12"
+                           FontWeight="SemiBold" />
+                <TextBlock Text="{x:Bind Excerpt, Mode=OneWay}"
+                           Foreground="{ThemeResource TextPrimaryBrush}"
+                           TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ListView.ItemTemplate>
+      </ListView>
+    </Grid>
+  </Border>
+</UserControl>

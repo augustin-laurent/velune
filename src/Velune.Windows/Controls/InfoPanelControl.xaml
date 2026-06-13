@@ -1,0 +1,133 @@
+<UserControl
+    x:Class="Velune.Windows.Controls.InfoPanelControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:services="using:Velune.Windows.Services">
+
+  <UserControl.Resources>
+    <services:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+  </UserControl.Resources>
+
+  <Border Width="420"
+          VerticalAlignment="Stretch"
+          Background="{ThemeResource PanelDeepBrush}"
+          BorderBrush="{ThemeResource PanelLineBrush}"
+          BorderThickness="1"
+          CornerRadius="{ThemeResource OverlayCornerRadius}"
+          Visibility="{Binding ActiveDocumentTab.IsInfoPanelOpen, Converter={StaticResource BoolToVisibility}, Mode=OneWay}">
+    <Grid x:Name="InfoPanelContent"
+          x:Load="{x:Bind ViewModel.IsInfoPanelVisible, Mode=OneWay}"
+          Padding="20,20,20,12">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+      </Grid.RowDefinitions>
+
+      <Grid>
+        <StackPanel Spacing="6">
+          <TextBlock Text="{Binding Labels.Info, Mode=OneWay}"
+                     Style="{StaticResource SubtitleTextBlockStyle}"
+                     Foreground="{ThemeResource TextPrimaryBrush}" />
+          <TextBlock Text="{Binding Labels.InfoDescription, Mode=OneWay}"
+                     Foreground="{ThemeResource TextSecondaryBrush}"
+                     FontSize="12"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+        <Button Width="28"
+                AutomationProperties.AutomationId="InfoPanelCloseButton"
+                Height="28"
+                Padding="0"
+                Background="Transparent"
+                BorderThickness="0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Command="{Binding ToggleInfoPanelCommand, Mode=OneWay}"
+                ToolTipService.ToolTip="{Binding Labels.Close, Mode=OneWay}">
+          <FontIcon Glyph="&#xE8BB;"
+                    FontFamily="Segoe Fluent Icons"
+                    Foreground="{ThemeResource TextSecondaryBrush}"
+                    FontSize="12" />
+        </Button>
+      </Grid>
+
+      <Border Grid.Row="1"
+              Margin="0,14,0,0"
+              Background="{ThemeResource CardBrush}"
+              BorderBrush="{ThemeResource CardBorderBrush}"
+              BorderThickness="1"
+              CornerRadius="{ThemeResource OverlayCornerRadius}"
+              Padding="14">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{Binding ActiveDocumentTab.Title, Mode=OneWay}"
+                     Foreground="{ThemeResource TextPrimaryBrush}"
+                     FontWeight="SemiBold"
+                     TextWrapping="Wrap" />
+          <Grid ColumnSpacing="12" RowSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Grid.Column="0"
+                       Text="{Binding Labels.InfoFileSize, Mode=OneWay}"
+                       Style="{StaticResource PanelLabelStyle}" />
+            <TextBlock Grid.Row="0" Grid.Column="1"
+                       Text="{Binding ActiveDocumentTab.FileSize, Mode=OneWay}"
+                       Foreground="{ThemeResource TextPrimaryBrush}" />
+
+            <TextBlock Grid.Row="1" Grid.Column="0"
+                       Text="{Binding Labels.InfoDimensions, Mode=OneWay}"
+                       Style="{StaticResource PanelLabelStyle}" />
+            <TextBlock Grid.Row="1" Grid.Column="1"
+                       Text="{Binding ActiveDocumentTab.Dimensions, Mode=OneWay}"
+                       Foreground="{ThemeResource TextPrimaryBrush}" />
+
+            <TextBlock Grid.Row="2" Grid.Column="0"
+                       Text="{Binding Labels.InfoPages, Mode=OneWay}"
+                       Style="{StaticResource PanelLabelStyle}" />
+            <TextBlock Grid.Row="2" Grid.Column="1"
+                       Text="{Binding ActiveDocumentTab.PageCountText, Mode=OneWay}"
+                       Foreground="{ThemeResource TextPrimaryBrush}" />
+
+            <TextBlock Grid.Row="3" Grid.Column="0"
+                       Text="{Binding Labels.InfoFormat, Mode=OneWay}"
+                       Style="{StaticResource PanelLabelStyle}" />
+            <TextBlock Grid.Row="3" Grid.Column="1"
+                       Text="{Binding ActiveDocumentTab.Format, Mode=OneWay}"
+                       Foreground="{ThemeResource TextPrimaryBrush}" />
+
+            <TextBlock Grid.Row="4" Grid.Column="0"
+                       Text="{Binding Labels.InfoAuthor, Mode=OneWay}"
+                       Style="{StaticResource PanelLabelStyle}" />
+            <TextBlock Grid.Row="4" Grid.Column="1"
+                       Text="{Binding ActiveDocumentTab.Author, Mode=OneWay}"
+                       Foreground="{ThemeResource TextPrimaryBrush}" />
+
+            <TextBlock Grid.Row="5" Grid.Column="0"
+                       Text="{Binding Labels.InfoCreated, Mode=OneWay}"
+                       Style="{StaticResource PanelLabelStyle}" />
+            <TextBlock Grid.Row="5" Grid.Column="1"
+                       Text="{Binding ActiveDocumentTab.CreatedDate, Mode=OneWay}"
+                       Foreground="{ThemeResource TextPrimaryBrush}" />
+
+            <TextBlock Grid.Row="6" Grid.Column="0"
+                       Text="{Binding Labels.InfoModified, Mode=OneWay}"
+                       Style="{StaticResource PanelLabelStyle}" />
+            <TextBlock Grid.Row="6" Grid.Column="1"
+                       Text="{Binding ActiveDocumentTab.ModifiedDate, Mode=OneWay}"
+                       Foreground="{ThemeResource TextPrimaryBrush}" />
+          </Grid>
+        </StackPanel>
+      </Border>
+    </Grid>
+  </Border>
+</UserControl>

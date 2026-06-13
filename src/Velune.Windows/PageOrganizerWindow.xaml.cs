@@ -62,9 +62,12 @@ public sealed partial class PageOrganizerWindow : Window
         get; private set;
     }
 
+    public PageOrganizerViewModel ViewModel => _viewModel;
+
     private void ConfigureWindow()
     {
         ExtendsContentIntoTitleBar = true;
+        SetTitleBar(TitleBarDragRegion);
 
         AppWindow appWindow = GetAppWindow();
         appWindow.Resize(new SizeInt32(900, 650));
@@ -83,20 +86,25 @@ public sealed partial class PageOrganizerWindow : Window
         Root.RequestedTheme = isLight ? ElementTheme.Light : ElementTheme.Dark;
 
         AppWindow appWindow = GetAppWindow();
-        appWindow.TitleBar.BackgroundColor = isLight
-            ? global::Windows.UI.Color.FromArgb(255, 255, 255, 255)
-            : global::Windows.UI.Color.FromArgb(255, 32, 32, 32);
+        appWindow.TitleBar.BackgroundColor = Colors.Transparent;
         appWindow.TitleBar.ForegroundColor = isLight
             ? global::Windows.UI.Color.FromArgb(255, 17, 24, 39)
             : global::Windows.UI.Color.FromArgb(255, 255, 255, 255);
-        appWindow.TitleBar.ButtonBackgroundColor = isLight
-            ? global::Windows.UI.Color.FromArgb(255, 255, 255, 255)
-            : global::Windows.UI.Color.FromArgb(255, 32, 32, 32);
+        appWindow.TitleBar.ButtonBackgroundColor = Colors.Transparent;
         appWindow.TitleBar.ButtonForegroundColor = isLight
             ? global::Windows.UI.Color.FromArgb(255, 17, 24, 39)
             : global::Windows.UI.Color.FromArgb(255, 255, 255, 255);
-        appWindow.TitleBar.InactiveBackgroundColor = appWindow.TitleBar.BackgroundColor;
-        appWindow.TitleBar.ButtonInactiveBackgroundColor = appWindow.TitleBar.ButtonBackgroundColor;
+        appWindow.TitleBar.ButtonInactiveForegroundColor = isLight
+            ? global::Windows.UI.Color.FromArgb(255, 107, 114, 128)
+            : global::Windows.UI.Color.FromArgb(255, 158, 158, 158);
+        appWindow.TitleBar.ButtonHoverBackgroundColor = isLight
+            ? global::Windows.UI.Color.FromArgb(20, 0, 0, 0)
+            : global::Windows.UI.Color.FromArgb(36, 255, 255, 255);
+        appWindow.TitleBar.ButtonPressedBackgroundColor = isLight
+            ? global::Windows.UI.Color.FromArgb(31, 0, 0, 0)
+            : global::Windows.UI.Color.FromArgb(24, 255, 255, 255);
+        appWindow.TitleBar.InactiveBackgroundColor = Colors.Transparent;
+        appWindow.TitleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
     }
 
     private AppWindow GetAppWindow()
@@ -146,15 +154,11 @@ public sealed partial class PageOrganizerWindow : Window
         _dragStartPoint = e.GetCurrentPoint(PageGridScrollViewer).Position;
         _isDragging = false;
 
-        if (element.DataContext is PageOrganizerItemViewModel item)
+        if (ResolvePageItem(element) is PageOrganizerItemViewModel item)
         {
             _dragSourceIndex = _viewModel.Pages.IndexOf(item);
 
-            bool isCtrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control)
-                .HasFlag(global::Windows.UI.Core.CoreVirtualKeyStates.Down);
-            bool isShift = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift)
-                .HasFlag(global::Windows.UI.Core.CoreVirtualKeyStates.Down);
-
+            (bool isCtrl, bool isShift) = GetSelectionModifiers();
             if (!item.IsSelected && !isCtrl && !isShift)
             {
                 _viewModel.ToggleSelection(item, false, false);
@@ -183,6 +187,7 @@ public sealed partial class PageOrganizerWindow : Window
         if (!_isDragging && (deltaX > DragThreshold || deltaY > DragThreshold))
         {
             _isDragging = true;
+            SelectDragSourceIfNeeded();
             BeginDrag();
         }
 
@@ -210,6 +215,25 @@ public sealed partial class PageOrganizerWindow : Window
 
         EndDrag();
         e.Handled = true;
+    }
+
+    private void OnPageItemKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement element ||
+            ResolvePageItem(element) is not PageOrganizerItemViewModel item)
+        {
+            return;
+        }
+
+        switch (e.Key)
+        {
+            case VirtualKey.Enter:
+            case VirtualKey.Space:
+                (bool isCtrl, bool isShift) = GetSelectionModifiers();
+                _viewModel.ToggleSelection(item, isCtrl, isShift);
+                e.Handled = true;
+                break;
+        }
     }
 
     private void OnPageItemPointerEntered(object sender, PointerRoutedEventArgs e)
@@ -242,6 +266,53 @@ public sealed partial class PageOrganizerWindow : Window
         {
             sourceElement.Opacity = 0.4;
         }
+    }
+
+    private PageOrganizerItemViewModel? ResolvePageItem(FrameworkElement element)
+    {
+        if (element.DataContext is PageOrganizerItemViewModel item)
+        {
+            return item;
+        }
+
+        if (element.Tag is int pageNumber)
+        {
+            int index = pageNumber - 1;
+            if (index >= 0 &&
+                index < _viewModel.Pages.Count &&
+                _viewModel.Pages[index].PageNumber == pageNumber)
+            {
+                return _viewModel.Pages[index];
+            }
+
+            return _viewModel.Pages.FirstOrDefault(page => page.PageNumber == pageNumber);
+        }
+
+        return null;
+    }
+
+    private void SelectDragSourceIfNeeded()
+    {
+        if (_dragSourceIndex < 0 || _dragSourceIndex >= _viewModel.Pages.Count)
+        {
+            return;
+        }
+
+        PageOrganizerItemViewModel sourceItem = _viewModel.Pages[_dragSourceIndex];
+        if (!sourceItem.IsSelected)
+        {
+            _viewModel.ToggleSelection(sourceItem, false, false);
+        }
+    }
+
+    private static (bool IsCtrl, bool IsShift) GetSelectionModifiers()
+    {
+        bool isCtrl = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control)
+            .HasFlag(global::Windows.UI.Core.CoreVirtualKeyStates.Down);
+        bool isShift = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift)
+            .HasFlag(global::Windows.UI.Core.CoreVirtualKeyStates.Down);
+
+        return (isCtrl, isShift);
     }
 
     private void UpdateDragGhost(Point position)

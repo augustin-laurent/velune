@@ -37,12 +37,9 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(pdfFilePath);
 
-        if (!File.Exists(pdfFilePath))
-        {
-            return Task.FromResult<IReadOnlyList<DocumentAnnotation>>([]);
-        }
-
-        return Task.Run<IReadOnlyList<DocumentAnnotation>>(() => LoadCore(pdfFilePath), cancellationToken);
+        return !File.Exists(pdfFilePath)
+            ? Task.FromResult<IReadOnlyList<DocumentAnnotation>>([])
+            : Task.Run<IReadOnlyList<DocumentAnnotation>>(() => LoadCore(pdfFilePath), cancellationToken);
     }
 
     /// <inheritdoc />
@@ -54,12 +51,9 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
         ArgumentException.ThrowIfNullOrWhiteSpace(pdfFilePath);
         ArgumentNullException.ThrowIfNull(annotations);
 
-        if (annotations.Count == 0)
-        {
-            return RemoveAsync(pdfFilePath, cancellationToken);
-        }
-
-        return Task.Run(() => SaveCore(pdfFilePath, annotations), cancellationToken);
+        return annotations.Count == 0
+            ? RemoveAsync(pdfFilePath, cancellationToken)
+            : Task.Run(() => SaveCore(pdfFilePath, annotations), cancellationToken);
     }
 
     /// <inheritdoc />
@@ -67,12 +61,7 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(pdfFilePath);
 
-        if (!File.Exists(pdfFilePath))
-        {
-            return Task.CompletedTask;
-        }
-
-        return Task.Run(() => RemoveCore(pdfFilePath), cancellationToken);
+        return !File.Exists(pdfFilePath) ? Task.CompletedTask : Task.Run(() => RemoveCore(pdfFilePath), cancellationToken);
     }
 
     private DocumentAnnotation[] LoadCore(string pdfFilePath)
@@ -93,13 +82,10 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
                 return [];
             }
 
-            AnnotationDto[]? dtos = JsonSerializer.Deserialize<AnnotationDto[]>(json, SerializerOptions);
-            if (dtos is null || dtos.Length == 0)
-            {
-                return [];
-            }
-
-            return dtos
+            AnnotationDto[]? annotationDtos = JsonSerializer.Deserialize<AnnotationDto[]>(json, SerializerOptions);
+            return annotationDtos is null || annotationDtos.Length == 0
+                ? []
+                : annotationDtos
                 .Select(DeserializeAnnotation)
                 .Where(a => a is not null)
                 .Cast<DocumentAnnotation>()
@@ -125,8 +111,8 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
         {
             RemoveExistingAttachment(handle);
 
-            AnnotationDto[] dtos = annotations.Select(SerializeAnnotation).ToArray();
-            byte[] json = JsonSerializer.SerializeToUtf8Bytes(dtos, SerializerOptions);
+            AnnotationDto[] annotationDtos = annotations.Select(SerializeAnnotation).ToArray();
+            byte[] json = JsonSerializer.SerializeToUtf8Bytes(annotationDtos, SerializerOptions);
 
             IntPtr attachment = PdfiumNative.FPDFDoc_AddAttachment(handle, AttachmentName);
             if (attachment == nint.Zero)
@@ -158,6 +144,7 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
                 }
                 catch
                 {
+                    // Do nothing.
                 }
             }
         }
@@ -209,6 +196,7 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
                 }
                 catch
                 {
+                    // Do nothing.
                 }
             }
         }
@@ -244,12 +232,9 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
             }
 
             byte[] buffer = new byte[fileLen];
-            if (!PdfiumNative.FPDFAttachment_GetFile(attachment, buffer, fileLen, out _))
-            {
-                return null;
-            }
-
-            return Encoding.UTF8.GetString(buffer, 0, (int)fileLen);
+            return !PdfiumNative.FPDFAttachment_GetFile(attachment, buffer, fileLen, out _)
+                ? null
+                : Encoding.UTF8.GetString(buffer, 0, (int)fileLen);
         }
 
         return null;
@@ -267,11 +252,13 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
             }
 
             string? name = GetAttachmentName(attachment);
-            if (string.Equals(name, AttachmentName, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(name, AttachmentName, StringComparison.OrdinalIgnoreCase))
             {
-                PdfiumNative.FPDFDoc_DeleteAttachment(document, i);
-                return true;
+                continue;
             }
+
+            PdfiumNative.FPDFDoc_DeleteAttachment(document, i);
+            return true;
         }
 
         return false;
@@ -304,6 +291,11 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
             FontSize = annotation.Appearance.FontSize,
             FontFamily = annotation.Appearance.FontFamily,
             RotationAngle = annotation.Appearance.RotationAngle,
+            BorderHex = annotation.Appearance.BorderHex,
+            IsBold = annotation.Appearance.IsBold,
+            IsItalic = annotation.Appearance.IsItalic,
+            IsUnderline = annotation.Appearance.IsUnderline,
+            TextAlignment = annotation.Appearance.TextAlignment,
             BoundsX = annotation.Bounds?.X,
             BoundsY = annotation.Bounds?.Y,
             BoundsW = annotation.Bounds?.Width,
@@ -322,8 +314,7 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
         try
         {
             NormalizedTextRegion? bounds = null;
-            if (dto.BoundsX.HasValue && dto.BoundsY.HasValue &&
-                dto.BoundsW.HasValue && dto.BoundsH.HasValue)
+            if (dto is { BoundsX: not null, BoundsY: not null, BoundsW: not null, BoundsH: not null })
             {
                 bounds = new NormalizedTextRegion(
                     dto.BoundsX.Value,
@@ -333,14 +324,25 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
             }
 
             NormalizedPoint[]? points = dto.Points?.Select(p => new NormalizedPoint(p.X, p.Y)).ToArray();
+            double strokeThickness = dto.StrokeThickness >= 0 ? dto.StrokeThickness : 2;
+            if (dto.Kind is not DocumentAnnotationKind.Text && strokeThickness.Equals(0))
+            {
+                strokeThickness = 2;
+            }
+
             var appearance = new AnnotationAppearance(
                 dto.StrokeHex ?? "#FFE600",
                 dto.FillHex,
-                dto.StrokeThickness > 0 ? dto.StrokeThickness : 2,
+                strokeThickness,
                 dto.Opacity is > 0 and <= 1 ? dto.Opacity : 1.0,
                 dto.FontSize is >= 6 and <= 200 ? dto.FontSize : 14,
                 dto.FontFamily,
-                dto.RotationAngle);
+                dto.RotationAngle,
+                dto.BorderHex,
+                dto.IsBold,
+                dto.IsItalic,
+                dto.IsUnderline,
+                dto.TextAlignment);
 
             return new DocumentAnnotation(
                 dto.Id == Guid.Empty ? Guid.NewGuid() : dto.Id,
@@ -419,6 +421,31 @@ public sealed class PdfAttachmentAnnotationStore : IPdfAnnotationStore
         }
 
         public double RotationAngle
+        {
+            get; set;
+        }
+
+        public string? BorderHex
+        {
+            get; set;
+        }
+
+        public bool IsBold
+        {
+            get; set;
+        }
+
+        public bool IsItalic
+        {
+            get; set;
+        }
+
+        public bool IsUnderline
+        {
+            get; set;
+        }
+
+        public TextAnnotationAlignment TextAlignment
         {
             get; set;
         }

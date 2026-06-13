@@ -70,7 +70,8 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
         _fileDialogService = fileDialogService;
         _globalUndoManager = globalUndoManager;
         _textCatalog = textCatalog;
-        _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
+        _dispatcherQueue = DispatcherQueue.GetForCurrentThread()
+            ?? throw new InvalidOperationException("The Windows UI dispatcher is not available.");
     }
 
     /// <summary>
@@ -151,7 +152,9 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
 
         for (int i = 1; i <= pageCount; i++)
         {
-            var item = new PageOrganizerItemViewModel(i);
+            var item = new PageOrganizerItemViewModel(
+                i,
+                automationNameFormat: _textCatalog.GetString("windows.thumbnail.page"));
             if (existingThumbnails is not null && i - 1 < existingThumbnails.Count)
             {
                 WindowsPageThumbnailViewModel existing = existingThumbnails[i - 1];
@@ -644,7 +647,10 @@ public sealed partial class PageOrganizerViewModel : ObservableObject
             foreach (PageOrganizerItemViewModel? item in selectedItems.OrderBy(pages.IndexOf))
             {
                 int sourceIndex = pages.IndexOf(item);
-                var clone = new PageOrganizerItemViewModel(item.OriginalPageNumber, item.Rotation)
+                var clone = new PageOrganizerItemViewModel(
+                    item.OriginalPageNumber,
+                    item.Rotation,
+                    item.AutomationNameFormat)
                 {
                     Thumbnail = item.Thumbnail
                 };

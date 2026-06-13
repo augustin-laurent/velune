@@ -1,0 +1,16 @@
+<UserControl
+    x:Class="Velune.Windows.Controls.WorkspaceStatusBar"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <Border Background="{ThemeResource TitleBarBgBrush}"
+          BorderBrush="{ThemeResource PanelLineBrush}"
+          BorderThickness="0,1,0,0"
+          Padding="12,4">
+    <TextBlock Text="{Binding StatusText, Mode=OneWay}"
+               Foreground="{ThemeResource TextSecondaryBrush}"
+               FontSize="12"
+               VerticalAlignment="Center"
+               TextTrimming="CharacterEllipsis" />
+  </Border>
+</UserControl>

@@ -1,0 +1,111 @@
+<UserControl
+    x:Class="Velune.Windows.Controls.TextAnnotationFloatingToolbar"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:services="using:Velune.Windows.Services"
+    xmlns:vm="using:Velune.Windows.ViewModels">
+
+  <Border AutomationProperties.AutomationId="TextAnnotationFloatingToolbar"
+          AutomationProperties.Name="{x:Bind ViewModel.Labels.TextAnnotationToolbar, Mode=OneWay}"
+          Background="{ThemeResource FloatingToolbarBrush}"
+          BorderBrush="{ThemeResource FloatingToolbarBorderBrush}"
+          BorderThickness="1"
+          CornerRadius="{ThemeResource OverlayCornerRadius}"
+          Padding="6">
+    <StackPanel Orientation="Horizontal" Spacing="6">
+      <ComboBox AutomationProperties.AutomationId="TextToolbarFontFamilyComboBox"
+                AutomationProperties.Name="{x:Bind ViewModel.Labels.AnnotationFontFamily, Mode=OneWay}"
+                Width="140"
+                MinHeight="36"
+                ItemsSource="{x:Bind ViewModel.AnnotationFontFamilyOptions, Mode=OneWay}"
+                SelectedItem="{x:Bind ViewModel.AnnotationFontFamily, Mode=TwoWay}" />
+
+      <NumberBox AutomationProperties.AutomationId="TextToolbarFontSizeNumberBox"
+                 AutomationProperties.Name="{x:Bind ViewModel.Labels.AnnotationFontSize, Mode=OneWay}"
+                 Width="92"
+                 MinHeight="36"
+                 Minimum="6"
+                 Maximum="144"
+                 SmallChange="1"
+                 LargeChange="4"
+                 SpinButtonPlacementMode="Inline"
+                 Value="{x:Bind ViewModel.AnnotationFontSize, Mode=TwoWay}" />
+
+      <ToggleButton AutomationProperties.AutomationId="TextToolbarBoldButton"
+                    AutomationProperties.Name="{x:Bind ViewModel.Labels.AnnotationBold, Mode=OneWay}"
+                    Width="36"
+                    Height="36"
+                    Padding="0"
+                    IsChecked="{x:Bind ViewModel.AnnotationTextBold, Mode=TwoWay}"
+                    ToolTipService.ToolTip="{x:Bind ViewModel.Labels.AnnotationBold, Mode=OneWay}">
+        <TextBlock Text="B" FontWeight="SemiBold" />
+      </ToggleButton>
+
+      <ToggleButton AutomationProperties.AutomationId="TextToolbarItalicButton"
+                    AutomationProperties.Name="{x:Bind ViewModel.Labels.AnnotationItalic, Mode=OneWay}"
+                    Width="36"
+                    Height="36"
+                    Padding="0"
+                    IsChecked="{x:Bind ViewModel.AnnotationTextItalic, Mode=TwoWay}"
+                    ToolTipService.ToolTip="{x:Bind ViewModel.Labels.AnnotationItalic, Mode=OneWay}">
+        <TextBlock Text="I" FontStyle="Italic" />
+      </ToggleButton>
+
+      <ToggleButton AutomationProperties.AutomationId="TextToolbarUnderlineButton"
+                    AutomationProperties.Name="{x:Bind ViewModel.Labels.AnnotationUnderline, Mode=OneWay}"
+                    Width="36"
+                    Height="36"
+                    Padding="0"
+                    IsChecked="{x:Bind ViewModel.AnnotationTextUnderline, Mode=TwoWay}"
+                    ToolTipService.ToolTip="{x:Bind ViewModel.Labels.AnnotationUnderline, Mode=OneWay}">
+        <TextBlock Text="U" TextDecorations="Underline" />
+      </ToggleButton>
+
+      <Rectangle Width="1" Height="24" Fill="{ThemeResource DividerBrush}" VerticalAlignment="Center" />
+
+      <DropDownButton AutomationProperties.AutomationId="TextToolbarTextColorButton"
+                      AutomationProperties.Name="{x:Bind ViewModel.Labels.AnnotationTextColor, Mode=OneWay}"
+                      Width="40"
+                      Height="36"
+                      ToolTipService.ToolTip="{x:Bind ViewModel.Labels.AnnotationTextColor, Mode=OneWay}">
+        <Border Width="18" Height="18" CornerRadius="9"
+                Background="{x:Bind services:XamlBindingHelpers.BrushFromHex(ViewModel.SelectedAnnotationColorHex, 255), Mode=OneWay}" />
+        <DropDownButton.Flyout>
+          <Flyout>
+            <ItemsControl AutomationProperties.AutomationId="TextToolbarTextColorOptionsList"
+                          ItemsSource="{x:Bind ViewModel.AnnotationColorOptions, Mode=OneWay}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <ItemsWrapGrid MaximumRowsOrColumns="4" ItemWidth="36" ItemHeight="36" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:WindowsAnnotationColorItem">
+                  <Button Width="32" Height="32" Padding="0" Background="Transparent" BorderThickness="0"
+                          AutomationProperties.AutomationId="TextToolbarTextColorOptionButton"
+                          Tag="{Binding}"
+                          Click="OnTextColorClicked"
+                          AutomationProperties.Name="{x:Bind Hex, Mode=OneWay}">
+                    <Grid>
+                      <Ellipse Width="22" Height="22" Fill="{x:Bind services:XamlBindingHelpers.BrushFromHex(Hex, 255), Mode=OneWay}" />
+                      <Ellipse Width="30"
+                               Height="30"
+                               Stroke="{ThemeResource AccentBrush}"
+                               StrokeThickness="3"
+                               Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsSelected), Mode=OneWay}" />
+                      <Ellipse Width="18"
+                               Height="18"
+                               Stroke="{ThemeResource TextPrimaryBrush}"
+                               StrokeThickness="1"
+                               Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsSelected), Mode=OneWay}" />
+                    </Grid>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </Flyout>
+        </DropDownButton.Flyout>
+      </DropDownButton>
+    </StackPanel>
+  </Border>
+</UserControl>

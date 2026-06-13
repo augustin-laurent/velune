@@ -52,6 +52,30 @@ public sealed class WindowsDocumentTabViewModelTests
         Assert.Empty(tab.GetPendingPageRotations());
     }
 
+    [Fact]
+    public void RefreshAnnotationOverlays_SynchronizesSelectedTextAnnotationAndToolbarPlacement()
+    {
+        WindowsDocumentTabViewModel tab = CreateTab(pageCount: 1);
+        tab.TextAnnotationToolbarSize = new(120, 48);
+        var annotation = new DocumentAnnotation(
+            Guid.NewGuid(),
+            DocumentAnnotationKind.Text,
+            new PageIndex(0),
+            new AnnotationAppearance("#202020", null, 0),
+            new NormalizedTextRegion(0.25, 0.30, 0.25, 0.10),
+            text: "Text");
+        tab.Annotations.Add(annotation);
+
+        tab.RefreshAnnotationOverlays(annotation.Id);
+
+        WindowsAnnotationOverlayViewModel overlay = Assert.Single(tab.CurrentPageAnnotationOverlays);
+        Assert.True(overlay.IsSelected);
+        Assert.Equal(annotation.Id, tab.SelectedTextAnnotation?.Id);
+        Assert.True(tab.HasSelectedTextAnnotation);
+        Assert.Equal(90, tab.TextAnnotationToolbarMargin.Left);
+        Assert.Equal(124, tab.TextAnnotationToolbarMargin.Top);
+    }
+
     private static WindowsDocumentTabViewModel CreateTab(int pageCount)
     {
         var tab = (WindowsDocumentTabViewModel)RuntimeHelpers.GetUninitializedObject(

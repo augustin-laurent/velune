@@ -2,9 +2,236 @@ using System.Globalization;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Velune.Domain.Annotations;
+using Velune.Windows.ViewModels;
+using Windows.Foundation;
+using Microsoft.UI.Text;
 
 namespace Velune.Windows.Services;
+
+/// <summary>
+/// Helper methods used by x:Bind expressions where a converter would otherwise be needed.
+/// </summary>
+public static class XamlBindingHelpers
+{
+    private static readonly SolidColorBrush TransparentBrush = new(global::Windows.UI.Color.FromArgb(0, 0, 0, 0));
+    private static readonly SolidColorBrush DefaultAccentBrush = new(global::Windows.UI.Color.FromArgb(255, 0, 120, 212));
+    private static readonly SolidColorBrush DefaultCardBrush = new(global::Windows.UI.Color.FromArgb(31, 255, 255, 255));
+    private static readonly SolidColorBrush PdfBrush = new(global::Windows.UI.Color.FromArgb(255, 232, 35, 46));
+    private static readonly SolidColorBrush WebpBrush = new(global::Windows.UI.Color.FromArgb(255, 45, 145, 111));
+
+    public static Visibility BoolToVisibility(object? value)
+    {
+        return value is true ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public static Visibility InverseBoolToVisibility(object? value)
+    {
+        return value is true ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    public static Brush AnnotationToolBackground(object? value, string toolName)
+    {
+        if (!Enum.TryParse(toolName, ignoreCase: true, out AnnotationTool targetTool))
+        {
+            return TransparentBrush;
+        }
+
+        return value is AnnotationTool selectedTool && selectedTool == targetTool
+            ? AccentBrush()
+            : TransparentBrush;
+    }
+
+    public static Brush BoolToSelectedToolBackground(object? value)
+    {
+        return value is true ? AccentBrush() : CardBrush();
+    }
+
+    public static Brush DocumentTabBackground(object? value, bool isLightTheme)
+    {
+        return value is WindowsDocumentTabChromeState.Active
+            ? BrushFromHex(isLightTheme ? "#FFFFFF" : "#2C2C2C", 255)
+            : value is WindowsDocumentTabChromeState.PointerOver
+                ? BrushFromHex(isLightTheme ? "#F5F5F5" : "#1F1F1F", 255)
+                : BrushFromHex("#000000", 255);
+    }
+
+    public static Brush DocumentTabBorderBrush(object? value, bool isLightTheme)
+    {
+        return value is WindowsDocumentTabChromeState.Active
+            ? BrushFromHex(isLightTheme ? "#E5E5E5" : "#3D3D3D", 255)
+            : value is WindowsDocumentTabChromeState.PointerOver
+                ? BrushFromHex(isLightTheme ? "#E5E5E5" : "#333333", 255)
+                : BrushFromHex("#000000", 255);
+    }
+
+    public static Visibility RecentFilePdfVisibility(string? fileName)
+    {
+        return IsPdf(fileName) ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public static Visibility RecentFileImageVisibility(string? fileName)
+    {
+        return IsPdf(fileName) ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    public static Brush RecentFileBrush(string? fileName)
+    {
+        string extension = Path.GetExtension(fileName)?.ToLowerInvariant() ?? string.Empty;
+        return extension switch
+        {
+            ".pdf" => PdfBrush,
+            ".webp" => WebpBrush,
+            _ => AccentBrush()
+        };
+    }
+
+    public static double Subtract(double value, double subtract)
+    {
+        return value - subtract;
+    }
+
+    public static double Add(double value, double add)
+    {
+        return value + add;
+    }
+
+    public static double CenterOffset(double value, double size)
+    {
+        return value / 2 - size / 2;
+    }
+
+    public static Thickness CreateThickness(double left, double top, double right, double bottom)
+    {
+        return new Thickness(left, top, right, bottom);
+    }
+
+    public static Thickness InlineTextEditorMargin(WindowsInlineTextEditorViewModel? editor)
+    {
+        return editor is null
+            ? new Thickness()
+            : new Thickness(editor.Left, editor.Top, 0, 0);
+    }
+
+    public static Thickness CreateUniformThickness(double value)
+    {
+        return new Thickness(value);
+    }
+
+    public static CornerRadius CreateCornerRadius(double value)
+    {
+        return new CornerRadius(value);
+    }
+
+    public static global::Windows.UI.Text.FontWeight TextFontWeight(bool isBold)
+    {
+        return isBold ? FontWeights.SemiBold : FontWeights.Normal;
+    }
+
+    public static global::Windows.UI.Text.FontStyle TextFontStyle(bool isItalic)
+    {
+        return isItalic ? global::Windows.UI.Text.FontStyle.Italic : global::Windows.UI.Text.FontStyle.Normal;
+    }
+
+    public static TextAlignment TextAlignmentFromAnnotation(TextAnnotationAlignment alignment)
+    {
+        return alignment switch
+        {
+            TextAnnotationAlignment.Center => TextAlignment.Center,
+            TextAnnotationAlignment.Right => TextAlignment.Right,
+            _ => TextAlignment.Left
+        };
+    }
+
+    public static Brush BrushFromHex(string? hex, int alpha)
+    {
+        string normalized = (hex ?? string.Empty).Trim().TrimStart('#');
+        if (normalized.Length != 6)
+        {
+            normalized = "EEF1FF";
+        }
+
+        byte clampedAlpha = (byte)Math.Clamp(alpha, 0, 255);
+        return new SolidColorBrush(global::Windows.UI.Color.FromArgb(
+            clampedAlpha,
+            Convert.ToByte(normalized[..2], 16),
+            Convert.ToByte(normalized.Substring(2, 2), 16),
+            Convert.ToByte(normalized.Substring(4, 2), 16)));
+    }
+
+    public static Brush InlineTextEditorFillBrush(WindowsInlineTextEditorViewModel? editor)
+    {
+        return editor is null
+            ? BrushFromHex("#FFFFFF", 0)
+            : BrushFromHex(editor.FillHex, editor.FillAlpha);
+    }
+
+    public static Brush InlineTextEditorStrokeBrush(WindowsInlineTextEditorViewModel? editor)
+    {
+        return editor is null
+            ? BrushFromHex("#111827", 255)
+            : BrushFromHex(editor.StrokeHex, editor.StrokeAlpha);
+    }
+
+    public static PointCollection PointCollectionFromOverlayPoints(IReadOnlyList<AnnotationOverlayPoint>? points)
+    {
+        var pointCollection = new PointCollection();
+        if (points is null)
+        {
+            return pointCollection;
+        }
+
+        foreach (AnnotationOverlayPoint point in points)
+        {
+            pointCollection.Add(new Point(point.X, point.Y));
+        }
+
+        return pointCollection;
+    }
+
+    public static PointCollection PointCollectionFromSignaturePadPoints(IReadOnlyList<SignaturePadPreviewPoint>? points)
+    {
+        var pointCollection = new PointCollection();
+        if (points is null)
+        {
+            return pointCollection;
+        }
+
+        foreach (SignaturePadPreviewPoint point in points)
+        {
+            pointCollection.Add(new Point(point.X, point.Y));
+        }
+
+        return pointCollection;
+    }
+
+    public static ImageSource? ImageSourceFromPath(string? filePath)
+    {
+        return string.IsNullOrWhiteSpace(filePath)
+            ? null
+            : new BitmapImage(new Uri(filePath, UriKind.Absolute));
+    }
+
+    private static bool IsPdf(string? fileName)
+    {
+        return string.Equals(Path.GetExtension(fileName), ".pdf", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static Brush AccentBrush()
+    {
+        return Microsoft.UI.Xaml.Application.Current.Resources.TryGetValue("AccentBgBrush", out object? brush) && brush is Brush accentBrush
+            ? accentBrush
+            : DefaultAccentBrush;
+    }
+
+    private static Brush CardBrush()
+    {
+        return Microsoft.UI.Xaml.Application.Current.Resources.TryGetValue("CardBrush", out object? brush) && brush is Brush cardBrush
+            ? cardBrush
+            : DefaultCardBrush;
+    }
+}
 
 /// <summary>
 /// Converts a boolean value to <see cref="Visibility"/> (true = Visible).
@@ -41,6 +268,42 @@ public sealed partial class InverseBoolToVisibilityConverter : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, string language)
     {
         return value is Visibility visibility && visibility != Visibility.Visible;
+    }
+}
+
+/// <summary>
+/// Converts a hex color string to a brush.
+/// </summary>
+public sealed partial class HexToBrushConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+    {
+        int alpha = parameter is string text && int.TryParse(text, out int parsedAlpha)
+            ? parsedAlpha
+            : 255;
+
+        return XamlBindingHelpers.BrushFromHex(value as string, alpha);
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+    {
+        return DependencyProperty.UnsetValue;
+    }
+}
+
+/// <summary>
+/// Converts signature preview points to a WinUI point collection.
+/// </summary>
+public sealed partial class SignaturePadPointCollectionConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+    {
+        return XamlBindingHelpers.PointCollectionFromSignaturePadPoints(value as IReadOnlyList<SignaturePadPreviewPoint>);
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+    {
+        return DependencyProperty.UnsetValue;
     }
 }
 
@@ -197,6 +460,8 @@ public sealed partial class SubtractConverter : IValueConverter
     }
 }
 
+#if false
+// Dead converter kept out of compilation. Recent file timestamps are formatted by WindowsRecentFileItem.
 /// <summary>
 /// Converts a <see cref="DateTimeOffset"/> to a localized relative date string (e.g. "Today at 10:30").
 /// </summary>
@@ -250,3 +515,4 @@ public sealed partial class RecentFileOpenedAtConverter : IValueConverter
         return DependencyProperty.UnsetValue;
     }
 }
+#endif

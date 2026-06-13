@@ -727,8 +727,11 @@ internal static class WindowsPrintPageElementFactory
                 Foreground = annotation.Kind is DocumentAnnotationKind.Text
                     ? CreateBrush(annotation.Appearance.StrokeHex)
                     : CreateBrush("#111827"),
-                FontSize = Math.Clamp(height / 4, 8, 18),
-                TextWrapping = TextWrapping.Wrap,
+                FontSize = annotation.Appearance.FontSize,
+                LineHeight = Math.Max(annotation.Appearance.FontSize * 1.24, annotation.Appearance.FontSize + 4),
+                LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
+                FontFamily = new FontFamily(annotation.Appearance.FontFamily ?? "Segoe UI"),
+                TextWrapping = TextWrapping.WrapWholeWords,
                 TextTrimming = TextTrimming.CharacterEllipsis
             };
         }

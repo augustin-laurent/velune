@@ -1,0 +1,233 @@
+﻿<UserControl
+    x:Class="Velune.Windows.Controls.PagesPanelControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:services="using:Velune.Windows.Services"
+    xmlns:vm="using:Velune.Windows.ViewModels">
+
+  <UserControl.Resources>
+    <services:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+  </UserControl.Resources>
+      <Border
+              Width="180"
+              Background="{ThemeResource PanelDeepBrush}"
+              BorderBrush="{ThemeResource PanelLineBrush}"
+              BorderThickness="1"
+              CornerRadius="{ThemeResource OverlayCornerRadius}"
+              Visibility="{Binding IsPagesPanelVisible, Converter={StaticResource BoolToVisibility}, Mode=OneWay}">
+        <Border.TranslationTransition>
+          <Vector3Transition Duration="0:0:0.2" />
+        </Border.TranslationTransition>
+        <Grid x:Name="PagesPanelContent"
+              x:Load="{x:Bind ViewModel.IsPagesPanelVisible, Mode=OneWay}"
+              Padding="10,12,10,0">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+          </Grid.RowDefinitions>
+
+          <Grid Margin="4,0,4,8">
+            <TextBlock Text="{Binding Labels.Pages, Mode=OneWay}"
+                       Style="{StaticResource PanelTitleStyle}"
+                       VerticalAlignment="Center" />
+            <StackPanel Orientation="Horizontal"
+                        Spacing="2"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center">
+              <Button Width="28"
+                      AutomationProperties.AutomationId="PagesPanelOrganizerButton"
+                      Height="28"
+                      Padding="0"
+                      Background="Transparent"
+                      BorderThickness="0"
+                      ToolTipService.ToolTip="Page Organizer"
+                      Click="OnOpenPageOrganizerClicked">
+                <FontIcon Glyph="&#xE8FD;"
+                          FontFamily="Segoe Fluent Icons"
+                          Foreground="{ThemeResource TextSecondaryBrush}"
+                          FontSize="14" />
+              </Button>
+              <Button Width="28"
+                      AutomationProperties.AutomationId="PagesPanelFilterButton"
+                      Height="28"
+                      Padding="0"
+                      Background="Transparent"
+                      BorderThickness="0"
+                      ToolTipService.ToolTip="Filter">
+                <FontIcon Glyph="&#xE71C;"
+                          FontFamily="Segoe Fluent Icons"
+                          Foreground="{ThemeResource TextSecondaryBrush}"
+                          FontSize="14" />
+              </Button>
+              <Button Width="28"
+                      AutomationProperties.AutomationId="PagesPanelCloseButton"
+                      Height="28"
+                      Padding="0"
+                      Background="Transparent"
+                      BorderThickness="0"
+                      Command="{Binding TogglePagesPanelCommand, Mode=OneWay}"
+                      ToolTipService.ToolTip="{Binding Labels.CloseTab, Mode=OneWay}">
+                <FontIcon Glyph="&#xE8BB;"
+                          FontFamily="Segoe Fluent Icons"
+                          Foreground="{ThemeResource TextSecondaryBrush}"
+                          FontSize="14" />
+              </Button>
+            </StackPanel>
+          </Grid>
+
+          <Grid x:Name="ThumbnailDragSurface"
+                AutomationProperties.AutomationId="ThumbnailDragSurface"
+                Grid.Row="1"
+                Background="Transparent"
+                AllowDrop="True"
+                DragOver="OnThumbnailExternalDragOver"
+                DragLeave="OnThumbnailExternalDragLeave"
+                Drop="OnThumbnailExternalDrop">
+            <ScrollViewer x:Name="ThumbnailScrollViewer"
+                           VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+              <ItemsRepeater x:Name="ThumbnailListView"
+                             AutomationProperties.AutomationId="PageThumbnailsList"
+                             ElementPrepared="OnThumbnailElementPrepared"
+                             ItemsSource="{Binding ActiveDocumentTab.Thumbnails, Mode=OneWay}">
+                <ItemsRepeater.Layout>
+                  <StackLayout Orientation="Vertical" />
+                </ItemsRepeater.Layout>
+                <ItemsRepeater.ItemTemplate>
+                  <DataTemplate x:DataType="vm:WindowsPageThumbnailViewModel">
+                    <Grid AutomationProperties.AutomationId="{x:Bind AutomationId, Mode=OneWay}"
+                          AutomationProperties.Name="{x:Bind Label, Mode=OneWay}"
+                          Tag="{x:Bind PageNumber, Mode=OneWay}"
+                          IsTabStop="True"
+                          Height="172"
+                          Padding="0,4"
+                          HorizontalAlignment="Stretch"
+                          Background="Transparent"
+                          Loaded="OnThumbnailItemLoaded"
+                          KeyDown="OnThumbnailItemKeyDown"
+                          PointerPressed="OnThumbnailItemPointerPressed"
+                          PointerMoved="OnThumbnailItemPointerMoved"
+                          PointerReleased="OnThumbnailItemPointerReleased"
+                          PointerEntered="OnThumbnailPointerEntered"
+                          PointerExited="OnThumbnailPointerExited"
+                          RightTapped="OnThumbnailItemRightTapped">
+                      <Grid.ContextFlyout>
+                        <MenuFlyout>
+                          <MenuFlyoutItem AutomationProperties.AutomationId="ThumbnailRotateLeftMenuItem" Text="{x:Bind PageRotateLeftLabel, Mode=OneWay}" Click="OnThumbnailRotateLeftClick">
+                            <MenuFlyoutItem.Icon>
+                              <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe Fluent Icons" RenderTransformOrigin="0.5,0.5">
+                                <FontIcon.RenderTransform><ScaleTransform ScaleX="-1" /></FontIcon.RenderTransform>
+                              </FontIcon>
+                            </MenuFlyoutItem.Icon>
+                          </MenuFlyoutItem>
+                          <MenuFlyoutItem AutomationProperties.AutomationId="ThumbnailRotateRightMenuItem" Text="{x:Bind PageRotateRightLabel, Mode=OneWay}" Click="OnThumbnailRotateRightClick">
+                            <MenuFlyoutItem.Icon>
+                              <FontIcon Glyph="&#xE7AD;" FontFamily="Segoe Fluent Icons" />
+                            </MenuFlyoutItem.Icon>
+                          </MenuFlyoutItem>
+                          <MenuFlyoutSeparator />
+                          <MenuFlyoutItem AutomationProperties.AutomationId="ThumbnailMoveUpMenuItem" Text="{x:Bind PageMoveUpLabel, Mode=OneWay}" Click="OnThumbnailMoveUpClick">
+                            <MenuFlyoutItem.Icon>
+                              <FontIcon Glyph="&#xE74A;" FontFamily="Segoe Fluent Icons" />
+                            </MenuFlyoutItem.Icon>
+                          </MenuFlyoutItem>
+                          <MenuFlyoutItem AutomationProperties.AutomationId="ThumbnailMoveDownMenuItem" Text="{x:Bind PageMoveDownLabel, Mode=OneWay}" Click="OnThumbnailMoveDownClick">
+                            <MenuFlyoutItem.Icon>
+                              <FontIcon Glyph="&#xE74B;" FontFamily="Segoe Fluent Icons" />
+                            </MenuFlyoutItem.Icon>
+                          </MenuFlyoutItem>
+                          <MenuFlyoutSeparator />
+                          <MenuFlyoutItem AutomationProperties.AutomationId="ThumbnailDeleteMenuItem" Text="{x:Bind PageDeleteLabel, Mode=OneWay}" Click="OnThumbnailDeleteClick">
+                            <MenuFlyoutItem.Icon>
+                              <FontIcon Glyph="&#xE107;" FontFamily="Segoe Fluent Icons" />
+                            </MenuFlyoutItem.Icon>
+                          </MenuFlyoutItem>
+                        </MenuFlyout>
+                      </Grid.ContextFlyout>
+                      <Grid.TranslationTransition>
+                        <Vector3Transition Duration="0:0:0.2" />
+                      </Grid.TranslationTransition>
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="3" />
+                        <ColumnDefinition Width="*" />
+                      </Grid.ColumnDefinitions>
+
+                      <Rectangle Grid.Column="0"
+                                 Width="3"
+                                 RadiusX="1.5"
+                                 RadiusY="1.5"
+                                 Fill="{ThemeResource AccentBrush}"
+                                 VerticalAlignment="Stretch"
+                                 Margin="0,8"
+                                 Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsSelected), Mode=OneWay}" />
+                      <Rectangle x:Name="HoverBar"
+                                 Grid.Column="0"
+                                 Width="3"
+                                 RadiusX="1.5"
+                                 RadiusY="1.5"
+                                 Fill="{ThemeResource AccentBrush}"
+                                 VerticalAlignment="Stretch"
+                                 Margin="0,8"
+                                 Opacity="0" />
+
+                      <StackPanel Grid.Column="1"
+                                  Margin="4,0,0,0"
+                                  HorizontalAlignment="Center"
+                                  Spacing="4"
+                                  IsHitTestVisible="False">
+                        <Grid Width="110" Height="144">
+                          <Image Source="{x:Bind Image, Mode=OneWay}"
+                                 Stretch="Uniform"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center" />
+                          <ProgressRing Width="24"
+                                        Height="24"
+                                        IsActive="{x:Bind IsLoading, Mode=OneWay}"
+                                        Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsLoading), Mode=OneWay}" />
+                          <TextBlock Text="{x:Bind PlaceholderText, Mode=OneWay}"
+                                     Foreground="{ThemeResource TextSecondaryBrush}"
+                                     FontSize="11"
+                                     TextAlignment="Center"
+                                     TextWrapping="Wrap"
+                                     MaxWidth="100"
+                                     HorizontalAlignment="Center"
+                                     VerticalAlignment="Center"
+                                     Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(HasPlaceholder), Mode=OneWay}" />
+                        </Grid>
+                        <TextBlock Text="{x:Bind PageNumber, Mode=OneWay}"
+                                   Foreground="{ThemeResource TextPrimaryBrush}"
+                                   FontSize="11"
+                                   HorizontalAlignment="Center" />
+                      </StackPanel>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsRepeater.ItemTemplate>
+              </ItemsRepeater>
+            </ScrollViewer>
+
+            <!-- Drag ghost overlay -->
+            <Image x:Name="ThumbnailDragGhost"
+                   Width="80"
+                   Height="104"
+                   Stretch="Uniform"
+                   Opacity="0.8"
+                   IsHitTestVisible="False"
+                   HorizontalAlignment="Left"
+                   VerticalAlignment="Top"
+                   Visibility="Collapsed" />
+
+            <!-- Drop indicator line -->
+            <Rectangle x:Name="ThumbnailDropIndicator"
+                       Height="3"
+                       RadiusX="1.5"
+                       RadiusY="1.5"
+                       Fill="{ThemeResource AccentBrush}"
+                       HorizontalAlignment="Stretch"
+                       VerticalAlignment="Top"
+                       IsHitTestVisible="False"
+                       Margin="8,0"
+                       Visibility="Collapsed" />
+          </Grid>
+        </Grid>
+      </Border>
+</UserControl>

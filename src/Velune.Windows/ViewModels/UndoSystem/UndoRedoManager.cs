@@ -55,9 +55,11 @@ public sealed class UndoRedoManager
 
     private static void TrimBottom(Stack<IUndoableAction> stack)
     {
+        // The suggestion to change it to something like [.. stack] is ignored on purpose, I prefer the .toArray method
+        // readability.
         IUndoableAction[] items = stack.ToArray();
         stack.Clear();
-        for (int i = 0; i < items.Length - 1; i++)
+        for (int i = items.Length - 2; i >= 0; i--)
         {
             stack.Push(items[i]);
         }

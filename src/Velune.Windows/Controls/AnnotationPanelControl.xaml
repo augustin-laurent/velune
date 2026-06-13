@@ -20,7 +20,9 @@
                 BorderThickness="1"
                 CornerRadius="{ThemeResource OverlayCornerRadius}"
                 Visibility="{Binding ActiveDocumentTab.IsAnnotationsPanelOpen, Converter={StaticResource BoolToVisibility}, Mode=OneWay}">
-          <Grid Padding="20,20,20,12">
+          <Grid x:Name="AnnotationPanelContent"
+                x:Load="{x:Bind ViewModel.IsAnnotationsPanelVisible, Mode=OneWay}"
+                Padding="20,20,20,12">
             <Grid.RowDefinitions>
               <RowDefinition Height="Auto" />
               <RowDefinition Height="Auto" />
@@ -297,21 +299,25 @@
                 </Grid>
                 <StackPanel Orientation="Horizontal" Spacing="6">
                   <ToggleButton Width="38" Height="36" Padding="0"
+                                AutomationProperties.AutomationId="AnnotationTextBoldToggleButton"
                                 AutomationProperties.Name="{Binding Labels.AnnotationBold, Mode=OneWay}"
                                 IsChecked="{Binding AnnotationTextBold, Mode=TwoWay}">
                     <TextBlock Text="B" FontWeight="SemiBold" />
                   </ToggleButton>
                   <ToggleButton Width="38" Height="36" Padding="0"
+                                AutomationProperties.AutomationId="AnnotationTextItalicToggleButton"
                                 AutomationProperties.Name="{Binding Labels.AnnotationItalic, Mode=OneWay}"
                                 IsChecked="{Binding AnnotationTextItalic, Mode=TwoWay}">
                     <TextBlock Text="I" FontStyle="Italic" />
                   </ToggleButton>
                   <ToggleButton Width="38" Height="36" Padding="0"
+                                AutomationProperties.AutomationId="AnnotationTextUnderlineToggleButton"
                                 AutomationProperties.Name="{Binding Labels.AnnotationUnderline, Mode=OneWay}"
                                 IsChecked="{Binding AnnotationTextUnderline, Mode=TwoWay}">
                     <TextBlock Text="U" TextDecorations="Underline" />
                   </ToggleButton>
                   <ToggleButton Width="38" Height="36" Padding="0"
+                                AutomationProperties.AutomationId="AnnotationTextAlignLeftToggleButton"
                                 AutomationProperties.Name="{Binding Labels.AnnotationAlignLeft, Mode=OneWay}"
                                 IsChecked="{Binding IsTextAlignLeftSelected, Mode=OneWay}"
                                 Command="{Binding SetTextAlignmentCommand, Mode=OneWay}"
@@ -319,6 +325,7 @@
                     <FontIcon Glyph="&#xE8E4;" FontFamily="Segoe Fluent Icons" FontSize="14" />
                   </ToggleButton>
                   <ToggleButton Width="38" Height="36" Padding="0"
+                                AutomationProperties.AutomationId="AnnotationTextAlignCenterToggleButton"
                                 AutomationProperties.Name="{Binding Labels.AnnotationAlignCenter, Mode=OneWay}"
                                 IsChecked="{Binding IsTextAlignCenterSelected, Mode=OneWay}"
                                 Command="{Binding SetTextAlignmentCommand, Mode=OneWay}"
@@ -326,6 +333,7 @@
                     <FontIcon Glyph="&#xE8E3;" FontFamily="Segoe Fluent Icons" FontSize="14" />
                   </ToggleButton>
                   <ToggleButton Width="38" Height="36" Padding="0"
+                                AutomationProperties.AutomationId="AnnotationTextAlignRightToggleButton"
                                 AutomationProperties.Name="{Binding Labels.AnnotationAlignRight, Mode=OneWay}"
                                 IsChecked="{Binding IsTextAlignRightSelected, Mode=OneWay}"
                                 Command="{Binding SetTextAlignmentCommand, Mode=OneWay}"
@@ -356,7 +364,7 @@
                         <Grid>
                           <Ellipse Width="22"
                                    Height="22"
-                                   Fill="{x:Bind Brush, Mode=OneWay}" />
+                                   Fill="{x:Bind services:XamlBindingHelpers.BrushFromHex(Hex, 255), Mode=OneWay}" />
                           <Ellipse Width="28"
                                    Height="28"
                                    Stroke="{ThemeResource AccentBrush}"
@@ -371,7 +379,8 @@
                            Foreground="{ThemeResource PanelLabelBrush}"
                            FontSize="13" />
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                  <Button Content="{Binding Labels.AnnotationTransparent, Mode=OneWay}"
+                  <Button AutomationProperties.AutomationId="AnnotationTextTransparentBackgroundButton"
+                          Content="{Binding Labels.AnnotationTransparent, Mode=OneWay}"
                           Click="OnAnnotationTextTransparentBackgroundClicked" />
                   <ItemsControl AutomationProperties.AutomationId="AnnotationTextBackgroundColorList"
                                 ItemsSource="{Binding AnnotationFillColorOptions, Mode=OneWay}">
@@ -393,7 +402,7 @@
                           <Grid>
                             <Ellipse Width="22"
                                      Height="22"
-                                     Fill="{x:Bind Brush, Mode=OneWay}" />
+                                     Fill="{x:Bind services:XamlBindingHelpers.BrushFromHex(Hex, 255), Mode=OneWay}" />
                             <Ellipse Width="28"
                                      Height="28"
                                      Stroke="{ThemeResource AccentBrush}"
@@ -405,7 +414,8 @@
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
                 </StackPanel>
-                <CheckBox Content="{Binding Labels.AnnotationBorder, Mode=OneWay}"
+                <CheckBox AutomationProperties.AutomationId="AnnotationTextBorderCheckBox"
+                          Content="{Binding Labels.AnnotationBorder, Mode=OneWay}"
                           IsChecked="{Binding AnnotationBorderEnabled, Mode=TwoWay}" />
                 <StackPanel Spacing="6"
                             Visibility="{Binding AnnotationBorderEnabled, Converter={StaticResource BoolToVisibility}, Mode=OneWay}">
@@ -431,13 +441,14 @@
                                 Click="OnAnnotationBorderColorClicked">
                           <Ellipse Width="22"
                                    Height="22"
-                                   Fill="{x:Bind Brush, Mode=OneWay}" />
+                                   Fill="{x:Bind services:XamlBindingHelpers.BrushFromHex(Hex, 255), Mode=OneWay}" />
                         </Button>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
                 </StackPanel>
-                <NumberBox Header="{Binding Labels.AnnotationBorderWidth, Mode=OneWay}"
+                <NumberBox AutomationProperties.AutomationId="AnnotationTextBorderWidthNumberBox"
+                           Header="{Binding Labels.AnnotationBorderWidth, Mode=OneWay}"
                            Minimum="0"
                            Maximum="12"
                            SmallChange="1"
@@ -653,7 +664,7 @@
                       <Grid>
                         <Ellipse Width="24"
                                  Height="24"
-                                 Fill="{x:Bind Brush, Mode=OneWay}" />
+                                 Fill="{x:Bind services:XamlBindingHelpers.BrushFromHex(Hex, 255), Mode=OneWay}" />
                         <Ellipse Width="30"
                                  Height="30"
                                  Stroke="{ThemeResource AccentBrush}"
@@ -724,7 +735,7 @@
                         <Grid>
                           <Ellipse Width="22"
                                    Height="22"
-                                   Fill="{x:Bind Brush, Mode=OneWay}" />
+                                   Fill="{x:Bind services:XamlBindingHelpers.BrushFromHex(Hex, 255), Mode=OneWay}" />
                           <Ellipse Width="28"
                                    Height="28"
                                    Stroke="{ThemeResource AccentBrush}"
@@ -983,7 +994,7 @@
                               <FontIcon Grid.Column="0"
                                         Glyph="&#xE90A;"
                                         FontFamily="Segoe Fluent Icons"
-                                        Foreground="{x:Bind StrokeBrush, Mode=OneWay}"
+                                        Foreground="{x:Bind services:XamlBindingHelpers.BrushFromHex(StrokeHex, StrokeAlpha), Mode=OneWay}"
                                         FontSize="18"
                                         VerticalAlignment="Top"
                                         Margin="0,2,0,0" />

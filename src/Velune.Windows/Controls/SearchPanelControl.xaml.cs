@@ -15,7 +15,11 @@ public sealed partial class SearchPanelControl : UserControl
     public WindowsMainViewModel? ViewModel
     {
         get => DataContext as WindowsMainViewModel;
-        set => DataContext = value;
+        set
+        {
+            DataContext = value;
+            Bindings?.Update();
+        }
     }
 
     private async void OnSearchBoxKeyDown(object sender, KeyRoutedEventArgs e)

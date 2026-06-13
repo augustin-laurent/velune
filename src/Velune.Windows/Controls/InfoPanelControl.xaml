@@ -15,7 +15,9 @@
           BorderThickness="1"
           CornerRadius="{ThemeResource OverlayCornerRadius}"
           Visibility="{Binding ActiveDocumentTab.IsInfoPanelOpen, Converter={StaticResource BoolToVisibility}, Mode=OneWay}">
-    <Grid Padding="20,20,20,12">
+    <Grid x:Name="InfoPanelContent"
+          x:Load="{x:Bind ViewModel.IsInfoPanelVisible, Mode=OneWay}"
+          Padding="20,20,20,12">
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto" />
         <RowDefinition Height="Auto" />

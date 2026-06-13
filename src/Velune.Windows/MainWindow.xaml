@@ -780,7 +780,8 @@
                       Width="{x:Bind ViewModel.ActiveDocumentTab.CommentLaneWidth, Mode=OneWay}"
                       Height="{x:Bind ViewModel.ActiveDocumentTab.CurrentPagePixelHeight, Mode=OneWay}"
                       Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.ActiveDocumentTab.HasCurrentPageComments), Mode=OneWay}">
-                  <ItemsControl ItemsSource="{x:Bind ViewModel.ActiveDocumentTab.CurrentPageCommentOverlays, Mode=OneWay}"
+                  <ItemsControl AutomationProperties.AutomationId="CurrentPageCommentOverlayItems"
+                                ItemsSource="{x:Bind ViewModel.ActiveDocumentTab.CurrentPageCommentOverlays, Mode=OneWay}"
                                 Width="280"
                                 Height="{x:Bind ViewModel.ActiveDocumentTab.CurrentPagePixelHeight, Mode=OneWay}"
                                 HorizontalAlignment="Left"
@@ -794,7 +795,7 @@
                       <DataTemplate x:DataType="vm:WindowsCommentOverlayViewModel">
                         <Grid Width="{x:Bind LaneWidth, Mode=OneWay}"
                               MinHeight="78"
-                              Margin="{x:Bind Margin, Mode=OneWay}">
+                              Margin="{x:Bind services:XamlBindingHelpers.CreateThickness(0, Top, 0, 0), Mode=OneWay}">
                           <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="24" />
@@ -825,7 +826,7 @@
                                          FontSize="13"
                                          TextWrapping="Wrap"
                                          MaxLines="4"
-                                         Visibility="{x:Bind ReadVisibility, Mode=OneWay}" />
+                                         Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsReadVisible), Mode=OneWay}" />
                               <TextBox AutomationProperties.AutomationId="CommentOverlayEditTextBox"
                                        Text="{x:Bind EditText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                        FontSize="13"
@@ -835,7 +836,7 @@
                                        Padding="6,4"
                                        Background="Transparent"
                                        BorderThickness="0"
-                                       Visibility="{x:Bind EditVisibility, Mode=OneWay}"
+                                       Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(IsEditVisible), Mode=OneWay}"
                                        LostFocus="OnCommentEditLostFocus"
                                        KeyDown="OnCommentEditKeyDown" />
                             </StackPanel>
@@ -846,11 +847,11 @@
                                 Margin="0,18,0,0"
                                 VerticalAlignment="Top">
                             <Rectangle Height="1"
-                                       Fill="{x:Bind StrokeBrush, Mode=OneWay}"
+                                       Fill="{x:Bind services:XamlBindingHelpers.BrushFromHex(StrokeHex, StrokeAlpha), Mode=OneWay}"
                                        VerticalAlignment="Center" />
                             <Ellipse Width="8"
                                      Height="8"
-                                     Fill="{x:Bind StrokeBrush, Mode=OneWay}"
+                                     Fill="{x:Bind services:XamlBindingHelpers.BrushFromHex(StrokeHex, StrokeAlpha), Mode=OneWay}"
                                      HorizontalAlignment="Right"
                                      VerticalAlignment="Center" />
                           </Grid>
@@ -918,7 +919,8 @@
                          HorizontalAlignment="Center"
                          VerticalAlignment="Top" />
 
-                  <ItemsControl ItemsSource="{x:Bind ViewModel.ActiveDocumentTab.CurrentPageAnnotationOverlays, Mode=OneWay}"
+                  <ItemsControl AutomationProperties.AutomationId="CurrentPageAnnotationOverlayItems"
+                                ItemsSource="{x:Bind ViewModel.ActiveDocumentTab.CurrentPageAnnotationOverlays, Mode=OneWay}"
                                 Width="{x:Bind ViewModel.ActiveDocumentTab.CurrentPagePixelWidth, Mode=OneWay}"
                                 Height="{x:Bind ViewModel.ActiveDocumentTab.CurrentPagePixelHeight, Mode=OneWay}"
                                 IsHitTestVisible="False"
@@ -1032,12 +1034,12 @@
 
                   <Grid Width="{x:Bind ViewModel.ActiveDocumentTab.InlineTextEditor.Width, Mode=OneWay, FallbackValue=180}"
                         Height="{x:Bind ViewModel.ActiveDocumentTab.InlineTextEditor.Height, Mode=OneWay, FallbackValue=72}"
-                        Margin="{x:Bind ViewModel.ActiveDocumentTab.InlineTextEditor.Margin, Mode=OneWay}"
+                        Margin="{x:Bind services:XamlBindingHelpers.InlineTextEditorMargin(ViewModel.ActiveDocumentTab.InlineTextEditor), Mode=OneWay}"
                         HorizontalAlignment="Left"
                         VerticalAlignment="Top"
                         Canvas.ZIndex="20"
                         Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.ActiveDocumentTab.HasInlineTextEditor), Mode=OneWay}">
-                    <Border Background="{x:Bind ViewModel.ActiveDocumentTab.InlineTextEditor.FillBrush, Mode=OneWay}"
+                    <Border Background="{x:Bind services:XamlBindingHelpers.InlineTextEditorFillBrush(ViewModel.ActiveDocumentTab.InlineTextEditor), Mode=OneWay}"
                             BorderBrush="{ThemeResource AccentBrush}"
                             BorderThickness="1"
                             CornerRadius="2" />
@@ -1048,14 +1050,14 @@
                              BorderBrush="Transparent"
                              BorderThickness="0"
                              CornerRadius="0"
-                             Foreground="{x:Bind ViewModel.ActiveDocumentTab.InlineTextEditor.StrokeBrush, Mode=OneWay}"
+                             Foreground="{x:Bind services:XamlBindingHelpers.InlineTextEditorStrokeBrush(ViewModel.ActiveDocumentTab.InlineTextEditor), Mode=OneWay}"
                              FontSize="{x:Bind ViewModel.ActiveDocumentTab.InlineTextEditor.FontSize, Mode=OneWay, FallbackValue=14}"
                              FontFamily="{x:Bind ViewModel.ActiveDocumentTab.InlineTextEditor.FontFamily, Mode=OneWay, FallbackValue='Segoe UI'}"
                              FontWeight="{x:Bind services:XamlBindingHelpers.TextFontWeight(ViewModel.ActiveDocumentTab.InlineTextEditor.TextIsBold), Mode=OneWay}"
                              FontStyle="{x:Bind services:XamlBindingHelpers.TextFontStyle(ViewModel.ActiveDocumentTab.InlineTextEditor.TextIsItalic), Mode=OneWay}"
                              TextAlignment="{x:Bind services:XamlBindingHelpers.TextAlignmentFromAnnotation(ViewModel.ActiveDocumentTab.InlineTextEditor.TextAlignment), Mode=OneWay}"
                              PlaceholderText="{x:Bind ViewModel.Labels.AnnotationTextPlaceholder, Mode=OneWay}"
-                             PlaceholderForeground="{x:Bind ViewModel.ActiveDocumentTab.InlineTextEditor.StrokeBrush, Mode=OneWay}"
+                             PlaceholderForeground="{x:Bind services:XamlBindingHelpers.InlineTextEditorStrokeBrush(ViewModel.ActiveDocumentTab.InlineTextEditor), Mode=OneWay}"
                              Text="{x:Bind ViewModel.ActiveDocumentTab.InlineTextEditor.Text, Mode=OneWay}"
                              TextWrapping="Wrap"
                              AcceptsReturn="True"
@@ -1120,7 +1122,8 @@
                       Canvas.ZIndex="30"
                       Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.IsTextToolbarVisible), Mode=OneWay}" />
 
-                  <ItemsControl ItemsSource="{x:Bind ViewModel.ActiveDocumentTab.SearchHighlights, Mode=OneWay}"
+                  <ItemsControl AutomationProperties.AutomationId="SearchHighlightOverlayItems"
+                                ItemsSource="{x:Bind ViewModel.ActiveDocumentTab.SearchHighlights, Mode=OneWay}"
                                 Width="{x:Bind ViewModel.ActiveDocumentTab.CurrentPagePixelWidth, Mode=OneWay}"
                                 Height="{x:Bind ViewModel.ActiveDocumentTab.CurrentPagePixelHeight, Mode=OneWay}"
                                 Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.ActiveDocumentTab.HasSearchHighlights), Mode=OneWay}"
@@ -1145,7 +1148,8 @@
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
 
-                  <ItemsControl ItemsSource="{x:Bind ViewModel.ActiveDocumentTab.TextSelectionHighlights, Mode=OneWay}"
+                  <ItemsControl AutomationProperties.AutomationId="TextSelectionHighlightOverlayItems"
+                                ItemsSource="{x:Bind ViewModel.ActiveDocumentTab.TextSelectionHighlights, Mode=OneWay}"
                                 Width="{x:Bind ViewModel.ActiveDocumentTab.CurrentPagePixelWidth, Mode=OneWay}"
                                 Height="{x:Bind ViewModel.ActiveDocumentTab.CurrentPagePixelHeight, Mode=OneWay}"
                                 Visibility="{x:Bind services:XamlBindingHelpers.BoolToVisibility(ViewModel.ActiveDocumentTab.HasTextSelectionHighlights), Mode=OneWay}"

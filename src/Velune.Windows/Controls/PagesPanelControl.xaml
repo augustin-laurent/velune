@@ -18,7 +18,9 @@
         <Border.TranslationTransition>
           <Vector3Transition Duration="0:0:0.2" />
         </Border.TranslationTransition>
-        <Grid Padding="10,12,10,0">
+        <Grid x:Name="PagesPanelContent"
+              x:Load="{x:Bind ViewModel.IsPagesPanelVisible, Mode=OneWay}"
+              Padding="10,12,10,0">
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />

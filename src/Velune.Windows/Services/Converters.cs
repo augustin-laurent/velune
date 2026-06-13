@@ -107,6 +107,13 @@ public static class XamlBindingHelpers
         return new Thickness(left, top, right, bottom);
     }
 
+    public static Thickness InlineTextEditorMargin(WindowsInlineTextEditorViewModel? editor)
+    {
+        return editor is null
+            ? new Thickness()
+            : new Thickness(editor.Left, editor.Top, 0, 0);
+    }
+
     public static Thickness CreateUniformThickness(double value)
     {
         return new Thickness(value);
@@ -151,6 +158,20 @@ public static class XamlBindingHelpers
             Convert.ToByte(normalized[..2], 16),
             Convert.ToByte(normalized.Substring(2, 2), 16),
             Convert.ToByte(normalized.Substring(4, 2), 16)));
+    }
+
+    public static Brush InlineTextEditorFillBrush(WindowsInlineTextEditorViewModel? editor)
+    {
+        return editor is null
+            ? BrushFromHex("#FFFFFF", 0)
+            : BrushFromHex(editor.FillHex, editor.FillAlpha);
+    }
+
+    public static Brush InlineTextEditorStrokeBrush(WindowsInlineTextEditorViewModel? editor)
+    {
+        return editor is null
+            ? BrushFromHex("#111827", 255)
+            : BrushFromHex(editor.StrokeHex, editor.StrokeAlpha);
     }
 
     public static PointCollection PointCollectionFromOverlayPoints(IReadOnlyList<AnnotationOverlayPoint>? points)

@@ -14,7 +14,10 @@
           BorderThickness="1,0,0,0"
           CornerRadius="0"
           Visibility="{Binding ActiveDocumentTab.IsSettingsPanelOpen, Converter={StaticResource BoolToVisibility}, Mode=OneWay}">
-    <StackPanel Padding="18,14" Spacing="16">
+    <StackPanel x:Name="SettingsPanelContent"
+                x:Load="{x:Bind ViewModel.IsSettingsPanelVisible, Mode=OneWay}"
+                Padding="18,14"
+                Spacing="16">
       <StackPanel Spacing="5">
         <TextBlock Text="{Binding Labels.Settings, Mode=OneWay}" Style="{StaticResource PanelTitleStyle}" />
         <TextBlock Text="{Binding Labels.PreferencesDescription, Mode=OneWay}"

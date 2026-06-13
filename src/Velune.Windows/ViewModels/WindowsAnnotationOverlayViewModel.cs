@@ -1,12 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Media.Imaging;
 using Velune.Application.Annotations;
 using Velune.Domain.Annotations;
 using Velune.Domain.Documents;
 using Velune.Domain.ValueObjects;
-using Windows.Foundation;
 
 namespace Velune.Windows.ViewModels;
 
@@ -579,7 +575,8 @@ public sealed partial class WindowsCommentOverlayViewModel : ObservableObject
         PageLabel = pageLabel;
         AnnotationDeleteSelectedLabel = annotationDeleteSelectedLabel ?? string.Empty;
         TimeText = annotation.CreatedAt.ToLocalTime().ToString("HH:mm", System.Globalization.CultureInfo.CurrentCulture);
-        StrokeBrush = CreateBrush(annotation.Appearance.StrokeHex, 255);
+        StrokeHex = annotation.Appearance.StrokeHex;
+        StrokeAlpha = 255;
 
         NormalizedTextRegion bounds = annotation.Bounds is { } annotationBounds
             ? DocumentAnnotationCoordinateMapper.MapRegionToVisualBounds(annotationBounds, rotation)
@@ -589,7 +586,7 @@ public sealed partial class WindowsCommentOverlayViewModel : ObservableObject
             0,
             Math.Max(0, pageHeight - CardHeightEstimate));
 
-        Margin = new Thickness(0, top, 0, 0);
+        Top = top;
     }
 
     public Guid Id
@@ -616,9 +613,9 @@ public sealed partial class WindowsCommentOverlayViewModel : ObservableObject
         get; set;
     }
 
-    public Visibility ReadVisibility => IsEditing ? Visibility.Collapsed : Visibility.Visible;
+    public bool IsReadVisible => !IsEditing;
 
-    public Visibility EditVisibility => IsEditing ? Visibility.Visible : Visibility.Collapsed;
+    public bool IsEditVisible => IsEditing;
 
     public string PageLabel
     {
@@ -635,37 +632,27 @@ public sealed partial class WindowsCommentOverlayViewModel : ObservableObject
         get;
     }
 
-    public Thickness Margin
+    public double Top
     {
         get;
     }
 
     public double LaneWidth => LaneWidthValue;
 
-    public SolidColorBrush StrokeBrush
+    public string StrokeHex
+    {
+        get;
+    }
+
+    public int StrokeAlpha
     {
         get;
     }
 
     partial void OnIsEditingChanged(bool value)
     {
-        OnPropertyChanged(nameof(ReadVisibility));
-        OnPropertyChanged(nameof(EditVisibility));
-    }
-
-    private static SolidColorBrush CreateBrush(string hex, byte alpha)
-    {
-        string normalized = hex.Trim().TrimStart('#');
-        if (normalized.Length != 6)
-        {
-            normalized = "EEF1FF";
-        }
-
-        return new SolidColorBrush(global::Windows.UI.Color.FromArgb(
-            alpha,
-            Convert.ToByte(normalized[..2], 16),
-            Convert.ToByte(normalized.Substring(2, 2), 16),
-            Convert.ToByte(normalized.Substring(4, 2), 16)));
+        OnPropertyChanged(nameof(IsReadVisible));
+        OnPropertyChanged(nameof(IsEditVisible));
     }
 }
 
@@ -695,8 +682,10 @@ public sealed partial class WindowsInlineTextEditorViewModel : ObservableObject
         Text = annotation.Text ?? string.Empty;
         FontSize = annotation.Appearance.FontSize;
         FontFamily = annotation.Appearance.FontFamily ?? "Segoe UI";
-        StrokeBrush = CreateBrush(annotation.Appearance.StrokeHex, 255);
-        FillBrush = CreateBrush(annotation.Appearance.FillHex ?? "#FFFFFF", annotation.Appearance.FillHex is null ? (byte)0 : (byte)238);
+        StrokeHex = annotation.Appearance.StrokeHex;
+        StrokeAlpha = 255;
+        FillHex = annotation.Appearance.FillHex ?? "#FFFFFF";
+        FillAlpha = annotation.Appearance.FillHex is null ? 0 : 238;
         TextIsBold = annotation.Appearance.IsBold;
         TextIsItalic = annotation.Appearance.IsItalic;
         TextIsUnderline = annotation.Appearance.IsUnderline;
@@ -773,31 +762,24 @@ public sealed partial class WindowsInlineTextEditorViewModel : ObservableObject
         get;
     }
 
-    public Thickness Margin => new(Left, Top, 0, 0);
-
-    public SolidColorBrush StrokeBrush
+    public string StrokeHex
     {
         get;
     }
 
-    public SolidColorBrush FillBrush
+    public int StrokeAlpha
     {
         get;
     }
 
-    private static SolidColorBrush CreateBrush(string hex, byte alpha)
+    public string FillHex
     {
-        string normalized = hex.Trim().TrimStart('#');
-        if (normalized.Length != 6)
-        {
-            normalized = "EEF1FF";
-        }
+        get;
+    }
 
-        return new SolidColorBrush(global::Windows.UI.Color.FromArgb(
-            alpha,
-            Convert.ToByte(normalized[..2], 16),
-            Convert.ToByte(normalized.Substring(2, 2), 16),
-            Convert.ToByte(normalized.Substring(4, 2), 16)));
+    public int FillAlpha
+    {
+        get;
     }
 }
 
@@ -815,19 +797,9 @@ public sealed partial class WindowsAnnotationColorItem : ObservableObject
         ArgumentException.ThrowIfNullOrWhiteSpace(hex);
 
         Hex = hex;
-        Brush = new SolidColorBrush(global::Windows.UI.Color.FromArgb(
-            255,
-            Convert.ToByte(hex.Substring(1, 2), 16),
-            Convert.ToByte(hex.Substring(3, 2), 16),
-            Convert.ToByte(hex.Substring(5, 2), 16)));
     }
 
     public string Hex
-    {
-        get;
-    }
-
-    public SolidColorBrush Brush
     {
         get;
     }

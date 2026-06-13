@@ -519,6 +519,14 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
     public bool IsPagesPanelVisible => ActiveDocumentTab is not null && ShowThumbnails;
 
+    public bool IsAnnotationsPanelVisible => ActiveDocumentTab?.IsAnnotationsPanelOpen ?? false;
+
+    public bool IsSearchPanelVisible => ActiveDocumentTab?.IsSearchPanelOpen ?? false;
+
+    public bool IsInfoPanelVisible => ActiveDocumentTab?.IsInfoPanelOpen ?? false;
+
+    public bool IsSettingsPanelVisible => ActiveDocumentTab?.IsSettingsPanelOpen ?? false;
+
     public bool HasRecentFiles => RecentFiles.Count > 0;
 
     public bool ShowRecentFilesFooter => !HasDocument && HasRecentFiles;
@@ -551,6 +559,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(ActiveDocumentTab));
         OnPropertyChanged(nameof(HasDocument));
         OnPropertyChanged(nameof(IsPagesPanelVisible));
+        NotifyRightPanelContentVisibilityChanged();
         NotifySelectedDocumentTextChanged();
     }
 
@@ -1260,6 +1269,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
             await RunOnUiThreadAsync(() =>
             {
                 tab.IsSearchPanelOpen = false;
+                NotifyRightPanelContentVisibilityChanged();
                 StatusText = _textCatalog.GetString("status.search.hidden");
             });
             return;
@@ -1290,6 +1300,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         if (tab.IsAnnotationsPanelOpen)
         {
             tab.IsAnnotationsPanelOpen = false;
+            NotifyRightPanelContentVisibilityChanged();
             StatusText = _textCatalog.GetString("status.annotations.hidden");
             return;
         }
@@ -1309,6 +1320,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         if (tab.IsInfoPanelOpen)
         {
             tab.IsInfoPanelOpen = false;
+            NotifyRightPanelContentVisibilityChanged();
             StatusText = _textCatalog.GetString("status.info.hidden");
             return;
         }
@@ -1328,6 +1340,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         if (tab.IsSettingsPanelOpen)
         {
             tab.IsSettingsPanelOpen = false;
+            NotifyRightPanelContentVisibilityChanged();
             StatusText = _textCatalog.GetString("status.preferences.hidden");
             return;
         }
@@ -4495,12 +4508,21 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
         });
     }
 
-    private static void SetRightPanel(WindowsDocumentTabViewModel tab, RightPanel panel)
+    private void SetRightPanel(WindowsDocumentTabViewModel tab, RightPanel panel)
     {
         tab.IsSearchPanelOpen = panel is RightPanel.Search;
         tab.IsAnnotationsPanelOpen = panel is RightPanel.Annotations;
         tab.IsInfoPanelOpen = panel is RightPanel.Info;
         tab.IsSettingsPanelOpen = panel is RightPanel.Settings;
+        NotifyRightPanelContentVisibilityChanged();
+    }
+
+    private void NotifyRightPanelContentVisibilityChanged()
+    {
+        OnPropertyChanged(nameof(IsAnnotationsPanelVisible));
+        OnPropertyChanged(nameof(IsSearchPanelVisible));
+        OnPropertyChanged(nameof(IsInfoPanelVisible));
+        OnPropertyChanged(nameof(IsSettingsPanelVisible));
     }
 
     private void QueueMissingThumbnailGeneration(WindowsDocumentTabViewModel tab)
@@ -4687,6 +4709,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
         OnPropertyChanged(nameof(HasDocument));
         OnPropertyChanged(nameof(IsPagesPanelVisible));
+        NotifyRightPanelContentVisibilityChanged();
         OnPropertyChanged(nameof(ShowRecentFilesFooter));
         OnPropertyChanged(nameof(ShowStatusFooter));
         UpdateAnnotationToolSelection();
@@ -5398,6 +5421,7 @@ public sealed partial class WindowsMainViewModel : ObservableObject, IDisposable
 
         OnPropertyChanged(nameof(HasDocument));
         OnPropertyChanged(nameof(IsPagesPanelVisible));
+        NotifyRightPanelContentVisibilityChanged();
         OnPropertyChanged(nameof(ShowRecentFilesFooter));
         OnPropertyChanged(nameof(ShowStatusFooter));
         OnPropertyChanged(nameof(CanSaveDocument));

@@ -16,7 +16,10 @@
           BorderThickness="1,0,0,0"
           CornerRadius="0"
           Visibility="{Binding ActiveDocumentTab.IsSearchPanelOpen, Converter={StaticResource BoolToVisibility}, Mode=OneWay}">
-    <Grid Padding="18,14" RowSpacing="14">
+    <Grid x:Name="SearchPanelContent"
+          x:Load="{x:Bind ViewModel.IsSearchPanelVisible, Mode=OneWay}"
+          Padding="18,14"
+          RowSpacing="14">
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto" />
         <RowDefinition Height="Auto" />

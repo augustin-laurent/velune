@@ -25,7 +25,11 @@ public sealed partial class AnnotationPanelControl : UserControl
     public WindowsMainViewModel? ViewModel
     {
         get => DataContext as WindowsMainViewModel;
-        set => DataContext = value;
+        set
+        {
+            DataContext = value;
+            Bindings?.Update();
+        }
     }
 
     private void OnAnnotationListItemTapped(object sender, TappedRoutedEventArgs e)

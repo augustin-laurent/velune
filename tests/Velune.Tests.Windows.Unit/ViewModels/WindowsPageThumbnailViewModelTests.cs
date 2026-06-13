@@ -46,9 +46,10 @@ public sealed class WindowsPageThumbnailViewModelTests
     [Fact]
     public void RotationAngle_FollowsRotation()
     {
-        var thumbnail = new WindowsPageThumbnailViewModel(1, "Page 1", "Loading");
-
-        thumbnail.Rotation = Rotation.Deg90;
+        var thumbnail = new WindowsPageThumbnailViewModel(1, "Page 1", "Loading")
+        {
+            Rotation = Rotation.Deg90
+        };
 
         Assert.Equal(90, thumbnail.RotationAngle);
     }

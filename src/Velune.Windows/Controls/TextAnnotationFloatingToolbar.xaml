@@ -72,7 +72,8 @@
                 Background="{x:Bind services:XamlBindingHelpers.BrushFromHex(ViewModel.SelectedAnnotationColorHex, 255), Mode=OneWay}" />
         <DropDownButton.Flyout>
           <Flyout>
-            <ItemsControl ItemsSource="{x:Bind ViewModel.AnnotationColorOptions, Mode=OneWay}">
+            <ItemsControl AutomationProperties.AutomationId="TextToolbarTextColorOptionsList"
+                          ItemsSource="{x:Bind ViewModel.AnnotationColorOptions, Mode=OneWay}">
               <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                   <ItemsWrapGrid MaximumRowsOrColumns="4" ItemWidth="36" ItemHeight="36" />
@@ -81,11 +82,12 @@
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:WindowsAnnotationColorItem">
                   <Button Width="32" Height="32" Padding="0" Background="Transparent" BorderThickness="0"
+                          AutomationProperties.AutomationId="TextToolbarTextColorOptionButton"
                           Tag="{Binding}"
                           Click="OnTextColorClicked"
                           AutomationProperties.Name="{x:Bind Hex, Mode=OneWay}">
                     <Grid>
-                      <Ellipse Width="22" Height="22" Fill="{x:Bind Brush, Mode=OneWay}" />
+                      <Ellipse Width="22" Height="22" Fill="{x:Bind services:XamlBindingHelpers.BrushFromHex(Hex, 255), Mode=OneWay}" />
                       <Ellipse Width="30"
                                Height="30"
                                Stroke="{ThemeResource AccentBrush}"

@@ -13,6 +13,10 @@ public sealed partial class SettingsPanelControl : UserControl
     public WindowsMainViewModel? ViewModel
     {
         get => DataContext as WindowsMainViewModel;
-        set => DataContext = value;
+        set
+        {
+            DataContext = value;
+            Bindings?.Update();
+        }
     }
 }

@@ -23,7 +23,11 @@ public sealed partial class PagesPanelControl : UserControl
     public WindowsMainViewModel? ViewModel
     {
         get => DataContext as WindowsMainViewModel;
-        set => DataContext = value;
+        set
+        {
+            DataContext = value;
+            Bindings?.Update();
+        }
     }
 
     private const double ThumbnailDragThreshold = 6;

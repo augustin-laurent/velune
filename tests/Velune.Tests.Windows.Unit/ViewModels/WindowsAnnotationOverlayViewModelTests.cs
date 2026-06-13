@@ -10,6 +10,29 @@ namespace Velune.Tests.Windows.Unit.ViewModels;
 public sealed class WindowsAnnotationOverlayViewModelTests
 {
     [Fact]
+    public void AnnotationOverlayViewModels_DoNotExposePublicWinUiPropertyTypes()
+    {
+        Type[] viewModelTypes =
+        [
+            typeof(AnnotationOverlayPoint),
+            typeof(WindowsAnnotationOverlayViewModel),
+            typeof(WindowsCommentOverlayViewModel),
+            typeof(WindowsInlineTextEditorViewModel),
+            typeof(WindowsAnnotationColorItem)
+        ];
+
+        foreach (Type viewModelType in viewModelTypes)
+        {
+            IEnumerable<PropertyInfo> uiProperties = viewModelType
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Where(property => IsUiType(property.PropertyType));
+
+            Assert.Empty(uiProperties.Select(property =>
+                $"{viewModelType.Name}.{property.Name}: {property.PropertyType.FullName}"));
+        }
+    }
+
+    [Fact]
     public void ListItemAutomationId_UsesAnnotationId()
     {
         Guid id = Guid.Parse("1f1788c4-77ac-4b09-8b64-10cb343461b6");
@@ -51,5 +74,25 @@ public sealed class WindowsAnnotationOverlayViewModelTests
 
         Assert.NotNull(backingField);
         backingField.SetValue(overlay, value);
+    }
+
+    private static bool IsUiType(Type type)
+    {
+        Type inspectedType = Nullable.GetUnderlyingType(type) ?? type;
+        if (inspectedType.HasElementType)
+        {
+            return IsUiType(inspectedType.GetElementType()!);
+        }
+
+        if (inspectedType.IsGenericType)
+        {
+            return inspectedType.GetGenericArguments().Any(IsUiType);
+        }
+
+        string? typeNamespace = inspectedType.Namespace;
+        return typeNamespace is not null &&
+               (typeNamespace.StartsWith("Microsoft.UI.Xaml", StringComparison.Ordinal) ||
+                typeNamespace.StartsWith("Windows.Foundation", StringComparison.Ordinal) ||
+                typeNamespace.StartsWith("Windows.UI", StringComparison.Ordinal));
     }
 }
